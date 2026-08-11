@@ -1,5 +1,5 @@
 import { getAllProvidersDB } from "@srouter/db";
-import { AntigravityExecutor, AnthropicExecutor, CodexExecutor, CommandCodeExecutor, OpenAIExecutor } from "@srouter/executors";
+import { AntigravityExecutor, AnthropicExecutor, CodexExecutor, CommandCodeExecutor, KiroExecutor, OpenAIExecutor } from "@srouter/executors";
 import { ProviderRegistry } from "@srouter/providers";
 
 // Create a global ProviderRegistry instance
@@ -41,6 +41,19 @@ export function loadSavedProvidersFromDB(): void {
         const baseUrl = p.baseUrl || (providerType === "antigravity" || p.id.startsWith("antigravity") ? process.env.ANTIGRAVITY_BASE_URL : undefined);
 
         switch (true) {
+            case providerType === "kiro" || p.id.startsWith("kiro"):
+                registry.registerProvider(
+                    new KiroExecutor({
+                        id: p.id || p.providerId,
+                        name: p.name,
+                        baseUrl,
+                        apiKey: p.apiKey,
+                        accessToken: p.accessToken,
+                        refreshToken: p.refreshToken,
+                        providerSpecificData: p.providerSpecificData,
+                    }),
+                );
+                break;
             case providerType === "commandcode" || p.id.startsWith("commandcode"):
                 registry.registerProvider(
                     new CommandCodeExecutor({

@@ -2,7 +2,7 @@ import type { Context } from "hono";
 import type { CreateProviderPayload } from "@/logic/providers.logic.js";
 import { ProvidersLogic } from "@/logic/providers.logic.js";
 import { deleteProviderDB } from "@srouter/db";
-import { loadSavedProvidersFromDB } from "@/services/registry.js";
+import { loadSavedProvidersFromDB, registry } from "@/services/registry.js";
 import { ok } from "@/utils/response.js";
 
 export class ProvidersController {
@@ -21,6 +21,9 @@ export class ProvidersController {
 
     public static async getProvider(c: Context): Promise<Response> {
         const providerId = c.req.param("providerId");
+        if (!providerId) {
+            return c.json({ error: { message: "Provider ID is required" } }, 400);
+        }
         const provider = await ProvidersLogic.getProviderById(providerId);
         if (!provider) {
             return c.json({ error: { message: `Provider '${providerId}' not found` } }, 404);
@@ -39,10 +42,14 @@ export class ProvidersController {
 
     public static deleteProvider(c: Context): Response {
         const id = c.req.param("id");
+        if (!id) {
+            return c.json({ error: { message: "Connection ID is required" } }, 400);
+        }
         const deleted = deleteProviderDB(id);
         if (!deleted) {
             return c.json({ error: { message: `Connection '${id}' not found` } }, 404);
         }
+        registry.unregisterProvider(id);
         loadSavedProvidersFromDB();
         return ok(c, { message: "Connection deleted" });
     }

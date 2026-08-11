@@ -59,6 +59,13 @@ export function initDatabase(): void {
         // column already exists
     }
 
+    // Provider-specific metadata (for example Kiro auth method/region/profile ARN)
+    try {
+        db.exec("ALTER TABLE providers ADD COLUMN provider_specific_data TEXT;");
+    } catch {
+        // column already exists
+    }
+
     // Ensure token expiry tracking columns exist
     try {
         db.exec("ALTER TABLE providers ADD COLUMN token_expires_at INTEGER;");

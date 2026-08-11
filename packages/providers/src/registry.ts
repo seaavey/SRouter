@@ -26,6 +26,28 @@ function stripModelPrefix(modelId: string, alias: string, providerId: string): s
 
 export const DEFAULT_CATALOG: ProviderDefinition[] = [
     {
+        id: "kiro",
+        name: "Kiro",
+        category: "api_key",
+        protocol: "custom",
+        description: "AWS Kiro / CodeWhisperer streaming provider.",
+        icon: "🟣",
+        requiresApiKey: true,
+        supportsCustomUrl: true,
+        status: { state: "disconnected", message: "Kiro credential missing" },
+        models: [
+            { id: "claude-sonnet-4.5", object: "model", owned_by: "kiro" },
+            { id: "claude-sonnet-4.5-thinking", object: "model", owned_by: "kiro" },
+            { id: "claude-opus-4.5", object: "model", owned_by: "kiro" },
+            { id: "deepseek-r1", object: "model", owned_by: "kiro" },
+            { id: "qwen3-coder-30b", object: "model", owned_by: "kiro" },
+            { id: "gpt-5.6-sol", object: "model", owned_by: "kiro" },
+            { id: "gpt-5.6-terra", object: "model", owned_by: "kiro" },
+            { id: "gpt-5.6-luna", object: "model", owned_by: "kiro" },
+            { id: "simple-task", object: "model", owned_by: "kiro" },
+        ],
+    },
+    {
         id: "openai_codex",
         name: "OpenAI Codex / ChatGPT",
         category: "oauth",
@@ -163,6 +185,23 @@ export class ProviderRegistry {
             const connectedCount = Array.from(this.providers.keys()).filter((k) => k === catItem.id || k.startsWith(`${catItem.id}_`) || k.startsWith(`${catItem.id}-`)).length;
             catItem.status = { state: "connected", connectedCount };
         }
+    }
+
+    unregisterProvider(providerId: string): boolean {
+        const removed = this.providers.delete(providerId);
+        if (!removed) return false;
+
+        const baseId = providerId.split("_")[0]?.split("-")[0] ?? providerId;
+        const catItem = this.catalog.find((c) => c.id === providerId || c.id === baseId);
+        if (catItem) {
+            const connectedCount = Array.from(this.providers.keys()).filter(
+                (key) => key === catItem.id || key.startsWith(`${catItem.id}_`) || key.startsWith(`${catItem.id}-`),
+            ).length;
+            catItem.status = connectedCount > 0
+                ? { state: "connected", connectedCount }
+                : { state: "disconnected", message: `${catItem.name} credential missing` };
+        }
+        return true;
     }
 
     getProvider(providerId: string): AIProvider | undefined {

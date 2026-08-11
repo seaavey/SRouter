@@ -21,6 +21,9 @@ export interface CreateProviderPayload {
     protocol: ProviderProtocol;
     baseUrl?: string;
     apiKey?: string;
+    accessToken?: string;
+    refreshToken?: string;
+    providerSpecificData?: Record<string, string>;
 }
 
 export class ProvidersLogic {
@@ -97,6 +100,9 @@ export class ProvidersLogic {
             protocol,
             baseUrl,
             apiKey,
+            accessToken: payload.accessToken,
+            refreshToken: payload.refreshToken,
+            providerSpecificData: payload.providerSpecificData,
             enabled: true,
             createdAt: Date.now(),
         };
@@ -110,6 +116,7 @@ export class ProvidersLogic {
             protocol: config.protocol,
             category: config.category,
             baseUrl: config.baseUrl,
+            requiresApiKey: Boolean(config.apiKey),
             models: [],
             status: { state: "connected" },
         };

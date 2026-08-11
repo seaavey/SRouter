@@ -21,6 +21,7 @@ export interface ProviderDefinition {
     description?: string;
     icon?: string;
     defaultBaseUrl?: string;
+    baseUrl?: string;
     requiresApiKey: boolean;
     requiresOAuth?: boolean;
     supportsCustomUrl?: boolean;
@@ -43,6 +44,7 @@ export interface ProviderConfig {
     tokenExpiresAt?: number;
     lastRefreshedAt?: number;
     customHeaders?: Record<string, string>;
+    providerSpecificData?: Record<string, string>;
     enabled: boolean;
     createdAt: number;
 }
