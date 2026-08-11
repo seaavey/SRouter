@@ -294,4 +294,100 @@ export class AuthController {
             201,
         );
     }
+
+    // --- Claude Code OAuth Handlers ---
+    public static loginClaude(c: Context): Response {
+        const customClientId = c.req.query("client_id") || undefined;
+        const redirectUri = c.req.query("redirect_uri") || undefined;
+        const prompt = c.req.query("prompt") || undefined;
+
+        try {
+            const result = AuthLogic.initiateClaudeOAuthPKCE({
+                clientId: customClientId,
+                redirectUri,
+                prompt,
+            });
+
+            if (c.req.query("format") === "json") {
+                return ok(c, result);
+            }
+
+            return c.redirect(result.authorizeUrl);
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            return err(c, errorMessage, 400, { type: "invalid_request_error" });
+        }
+    }
+
+    public static async handleClaudeOAuthCallback(c: Context): Promise<Response> {
+        let code = c.req.query("code") || undefined;
+        let state = c.req.query("state") || undefined;
+
+        if ((!code || !state) && c.req.method === "POST") {
+            try {
+                const body = await c.req.json<OAuthCallbackBody>();
+                if (body.callbackUrl) {
+                    try {
+                        const parsedUrl = new URL(body.callbackUrl);
+                        code = code || parsedUrl.searchParams.get("code") || undefined;
+                        state = state || parsedUrl.searchParams.get("state") || undefined;
+                    } catch {
+                        // Ignore invalid URL string
+                    }
+                }
+                code = code || body.code;
+                state = state || body.state;
+            } catch {
+                // Ignore JSON parse error
+            }
+        }
+
+        if (!code || !state) {
+            return err(c, "Missing required 'code' or 'state' parameters in OAuth callback", 400, {
+                type: "invalid_request_error",
+            });
+        }
+
+        try {
+            const providerConfig = await AuthLogic.processClaudeOAuthCallback(code, state);
+
+            if (c.req.method === "POST" || c.req.header("accept")?.includes("application/json")) {
+                return ok(c, {
+                    success: true,
+                    message: "Login Claude Code OAuth Berhasil!",
+                    provider: providerConfig,
+                });
+            }
+
+            return renderOAuthSuccessHTML(providerConfig.name);
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            return err(c, errorMessage, 500);
+        }
+    }
+
+    public static async importClaudeToken(c: Context): Promise<Response> {
+        let body: TokenImportBody;
+        try {
+            body = await c.req.json<TokenImportBody>();
+        } catch {
+            return err(c, "Invalid JSON body", 400, { type: "invalid_request_error" });
+        }
+
+        if (!body.accessToken) {
+            return err(c, "Field 'accessToken' is required", 400, { type: "invalid_request_error" });
+        }
+
+        const providerConfig = AuthLogic.processClaudeTokenImport(body);
+
+        return ok(
+            c,
+            {
+                success: true,
+                message: "Claude Code OAuth token registered and saved directly to SQLite database!",
+                provider: providerConfig,
+            },
+            201,
+        );
+    }
 }

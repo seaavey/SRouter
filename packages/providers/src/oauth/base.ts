@@ -8,6 +8,8 @@ export interface OAuthTokenResponse {
     tokenType: string;
     /** Optional ChatGPT/OpenAI account identifier (for multi-account binding) */
     accountId?: string;
+    /** Optional organization id (e.g. Claude OAuth) */
+    organizationId?: string;
 }
 
 export interface PKCEPair {

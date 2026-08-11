@@ -6,7 +6,7 @@ import {
     upsertProviderDB,
 } from "@srouter/db";
 import { AntigravityExecutor, AnthropicExecutor, CodexExecutor, CommandCodeExecutor, OpenAIExecutor } from "@srouter/executors";
-import { AntigravityOAuth, OpenAICodexOAuth, generatePKCE, type PKCEPair } from "@srouter/providers";
+import { AntigravityOAuth, ClaudeOAuth, OpenAICodexOAuth, generatePKCE, type PKCEPair } from "@srouter/providers";
 import type { ProviderConfig } from "@srouter/types";
 import { registry } from "@/services/registry.js";
 
@@ -312,6 +312,110 @@ export class AuthLogic {
             name: providerName,
             baseUrl,
             apiKey: params.accessToken,
+        });
+        registry.registerProvider(providerInstance);
+
+        return providerConfig;
+    }
+
+    // --- Claude Code OAuth ---
+    public static initiateClaudeOAuthPKCE(params: OAuthLoginParams): OAuthLoginResult {
+        cleanupExpiredSessions();
+        const clientId = params.clientId || process.env.CLAUDE_OAUTH_CLIENT_ID || "9d1c250a-e61b-44d9-88ed-5944d1962f5e";
+        const redirectUri = params.redirectUri || "http://localhost:1455/auth/claude/callback";
+        const prompt = params.prompt;
+
+        const oauthInstance = new ClaudeOAuth({
+            clientId,
+            redirectUri,
+            prompt,
+        });
+
+        const pkce: PKCEPair = generatePKCE();
+        saveOAuthSessionDB({
+            state: pkce.state,
+            codeVerifier: pkce.codeVerifier,
+            clientId,
+            redirectUri,
+            createdAt: Date.now(),
+        });
+
+        const authorizeUrl = oauthInstance.getAuthorizationUrl(pkce);
+
+        return {
+            authorizeUrl,
+            state: pkce.state,
+            codeVerifier: pkce.codeVerifier,
+            redirectUri,
+        };
+    }
+
+    public static async processClaudeOAuthCallback(code: string, state: string): Promise<ProviderConfig> {
+        cleanupExpiredSessions();
+
+        const session = getOAuthSessionDB(state);
+        if (!session) {
+            throw new Error("Invalid or expired OAuth state parameter");
+        }
+
+        deleteOAuthSessionDB(state);
+
+        const oauthInstance = new ClaudeOAuth({
+            clientId: session.clientId,
+            redirectUri: session.redirectUri,
+        });
+
+        const tokens = await oauthInstance.exchangeCodeForTokens(code, session.codeVerifier);
+        const timestamp = Date.now();
+        const accountId = `claude_${timestamp}`;
+        const accountName = `Claude Code (Account #${timestamp.toString().slice(-4)})`;
+
+        const providerConfig = upsertProviderDB({
+            id: accountId,
+            providerId: "claude",
+            name: accountName,
+            category: "oauth",
+            protocol: "anthropic",
+            accessToken: tokens.accessToken,
+            refreshToken: tokens.refreshToken,
+            enabled: true,
+            createdAt: timestamp,
+        });
+
+        const providerInstance = new AnthropicExecutor({
+            id: accountId,
+            name: accountName,
+            accessToken: tokens.accessToken,
+            refreshToken: tokens.refreshToken,
+            organizationId: tokens.organizationId,
+        });
+        registry.registerProvider(providerInstance);
+
+        return providerConfig;
+    }
+
+    public static processClaudeTokenImport(params: TokenImportParams): ProviderConfig {
+        const timestamp = Date.now();
+        const accountId = params.id || `claude_${timestamp}`;
+        const providerName = params.name || `Claude Code (Account #${timestamp.toString().slice(-4)})`;
+
+        const providerConfig = upsertProviderDB({
+            id: accountId,
+            providerId: "claude",
+            name: providerName,
+            category: "oauth",
+            protocol: "anthropic",
+            accessToken: params.accessToken,
+            refreshToken: params.refreshToken,
+            enabled: true,
+            createdAt: timestamp,
+        });
+
+        const providerInstance = new AnthropicExecutor({
+            id: accountId,
+            name: providerName,
+            accessToken: params.accessToken,
+            refreshToken: params.refreshToken,
         });
         registry.registerProvider(providerInstance);
 

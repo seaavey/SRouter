@@ -1,6 +1,6 @@
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
-import { authRoute, handleAntigravityOAuthCallback, handleOAuthCallback } from "@/routes/v1/auth.js";
+import { authRoute, handleAntigravityOAuthCallback, handleClaudeOAuthCallback, handleOAuthCallback } from "@/routes/v1/auth.js";
 import { chatRoute } from "@/routes/v1/chat.js";
 import { logsRoute } from "@/routes/v1/logs.js";
 import { modelsRoute } from "@/routes/v1/models.js";
@@ -64,6 +64,8 @@ oauthApp.get("/auth/callback", (c) => handleOAuthCallback(c));
 oauthApp.post("/auth/callback", (c) => handleOAuthCallback(c));
 oauthApp.get("/auth/antigravity/callback", (c) => handleAntigravityOAuthCallback(c));
 oauthApp.post("/auth/antigravity/callback", (c) => handleAntigravityOAuthCallback(c));
+oauthApp.get("/auth/claude/callback", (c) => handleClaudeOAuthCallback(c));
+oauthApp.post("/auth/claude/callback", (c) => handleClaudeOAuthCallback(c));
 
 const oauthPort = Number(process.env.OAUTH_PORT) || 1455;
 

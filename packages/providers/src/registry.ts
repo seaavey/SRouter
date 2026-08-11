@@ -129,6 +129,22 @@ export const DEFAULT_CATALOG: ProviderDefinition[] = [
             { id: "claude-3-5-sonnet-20241022", object: "model", owned_by: "anthropic" },
         ],
     },
+    {
+        id: "claude",
+        name: "Claude Code (OAuth)",
+        category: "oauth",
+        protocol: "anthropic",
+        description: "Claude Code OAuth driver — pakai akun Claude subscription via claude.ai.",
+        icon: "🧠",
+        requiresApiKey: false,
+        requiresOAuth: true,
+        status: { state: "disconnected", message: "OAuth token missing" },
+        models: [
+            { id: "claude-sonnet-4-20250514", object: "model", owned_by: "anthropic" },
+            { id: "claude-opus-4-20250514", object: "model", owned_by: "anthropic" },
+            { id: "claude-3-5-sonnet-20241022", object: "model", owned_by: "anthropic" },
+        ],
+    },
 ];
 
 export class ProviderRegistry {

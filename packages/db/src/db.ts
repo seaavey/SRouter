@@ -59,6 +59,13 @@ export function initDatabase(): void {
         // column already exists
     }
 
+    // Ensure organization_id column exists (e.g. Claude OAuth organization binding)
+    try {
+        db.exec("ALTER TABLE providers ADD COLUMN organization_id TEXT;");
+    } catch {
+        // column already exists
+    }
+
     // 2. Table for Client API Keys / Endpoint Keys
     db.exec(`
         CREATE TABLE IF NOT EXISTS api_keys (
