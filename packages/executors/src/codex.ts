@@ -123,7 +123,10 @@ export class CodexExecutor implements AIProvider {
         const token = this.accessToken || this.apiKey;
         if (!token) return [];
         try {
-            const res = await fetch(this.modelsUrl, {
+            // client_version query param is REQUIRED — without it the endpoint returns 400
+            const url = new URL(this.modelsUrl);
+            url.searchParams.set("client_version", CODEX_CLIENT_VERSION);
+            const res = await fetch(url.toString(), {
                 method: "GET",
                 headers: this.getHeaders({ Accept: "application/json" }),
             });
