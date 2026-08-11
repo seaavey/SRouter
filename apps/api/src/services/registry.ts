@@ -60,6 +60,7 @@ export function loadSavedProvidersFromDB(): void {
                         baseUrl,
                         apiKey: p.apiKey,
                         accessToken: p.accessToken,
+                        refreshToken: p.refreshToken,
                     }),
                 );
                 break;

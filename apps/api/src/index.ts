@@ -6,6 +6,7 @@ import { logsRoute } from "@/routes/v1/logs.js";
 import { modelsRoute } from "@/routes/v1/models.js";
 import { providersRoute } from "@/routes/v1/providers.js";
 import { quotaRoute } from "@/routes/v1/quota.js";
+import { startTokenRefreshSweeper } from "@/services/tokenRefresh.js";
 
 const app = new Hono();
 
@@ -80,5 +81,8 @@ try {
 } catch (err) {
     console.warn(`Could not start OAuth server on port ${oauthPort}:`, err);
 }
+
+// Start background OAuth token refresh sweeper
+startTokenRefreshSweeper();
 
 export default app;

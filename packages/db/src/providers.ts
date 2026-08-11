@@ -16,6 +16,8 @@ export function getAllProvidersDB(): ProviderConfig[] {
         accessToken: row.access_token ? String(row.access_token) : undefined,
         refreshToken: row.refresh_token ? String(row.refresh_token) : undefined,
         accountId: row.account_id ? String(row.account_id) : undefined,
+        tokenExpiresAt: row.token_expires_at ? Number(row.token_expires_at) : undefined,
+        lastRefreshedAt: row.last_refreshed_at ? Number(row.last_refreshed_at) : undefined,
         customHeaders: row.custom_headers ? JSON.parse(String(row.custom_headers)) : undefined,
         enabled: Boolean(row.enabled),
         createdAt: Number(row.created_at ?? 0),
@@ -39,6 +41,8 @@ export function getProviderByIdDB(id: string): ProviderConfig | null {
         accessToken: row.access_token ? String(row.access_token) : undefined,
         refreshToken: row.refresh_token ? String(row.refresh_token) : undefined,
         accountId: row.account_id ? String(row.account_id) : undefined,
+        tokenExpiresAt: row.token_expires_at ? Number(row.token_expires_at) : undefined,
+        lastRefreshedAt: row.last_refreshed_at ? Number(row.last_refreshed_at) : undefined,
         customHeaders: row.custom_headers ? JSON.parse(String(row.custom_headers)) : undefined,
         enabled: Boolean(row.enabled),
         createdAt: Number(row.created_at ?? 0),
@@ -47,8 +51,8 @@ export function getProviderByIdDB(id: string): ProviderConfig | null {
 
 export function upsertProviderDB(config: ProviderConfig & { category: string; protocol: string }): ProviderConfig {
     const query = db.prepare(`
-        INSERT INTO providers (id, provider_id, name, category, protocol, base_url, api_key, access_token, refresh_token, account_id, custom_headers, enabled, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO providers (id, provider_id, name, category, protocol, base_url, api_key, access_token, refresh_token, account_id, token_expires_at, last_refreshed_at, custom_headers, enabled, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
             provider_id = excluded.provider_id,
             name = excluded.name,
@@ -59,12 +63,14 @@ export function upsertProviderDB(config: ProviderConfig & { category: string; pr
             access_token = excluded.access_token,
             refresh_token = excluded.refresh_token,
             account_id = excluded.account_id,
+            token_expires_at = excluded.token_expires_at,
+            last_refreshed_at = excluded.last_refreshed_at,
             custom_headers = excluded.custom_headers,
             enabled = excluded.enabled,
             created_at = excluded.created_at;
     `);
 
-    query.run(config.id, config.providerId, config.name, config.category, config.protocol, config.baseUrl ?? null, config.apiKey ?? null, config.accessToken ?? null, config.refreshToken ?? null, config.accountId ?? null, config.customHeaders ? JSON.stringify(config.customHeaders) : null, config.enabled ? 1 : 0, config.createdAt);
+    query.run(config.id, config.providerId, config.name, config.category, config.protocol, config.baseUrl ?? null, config.apiKey ?? null, config.accessToken ?? null, config.refreshToken ?? null, config.accountId ?? null, config.tokenExpiresAt ?? null, config.lastRefreshedAt ?? null, config.customHeaders ? JSON.stringify(config.customHeaders) : null, config.enabled ? 1 : 0, config.createdAt);
 
     return config;
 }
@@ -77,6 +83,34 @@ export function deleteProviderDB(id: string): boolean {
     const query = db.prepare("DELETE FROM providers WHERE id = ?");
     const result = query.run(id);
     return (result.changes ?? 0) > 0;
+}
+
+export interface UpdateProviderTokensInput {
+    id: string;
+    accessToken: string;
+    refreshToken?: string;
+    tokenExpiresAt?: number;
+    lastRefreshedAt?: number;
+}
+
+/**
+ * Update only the token-related columns of a provider (used by TokenRefreshService).
+ */
+export function updateProviderTokensDB(input: UpdateProviderTokensInput): void {
+    db.prepare(
+        `UPDATE providers SET
+            access_token = ?,
+            refresh_token = ?,
+            token_expires_at = ?,
+            last_refreshed_at = ?
+         WHERE id = ?`,
+    ).run(
+        input.accessToken,
+        input.refreshToken ?? null,
+        input.tokenExpiresAt ?? null,
+        input.lastRefreshedAt ?? null,
+        input.id,
+    );
 }
 
 export function getConnectionsByProviderIdDB(providerId: string): ProviderConfig[] {
@@ -97,6 +131,8 @@ export function getConnectionsByProviderIdDB(providerId: string): ProviderConfig
         accessToken: row.access_token ? String(row.access_token) : undefined,
         refreshToken: row.refresh_token ? String(row.refresh_token) : undefined,
         accountId: row.account_id ? String(row.account_id) : undefined,
+        tokenExpiresAt: row.token_expires_at ? Number(row.token_expires_at) : undefined,
+        lastRefreshedAt: row.last_refreshed_at ? Number(row.last_refreshed_at) : undefined,
         customHeaders: row.custom_headers ? JSON.parse(String(row.custom_headers)) : undefined,
         enabled: Boolean(row.enabled),
         createdAt: Number(row.created_at ?? 0),

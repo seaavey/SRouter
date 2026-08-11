@@ -99,6 +99,14 @@ export class CodexExecutor implements AIProvider {
         this.sessionId = options.sessionId;
     }
 
+    /**
+     * Update tokens after a refresh — called by TokenRefreshService.
+     */
+    updateToken(accessToken: string, refreshToken?: string): void {
+        if (accessToken) this.accessToken = accessToken;
+        if (refreshToken) this.refreshToken = refreshToken;
+    }
+
     private getHeaders(extra?: Record<string, string>): Record<string, string> {
         const headers: Record<string, string> = {
             "Content-Type": "application/json",

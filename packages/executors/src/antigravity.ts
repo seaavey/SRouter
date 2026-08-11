@@ -116,7 +116,6 @@ export class AntigravityExecutor implements AIProvider {
         this.refreshToken = options.refreshToken;
         this.projectId = options.projectId ?? process.env.ANTIGRAVITY_PROJECT_ID ?? generateProjectId();
         this.sessionId = generateSessionId();
-
         this.openaiFallback = new OpenAIExecutor({
             id: this.id,
             name: this.name,
@@ -124,6 +123,17 @@ export class AntigravityExecutor implements AIProvider {
             apiKey: options.apiKey,
             accessToken: this.accessToken,
         });
+    }
+
+    /**
+     * Update tokens after a refresh — called by TokenRefreshService.
+     */
+    updateToken(accessToken: string, refreshToken?: string): void {
+        if (accessToken) {
+            this.accessToken = accessToken;
+            this.openaiFallback.updateToken(accessToken);
+        }
+        if (refreshToken) this.refreshToken = refreshToken;
     }
 
     private getHeaders(extra?: Record<string, string>): Record<string, string> {

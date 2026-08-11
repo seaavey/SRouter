@@ -59,6 +59,18 @@ export function initDatabase(): void {
         // column already exists
     }
 
+    // Ensure token expiry tracking columns exist
+    try {
+        db.exec("ALTER TABLE providers ADD COLUMN token_expires_at INTEGER;");
+    } catch {
+        // column already exists
+    }
+    try {
+        db.exec("ALTER TABLE providers ADD COLUMN last_refreshed_at INTEGER;");
+    } catch {
+        // column already exists
+    }
+
     // 2. Table for Client API Keys / Endpoint Keys
     db.exec(`
         CREATE TABLE IF NOT EXISTS api_keys (

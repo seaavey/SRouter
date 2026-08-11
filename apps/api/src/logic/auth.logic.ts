@@ -99,6 +99,8 @@ export class AuthLogic {
             accessToken: tokens.accessToken,
             refreshToken: tokens.refreshToken,
             accountId: tokens.accountId,
+            tokenExpiresAt: tokens.expiresIn ? Date.now() + tokens.expiresIn * 1000 : undefined,
+            lastRefreshedAt: Date.now(),
             enabled: true,
             createdAt: timestamp,
         });
@@ -211,6 +213,8 @@ export class AuthLogic {
             baseUrl,
             accessToken: tokens.accessToken,
             refreshToken: tokens.refreshToken,
+            tokenExpiresAt: tokens.expiresIn ? Date.now() + tokens.expiresIn * 1000 : undefined,
+            lastRefreshedAt: Date.now(),
             enabled: true,
             createdAt: timestamp,
         });
@@ -220,6 +224,7 @@ export class AuthLogic {
             name: accountName,
             baseUrl,
             accessToken: tokens.accessToken,
+            refreshToken: tokens.refreshToken,
         });
         registry.registerProvider(providerInstance);
 

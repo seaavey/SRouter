@@ -24,6 +24,13 @@ export class OpenAIExecutor implements AIProvider {
         this.accessToken = options.accessToken ?? process.env.OPENAI_ACCESS_TOKEN ?? "";
     }
 
+    /**
+     * Update tokens after a refresh — called by TokenRefreshService.
+     */
+    updateToken(accessToken: string, refreshToken?: string): void {
+        if (accessToken) this.accessToken = accessToken;
+    }
+
     private getHeaders(): Record<string, string> {
         const headers: Record<string, string> = {
             "Content-Type": "application/json",
