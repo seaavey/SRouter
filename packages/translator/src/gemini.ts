@@ -1,7 +1,13 @@
-import type { ChatCompletionRequest, ChatCompletionResponse } from "@srouter/types";
+import type { ChatCompletionChunk, ChatCompletionRequest, ChatCompletionResponse } from "@srouter/types";
+import crypto from "node:crypto";
 
 export interface GeminiContentPart {
     text: string;
+    functionCall?: { name: string; args?: Record<string, unknown>; thoughtSignature?: string };
+    functionResponse?: { name: string; response?: Record<string, unknown> };
+    thought?: boolean;
+    thoughtSignature?: string;
+    inlineData?: { mimeType?: string; data?: string };
 }
 
 export interface GeminiContent {
@@ -100,4 +106,428 @@ export function geminiToOpenAIResponse(data: GeminiRawResponse, requestedModel: 
             },
         ],
     };
+}
+
+// ─── Antigravity IDE envelope helpers (port of 9router executors/antigravity.js) ───
+
+// Official Antigravity IDE Desktop 2.1.1 fingerprint (macOS arm64)
+export const ANTIGRAVITY_IDE_VERSION = "2.1.1";
+export const ANTIGRAVITY_IDE_BASE_URL = "https://daily-cloudcode-pa.googleapis.com";
+export const ANTIGRAVITY_IDE_USER_AGENT = `antigravity/ide/${ANTIGRAVITY_IDE_VERSION} darwin/arm64`;
+
+const MAX_ANTIGRAVITY_OUTPUT_TOKENS = 64000;
+
+export function generateProjectId(): string {
+    const adjectives = ["useful", "bright", "swift", "calm", "bold"];
+    const nouns = ["fuze", "wave", "spark", "flow", "core"];
+    const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
+    const noun = nouns[Math.floor(Math.random() * nouns.length)];
+    return `${adj}-${noun}-${crypto.randomUUID().slice(0, 5)}`;
+}
+
+export function generateSessionId(): string {
+    return crypto.randomUUID() + Date.now().toString();
+}
+
+function uuidFromSeed(seed: string): string {
+    const bytes = crypto.createHash("sha256").update(String(seed || "antigravity")).digest().subarray(0, 16);
+    bytes[6] = (bytes[6] & 0x0f) | 0x50;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    const hex = bytes.toString("hex");
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+const ANTIGRAVITY_IDE_REQUEST_ID_RE = /^agent\/[^/]+\/\d+\/[^/]+\/\d+$/;
+
+export interface IdeRequestIdArgs {
+    body?: { requestId?: string };
+    request?: { sessionId?: string; contents?: unknown[] };
+    sessionId?: string;
+    model: string;
+    requestType: string;
+}
+
+/**
+ * Build an IDE-format requestId: agent/<conversation>/<timestamp>/<trajectory>/<step>.
+ * Antigravity backend validates this format — requests without it may be rejected.
+ */
+export function buildIdeRequestId({ body, request, sessionId, model, requestType }: IdeRequestIdArgs): string {
+    if (body?.requestId && ANTIGRAVITY_IDE_REQUEST_ID_RE.test(body.requestId)) {
+        return body.requestId;
+    }
+    const sid = request?.sessionId || sessionId || "anonymous";
+    const conversationId = uuidFromSeed(`antigravity:conversation:${sid}`);
+    const trajectoryId = uuidFromSeed(`antigravity:trajectory:${sid}:${model}:${requestType}`);
+    const contentCount = Array.isArray(request?.contents) ? request.contents.length : 1;
+    const step = Math.max(1, contentCount * 2 - 1);
+    return `agent/${conversationId}/${Date.now()}/${trajectoryId}/${step}`;
+}
+
+/**
+ * Build the Antigravity IDE envelope: { project, model, userAgent, requestType, requestId, request }.
+ * The daily-cloudcode host expects this envelope, not a bare generateContent call.
+ */
+export function buildAntigravityEnvelope(args: {
+    projectId: string;
+    model: string;
+    requestType: string;
+    request: Record<string, unknown>;
+    body?: { requestId?: string };
+    sessionId?: string;
+}): Record<string, unknown> {
+    const { projectId, model, requestType, request, body, sessionId } = args;
+    return {
+        project: projectId,
+        model,
+        userAgent: "antigravity",
+        requestType,
+        requestId: buildIdeRequestId({ body, request, sessionId, model, requestType }),
+        request,
+    };
+}
+
+export function buildGeminiStreamUrl(baseUrl: string, modelName: string): string {
+    return `${baseUrl}/v1internal:streamGenerateContent?alt=sse`;
+}
+
+// ─── Gemini JSON Schema cleanup for Antigravity (port of 9router formats/gemini.js) ───
+
+const UNSUPPORTED_SCHEMA_CONSTRAINTS = [
+    "minLength", "maxLength", "exclusiveMinimum", "exclusiveMaximum",
+    "minItems", "maxItems", "format", "multipleOf",
+    "uniqueItems", "contains",
+    "unevaluatedProperties", "unevaluatedItems", "contentSchema",
+    "default", "examples",
+    "$schema", "$defs", "definitions", "const", "$ref", "$comment",
+    "deprecated", "readOnly", "writeOnly",
+    "additionalProperties", "propertyNames", "patternProperties", "enumDescriptions",
+    "anyOf", "oneOf", "allOf", "not",
+    "dependencies", "dependentSchemas", "dependentRequired",
+    "title", "optional", "if", "then", "else", "contentMediaType", "contentEncoding",
+    "cornerRadius", "fillColor", "fontFamily", "fontSize", "fontWeight",
+    "gap", "padding", "strokeColor", "strokeThickness", "textColor",
+];
+
+function removeUnsupportedKeywords(obj: unknown, keywords: string[]): void {
+    if (!obj || typeof obj !== "object") return;
+    if (Array.isArray(obj)) {
+        for (const item of obj) removeUnsupportedKeywords(item, keywords);
+        return;
+    }
+    for (const key of Object.keys(obj as Record<string, unknown>)) {
+        if (keywords.includes(key) || key.startsWith("x-")) {
+            delete (obj as Record<string, unknown>)[key];
+            continue;
+        }
+        const value = (obj as Record<string, unknown>)[key];
+        if (value && typeof value === "object") removeUnsupportedKeywords(value, keywords);
+    }
+}
+
+function convertConstToEnum(obj: unknown): void {
+    if (!obj || typeof obj !== "object") return;
+    const o = obj as Record<string, unknown>;
+    if (o.const !== undefined && !o.enum) {
+        o.enum = [o.const];
+        delete o.const;
+    }
+    for (const value of Object.values(o)) {
+        if (value && typeof value === "object") convertConstToEnum(value);
+    }
+}
+
+function convertEnumValuesToStrings(obj: unknown): void {
+    if (!obj || typeof obj !== "object") return;
+    const o = obj as Record<string, unknown>;
+    if (o.enum && Array.isArray(o.enum)) {
+        o.enum = o.enum.map((v) => String(v));
+        if (!o.type) o.type = "string";
+    }
+    for (const value of Object.values(o)) {
+        if (value && typeof value === "object") convertEnumValuesToStrings(value);
+    }
+}
+
+function mergeAllOf(obj: unknown): void {
+    if (!obj || typeof obj !== "object") return;
+    const o = obj as Record<string, unknown>;
+    if (o.allOf && Array.isArray(o.allOf)) {
+        const merged: Record<string, unknown> = {};
+        for (const item of o.allOf as Record<string, unknown>[]) {
+            if (item.properties) {
+                if (!merged.properties) merged.properties = {};
+                Object.assign(merged.properties as Record<string, unknown>, item.properties);
+            }
+            if (item.required && Array.isArray(item.required)) {
+                if (!merged.required) merged.required = [];
+                for (const req of item.required as string[]) {
+                    if (!(merged.required as string[]).includes(req)) (merged.required as string[]).push(req);
+                }
+            }
+        }
+        delete o.allOf;
+        if (merged.properties) o.properties = { ...(o.properties as Record<string, unknown>), ...(merged.properties as Record<string, unknown>) };
+        if (merged.required) o.required = [...((o.required as string[]) || []), ...(merged.required as string[])];
+    }
+    for (const value of Object.values(o)) {
+        if (value && typeof value === "object") mergeAllOf(value);
+    }
+}
+
+function selectBest(items: Array<Record<string, unknown>>): number {
+    let bestIdx = 0;
+    let bestScore = -1;
+    for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        let score = 0;
+        const type = item.type;
+        if (type === "object" || item.properties) score = 3;
+        else if (type === "array" || item.items) score = 2;
+        else if (type && type !== "null") score = 1;
+        if (score > bestScore) {
+            bestScore = score;
+            bestIdx = i;
+        }
+    }
+    return bestIdx;
+}
+
+function flattenAnyOfOneOf(obj: unknown): void {
+    if (!obj || typeof obj !== "object") return;
+    const o = obj as Record<string, unknown>;
+    if (o.anyOf && Array.isArray(o.anyOf) && o.anyOf.length > 0) {
+        const nonNull = (o.anyOf as Array<Record<string, unknown>>).filter((s) => s && s.type !== "null");
+        if (nonNull.length > 0) {
+            const selected = nonNull[selectBest(nonNull)];
+            delete o.anyOf;
+            Object.assign(o, selected);
+        }
+    }
+    if (o.oneOf && Array.isArray(o.oneOf) && o.oneOf.length > 0) {
+        const nonNull = (o.oneOf as Array<Record<string, unknown>>).filter((s) => s && s.type !== "null");
+        if (nonNull.length > 0) {
+            const selected = nonNull[selectBest(nonNull)];
+            delete o.oneOf;
+            Object.assign(o, selected);
+        }
+    }
+    for (const value of Object.values(o)) {
+        if (value && typeof value === "object") flattenAnyOfOneOf(value);
+    }
+}
+
+function flattenTypeArrays(obj: unknown): void {
+    if (!obj || typeof obj !== "object") return;
+    const o = obj as Record<string, unknown>;
+    if (o.type && Array.isArray(o.type)) {
+        const nonNullTypes = (o.type as string[]).filter((t) => t !== "null");
+        o.type = nonNullTypes.length > 0 ? nonNullTypes[0] : "string";
+    }
+    for (const value of Object.values(o)) {
+        if (value && typeof value === "object") flattenTypeArrays(value);
+    }
+}
+
+function ensureObjectType(obj: unknown): void {
+    if (!obj || typeof obj !== "object") return;
+    const o = obj as Record<string, unknown>;
+    if (o.properties && !o.type) o.type = "object";
+    for (const v of Object.values(o)) if (v && typeof v === "object") ensureObjectType(v);
+}
+
+function cleanupRequired(obj: unknown): void {
+    if (!obj || typeof obj !== "object") return;
+    const o = obj as Record<string, unknown>;
+    if (o.required && Array.isArray(o.required) && o.properties) {
+        const props = o.properties as Record<string, unknown>;
+        const valid = (o.required as string[]).filter((f) => Object.prototype.hasOwnProperty.call(props, f));
+        if (valid.length === 0) delete o.required;
+        else o.required = valid;
+    }
+    for (const value of Object.values(o)) {
+        if (value && typeof value === "object") cleanupRequired(value);
+    }
+}
+
+function addPlaceholders(obj: unknown): void {
+    if (!obj || typeof obj !== "object") return;
+    const o = obj as Record<string, unknown>;
+    if (Object.keys(o).length === 0) {
+        o.type = "object";
+        o.properties = { reason: { type: "string", description: "Brief explanation of why you are calling this tool" } };
+        o.required = ["reason"];
+        return;
+    }
+    if (o.type === "object") {
+        if (!o.properties || Object.keys(o.properties as Record<string, unknown>).length === 0) {
+            o.properties = { reason: { type: "string", description: "Brief explanation of why you are calling this tool" } };
+            o.required = ["reason"];
+        }
+    }
+    for (const value of Object.values(o)) {
+        if (value && typeof value === "object") addPlaceholders(value);
+    }
+}
+
+/**
+ * Clean a JSON Schema for Antigravity API compatibility — removes unsupported
+ * keywords recursively (port of 9router cleanJSONSchemaForAntigravity).
+ */
+export function cleanJSONSchemaForAntigravity(schema: unknown): unknown {
+    if (!schema || typeof schema !== "object") return schema;
+    const cleaned = schema as Record<string, unknown>;
+    convertConstToEnum(cleaned);
+    convertEnumValuesToStrings(cleaned);
+    mergeAllOf(cleaned);
+    flattenAnyOfOneOf(cleaned);
+    flattenTypeArrays(cleaned);
+    ensureObjectType(cleaned);
+    removeUnsupportedKeywords(cleaned, UNSUPPORTED_SCHEMA_CONSTRAINTS);
+    cleanupRequired(cleaned);
+    addPlaceholders(cleaned);
+    return cleaned;
+}
+
+/**
+ * Sanitize a function name for Gemini: [a-zA-Z_][a-zA-Z0-9_.:\-]{0,63}.
+ */
+export function sanitizeFunctionName(name: string): string {
+    if (!name) return "_unknown";
+    let s = name.replace(/[^a-zA-Z0-9_.:\-]/g, "_");
+    if (!/^[a-zA-Z_]/.test(s)) s = "_" + s;
+    return s.substring(0, 64);
+}
+
+// ─── Gemini SSE stream → OpenAI chunks (port of 9router response/gemini-to-openai.js) ───
+
+export interface GeminiStreamState {
+    messageId?: string;
+    model: string;
+    functionIndex: number;
+    geminiToolCallCount: number;
+    finishReason?: string;
+    usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number };
+    toolNameMap?: Map<string, string> | null;
+}
+
+export function createGeminiStreamState(model: string, toolNameMap?: Map<string, string> | null): GeminiStreamState {
+    return { model, functionIndex: 0, geminiToolCallCount: 0, toolNameMap };
+}
+
+function geminiChunkMeta(state: GeminiStreamState) {
+    return { id: `chatcmpl-${state.messageId || Date.now()}`, created: Math.floor(Date.now() / 1000), model: state.model };
+}
+
+function buildGeminiChunk(state: GeminiStreamState, delta: Record<string, unknown>, finishReason: string | null): ChatCompletionChunk {
+    return {
+        id: `chatcmpl-${state.messageId || Date.now()}`,
+        object: "chat.completion.chunk",
+        created: Math.floor(Date.now() / 1000),
+        model: state.model,
+        choices: [
+            {
+                index: 0,
+                delta: delta as ChatCompletionChunk["choices"][0]["delta"],
+                finish_reason: finishReason as ChatCompletionChunk["choices"][0]["finish_reason"],
+            },
+        ],
+    };
+}
+
+function emitGeminiFunctionCall(functionCall: { name: string; args?: Record<string, unknown> }, state: GeminiStreamState): ChatCompletionChunk {
+    const rawName = functionCall.name;
+    const fcName = state.toolNameMap?.get(rawName) || rawName;
+    const fcArgs = functionCall.args || {};
+    const toolCallIndex = state.functionIndex++;
+    state.geminiToolCallCount++;
+    return buildGeminiChunk(state, {
+        tool_calls: [{
+            index: toolCallIndex,
+            id: `${fcName}-${Date.now()}-${toolCallIndex}`,
+            type: "function",
+            function: { name: fcName, arguments: JSON.stringify(fcArgs) },
+        }],
+    }, null);
+}
+
+/**
+ * Convert a Gemini/Antigravity SSE chunk into OpenAI ChatCompletionChunk(s).
+ * Returns null when the chunk produces no output.
+ */
+export function geminiStreamToOpenAIChunks(chunk: Record<string, unknown>, state: GeminiStreamState): ChatCompletionChunk[] | null {
+    if (!chunk) return null;
+
+    const response = (chunk.response as Record<string, unknown>) || chunk;
+    const candidates = response.candidates as Array<Record<string, unknown>> | undefined;
+    if (!candidates?.[0]) return null;
+
+    const results: ChatCompletionChunk[] = [];
+    const candidate = candidates[0];
+    const content = candidate.content as { parts?: GeminiContentPart[] } | undefined;
+
+    if (!state.messageId) {
+        state.messageId = (response.responseId as string) || `msg_${Date.now()}`;
+        state.model = (response.modelVersion as string) || state.model;
+        state.functionIndex = 0;
+        state.geminiToolCallCount = 0;
+        results.push(buildGeminiChunk(state, { role: "assistant" }, null));
+    }
+
+    if (content?.parts) {
+        for (const part of content.parts) {
+            const partAny = part as unknown as Record<string, unknown>;
+            const hasThoughtSig = part.thoughtSignature || partAny.thought_signature;
+            const isThought = part.thought === true;
+
+            if (hasThoughtSig) {
+                const hasTextContent = part.text !== undefined && part.text !== "";
+                const hasFunctionCall = !!part.functionCall;
+                if (hasTextContent) {
+                    results.push(buildGeminiChunk(state, isThought ? { reasoning_content: part.text } : { content: part.text }, null));
+                }
+                if (hasFunctionCall && part.functionCall) {
+                    results.push(emitGeminiFunctionCall(part.functionCall, state));
+                }
+                continue;
+            }
+
+            if (part.text !== undefined && part.text !== "") {
+                results.push(buildGeminiChunk(state, isThought ? { reasoning_content: part.text } : { content: part.text }, null));
+            }
+
+            if (part.functionCall) {
+                results.push(emitGeminiFunctionCall(part.functionCall, state));
+            }
+
+            const inlineData = part.inlineData || (part as unknown as Record<string, unknown>).inline_data;
+            if (inlineData && (inlineData as Record<string, unknown>).data) {
+                const id = inlineData as Record<string, unknown>;
+                const mimeType = id.mimeType || id.mime_type || "image/png";
+                results.push(buildGeminiChunk(state, {
+                    images: [{ type: "image_url", image_url: { url: `data:${mimeType};base64,${id.data}` } }],
+                }, null));
+            }
+        }
+    }
+
+    // Usage metadata
+    const usageMeta = (response.usageMetadata as Record<string, unknown>) || (chunk.usageMetadata as Record<string, unknown>);
+    if (usageMeta) {
+        const promptTokens = Number(usageMeta.promptTokenCount ?? 0);
+        const completionTokens = Number(usageMeta.candidatesTokenCount ?? usageMeta.candidates_tokens_count ?? 0);
+        const total = promptTokens + completionTokens;
+        state.usage = { prompt_tokens: promptTokens, completion_tokens: completionTokens, total_tokens: total };
+    }
+
+    // Finish reason
+    if (candidate.finishReason) {
+        let finishReason = String(candidate.finishReason) === "STOP" ? "stop" : String(candidate.finishReason).toLowerCase();
+        if (finishReason === "stop" && state.geminiToolCallCount > 0) finishReason = "tool_calls";
+        const finalChunk = buildGeminiChunk(state, {}, finishReason);
+        if (state.usage) finalChunk.usage = state.usage;
+        results.push(finalChunk);
+        state.finishReason = finishReason;
+    }
+
+    return results.length > 0 ? results : null;
 }
