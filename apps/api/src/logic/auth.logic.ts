@@ -198,7 +198,9 @@ export class AuthLogic {
         const accountId = `antigravity_${timestamp}`;
         const accountName = `Antigravity (Account #${timestamp.toString().slice(-4)})`;
         const token = tokens.accessToken || "";
-        const baseUrl = process.env.ANTIGRAVITY_BASE_URL || "https://generativelanguage.googleapis.com/v1beta/openai";
+        // Antigravity IDE backend (daily-cloudcode-pa) — NOT the Gemini public endpoint.
+        // The IDE envelope (project/requestId/sessionId) is only accepted by the IDE host.
+        const baseUrl = process.env.ANTIGRAVITY_BASE_URL || "https://daily-cloudcode-pa.googleapis.com";
 
         const providerConfig = upsertProviderDB({
             id: accountId,
@@ -228,7 +230,7 @@ export class AuthLogic {
         const timestamp = Date.now();
         const accountId = params.id || `antigravity_${timestamp}`;
         const providerName = params.name || `Antigravity (Account #${timestamp.toString().slice(-4)})`;
-        const baseUrl = params.baseUrl || process.env.ANTIGRAVITY_BASE_URL || "https://generativelanguage.googleapis.com/v1beta/openai";
+        const baseUrl = params.baseUrl || process.env.ANTIGRAVITY_BASE_URL || "https://daily-cloudcode-pa.googleapis.com";
 
         const providerConfig = upsertProviderDB({
             id: accountId,
