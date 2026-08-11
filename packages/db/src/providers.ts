@@ -15,6 +15,7 @@ export function getAllProvidersDB(): ProviderConfig[] {
         apiKey: row.api_key ? String(row.api_key) : undefined,
         accessToken: row.access_token ? String(row.access_token) : undefined,
         refreshToken: row.refresh_token ? String(row.refresh_token) : undefined,
+        accountId: row.account_id ? String(row.account_id) : undefined,
         customHeaders: row.custom_headers ? JSON.parse(String(row.custom_headers)) : undefined,
         enabled: Boolean(row.enabled),
         createdAt: Number(row.created_at ?? 0),
@@ -37,6 +38,7 @@ export function getProviderByIdDB(id: string): ProviderConfig | null {
         apiKey: row.api_key ? String(row.api_key) : undefined,
         accessToken: row.access_token ? String(row.access_token) : undefined,
         refreshToken: row.refresh_token ? String(row.refresh_token) : undefined,
+        accountId: row.account_id ? String(row.account_id) : undefined,
         customHeaders: row.custom_headers ? JSON.parse(String(row.custom_headers)) : undefined,
         enabled: Boolean(row.enabled),
         createdAt: Number(row.created_at ?? 0),
@@ -45,8 +47,8 @@ export function getProviderByIdDB(id: string): ProviderConfig | null {
 
 export function upsertProviderDB(config: ProviderConfig & { category: string; protocol: string }): ProviderConfig {
     const query = db.prepare(`
-        INSERT INTO providers (id, provider_id, name, category, protocol, base_url, api_key, access_token, refresh_token, custom_headers, enabled, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO providers (id, provider_id, name, category, protocol, base_url, api_key, access_token, refresh_token, account_id, custom_headers, enabled, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
             provider_id = excluded.provider_id,
             name = excluded.name,
@@ -56,12 +58,13 @@ export function upsertProviderDB(config: ProviderConfig & { category: string; pr
             api_key = excluded.api_key,
             access_token = excluded.access_token,
             refresh_token = excluded.refresh_token,
+            account_id = excluded.account_id,
             custom_headers = excluded.custom_headers,
             enabled = excluded.enabled,
             created_at = excluded.created_at;
     `);
 
-    query.run(config.id, config.providerId, config.name, config.category, config.protocol, config.baseUrl ?? null, config.apiKey ?? null, config.accessToken ?? null, config.refreshToken ?? null, config.customHeaders ? JSON.stringify(config.customHeaders) : null, config.enabled ? 1 : 0, config.createdAt);
+    query.run(config.id, config.providerId, config.name, config.category, config.protocol, config.baseUrl ?? null, config.apiKey ?? null, config.accessToken ?? null, config.refreshToken ?? null, config.accountId ?? null, config.customHeaders ? JSON.stringify(config.customHeaders) : null, config.enabled ? 1 : 0, config.createdAt);
 
     return config;
 }
@@ -93,6 +96,7 @@ export function getConnectionsByProviderIdDB(providerId: string): ProviderConfig
         apiKey: row.api_key ? String(row.api_key) : undefined,
         accessToken: row.access_token ? String(row.access_token) : undefined,
         refreshToken: row.refresh_token ? String(row.refresh_token) : undefined,
+        accountId: row.account_id ? String(row.account_id) : undefined,
         customHeaders: row.custom_headers ? JSON.parse(String(row.custom_headers)) : undefined,
         enabled: Boolean(row.enabled),
         createdAt: Number(row.created_at ?? 0),

@@ -6,6 +6,8 @@ export interface OAuthTokenResponse {
     idToken?: string;
     expiresIn?: number;
     tokenType: string;
+    /** Optional ChatGPT/OpenAI account identifier (for multi-account binding) */
+    accountId?: string;
 }
 
 export interface PKCEPair {

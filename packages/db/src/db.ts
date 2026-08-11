@@ -52,6 +52,13 @@ export function initDatabase(): void {
         // column already exists
     }
 
+    // Ensure account_id column exists for multi-account OAuth binding (e.g. Codex ChatGPT-Account-ID)
+    try {
+        db.exec("ALTER TABLE providers ADD COLUMN account_id TEXT;");
+    } catch {
+        // column already exists
+    }
+
     // 2. Table for Client API Keys / Endpoint Keys
     db.exec(`
         CREATE TABLE IF NOT EXISTS api_keys (

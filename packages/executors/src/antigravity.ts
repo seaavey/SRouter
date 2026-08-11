@@ -1,7 +1,7 @@
 import type { AIProvider, ChatCompletionChunk, ChatCompletionRequest, ChatCompletionResponse, ModelObject } from "@srouter/types";
 import { OpenAIExecutor } from "./openai.js";
 
-export interface AntigravityProviderOptions {
+export interface AntigravityExecutorOptions {
     id?: string;
     name?: string;
     baseUrl?: string;
@@ -9,7 +9,7 @@ export interface AntigravityProviderOptions {
     accessToken?: string;
 }
 
-export class AntigravityProvider implements AIProvider {
+export class AntigravityExecutor implements AIProvider {
     id: string;
     name: string;
     private baseUrl: string;
@@ -17,7 +17,7 @@ export class AntigravityProvider implements AIProvider {
     private accessToken: string;
     private openaiFallback: OpenAIExecutor;
 
-    constructor(options: AntigravityProviderOptions = {}) {
+    constructor(options: AntigravityExecutorOptions = {}) {
         this.id = options.id ?? "antigravity";
         this.name = options.name ?? "Antigravity Provider";
         this.baseUrl = (options.baseUrl ?? "https://generativelanguage.googleapis.com/v1beta").replace(/\/$/, "");

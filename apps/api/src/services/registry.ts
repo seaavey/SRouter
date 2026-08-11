@@ -1,5 +1,5 @@
 import { getAllProvidersDB } from "@srouter/db";
-import { AntigravityExecutor, AnthropicExecutor, CommandCodeExecutor, OpenAIExecutor } from "@srouter/executors";
+import { AntigravityExecutor, AnthropicExecutor, CodexExecutor, CommandCodeExecutor, OpenAIExecutor } from "@srouter/executors";
 import { ProviderRegistry } from "@srouter/providers";
 
 // Create a global ProviderRegistry instance
@@ -60,6 +60,19 @@ export function loadSavedProvidersFromDB(): void {
                         baseUrl,
                         apiKey: p.apiKey,
                         accessToken: p.accessToken,
+                    }),
+                );
+                break;
+            case providerType === "openai_codex" || p.id.startsWith("openai_codex"):
+                registry.registerProvider(
+                    new CodexExecutor({
+                        id: p.id || p.providerId,
+                        name: p.name,
+                        baseUrl,
+                        apiKey: p.apiKey,
+                        accessToken: p.accessToken,
+                        refreshToken: p.refreshToken,
+                        accountId: p.accountId,
                     }),
                 );
                 break;

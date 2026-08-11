@@ -5,7 +5,7 @@ import {
     saveOAuthSessionDB,
     upsertProviderDB,
 } from "@srouter/db";
-import { AntigravityExecutor, AnthropicExecutor, CommandCodeExecutor, OpenAIExecutor } from "@srouter/executors";
+import { AntigravityExecutor, AnthropicExecutor, CodexExecutor, CommandCodeExecutor, OpenAIExecutor } from "@srouter/executors";
 import { AntigravityOAuth, OpenAICodexOAuth, generatePKCE, type PKCEPair } from "@srouter/providers";
 import type { ProviderConfig } from "@srouter/types";
 import { registry } from "@/services/registry.js";
@@ -27,6 +27,7 @@ export interface TokenImportParams {
     id?: string;
     accessToken: string;
     refreshToken?: string;
+    accountId?: string;
     baseUrl?: string;
     name?: string;
 }
@@ -97,14 +98,17 @@ export class AuthLogic {
             protocol: "openai",
             accessToken: tokens.accessToken,
             refreshToken: tokens.refreshToken,
+            accountId: tokens.accountId,
             enabled: true,
             createdAt: timestamp,
         });
 
-        const providerInstance = new OpenAIExecutor({
+        const providerInstance = new CodexExecutor({
             id: accountId,
             name: accountName,
             accessToken: tokens.accessToken,
+            refreshToken: tokens.refreshToken,
+            accountId: tokens.accountId,
         });
         registry.registerProvider(providerInstance);
 
@@ -124,14 +128,17 @@ export class AuthLogic {
             protocol: "openai",
             accessToken: params.accessToken,
             refreshToken: params.refreshToken,
+            accountId: params.accountId,
             enabled: true,
             createdAt: timestamp,
         });
 
-        const providerInstance = new OpenAIExecutor({
+        const providerInstance = new CodexExecutor({
             id: accountId,
             name: providerName,
             accessToken: params.accessToken,
+            refreshToken: params.refreshToken,
+            accountId: params.accountId,
         });
         registry.registerProvider(providerInstance);
 

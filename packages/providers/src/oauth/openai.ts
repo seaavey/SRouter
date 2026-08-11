@@ -88,6 +88,8 @@ export class OpenAICodexOAuth {
             id_token?: string;
             expires_in?: number;
             token_type?: string;
+            chatgpt_account_id?: string;
+            account_id?: string;
         };
 
         return {
@@ -96,6 +98,7 @@ export class OpenAICodexOAuth {
             idToken: data.id_token,
             expiresIn: data.expires_in,
             tokenType: data.token_type ?? "Bearer",
+            accountId: data.chatgpt_account_id || data.account_id || extractAccountIdFromIdToken(data.id_token),
         };
     }
 
@@ -133,5 +136,26 @@ export class OpenAICodexOAuth {
             expiresIn: data.expires_in,
             tokenType: data.token_type ?? "Bearer",
         };
+    }
+}
+
+/**
+ * Extract ChatGPT account identifier from an id_token JWT payload.
+ * OpenAI id_tokens carry the account id in `sub` (e.g. "u_..." for ChatGPT).
+ */
+function extractAccountIdFromIdToken(idToken?: string): string | undefined {
+    if (!idToken || typeof idToken !== "string") return undefined;
+    const parts = idToken.split(".");
+    if (parts.length < 2) return undefined;
+    try {
+        // JWT payload is base64url-encoded JSON
+        const payload = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf-8")) as {
+            sub?: string;
+            "https://api.openai.com/auth"?: { user_id?: string };
+            user_id?: string;
+        };
+        return payload["https://api.openai.com/auth"]?.user_id || payload.user_id || payload.sub;
+    } catch {
+        return undefined;
     }
 }
