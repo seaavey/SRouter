@@ -1,23 +1,14 @@
-import { useState, useEffect } from "react";
-import { createFileRoute, useSearch } from "@tanstack/react-router";
+import { useEffect, useRef, useState } from "react";
+import { Link, createFileRoute, useSearch } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import {
-    Activity,
-    Bot,
-    Check,
-    Code2,
-    Copy,
-    Eraser,
-    Play,
-    Send,
-    SlidersHorizontal,
-    Sparkles,
-    User,
-    ChevronDown,
-} from "lucide-react";
 import { api } from "@/lib/api";
 import type { ChatCompletionChunk, ModelListResponse } from "@srouter/types";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { CodeSheet } from "@/components/playground/code-sheet";
+import { ConversationViewport } from "@/components/playground/conversation-viewport";
+import { MessageComposer } from "@/components/playground/message-composer";
+import { ParamsSheet } from "@/components/playground/params-sheet";
+import { PlaygroundCommandBar } from "@/components/playground/playground-command-bar";
+import type { PlaygroundMessage } from "@/components/playground/types";
 
 export const Route = createFileRoute("/playground")({
     staticData: { title: "Playground" },
@@ -27,14 +18,42 @@ export const Route = createFileRoute("/playground")({
     component: PlaygroundPage,
 });
 
-interface ChatMessage {
-    role: "system" | "user" | "assistant";
-    content: string;
+type SseResult = "done" | "continue";
+
+function getSseMessage(event: string): string | null {
+    const data = event
+        .split("\n")
+        .filter((line) => line.startsWith("data:"))
+        .map((line) => line.slice(5).trim())
+        .join("\n")
+        .trim();
+
+    return data || null;
+}
+
+function getStreamError(payload: unknown): string | null {
+    if (!payload || typeof payload !== "object" || !("error" in payload)) return null;
+    const error = payload.error;
+    if (typeof error === "string") return error;
+    if (error && typeof error === "object" && "message" in error && typeof error.message === "string") {
+        return error.message;
+    }
+    return "The gateway returned a streaming error.";
+}
+
+function shellQuote(value: string) {
+    return `'${value.replaceAll("'", `"'"'`)}'`;
 }
 
 function PlaygroundPage() {
     const search = useSearch({ from: "/playground" });
-    const { data: modelsData } = useQuery({
+    const {
+        data: modelsData,
+        isPending: modelsPending,
+        isError: modelsError,
+        error: modelsQueryError,
+        refetch: refetchModels,
+    } = useQuery({
         queryKey: ["models"],
         queryFn: () => api.get<ModelListResponse>("/v1/models"),
     });
@@ -45,55 +64,88 @@ function PlaygroundPage() {
     const [temperature, setTemperature] = useState(0.7);
     const [topP, setTopP] = useState(1.0);
     const [maxTokens, setMaxTokens] = useState<number | undefined>(undefined);
-
     const [input, setInput] = useState("");
-    const [messages, setMessages] = useState<ChatMessage[]>([]);
+    const [messages, setMessages] = useState<PlaygroundMessage[]>([]);
     const [streaming, setStreaming] = useState(false);
-
+    const [statusMessage, setStatusMessage] = useState("");
     const [showParamsSheet, setShowParamsSheet] = useState(false);
     const [showCodeSheet, setShowCodeSheet] = useState(false);
     const [copiedSnippet, setCopiedSnippet] = useState(false);
+    const abortRef = useRef<AbortController | null>(null);
 
     useEffect(() => {
-        if (!model && models.length > 0) {
+        if (models.length === 0) return;
+        const requestedModel = search.model && models.some((item) => item.id === search.model) ? search.model : "";
+        if (requestedModel && requestedModel !== model) {
+            setModel(requestedModel);
+            return;
+        }
+        if (!models.some((item) => item.id === model)) {
             setModel(models[0].id);
         }
-    }, [models, model]);
+    }, [model, models, search.model]);
+
+    useEffect(() => {
+        return () => abortRef.current?.abort();
+    }, []);
+
+    const selectedModel = models.find((item) => item.id === model);
+    const hasUsableModel = Boolean(selectedModel);
+    const apiBase = `${typeof window !== "undefined" ? window.location.origin : "http://localhost:3000"}/v1`;
+
+    function requestMessages(currentMessages = messages): Array<{ role: string; content: string }> {
+        return [
+            ...(systemPrompt.trim() ? [{ role: "system", content: systemPrompt.trim() }] : []),
+            ...(currentMessages.length > 0
+                ? currentMessages
+                : [{ role: "user", content: "Hello SRouter!" }]),
+        ];
+    }
 
     async function send() {
         const content = input.trim();
-        if (!content || streaming) return;
+        if (!content || streaming || !selectedModel) return;
 
-        const currentModel = model || models[0]?.id;
-        if (!currentModel) return;
-
-        const conversationHistory: ChatMessage[] = [];
-        if (systemPrompt.trim()) {
-            conversationHistory.push({ role: "system", content: systemPrompt.trim() });
-        }
-
-        const userMsg: ChatMessage = { role: "user", content };
-        const updatedMessages: ChatMessage[] = [...messages, userMsg];
-
+        const userMessage: PlaygroundMessage = { role: "user", content };
+        const updatedMessages = [...messages, userMessage];
+        const controller = new AbortController();
+        abortRef.current = controller;
         setMessages(updatedMessages);
         setInput("");
         setStreaming(true);
+        setStatusMessage("Generating response.");
 
-        const payloadMessages = [
-            ...(systemPrompt.trim() ? [{ role: "system", content: systemPrompt.trim() }] : []),
-            ...updatedMessages.map((m) => ({ role: m.role, content: m.content })),
-        ];
+        let assistantText = "";
+        let assistantPlaceholder = false;
+
+        const updateAssistant = (nextText: string) => {
+            assistantText = nextText;
+            setMessages((previous) => {
+                const next = [...previous];
+                const last = next.at(-1);
+                if (last?.role === "assistant") {
+                    next[next.length - 1] = { role: "assistant", content: nextText };
+                } else {
+                    next.push({ role: "assistant", content: nextText });
+                }
+                return next;
+            });
+        };
 
         try {
             const res = await fetch("/v1/chat/completions", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
+                signal: controller.signal,
                 body: JSON.stringify({
-                    model: currentModel,
-                    messages: payloadMessages,
+                    model: selectedModel.id,
+                    messages: [
+                        ...(systemPrompt.trim() ? [{ role: "system", content: systemPrompt.trim() }] : []),
+                        ...updatedMessages,
+                    ],
                     temperature,
                     top_p: topP,
-                    max_tokens: maxTokens,
+                    ...(maxTokens ? { max_tokens: maxTokens } : {}),
                     stream: true,
                 }),
             });
@@ -102,295 +154,186 @@ function PlaygroundPage() {
                 const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
                 throw new Error(body?.error?.message ?? `HTTP ${res.status}`);
             }
-
-            if (!res.body) throw new Error("No response body");
+            if (!res.body) throw new Error("The gateway returned no response body.");
 
             const reader = res.body.getReader();
             const decoder = new TextDecoder();
             let buffer = "";
-            let assistantText = "";
+            setMessages((previous) => [...previous, { role: "assistant", content: "" }]);
+            assistantPlaceholder = true;
 
-            setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
+            const processEvent = (event: string): SseResult => {
+                const data = getSseMessage(event);
+                if (!data) return "continue";
+                if (data === "[DONE]") return "done";
 
-            while (true) {
+                const payload = JSON.parse(data) as ChatCompletionChunk & { error?: unknown };
+                const streamError = getStreamError(payload);
+                if (streamError) throw new Error(streamError);
+
+                const delta = payload.choices?.[0]?.delta?.content ?? "";
+                if (delta) updateAssistant(assistantText + delta);
+                return "continue";
+            };
+
+            let finished = false;
+            while (!finished) {
                 const { done, value } = await reader.read();
-                if (done) break;
-                buffer += decoder.decode(value, { stream: true });
+                buffer += decoder.decode(value, { stream: !done });
+                buffer = buffer.replaceAll("\r\n", "\n");
 
-                const lines = buffer.split("\n");
-                buffer = lines.pop() ?? "";
-
-                for (const line of lines) {
-                    const trimmed = line.trim();
-                    if (!trimmed.startsWith("data:")) continue;
-                    const payload = trimmed.slice(5).trim();
-                    if (payload === "[DONE]") continue;
-                    try {
-                        const chunk = JSON.parse(payload) as ChatCompletionChunk;
-                        const delta = chunk.choices?.[0]?.delta?.content ?? "";
-                        if (delta) {
-                            assistantText += delta;
-                            setMessages((prev) => {
-                                const next = [...prev];
-                                next[next.length - 1] = { role: "assistant", content: assistantText };
-                                return next;
-                            });
-                        }
-                    } catch {
-                        // skip malformed JSON chunks
-                    }
+                const events = buffer.split("\n\n");
+                buffer = events.pop() ?? "";
+                for (const event of events) {
+                    if (processEvent(event) === "done") finished = true;
                 }
+                if (done) break;
             }
-        } catch (err) {
-            setMessages((prev) => [
-                ...prev,
-                { role: "assistant", content: `Error: ${err instanceof Error ? err.message : "Unknown error"}` },
-            ]);
+
+            buffer += decoder.decode();
+            if (buffer.trim()) processEvent(buffer);
+            setStatusMessage("Response complete.");
+        } catch (error) {
+            if (controller.signal.aborted) {
+                setMessages((previous) => {
+                    const last = previous.at(-1);
+                    return last?.role === "assistant" && !last.content ? previous.slice(0, -1) : previous;
+                });
+                setStatusMessage("Generation cancelled.");
+            } else {
+                const message = error instanceof Error ? error.message : "Unknown gateway error.";
+                setMessages((previous) => {
+                    const next = [...previous];
+                    const last = next.at(-1);
+                    if (assistantPlaceholder && last?.role === "assistant") {
+                        next[next.length - 1] = {
+                            role: "assistant",
+                            content: assistantText ? `${assistantText}\n\nError: ${message}` : `Error: ${message}`,
+                        };
+                    } else {
+                        next.push({ role: "assistant", content: `Error: ${message}` });
+                    }
+                    return next;
+                });
+                setStatusMessage(`Generation failed: ${message}`);
+            }
         } finally {
+            abortRef.current = null;
             setStreaming(false);
         }
     }
 
-    const currentModelId = model || models[0]?.id || "gpt-4o-mini";
-    const apiBase = `${typeof window !== "undefined" ? window.location.origin : "http://localhost:3000"}/v1`;
+    function cancel() {
+        abortRef.current?.abort();
+    }
 
-    const generatedCurl = `curl ${apiBase}/chat/completions \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "model": "${currentModelId}",
-    "messages": ${JSON.stringify(
-        messages.length > 0 ? messages : [{ role: "user", content: "Hello SRouter!" }],
-        null,
-        2
-    )},
-    "temperature": ${temperature}
-  }'`;
-
-    const handleCopyCode = async () => {
-        await navigator.clipboard.writeText(generatedCurl);
-        setCopiedSnippet(true);
-        setTimeout(() => setCopiedSnippet(false), 1500);
+    const generatedRequest = {
+        model: selectedModel?.id ?? "",
+        messages: requestMessages(),
+        temperature,
+        top_p: topP,
+        ...(maxTokens ? { max_tokens: maxTokens } : {}),
+        stream: true,
     };
+    const generatedCurl = selectedModel
+        ? `curl ${apiBase}/chat/completions \\\n  -H "Content-Type: application/json" \\\n  -H "Authorization: Bearer srouter-key" \\\n  -d ${shellQuote(JSON.stringify(generatedRequest, null, 2))}`
+        : "Select a model to generate a request.";
+
+    async function handleCopyCode() {
+        try {
+            await navigator.clipboard.writeText(generatedCurl);
+            setCopiedSnippet(true);
+            setStatusMessage("Request code copied.");
+            window.setTimeout(() => setCopiedSnippet(false), 1500);
+        } catch {
+            setStatusMessage("Could not copy request code.");
+        }
+    }
 
     return (
-        <div className="flex h-[calc(100vh-5.5rem)] flex-col gap-3">
-            {/* Header Control Bar */}
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/80 bg-card p-3 shadow-2xs">
-                <div className="flex items-center gap-3">
-                    <div className="flex size-9 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">
-                        <Activity className="size-4.5" />
-                    </div>
-                    <div>
-                        <h1 className="text-base font-bold tracking-tight text-foreground">Playground</h1>
-                        <p className="text-xs text-muted-foreground">Uji streaming chat completions secara langsung.</p>
-                    </div>
+        <div className="flex min-h-0 flex-1 flex-col gap-4">
+            <PlaygroundCommandBar
+                models={models}
+                model={model}
+                selectedModel={selectedModel}
+                modelsPending={modelsPending}
+                modelsError={modelsError}
+                modelsQueryError={modelsQueryError}
+                onModelChange={setModel}
+                onRetryModels={() => void refetchModels()}
+                onOpenParams={() => setShowParamsSheet(true)}
+                onOpenCode={() => setShowCodeSheet(true)}
+                onClear={() => setMessages([])}
+                hasMessages={messages.length > 0}
+            />
+
+            <div className="grid min-h-0 flex-1 gap-3 xl:grid-cols-[minmax(0,1fr)_15rem]">
+                <div className="flex min-h-[34rem] min-w-0 flex-col overflow-hidden border border-border bg-background">
+                    <ConversationViewport messages={messages} selectedModel={selectedModel} streaming={streaming} />
+                    <MessageComposer
+                        input={input}
+                        selectedModel={selectedModel}
+                        streaming={streaming}
+                        onInputChange={setInput}
+                        onSend={() => void send()}
+                        onCancel={cancel}
+                    />
                 </div>
 
-                <div className="flex items-center gap-2">
-                    <div className="relative">
-                        <select
-                            value={model}
-                            onChange={(e) => setModel(e.target.value)}
-                            className="h-8 rounded-lg border border-border/60 bg-secondary/30 pl-3 pr-8 text-xs font-mono font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-ring appearance-none"
-                        >
-                            {models.length === 0 ? (
-                                <option value="">Loading models…</option>
-                            ) : (
-                                models.map((m) => (
-                                    <option key={m.id} value={m.id}>
-                                        {m.id} ({m.owned_by ?? "srouter"})
-                                    </option>
-                                ))
-                            )}
-                        </select>
-                        <ChevronDown className="absolute right-2.5 top-2.5 size-3.5 text-muted-foreground pointer-events-none" />
-                    </div>
-
-                    <button
-                        type="button"
-                        onClick={() => setShowParamsSheet(true)}
-                        className="flex h-8 items-center gap-1.5 rounded-lg border border-border/60 bg-secondary/30 px-3 text-xs font-medium text-foreground transition-all hover:bg-secondary"
-                    >
-                        <SlidersHorizontal className="size-3.5 text-indigo-500" />
-                        Parameters
-                    </button>
-
-                    <button
-                        type="button"
-                        onClick={() => setShowCodeSheet(true)}
-                        className="flex h-8 items-center gap-1.5 rounded-lg border border-border/60 bg-secondary/30 px-3 text-xs font-medium text-foreground transition-all hover:bg-secondary"
-                    >
-                        <Code2 className="size-3.5 text-emerald-500" />
-                        Export Code
-                    </button>
-
-                    {messages.length > 0 && (
-                        <button
-                            type="button"
-                            onClick={() => setMessages([])}
-                            className="flex h-8 size-8 items-center justify-center rounded-lg border border-border/60 bg-secondary/30 text-muted-foreground hover:text-rose-500 transition-colors"
-                            title="Clear conversation"
-                        >
-                            <Eraser className="size-3.5" />
-                        </button>
-                    )}
-                </div>
-            </div>
-
-            {/* Chat Stream Canvas */}
-            <div className="flex flex-1 flex-col justify-between overflow-hidden rounded-xl border border-border/80 bg-card shadow-2xs">
-                <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                    {messages.length === 0 ? (
-                        <div className="flex h-full flex-col items-center justify-center text-center p-6 text-muted-foreground">
-                            <div className="flex size-12 items-center justify-center rounded-2xl bg-indigo-500/10 text-indigo-500 border border-indigo-500/20 mb-3">
-                                <Sparkles className="size-6 animate-pulse" />
-                            </div>
-                            <h3 className="text-sm font-semibold text-foreground">Playground Ready</h3>
-                            <p className="mt-1 text-xs max-w-sm">
-                                Kirim pesan di bawah ini untuk menguji gateway routing ke model <code className="font-mono text-indigo-500">{currentModelId}</code>.
-                            </p>
+                <aside className="hidden min-h-0 border border-border bg-muted/10 xl:block" aria-label="Request summary">
+                    <div className="border-b border-border/70 px-4 py-3 font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">Request summary</div>
+                    <div className="divide-y divide-border/60 text-xs">
+                        <div className="space-y-1 px-4 py-4">
+                            <p className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted-foreground">Model</p>
+                            <p className="break-words font-mono text-[11px] leading-relaxed text-foreground">{selectedModel?.id ?? "Not selected"}</p>
                         </div>
-                    ) : (
-                        messages.map((m, i) => (
-                            <div
-                                key={i}
-                                className={`flex items-start gap-3 ${m.role === "user" ? "flex-row-reverse" : "flex-row"}`}
-                            >
-                                <div
-                                    className={`flex size-7 shrink-0 items-center justify-center rounded-lg text-xs font-bold ${
-                                        m.role === "user"
-                                            ? "bg-indigo-500 text-white shadow-2xs"
-                                            : "bg-secondary border border-border/60 text-foreground"
-                                    }`}
-                                >
-                                    {m.role === "user" ? <User className="size-3.5" /> : <Bot className="size-3.5 text-indigo-500" />}
-                                </div>
-
-                                <div
-                                    className={`max-w-[80%] rounded-xl px-4 py-2.5 text-xs leading-relaxed whitespace-pre-wrap ${
-                                        m.role === "user"
-                                            ? "bg-accent text-white shadow-2xs font-normal"
-                                            : "bg-secondary/40 border border-border/50 text-foreground"
-                                    }`}
-                                >
-                                    {m.content || <span className="animate-pulse text-muted-foreground">Generating output…</span>}
-                                </div>
+                        <div className="grid grid-cols-2 gap-3 px-4 py-4">
+                            <div className="space-y-1">
+                                <p className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted-foreground">Temp</p>
+                                <p className="font-mono text-[11px] text-foreground">{temperature.toFixed(2)}</p>
                             </div>
-                        ))
-                    )}
-                </div>
-
-                {/* Input Area */}
-                <div className="border-t border-border/60 bg-secondary/15 p-3">
-                    <div className="flex gap-2">
-                        <textarea
-                            value={input}
-                            onChange={(e) => setInput(e.target.value)}
-                            onKeyDown={(e) => {
-                                if (e.key === "Enter" && !e.shiftKey) {
-                                    e.preventDefault();
-                                    void send();
-                                }
-                            }}
-                            placeholder={`Message ${currentModelId}… (Press Enter to send)`}
-                            rows={1}
-                            className="flex-1 resize-none rounded-lg border border-border/60 bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                        />
-                        <button
-                            type="button"
-                            onClick={() => void send()}
-                            disabled={streaming || !input.trim()}
-                            className="flex items-center gap-1.5 rounded-lg bg-accent px-4 py-2 text-xs font-medium text-white shadow-2xs transition-all hover:bg-accent/90 active:scale-95 disabled:opacity-50"
-                        >
-                            <Send className="size-3.5" />
-                            {streaming ? "Streaming…" : "Send"}
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            {/* Parameters Settings Drawer */}
-            <Sheet open={showParamsSheet} onOpenChange={setShowParamsSheet}>
-                <SheetContent side="right" className="sm:max-w-md w-full p-6 space-y-6">
-                    <SheetHeader className="p-0 border-b border-border/50 pb-3">
-                        <SheetTitle className="text-base font-bold text-foreground flex items-center gap-2">
-                            <SlidersHorizontal className="size-4 text-indigo-500" />
-                            Model Parameters
-                        </SheetTitle>
-                    </SheetHeader>
-
-                    <div className="space-y-4 text-xs">
-                        <div className="space-y-1.5">
-                            <label className="font-semibold text-foreground block">System Prompt</label>
-                            <textarea
-                                value={systemPrompt}
-                                onChange={(e) => setSystemPrompt(e.target.value)}
-                                rows={4}
-                                className="w-full rounded-lg border border-border/60 bg-secondary/30 p-2.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                            />
-                        </div>
-
-                        <div className="space-y-1.5">
-                            <div className="flex justify-between">
-                                <label className="font-semibold text-foreground">Temperature ({temperature})</label>
-                                <span className="text-muted-foreground font-mono">{temperature.toFixed(2)}</span>
+                            <div className="space-y-1">
+                                <p className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted-foreground">Top P</p>
+                                <p className="font-mono text-[11px] text-foreground">{topP.toFixed(2)}</p>
                             </div>
-                            <input
-                                type="range"
-                                min="0"
-                                max="2"
-                                step="0.05"
-                                value={temperature}
-                                onChange={(e) => setTemperature(parseFloat(e.target.value))}
-                                className="w-full accent-indigo-500"
-                            />
                         </div>
-
-                        <div className="space-y-1.5">
-                            <div className="flex justify-between">
-                                <label className="font-semibold text-foreground">Top P ({topP})</label>
-                                <span className="text-muted-foreground font-mono">{topP.toFixed(2)}</span>
-                            </div>
-                            <input
-                                type="range"
-                                min="0"
-                                max="1"
-                                step="0.05"
-                                value={topP}
-                                onChange={(e) => setTopP(parseFloat(e.target.value))}
-                                className="w-full accent-indigo-500"
-                            />
+                        <div className="space-y-1 px-4 py-4">
+                            <p className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted-foreground">Max tokens</p>
+                            <p className="font-mono text-[11px] text-foreground">{maxTokens ?? "Provider default"}</p>
                         </div>
-                    </div>
-                </SheetContent>
-            </Sheet>
-
-            {/* Code Export Drawer */}
-            <Sheet open={showCodeSheet} onOpenChange={setShowCodeSheet}>
-                <SheetContent side="right" className="sm:max-w-md w-full p-6 space-y-6">
-                    <SheetHeader className="p-0 border-b border-border/50 pb-3">
-                        <SheetTitle className="text-base font-bold text-foreground flex items-center justify-between">
-                            <span className="flex items-center gap-2">
-                                <Code2 className="size-4 text-emerald-500" />
-                                Export Request Code
-                            </span>
-                            <button
-                                type="button"
-                                onClick={() => void handleCopyCode()}
-                                className="flex items-center gap-1 rounded bg-secondary/50 px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
-                            >
-                                {copiedSnippet ? <Check className="size-3 text-emerald-500" /> : <Copy className="size-3" />}
-                                {copiedSnippet ? "Copied!" : "Copy"}
+                        <div className="space-y-1 px-4 py-4">
+                            <p className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted-foreground">System prompt</p>
+                            <p className="line-clamp-5 text-[11px] leading-relaxed text-muted-foreground">{systemPrompt || "No system prompt"}</p>
+                            <button type="button" onClick={() => setShowParamsSheet(true)} className="pt-2 text-[11px] font-medium text-foreground underline underline-offset-2 transition-colors hover:text-muted-foreground">
+                                Edit parameters
                             </button>
-                        </SheetTitle>
-                    </SheetHeader>
+                        </div>
+                    </div>
+                </aside>
+            </div>
 
-                    <pre className="p-3.5 rounded-lg border border-border/60 bg-secondary/30 font-mono text-xs text-foreground overflow-x-auto leading-relaxed">
-                        <code>{generatedCurl}</code>
-                    </pre>
-                </SheetContent>
-            </Sheet>
+            <p className="sr-only" role="status" aria-live="polite">{statusMessage}</p>
+
+            <ParamsSheet
+                open={showParamsSheet}
+                onOpenChange={setShowParamsSheet}
+                systemPrompt={systemPrompt}
+                temperature={temperature}
+                topP={topP}
+                maxTokens={maxTokens}
+                onSystemPromptChange={setSystemPrompt}
+                onTemperatureChange={setTemperature}
+                onTopPChange={setTopP}
+                onMaxTokensChange={setMaxTokens}
+            />
+            <CodeSheet
+                open={showCodeSheet}
+                onOpenChange={setShowCodeSheet}
+                generatedCurl={generatedCurl}
+                canCopy={hasUsableModel}
+                copied={copiedSnippet}
+                onCopy={() => void handleCopyCode()}
+            />
         </div>
     );
 }
-

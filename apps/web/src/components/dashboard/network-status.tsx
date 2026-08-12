@@ -1,162 +1,54 @@
 import { useState } from "react";
-import { Check, Cloud, Copy, Network, Code2 } from "lucide-react";
+import { Check, Copy } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const API_BASE = `${typeof window !== "undefined" ? window.location.origin : "http://localhost:3000"}/v1`;
 
-function CopyButton({ text }: { text: string }) {
+export function NetworkStatus() {
     const [copied, setCopied] = useState(false);
 
     async function handleCopy() {
-        await navigator.clipboard.writeText(text);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1500);
+        try {
+            await navigator.clipboard.writeText(API_BASE);
+            setCopied(true);
+            window.setTimeout(() => setCopied(false), 1500);
+        } catch {
+            setCopied(false);
+        }
     }
 
     return (
-        <button
-            type="button"
-            onClick={() => void handleCopy()}
-            aria-label="Copy snippet"
-            className="flex items-center gap-1.5 rounded border border-border/60 bg-secondary/50 px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
-        >
-            {copied ? (
-                <>
-                    <Check className="size-3 text-emerald-500" />
-                    <span className="text-emerald-500">Copied</span>
-                </>
-            ) : (
-                <>
-                    <Copy className="size-3" />
-                    <span>Copy</span>
-                </>
-            )}
-        </button>
-    );
-}
+        <section className="min-w-0 py-5 pl-0 lg:pl-6" aria-labelledby="gateway-endpoint-title">
+            <header>
+                <h2 id="gateway-endpoint-title" className="text-sm font-semibold text-foreground">
+                    Client endpoint
+                </h2>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">OpenAI-compatible base URL for local clients</p>
+            </header>
 
-export function NetworkStatus() {
-    const [activeTab, setActiveTab] = useState<"curl" | "node" | "python">("curl");
-
-    const snippets = {
-        curl: `curl ${API_BASE}/chat/completions \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "model": "gpt-4o-mini",
-    "messages": [{"role": "user", "content": "Hello SRouter!"}]
-  }'`,
-        node: `import OpenAI from "openai";
-
-const openai = new OpenAI({
-  baseURL: "${API_BASE}",
-  apiKey: "srouter-key",
-});
-
-const response = await openai.chat.completions.create({
-  model: "gpt-4o-mini",
-  messages: [{ role: "user", content: "Hello SRouter!" }],
-});`,
-        python: `from openai import OpenAI
-
-client = OpenAI(
-    base_url="${API_BASE}",
-    api_key="srouter-key"
-)
-
-response = client.chat.completions.create(
-    model="gpt-4o-mini",
-    messages=[{"role": "user", "content": "Hello SRouter!"}]
-)`,
-    };
-
-    return (
-        <div className="rounded-lg border border-border/70 bg-card overflow-hidden">
-            {/* Header */}
-            <div className="flex items-center justify-between border-b border-border/60 bg-secondary/30 px-4 py-3">
-                <div className="flex items-center gap-2">
-                    <Code2 className="size-4 text-muted-foreground" />
-                    <span className="text-xs font-semibold text-foreground">API Integration & Endpoint</span>
-                    <span className="font-mono text-[10px] text-muted-foreground border border-border/60 px-1.5 py-0.2 rounded">
-                        OpenAI-compatible
-                    </span>
-                </div>
-
-                <CopyButton text={API_BASE} />
-            </div>
-
-            <div className="p-4 space-y-4">
-                {/* Integration Code Tabs */}
-                <div className="rounded border border-border/60 bg-secondary/20 overflow-hidden">
-                    <div className="flex items-center justify-between border-b border-border/50 px-3 py-1.5 bg-secondary/40">
-                        <div className="flex items-center gap-1 font-mono text-xs">
-                            <button
-                                type="button"
-                                onClick={() => setActiveTab("curl")}
-                                className={`px-2 py-0.5 rounded text-xs transition-colors ${
-                                    activeTab === "curl"
-                                        ? "bg-background text-foreground font-semibold border border-border/60"
-                                        : "text-muted-foreground hover:text-foreground"
-                                }`}
-                            >
-                                cURL
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setActiveTab("node")}
-                                className={`px-2 py-0.5 rounded text-xs transition-colors ${
-                                    activeTab === "node"
-                                        ? "bg-background text-foreground font-semibold border border-border/60"
-                                        : "text-muted-foreground hover:text-foreground"
-                                }`}
-                            >
-                                Node.js
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setActiveTab("python")}
-                                className={`px-2 py-0.5 rounded text-xs transition-colors ${
-                                    activeTab === "python"
-                                        ? "bg-background text-foreground font-semibold border border-border/60"
-                                        : "text-muted-foreground hover:text-foreground"
-                                }`}
-                            >
-                                Python
-                            </button>
-                        </div>
-                        <CopyButton text={snippets[activeTab]} />
-                    </div>
-
-                    <pre className="p-3 overflow-x-auto text-xs font-mono text-foreground leading-relaxed">
-                        <code>{snippets[activeTab]}</code>
-                    </pre>
-                </div>
-
-                {/* Network Tunnels Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                    <div className="flex items-center justify-between gap-3 rounded border border-border/60 bg-secondary/20 p-3">
-                        <div className="flex items-center gap-2.5">
-                            <Cloud className="size-4 text-muted-foreground" />
-                            <div>
-                                <div className="font-medium text-foreground">Cloudflare Tunnel</div>
-                                <div className="text-[11px] text-muted-foreground">Expose gateway ke internet publik.</div>
-                            </div>
-                        </div>
-                        <span className="font-mono text-[10px] text-muted-foreground">Off</span>
-                    </div>
-
-                    <div className="flex items-center justify-between gap-3 rounded border border-border/60 bg-secondary/20 p-3">
-                        <div className="flex items-center gap-2.5">
-                            <Network className="size-4 text-muted-foreground" />
-                            <div>
-                                <div className="font-medium text-foreground">Tailscale</div>
-                                <div className="text-[11px] text-muted-foreground">Internal mesh VPN router.</div>
-                            </div>
-                        </div>
-                        <span className="font-mono text-[10px] text-muted-foreground">Off</span>
-                    </div>
+            <div className="mt-5">
+                <p className="text-[10px] font-medium text-muted-foreground">Base URL</p>
+                <div className="mt-2 flex min-w-0 items-center gap-3 border-b border-border/70 pb-2">
+                    <code className="min-w-0 flex-1 truncate text-xs text-foreground" title={API_BASE}>
+                        {API_BASE}
+                    </code>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="xs"
+                        onClick={() => void handleCopy()}
+                        aria-label="Copy gateway base URL"
+                        className="font-mono text-muted-foreground hover:text-foreground"
+                    >
+                        {copied ? <Check className="text-emerald-500" /> : <Copy />}
+                        {copied ? "Copied" : "Copy URL"}
+                    </Button>
                 </div>
             </div>
-        </div>
+
+            <p className="mt-4 max-w-sm text-[11px] leading-relaxed text-muted-foreground">
+                Set this as your SDK <code className="text-foreground">baseURL</code>, then authenticate with an SRouter API key.
+            </p>
+        </section>
     );
 }
-
-
