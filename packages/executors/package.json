@@ -12,6 +12,7 @@
     },
     "scripts": {
         "build": "tsc",
+        "test": "tsx --test tests/**/*.test.ts",
         "clean": "rm -rf dist"
     },
     "dependencies": {
@@ -20,6 +21,7 @@
     },
     "devDependencies": {
         "@types/node": "^26.1.1",
+        "tsx": "^4.23.0",
         "typescript": "^5.0.0"
     }
 }

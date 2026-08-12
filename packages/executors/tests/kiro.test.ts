@@ -49,6 +49,20 @@ function responseFromFrames(frames: Uint8Array[]): Response {
     return new Response(bytes, { status: 200 });
 }
 
+function streamResponse(frames: Uint8Array[]): { response: Response; release: () => void } {
+    let release = (): void => {};
+    const wait = new Promise<void>((resolve) => { release = resolve; });
+    const body = new ReadableStream<Uint8Array>({
+        async start(controller) {
+            controller.enqueue(frames[0]!);
+            await wait;
+            for (const frame of frames.slice(1)) controller.enqueue(frame);
+            controller.close();
+        },
+    });
+    return { response: new Response(body, { status: 200 }), release };
+}
+
 test("Kiro API-key auth routes Amazon Q first and regionalizes AWS endpoints", () => {
     const executor = new KiroExecutor({ accessToken: "key", authMethod: "api_key", region: "eu-west-1" });
     assert.deepEqual(executor.getOrderedBaseUrls(), [
@@ -76,6 +90,39 @@ test("Kiro request contains CodeWhisperer conversation state and API-key profile
     assert.equal(body.profileArn, undefined);
 });
 
+test("Kiro auth modes send the documented bearer and token-type headers", async () => {
+    const originalFetch = globalThis.fetch;
+    const cases = [
+        ["api_key", "API_KEY"],
+        ["external_idp", "EXTERNAL_IDP"],
+        ["idc", null],
+        ["builder-id", null],
+        ["social", null],
+    ] as const;
+    try {
+        for (const [authMethod, expectedTokenType] of cases) {
+            let captured = new Headers();
+            globalThis.fetch = async (_input, init) => {
+                captured = new Headers(init?.headers);
+                return responseFromFrames([eventFrame("messageStopEvent", { stopReason: "END_TURN" })]);
+            };
+            const executor = new KiroExecutor({
+                accessToken: "token",
+                authMethod,
+                baseUrl: "https://example.com/generateAssistantResponse",
+            });
+            for await (const _chunk of executor.chatCompletionStream({
+                model: "kiro/simple-task",
+                messages: [{ role: "user", content: "hi" }],
+            })) { /* drain */ }
+            assert.equal(captured.get("Authorization"), "Bearer token", authMethod);
+            assert.equal(captured.get("TokenType"), expectedTokenType, authMethod);
+        }
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
+});
+
 test("Kiro EventStream becomes OpenAI chunks with text and stop reason", async () => {
     const originalFetch = globalThis.fetch;
     const executor = new KiroExecutor({ accessToken: "token", authMethod: "builder-id" });
@@ -93,6 +140,61 @@ test("Kiro EventStream becomes OpenAI chunks with text and stop reason", async (
         assert.equal(chunks[0]?.choices[0]?.delta.role, "assistant");
         assert.equal(chunks[0]?.choices[0]?.delta.content, "hello");
         assert.equal(chunks.at(-1)?.choices[0]?.finish_reason, "stop");
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
+});
+
+// Regression coverage for public Kiro behavior.
+test("Kiro preserves the thinking model suffix", () => {
+    const body = new KiroExecutor({ accessToken: "key", authMethod: "api_key" }).buildRequest({
+        model: "kiro/claude-sonnet-4.5-thinking",
+        messages: [{ role: "user", content: "think" }],
+    });
+    assert.equal(body.conversationState.currentMessage.userInputMessage.modelId, "claude-sonnet-4.5-thinking");
+});
+
+test("Kiro yields the first event before the upstream body closes", async () => {
+    const originalFetch = globalThis.fetch;
+    const streamed = streamResponse([
+        eventFrame("assistantResponseEvent", { content: "early" }),
+        eventFrame("messageStopEvent", { stopReason: "END_TURN" }),
+    ]);
+    globalThis.fetch = async () => streamed.response;
+    try {
+        const iterator = new KiroExecutor({ accessToken: "token" }).chatCompletionStream({
+            model: "kiro/simple-task",
+            messages: [{ role: "user", content: "hi" }],
+        });
+        const first = await Promise.race([
+            iterator.next(),
+            new Promise<never>((_, reject) => setTimeout(() => reject(new Error("first chunk waited for stream close")), 100)),
+        ]);
+        assert.equal(first.value?.choices[0]?.delta.content, "early");
+        streamed.release();
+        while (!(await iterator.next()).done) { /* drain */ }
+    } finally {
+        streamed.release();
+        globalThis.fetch = originalFetch;
+    }
+});
+
+test("Kiro combines fragmented tool input for one tool call", async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => responseFromFrames([
+        eventFrame("toolUseEvent", { toolUseId: "call_1", name: "weather", input: "{\"city\":\"" }),
+        eventFrame("toolUseEvent", { toolUseId: "call_1", input: "Paris\"}" }),
+        eventFrame("messageStopEvent", { stopReason: "TOOL_USE" }),
+    ]);
+    try {
+        const chunks = [];
+        for await (const value of new KiroExecutor({ accessToken: "token" }).chatCompletionStream({
+            model: "kiro/simple-task",
+            messages: [{ role: "user", content: "weather" }],
+        })) chunks.push(value);
+        const call = chunks.flatMap((value) => value.choices[0]?.delta.tool_calls ?? [])[0];
+        assert.equal(call?.function?.name, "weather");
+        assert.equal(call?.function?.arguments, "{\"city\":\"Paris\"}");
     } finally {
         globalThis.fetch = originalFetch;
     }

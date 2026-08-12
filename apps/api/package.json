@@ -6,7 +6,7 @@
         "build": "tsup",
         "clean": "rm -rf dist",
         "start": "node dist/index.js",
-        "test": "tsx --test tests/**/*.test.ts"
+        "test": "tsx --test --test-concurrency=1 tests/**/*.test.ts"
     },
     "dependencies": {
         "@hono/node-server": "^2.1.0",

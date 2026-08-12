@@ -371,6 +371,9 @@ importers:
       '@types/node':
         specifier: ^26.1.1
         version: 26.2.0
+      tsx:
+        specifier: ^4.23.0
+        version: 4.23.11
       typescript:
         specifier: ^5.0.0
         version: 5.9.3
@@ -397,6 +400,9 @@ importers:
       '@types/node':
         specifier: ^26.1.1
         version: 26.2.0
+      tsx:
+        specifier: ^4.23.0
+        version: 4.23.11
       typescript:
         specifier: ^5.0.0
         version: 5.9.3

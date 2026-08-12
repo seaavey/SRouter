@@ -48,7 +48,7 @@ export interface KiroExecutorOptions {
 
 type KiroEvent = {
     headers: Record<string, unknown>;
-    payload: any;
+    payload: unknown;
 };
 
 type KiroMessage = {
@@ -60,6 +60,20 @@ type KiroMessage = {
         userInputMessageContext?: Record<string, unknown>;
     };
     assistantResponseMessage?: { content: string; toolUses?: unknown[] };
+};
+
+type KiroRequest = {
+    conversationState: {
+        chatTriggerType: string;
+        conversationId: string;
+        agentContinuationId: string;
+        agentTaskType: string;
+        currentMessage: KiroMessage;
+        history: KiroMessage[];
+    };
+    agentMode: string;
+    inferenceConfig: Record<string, number>;
+    profileArn?: string;
 };
 
 const encoder = new TextEncoder();
@@ -75,9 +89,8 @@ function crc32(bytes: Uint8Array): number {
 }
 
 function bareModel(model: string): string {
-    let value = model.includes("/") ? (model.split("/").pop() ?? model) : model;
-    value = value.replace(/-agentic$/, "").replace(/-thinking$/, "");
-    return value;
+    const value = model.startsWith("kiro/") ? model.slice("kiro/".length) : model;
+    return value.replace(/-agentic$/, "");
 }
 
 function textOf(content: ChatCompletionRequest["messages"][number]["content"]): string {
@@ -86,13 +99,8 @@ function textOf(content: ChatCompletionRequest["messages"][number]["content"]): 
     return content.map((part) => part.type === "text" ? part.text ?? "" : "[Image omitted]").join("\n");
 }
 
-function safeJson(value: string): Record<string, unknown> {
-    try {
-        const parsed: unknown = JSON.parse(value || "{}");
-        return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as Record<string, unknown> : { value: parsed };
-    } catch {
-        return { raw: value };
-    }
+function asObject(value: unknown): Record<string, unknown> {
+    return value !== null && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
 
 function normalizeStopReason(value: unknown): "end_turn" | "tool_use" | "max_tokens" | null {
@@ -161,11 +169,42 @@ function parseFrames(bytes: Uint8Array): KiroEvent[] {
         if (bytes.length - offset < 12) throw new Error("Kiro EventStream ended with a truncated frame");
         const view = new DataView(bytes.buffer, bytes.byteOffset + offset, bytes.length - offset);
         const totalLength = view.getUint32(0, false);
-        if (totalLength < 16 || offset + totalLength > bytes.length) throw new Error("Kiro EventStream ended with a truncated frame");
+        if (totalLength < 16 || totalLength > MAX_FRAME_BYTES || offset + totalLength > bytes.length) throw new Error("Kiro EventStream ended with a truncated frame");
         events.push(parseEventFrame(bytes.subarray(offset, offset + totalLength)));
         offset += totalLength;
     }
     return events;
+}
+
+async function* streamFrames(body: ReadableStream<Uint8Array>): AsyncGenerator<KiroEvent, void, void> {
+    const reader = body.getReader();
+    let buffer = new Uint8Array(0);
+    try {
+        while (true) {
+            const { done, value } = await reader.read();
+            if (value?.length) {
+                const combined = new Uint8Array(buffer.length + value.length);
+                combined.set(buffer);
+                combined.set(value, buffer.length);
+                buffer = combined;
+            }
+            let offset = 0;
+            while (buffer.length - offset >= 12) {
+                const view = new DataView(buffer.buffer, buffer.byteOffset + offset, buffer.length - offset);
+                const totalLength = view.getUint32(0, false);
+                if (totalLength < 16 || totalLength > MAX_FRAME_BYTES) throw new Error("AWS EventStream frame bounds are invalid");
+                if (buffer.length - offset < totalLength) break;
+                yield parseEventFrame(buffer.subarray(offset, offset + totalLength));
+                offset += totalLength;
+            }
+            if (offset > 0) buffer = buffer.slice(offset);
+            if (done) break;
+            if (buffer.length > MAX_FRAME_BYTES) throw new Error("AWS EventStream frame exceeds maximum size");
+        }
+        if (buffer.length !== 0) throw new Error("Kiro EventStream ended with a truncated frame");
+    } finally {
+        reader.releaseLock();
+    }
 }
 
 function chunk(id: string, model: string, delta: ChatCompletionChunk["choices"][number]["delta"], finishReason: ChatCompletionChunk["choices"][number]["finish_reason"] = null): ChatCompletionChunk {
@@ -213,7 +252,7 @@ export class KiroExecutor implements AIProvider {
             : [RUNTIME_URL, aws[1], aws[0]];
     }
 
-    buildRequest(req: ChatCompletionRequest): Record<string, any> {
+    buildRequest(req: ChatCompletionRequest): KiroRequest {
         const model = bareModel(req.model);
         const messages: KiroMessage[] = [];
         let currentIndex = -1;
@@ -244,7 +283,7 @@ export class KiroExecutor implements AIProvider {
         if (tools.length > 0) current.userInputMessage!.userInputMessageContext = {
             ...(current.userInputMessage!.userInputMessageContext ?? {}), tools,
         };
-        const payload: Record<string, any> = {
+        const payload: KiroRequest = {
             conversationState: {
                 chatTriggerType: "MANUAL",
                 conversationId: crypto.randomUUID(),
@@ -309,36 +348,43 @@ export class KiroExecutor implements AIProvider {
             }
         }
         if (!response?.ok) throw new Error(`Kiro Provider Error (${response?.status ?? 502}): ${lastError}`);
-        const bytes = new Uint8Array(await response.arrayBuffer());
-        const events = parseFrames(bytes);
+        if (!response.body) throw new Error("Kiro Provider Error (502): response body is missing");
         const responseId = `chatcmpl-${Date.now()}`;
         let first = true;
         let hadTool = false;
-        const tools = new Map<string, { name: string; input: unknown }>();
+        const tools = new Map<string, { name: string; input: string }>();
         let stop: "end_turn" | "tool_use" | "max_tokens" | null = null;
-        for (const event of events) {
+        for await (const event of streamFrames(response.body)) {
             const type = String(event.headers[":event-type"] ?? "");
-            const payload = event.payload ?? {};
+            const payload = asObject(event.payload);
             if (type === "assistantResponseEvent" || type === "codeEvent") {
                 const content = String(payload.content ?? "");
                 if (content) { yield chunk(responseId, req.model, { ...(first ? { role: "assistant" as const } : {}), content }); first = false; }
             } else if (type === "reasoningContentEvent") {
                 const value = payload.reasoningContentEvent ?? payload;
-                const content = typeof value === "string" ? value : String(value.text ?? value.content ?? "");
+                const valueObject = asObject(value);
+                const content = typeof value === "string" ? value : String(valueObject.text ?? valueObject.content ?? "");
                 if (content) { yield chunk(responseId, req.model, { ...(first ? { role: "assistant" as const } : {}), reasoning_content: content }); first = false; }
             } else if (type === "toolUseEvent") {
-                const values = Array.isArray(payload) ? payload : [payload];
-                for (const value of values) {
+                const values = Array.isArray(event.payload) ? event.payload : [event.payload];
+                for (const rawValue of values) {
+                    const value = asObject(rawValue);
                     const id = String(value.toolUseId ?? `call_${Date.now()}_${tools.size + 1}`);
-                    tools.set(id, { name: String(value.name ?? ""), input: value.input ?? {} });
+                    const previous = tools.get(id);
+                    const fragment = typeof value.input === "string" ? value.input : value.input === undefined ? "" : JSON.stringify(value.input);
+                    tools.set(id, {
+                        name: String(value.name ?? previous?.name ?? ""),
+                        input: `${previous?.input ?? ""}${fragment}`,
+                    });
                 }
                 hadTool = true;
             } else if (type === "messageStopEvent" || type === "metadataEvent" || type === "MetadataEvent") {
-                stop = normalizeStopReason(payload.stopReason ?? payload.stop_reason ?? payload.metadata?.stopReason) ?? stop;
+                const metadata = asObject(payload.metadata);
+                stop = normalizeStopReason(payload.stopReason ?? payload.stop_reason ?? metadata.stopReason) ?? stop;
             }
         }
         for (const [id, value] of tools) {
-            yield chunk(responseId, req.model, { ...(first ? { role: "assistant" as const } : {}), tool_calls: [{ index: 0, id, type: "function", function: { name: value.name, arguments: JSON.stringify(value.input) } }] });
+            yield chunk(responseId, req.model, { ...(first ? { role: "assistant" as const } : {}), tool_calls: [{ index: 0, id, type: "function", function: { name: value.name, arguments: value.input } }] });
             first = false;
         }
         yield chunk(responseId, req.model, {}, hadTool || stop === "tool_use" ? "tool_calls" : stop === "max_tokens" ? "length" : "stop");
