@@ -8,6 +8,7 @@ const PROVIDER_ALIASES: Record<string, string> = {
     antigravity: "antigravity",
     openai_codex: "openai",
     commandcode: "commandcode",
+    freebuff: "freebuff",
     gemini: "gemini",
     vertex: "vertex",
 };
@@ -25,6 +26,19 @@ function stripModelPrefix(modelId: string, alias: string, providerId: string): s
 }
 
 export const DEFAULT_CATALOG: ProviderDefinition[] = [
+    {
+        id: "freebuff",
+        name: "FreeBuff",
+        category: "free_tier",
+        protocol: "openai",
+        description: "Native FreeBuff/Codebuff provider with live model registry and multi-token failover.",
+        icon: "🟢",
+        defaultBaseUrl: "https://www.codebuff.com",
+        requiresApiKey: false,
+        supportsCustomUrl: true,
+        status: { state: "no_connections", message: "FreeBuff token missing" },
+        models: [],
+    },
     {
         id: "openai_codex",
         name: "OpenAI Codex / ChatGPT",
@@ -162,6 +176,15 @@ export class ProviderRegistry {
         if (catItem) {
             const connectedCount = Array.from(this.providers.keys()).filter((k) => k === catItem.id || k.startsWith(`${catItem.id}_`) || k.startsWith(`${catItem.id}-`)).length;
             catItem.status = { state: "connected", connectedCount };
+        }
+    }
+
+    unregisterProvider(providerId: string): void {
+        this.providers.delete(providerId);
+        const baseId = providerId.split("_")[0]?.split("-")[0] ?? providerId;
+        const catItem = this.catalog.find((c) => c.id === providerId || c.id === baseId);
+        if (catItem?.id === "freebuff") {
+            catItem.status = { state: "no_connections", message: "FreeBuff token missing" };
         }
     }
 

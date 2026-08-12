@@ -1,8 +1,8 @@
 import type { Context } from "hono";
 import type { CreateProviderPayload } from "@/logic/providers.logic.js";
 import { ProvidersLogic } from "@/logic/providers.logic.js";
-import { deleteProviderDB } from "@srouter/db";
-import { loadSavedProvidersFromDB } from "@/services/registry.js";
+import { deleteProviderDB, getProviderByIdDB } from "@srouter/db";
+import { freebuffExecutor, loadSavedProvidersFromDB } from "@/services/registry.js";
 import { ok } from "@/utils/response.js";
 
 export class ProvidersController {
@@ -20,7 +20,7 @@ export class ProvidersController {
     }
 
     public static async getProvider(c: Context): Promise<Response> {
-        const providerId = c.req.param("providerId");
+        const providerId = c.req.param("providerId") ?? "";
         const provider = await ProvidersLogic.getProviderById(providerId);
         if (!provider) {
             return c.json({ error: { message: `Provider '${providerId}' not found` } }, 404);
@@ -37,8 +37,16 @@ export class ProvidersController {
         return ok(c, created);
     }
 
-    public static deleteProvider(c: Context): Response {
-        const id = c.req.param("id");
+    public static async deleteProvider(c: Context): Promise<Response> {
+        const id = c.req.param("id") ?? "";
+        const saved = getProviderByIdDB(id);
+        if (saved === null) {
+            return c.json({ error: { message: `Connection '${id}' not found` } }, 404);
+        }
+        const existing = saved.providerId === "freebuff" || id.startsWith("freebuff_") || id.startsWith("freebuff-")
+            ? freebuffExecutor.unregister(id)
+            : Promise.resolve();
+        await existing;
         const deleted = deleteProviderDB(id);
         if (!deleted) {
             return c.json({ error: { message: `Connection '${id}' not found` } }, 404);

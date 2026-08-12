@@ -4,3 +4,8 @@ export * from "./base.js";
 export * from "./codex.js";
 export * from "./commandcode.js";
 export * from "./openai.js";
+export * from "./freebuff/executor.js";
+export * from "./freebuff/coordinator.js";
+export * from "./freebuff/registry.js";
+export * from "./freebuff/types.js";
+export * from "./freebuff/errors.js";

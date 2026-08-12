@@ -109,7 +109,7 @@ export class ProvidersLogic {
             name: config.name,
             protocol: config.protocol,
             category: config.category,
-            baseUrl: config.baseUrl,
+            requiresApiKey: false,
             models: [],
             status: { state: "connected" },
         };

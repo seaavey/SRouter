@@ -1,9 +1,16 @@
 import { getAllProvidersDB } from "@srouter/db";
-import { AntigravityExecutor, AnthropicExecutor, CodexExecutor, CommandCodeExecutor, OpenAIExecutor } from "@srouter/executors";
+import { AntigravityExecutor, AnthropicExecutor, CodexExecutor, CommandCodeExecutor, FreebuffExecutor, OpenAIExecutor } from "@srouter/executors";
 import { ProviderRegistry } from "@srouter/providers";
 
 // Create a global ProviderRegistry instance
 export const registry = new ProviderRegistry();
+
+// All persisted FreeBuff tokens share one coordinator; each DB row remains a
+// separate runtime connection for pooling and failover.
+export const freebuffExecutor = new FreebuffExecutor({
+    id: "freebuff",
+    name: "FreeBuff",
+});
 
 // 1. Register env-configured OpenAI Provider if present
 if (process.env.OPENAI_API_KEY) {
@@ -34,6 +41,12 @@ if (process.env.ANTHROPIC_API_KEY) {
  */
 export function loadSavedProvidersFromDB(): void {
     const savedProviders = getAllProvidersDB();
+    const freebuffConnections = [] as {
+        id: string;
+        accessToken: string;
+        baseUrl: string;
+        enabled: boolean;
+    }[];
     for (const p of savedProviders) {
         if (!p.enabled) continue;
 
@@ -41,6 +54,16 @@ export function loadSavedProvidersFromDB(): void {
         const baseUrl = p.baseUrl || (providerType === "antigravity" || p.id.startsWith("antigravity") ? process.env.ANTIGRAVITY_BASE_URL : undefined);
 
         switch (true) {
+            case providerType === "freebuff" || p.id.startsWith("freebuff_") || p.id.startsWith("freebuff-"):
+                if (p.accessToken) {
+                    freebuffConnections.push({
+                        id: p.id,
+                        accessToken: p.accessToken,
+                        baseUrl: baseUrl || process.env.FREEBUFF_BASE_URL || "https://www.codebuff.com",
+                        enabled: true,
+                    });
+                }
+                break;
             case providerType === "commandcode" || p.id.startsWith("commandcode"):
                 registry.registerProvider(
                     new CommandCodeExecutor({
@@ -103,6 +126,9 @@ export function loadSavedProvidersFromDB(): void {
                 break;
         }
     }
+    freebuffExecutor.replaceConnections(freebuffConnections);
+    if (freebuffConnections.length > 0) registry.registerProvider(freebuffExecutor);
+    else registry.unregisterProvider("freebuff");
 }
 
 // Auto load saved DB providers
