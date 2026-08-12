@@ -1,6 +1,11 @@
 import type { AIProvider, ChatCompletionChunk, ChatCompletionRequest, ChatCompletionResponse, ModelListResponse, ModelObject } from "@srouter/types";
 import { parseDataLine, streamLines } from "./base.js";
 
+function stripProviderPrefix(model: string): string {
+    const slash = model.indexOf("/");
+    return slash >= 0 ? model.slice(slash + 1) : model;
+}
+
 export interface OpenAIExecutorOptions {
     id?: string;
     name?: string;
@@ -73,7 +78,7 @@ export class OpenAIExecutor implements AIProvider {
     }
 
     async chatCompletion(req: ChatCompletionRequest): Promise<ChatCompletionResponse> {
-        let targetModel = req.model.includes("/") ? (req.model.split("/")[1] ?? req.model) : req.model;
+        const targetModel = stripProviderPrefix(req.model);
 
         const res = await fetch(`${this.baseUrl}/chat/completions`, {
             method: "POST",
@@ -90,7 +95,7 @@ export class OpenAIExecutor implements AIProvider {
     }
 
     async *chatCompletionStream(req: ChatCompletionRequest): AsyncGenerator<ChatCompletionChunk, void, void> {
-        let targetModel = req.model.includes("/") ? (req.model.split("/")[1] ?? req.model) : req.model;
+        const targetModel = stripProviderPrefix(req.model);
 
         const res = await fetch(`${this.baseUrl}/chat/completions`, {
             method: "POST",
