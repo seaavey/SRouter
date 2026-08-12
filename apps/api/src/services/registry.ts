@@ -29,6 +29,18 @@ if (process.env.ANTHROPIC_API_KEY) {
     );
 }
 
+// 3. Register env-configured Neosantara Provider if present
+if (process.env.NEOSANTARA_API_KEY) {
+    registry.registerProvider(
+        new OpenAIExecutor({
+            id: "neosantara",
+            name: "Neosantara",
+            apiKey: process.env.NEOSANTARA_API_KEY,
+            baseUrl: process.env.NEOSANTARA_BASE_URL || "https://api.neosantara.xyz/v1",
+        }),
+    );
+}
+
 /**
  * Load saved OAuth & Custom providers from SQLite Database on startup
  */
@@ -87,6 +99,17 @@ export function loadSavedProvidersFromDB(): void {
                         accessToken: p.accessToken,
                         refreshToken: p.refreshToken,
                         accountId: p.accountId,
+                    }),
+                );
+                break;
+            case providerType === "neosantara" || p.id.startsWith("neosantara"):
+                registry.registerProvider(
+                    new OpenAIExecutor({
+                        id: p.id || p.providerId,
+                        name: p.name,
+                        baseUrl: baseUrl || process.env.NEOSANTARA_BASE_URL || "https://api.neosantara.xyz/v1",
+                        apiKey: p.apiKey,
+                        accessToken: p.accessToken,
                     }),
                 );
                 break;
