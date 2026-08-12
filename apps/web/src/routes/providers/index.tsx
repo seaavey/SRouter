@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AddProviderSheet } from "@/components/providers/add-provider-sheet";
 import { ProviderRow } from "@/components/providers/provider-row";
+import { getConnectedCount } from "@/components/providers/provider-status";
 
 export const Route = createFileRoute("/providers/")({
     staticData: { title: "Providers" },
@@ -117,9 +118,9 @@ function ProvidersPage() {
         );
     }
 
-    const connectedProviders = allProviders.filter((provider) => (provider.status.connectedCount ?? 0) > 0);
+    const connectedProviders = allProviders.filter((provider) => getConnectedCount(provider) > 0);
     const totalConnections = allProviders.reduce(
-        (total, provider) => total + (provider.status.connectedCount ?? 0),
+        (total, provider) => total + getConnectedCount(provider),
         0,
     );
     const totalModels = allProviders.reduce((total, provider) => total + provider.models.length, 0);

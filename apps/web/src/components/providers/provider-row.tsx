@@ -3,6 +3,7 @@ import { ChevronRight } from "lucide-react";
 import type { ProviderDefinition } from "@srouter/types";
 import { Badge } from "@/components/ui/badge";
 import { ProviderIcon } from "@/components/ui/provider-icon";
+import { getConnectedCount } from "./provider-status";
 
 const protocolLabels: Record<string, string> = {
     openai: "OpenAI",
@@ -18,7 +19,7 @@ function authLabel(provider: ProviderDefinition): string {
 }
 
 export function ProviderRow({ provider }: { provider: ProviderDefinition }) {
-    const connectedCount = provider.status.connectedCount ?? (provider.status.state === "connected" ? 1 : 0);
+    const connectedCount = getConnectedCount(provider);
     const isConnected = connectedCount > 0;
 
     return (
