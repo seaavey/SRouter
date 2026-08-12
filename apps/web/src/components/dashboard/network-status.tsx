@@ -158,5 +158,3 @@ response = client.chat.completions.create(
         </div>
     );
 }
-
-

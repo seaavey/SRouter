@@ -1,18 +1,11 @@
 import { Link } from "@tanstack/react-router";
-import {
-    Activity,
-    Boxes,
-    Bot,
-    LayoutDashboard,
-    ScrollText,
-    Zap,
-} from "lucide-react";
+import { Bot, Boxes, LayoutDashboard, ScrollText, Terminal, Zap } from "lucide-react";
 import {
     Sidebar,
     SidebarContent,
-    SidebarFooter,
     SidebarGroup,
     SidebarGroupContent,
+    SidebarGroupLabel,
     SidebarHeader,
     SidebarMenu,
     SidebarMenuButton,
@@ -20,87 +13,88 @@ import {
     SidebarRail,
 } from "@/components/ui/sidebar";
 
-const navItems = [
+const mainNavItems = [
     { to: "/", label: "Dashboard", icon: LayoutDashboard },
+    { to: "/playground", label: "Playground", icon: Terminal },
+] as const;
+
+const routerNavItems = [
     { to: "/providers", label: "Providers", icon: Boxes },
     { to: "/models", label: "Models", icon: Bot },
     { to: "/logs", label: "Logs", icon: ScrollText },
-    { to: "/playground", label: "Playground", icon: Activity },
+] as const;
+
+const navGroups = [
+    { label: "Workspace", items: mainNavItems },
+    { label: "Routing", items: routerNavItems },
 ] as const;
 
 export function AppSidebar() {
     return (
-        <Sidebar collapsible="icon" className="border-r border-border/80 bg-sidebar">
-            <SidebarHeader className="h-14 border-b border-border/60 px-3 flex items-center">
-                <SidebarMenu>
-                    <SidebarMenuItem>
+        <Sidebar collapsible="icon" className="border-r border-border/70 bg-sidebar">
+            <SidebarHeader className="h-12 min-h-12 shrink-0 justify-center border-b border-border/70 p-0">
+                <SidebarMenu className="items-center">
+                    <SidebarMenuItem className="w-full">
                         <SidebarMenuButton
                             size="lg"
-                            render={<Link to="/" />}
-                            className="hover:bg-sidebar-accent/60 transition-colors"
+                            render={<Link to="/" aria-label="SRouter dashboard" />}
+                            className="h-11 w-full rounded-none px-4 text-foreground hover:bg-transparent group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0!"
                         >
-                            <div className="flex size-7 items-center justify-center rounded bg-primary text-primary-foreground font-bold">
-                                <Zap className="size-3.5 fill-current" strokeWidth={2.5} />
-                            </div>
-                            <div className="flex items-center justify-between flex-1 min-w-0">
-                                <span className="font-semibold tracking-tight text-sm text-foreground">SRouter</span>
-                                <span className="text-[10px] font-mono text-muted-foreground border border-border/60 px-1 py-0.2 rounded">v1.0</span>
-                            </div>
+                            <Zap className="size-4 shrink-0 fill-current" strokeWidth={1.75} />
+                            <span className="text-sm font-semibold tracking-tight group-data-[collapsible=icon]:hidden">
+                                SRouter
+                            </span>
                         </SidebarMenuButton>
                     </SidebarMenuItem>
                 </SidebarMenu>
             </SidebarHeader>
 
-            <SidebarContent className="px-2 py-3">
-                <SidebarGroup>
-                    <SidebarGroupContent>
-                        <SidebarMenu className="space-y-0.5">
-                            {navItems.map(({ to, label, icon: Icon }) => (
-                                <SidebarMenuItem key={to}>
-                                    <SidebarMenuButton
-                                        render={
-                                            <Link
-                                                to={to}
-                                                activeOptions={{ exact: true }}
-                                                activeProps={{
-                                                    className: "bg-sidebar-accent font-medium text-foreground",
-                                                }}
-                                                inactiveProps={{
-                                                    className: "text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/40",
-                                                }}
-                                            />
-                                        }
-                                        tooltip={label}
-                                        className="h-8 px-2.5 transition-colors"
-                                    >
-                                        <Icon strokeWidth={1.75} className="size-4 shrink-0" />
-                                        <span className="text-xs">{label}</span>
-                                    </SidebarMenuButton>
-                                </SidebarMenuItem>
-                            ))}
-                        </SidebarMenu>
-                    </SidebarGroupContent>
-                </SidebarGroup>
+            <SidebarContent className="px-2 py-4">
+                <nav aria-label="Primary navigation" className="space-y-5">
+                    {navGroups.map((group, groupIndex) => (
+                        <SidebarGroup
+                            key={group.label}
+                            className={groupIndex === 0 ? "p-0" : "border-t border-border/60 p-0 pt-4"}
+                        >
+                            <SidebarGroupLabel className="mb-1 h-6 rounded-none px-2 font-mono text-[9px] font-medium uppercase tracking-[0.12em] text-muted-foreground/70">
+                                {group.label}
+                            </SidebarGroupLabel>
+                            <SidebarGroupContent>
+                                <SidebarMenu className="gap-0.5">
+                                    {group.items.map(({ to, label, icon: Icon }) => (
+                                        <SidebarMenuItem key={to}>
+                                            <SidebarMenuButton
+                                                render={
+                                                    <Link
+                                                        to={to}
+                                                        activeOptions={{ exact: true }}
+                                                        activeProps={{
+                                                            className:
+                                                                "border-foreground bg-sidebar-accent/60 text-foreground",
+                                                            "aria-current": "page",
+                                                        }}
+                                                        inactiveProps={{
+                                                            className:
+                                                                "border-transparent text-muted-foreground hover:border-sidebar-border hover:bg-transparent hover:text-foreground",
+                                                        }}
+                                                    />
+                                                }
+                                                tooltip={label}
+                                                className="h-8 rounded-none border-l-2 px-2.5 transition-colors group-data-[collapsible=icon]:border-l-0"
+                                            >
+                                                <Icon strokeWidth={1.75} className="size-3.5 shrink-0" />
+                                                <span className="text-xs">{label}</span>
+                                            </SidebarMenuButton>
+                                        </SidebarMenuItem>
+                                    ))}
+                                </SidebarMenu>
+                            </SidebarGroupContent>
+                        </SidebarGroup>
+                    ))}
+                </nav>
             </SidebarContent>
-
-            <SidebarFooter className="border-t border-border/60 p-3">
-                <SidebarMenu>
-                    <SidebarMenuItem>
-                        <div className="flex items-center justify-between px-2 py-1 text-xs">
-                            <div className="flex items-center gap-2">
-                                <span className="size-2 rounded-full bg-emerald-500" />
-                                <span className="font-medium text-foreground text-xs">Gateway</span>
-                            </div>
-                            <span className="font-mono text-[11px] text-muted-foreground">3000</span>
-                        </div>
-                    </SidebarMenuItem>
-                </SidebarMenu>
-            </SidebarFooter>
 
             <SidebarRail />
         </Sidebar>
     );
 }
-
-
-

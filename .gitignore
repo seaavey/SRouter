@@ -38,3 +38,5 @@ Thumbs.db
 .vscode/*
 !.vscode/launch.json
 !.vscode/*.code-snippets
+# TypeScript incremental build metadata
+apps/web/tsconfig.tsbuildinfo

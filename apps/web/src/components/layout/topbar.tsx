@@ -1,108 +1,72 @@
 import { useState } from "react";
 import { useMatches } from "@tanstack/react-router";
 import { Check, Copy, Moon, Sun } from "lucide-react";
-import { motion, AnimatePresence } from "motion/react";
 import { useTheme } from "@/lib/theme";
-import {
-    Breadcrumb,
-    BreadcrumbItem,
-    BreadcrumbList,
-    BreadcrumbPage,
-} from "@/components/ui/breadcrumb";
-import { Separator } from "@/components/ui/separator";
+import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 
 function usePageTitle(): string {
     const matches = useMatches();
-    const match = [...matches].reverse().find((m) => m.staticData?.title);
+    const match = [...matches].reverse().find((item) => item.staticData?.title);
     return (match?.staticData?.title as string | undefined) ?? "Dashboard";
 }
+
+const API_BASE = `${typeof window !== "undefined" ? window.location.origin : "http://localhost:3000"}/v1`;
 
 export function Topbar() {
     const title = usePageTitle();
     const { theme, toggleTheme } = useTheme();
     const [copied, setCopied] = useState(false);
 
-    const apiBaseUrl = `${typeof window !== "undefined" ? window.location.origin : "http://localhost:3000"}/v1`;
-
-    const handleCopy = async () => {
-        await navigator.clipboard.writeText(apiBaseUrl);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1500);
-    };
+    async function handleCopy() {
+        try {
+            await navigator.clipboard.writeText(API_BASE);
+            setCopied(true);
+            window.setTimeout(() => setCopied(false), 1500);
+        } catch {
+            setCopied(false);
+        }
+    }
 
     return (
-        <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border/60 bg-background/90 px-4 backdrop-blur-sm">
-            <div className="flex items-center gap-3">
-                <SidebarTrigger className="size-8 rounded border border-border/60 hover:bg-secondary" />
-
-                <Separator orientation="vertical" className="h-4 bg-border/60" />
-
-                <Breadcrumb className="min-w-0">
-                    <BreadcrumbList>
-                        <BreadcrumbItem>
-                            <BreadcrumbPage className="font-semibold text-foreground tracking-tight text-xs uppercase">
-                                {title}
-                            </BreadcrumbPage>
-                        </BreadcrumbItem>
-                    </BreadcrumbList>
-                </Breadcrumb>
+        <header className="sticky top-0 z-30 flex h-12 min-h-12 shrink-0 items-center justify-between gap-4 border-b border-border/70 bg-background px-3 sm:px-4">
+            <div className="flex min-w-0 items-center gap-3">
+                <SidebarTrigger className="size-7 rounded-none text-muted-foreground outline-offset-0 hover:bg-transparent hover:text-foreground focus-visible:ring-1" />
+                <h1 className="truncate text-xs font-semibold text-foreground">{title}</h1>
             </div>
 
-            <div className="flex items-center gap-2">
-                <div className="hidden md:flex items-center gap-2 rounded border border-border/60 bg-secondary/40 px-2.5 py-1 text-xs">
-                    <span className="text-[11px] text-muted-foreground">Endpoint:</span>
-                    <code className="font-mono text-[11px] text-foreground font-medium">{apiBaseUrl}</code>
-                    <button
+            <div className="flex shrink-0 items-center gap-1">
+                <div className="mr-2 hidden items-center gap-2 border-r border-border/70 pr-3 md:flex">
+                    <span className="font-mono text-[9px] uppercase tracking-[0.1em] text-muted-foreground">API</span>
+                    <code className="max-w-72 truncate text-[10px] text-muted-foreground" title={API_BASE}>
+                        {API_BASE}
+                    </code>
+                    <Button
                         type="button"
+                        variant="ghost"
+                        size="icon-xs"
                         onClick={() => void handleCopy()}
-                        className="ml-1 text-muted-foreground hover:text-foreground transition-colors"
-                        title="Copy Endpoint"
+                        aria-label={copied ? "Gateway endpoint copied" : "Copy gateway endpoint"}
+                        className="rounded-none text-muted-foreground hover:bg-transparent hover:text-foreground"
                     >
-                        {copied ? <Check className="size-3 text-emerald-500" /> : <Copy className="size-3" />}
-                    </button>
+                        {copied ? <Check /> : <Copy />}
+                    </Button>
+                    <span className="sr-only" role="status" aria-live="polite">
+                        {copied ? "Gateway endpoint copied" : ""}
+                    </span>
                 </div>
 
-                <motion.button
+                <Button
                     type="button"
-                    onClick={(e) => toggleTheme(e)}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.88 }}
-                    transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={(event) => toggleTheme(event)}
                     aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-                    className="relative flex size-8 items-center justify-center rounded border border-border/70 bg-secondary/40 text-muted-foreground transition-colors hover:text-foreground overflow-hidden"
+                    className="rounded-none text-muted-foreground hover:bg-transparent hover:text-foreground"
                 >
-
-                    <AnimatePresence mode="wait" initial={false}>
-                        {theme === "dark" ? (
-                            <motion.div
-                                key="sun"
-                                initial={{ rotate: -90, opacity: 0, scale: 0.5 }}
-                                animate={{ rotate: 0, opacity: 1, scale: 1 }}
-                                exit={{ rotate: 90, opacity: 0, scale: 0.5 }}
-                                transition={{ duration: 0.2, ease: "easeInOut" }}
-                                className="flex items-center justify-center"
-                            >
-                                <Sun className="size-3.5 text-amber-400" />
-                            </motion.div>
-                        ) : (
-                            <motion.div
-                                key="moon"
-                                initial={{ rotate: 90, opacity: 0, scale: 0.5 }}
-                                animate={{ rotate: 0, opacity: 1, scale: 1 }}
-                                exit={{ rotate: -90, opacity: 0, scale: 0.5 }}
-                                transition={{ duration: 0.2, ease: "easeInOut" }}
-                                className="flex items-center justify-center"
-                            >
-                                <Moon className="size-3.5 text-indigo-500" />
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
-                </motion.button>
+                    {theme === "dark" ? <Sun /> : <Moon />}
+                </Button>
             </div>
         </header>
     );
 }
-
-
-

@@ -1,5 +1,5 @@
 import type { ProviderCategory, ProviderDefinition, ProviderProtocol } from "@srouter/types";
-import { getConnectionsByProviderIdDB, upsertProviderDB } from "@srouter/db";
+import { getAllProvidersDB, getConnectionsByProviderIdDB, upsertProviderDB } from "@srouter/db";
 import { loadSavedProvidersFromDB, registry } from "@/services/registry.js";
 
 export interface GroupedCatalog {
@@ -26,13 +26,43 @@ export interface CreateProviderPayload {
     providerSpecificData?: Record<string, string>;
 }
 
+function isProviderCategory(value: string): value is ProviderCategory {
+    return ["custom", "oauth", "free_tier", "api_key"].includes(value);
+}
+
+function isProviderProtocol(value: string): value is ProviderProtocol {
+    return ["openai", "anthropic", "gemini", "custom"].includes(value);
+}
+
+function catalogWithSavedCustomProviders(): ProviderDefinition[] {
+    const catalog = [...registry.getCatalog()];
+    const knownIds = new Set(catalog.map((provider) => provider.id));
+    for (const connection of getAllProvidersDB()) {
+        const providerId = connection.providerId || connection.id;
+        if (knownIds.has(providerId) || !connection.enabled) continue;
+        knownIds.add(providerId);
+        catalog.push({
+            id: providerId,
+            name: connection.name,
+            category: connection.category && isProviderCategory(connection.category) ? connection.category : "custom",
+            protocol: connection.protocol && isProviderProtocol(connection.protocol) ? connection.protocol : "openai",
+            defaultBaseUrl: connection.baseUrl,
+            requiresApiKey: Boolean(connection.apiKey),
+            supportsCustomUrl: true,
+            status: { state: "connected", connectedCount: 1 },
+            models: [],
+        });
+    }
+    return catalog;
+}
+
 export class ProvidersLogic {
     public static listProviders(): ProviderDefinition[] {
-        return registry.getCatalog();
+        return catalogWithSavedCustomProviders();
     }
 
     public static getCatalog(): CatalogSummary {
-        const catalog = registry.getCatalog();
+        const catalog = catalogWithSavedCustomProviders();
 
         const categories: GroupedCatalog = {
             custom: catalog.filter((p) => p.category === "custom"),
@@ -48,7 +78,7 @@ export class ProvidersLogic {
     }
 
     public static async getProviderById(providerId: string): Promise<ProviderDefinition | null> {
-        const catalog = registry.getCatalog();
+        const catalog = catalogWithSavedCustomProviders();
         const provider = catalog.find((p) => p.id.toLowerCase() === providerId.toLowerCase());
         if (!provider) return null;
 
@@ -85,12 +115,27 @@ export class ProvidersLogic {
     }
 
     public static addProvider(payload: CreateProviderPayload): ProviderDefinition {
-        const id = payload.id && payload.id.trim() !== "" ? payload.id.toLowerCase().replace(/[^a-z0-9_-]/g, "") : `custom-${Date.now()}`;
-        const name = payload.name.trim();
+        const name = payload.name?.trim();
+        if (!name) throw new Error("Provider name is required");
+        if (!isProviderCategory(payload.category)) throw new Error("Invalid provider category");
+        if (!isProviderProtocol(payload.protocol)) throw new Error("Invalid provider protocol");
+        const rawId = payload.id?.trim();
+        const id = rawId ? rawId.toLowerCase().replace(/[^a-z0-9_-]/g, "") : `custom-${Date.now()}`;
+        if (!id) throw new Error("Provider ID must contain letters, numbers, underscores, or hyphens");
+        if (getAllProvidersDB().some((provider) => provider.id === id)) throw new Error(`Provider ID '${id}' already exists`);
         const category = payload.category;
         const protocol = payload.protocol;
         const baseUrl = payload.baseUrl?.trim();
+        if (baseUrl) {
+            try {
+                const url = new URL(baseUrl);
+                if (!["http:", "https:"].includes(url.protocol)) throw new Error("unsupported protocol");
+            } catch {
+                throw new Error("Base URL must be a valid HTTP or HTTPS URL");
+            }
+        }
         const apiKey = payload.apiKey?.trim();
+        if (category === "api_key" && !apiKey) throw new Error("API key is required for API key providers");
 
         const config = {
             id,
@@ -115,10 +160,10 @@ export class ProvidersLogic {
             name: config.name,
             protocol: config.protocol,
             category: config.category,
-            baseUrl: config.baseUrl,
-            requiresApiKey: Boolean(config.apiKey),
+            requiresApiKey: Boolean(apiKey),
+            supportsCustomUrl: true,
             models: [],
-            status: { state: "connected" },
+            status: { state: "connected", connectedCount: 1 },
         };
     }
 }

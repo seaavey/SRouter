@@ -21,9 +21,7 @@ export class ProvidersController {
 
     public static async getProvider(c: Context): Promise<Response> {
         const providerId = c.req.param("providerId");
-        if (!providerId) {
-            return c.json({ error: { message: "Provider ID is required" } }, 400);
-        }
+        if (!providerId) return c.json({ error: { message: "Provider ID is required" } }, 400);
         const provider = await ProvidersLogic.getProviderById(providerId);
         if (!provider) {
             return c.json({ error: { message: `Provider '${providerId}' not found` } }, 404);
@@ -36,15 +34,18 @@ export class ProvidersController {
         if (!body.name || !body.category || !body.protocol) {
             return c.json({ error: { message: "Name, category, and protocol are required" } }, 400);
         }
-        const created = ProvidersLogic.addProvider(body);
-        return ok(c, created);
+        try {
+            const created = ProvidersLogic.addProvider(body);
+            return ok(c, created);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : "Invalid provider payload";
+            return c.json({ error: { message } }, 400);
+        }
     }
 
     public static deleteProvider(c: Context): Response {
         const id = c.req.param("id");
-        if (!id) {
-            return c.json({ error: { message: "Connection ID is required" } }, 400);
-        }
+        if (!id) return c.json({ error: { message: "Connection ID is required" } }, 400);
         const deleted = deleteProviderDB(id);
         if (!deleted) {
             return c.json({ error: { message: `Connection '${id}' not found` } }, 404);
