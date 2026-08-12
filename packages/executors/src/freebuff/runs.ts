@@ -44,7 +44,10 @@ export class FreebuffRunManager {
     private readonly draining = new Map<string, RunRecord>();
     private readonly starts = new Map<string, Promise<RunRecord>>();
     private readonly leases = new Map<string, RunRecord>();
+    private readonly finishedRunIds = new Set<string>();
     private cooldownUntil = 0;
+    private generation = 0;
+    private shuttingDown = false;
 
     constructor(upstream: FreebuffUpstreamClientContract, options: FreebuffRunManagerOptions = {}) {
         this.upstream = upstream;
@@ -54,6 +57,7 @@ export class FreebuffRunManager {
 
     async acquireRun(agentId: string, options?: FreebuffRequestOptions): Promise<FreebuffRunLease> {
         if (agentId.trim() === "") throw new TypeError("agentId must not be empty");
+        if (this.shuttingDown) throw new Error("FreeBuff run manager is shut down");
         this.assertAvailable();
 
         let current = this.active.get(agentId);
@@ -64,6 +68,7 @@ export class FreebuffRunManager {
         }
 
         if (current === undefined) {
+            const generation = this.generation;
             let start = this.starts.get(agentId);
             if (start === undefined) {
                 start = this.start(agentId, options);
@@ -73,6 +78,10 @@ export class FreebuffRunManager {
                 });
             }
             current = await start;
+            if (this.shuttingDown || generation !== this.generation) {
+                await this.finishOnce(current, options);
+                throw new Error("FreeBuff run manager shutdown invalidated START");
+            }
             if (this.active.get(agentId) === undefined) this.active.set(agentId, current);
         }
 
@@ -134,6 +143,9 @@ export class FreebuffRunManager {
     }
 
     async shutdown(options?: FreebuffRequestOptions): Promise<void> {
+        if (this.shuttingDown) return;
+        this.shuttingDown = true;
+        this.generation += 1;
         const controller = new AbortController();
         const callerSignal = options?.signal;
         const abortCaller = (): void => controller.abort(callerSignal?.reason);
@@ -147,7 +159,15 @@ export class FreebuffRunManager {
         this.draining.clear();
         this.leases.clear();
         try {
-            await Promise.all(records.map((record) => this.upstream.finishRun(record.runId, record.requests, { signal: controller.signal })));
+            await Promise.all(records.map((record) => this.finishOnce(record, { signal: controller.signal })));
+            const pendingStarts = [...this.starts.values()];
+            await Promise.allSettled(pendingStarts.map(async (start) => {
+                try {
+                    await this.finishOnce(await start, { signal: controller.signal });
+                } catch {
+                    // The corresponding acquire call receives the lifecycle error.
+                }
+            }));
         } finally {
             clearTimeout(timer);
             callerSignal?.removeEventListener("abort", abortCaller);
@@ -178,12 +198,23 @@ export class FreebuffRunManager {
         }
         await Promise.all(ready.map(async (record) => {
             try {
-                await this.upstream.finishRun(record.runId, record.requests, options);
+                await this.finishOnce(record, options);
             } catch (error) {
                 this.draining.set(record.runId, record);
                 throw error;
             }
         }));
+    }
+
+    private async finishOnce(record: RunRecord, options?: FreebuffRequestOptions): Promise<void> {
+        if (this.finishedRunIds.has(record.runId)) return;
+        this.finishedRunIds.add(record.runId);
+        try {
+            await this.upstream.finishRun(record.runId, record.requests, options);
+        } catch (error) {
+            this.finishedRunIds.delete(record.runId);
+            throw error;
+        }
     }
 
     private assertAvailable(): void {

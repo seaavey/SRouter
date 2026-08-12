@@ -142,6 +142,10 @@ export class FreebuffSessionManager {
     private async refresh(options: FreebuffRequestOptions | undefined, generation: number): Promise<FreebuffSessionLease> {
         for (let attempt = 0; attempt < this.maxRefreshIterations; attempt += 1) {
             const response = await this.fetchState(options);
+            if (generation !== this.generation) {
+                if (response.instanceId !== undefined) await this.upstream.endSession(response.instanceId, options).catch(() => undefined);
+                throw new Error("FreeBuff session refresh invalidated by lifecycle change");
+            }
             const status = response.status ?? "active";
             if (status === "active" || status === "ready") {
                 const next = activeState(response);

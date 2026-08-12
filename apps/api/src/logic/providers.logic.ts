@@ -21,6 +21,7 @@ export interface CreateProviderPayload {
     protocol: ProviderProtocol;
     baseUrl?: string;
     apiKey?: string;
+    accessToken?: string;
 }
 
 export class ProvidersLogic {
@@ -88,6 +89,8 @@ export class ProvidersLogic {
         const protocol = payload.protocol;
         const baseUrl = payload.baseUrl?.trim();
         const apiKey = payload.apiKey?.trim();
+        const accessToken = payload.accessToken?.trim() ||
+            (id === "freebuff" || id.startsWith("freebuff_") || id.startsWith("freebuff-") ? apiKey : undefined);
 
         const config = {
             id,
@@ -97,6 +100,7 @@ export class ProvidersLogic {
             protocol,
             baseUrl,
             apiKey,
+            accessToken,
             enabled: true,
             createdAt: Date.now(),
         };

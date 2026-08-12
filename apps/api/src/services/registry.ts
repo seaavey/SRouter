@@ -55,10 +55,10 @@ export function loadSavedProvidersFromDB(): void {
 
         switch (true) {
             case providerType === "freebuff" || p.id.startsWith("freebuff_") || p.id.startsWith("freebuff-"):
-                if (p.accessToken) {
+                if (p.accessToken || p.apiKey) {
                     freebuffConnections.push({
                         id: p.id,
-                        accessToken: p.accessToken,
+                        accessToken: p.accessToken || p.apiKey || "",
                         baseUrl: baseUrl || process.env.FREEBUFF_BASE_URL || "https://www.codebuff.com",
                         enabled: true,
                     });

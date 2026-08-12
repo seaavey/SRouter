@@ -62,7 +62,7 @@ interface RuntimeConnection {
 }
 
 const AUTH_COOLDOWN_MS = 30 * 60 * 1_000;
-const DEFAULT_BASE_URL = "https://freebuff.ai";
+const DEFAULT_BASE_URL = "https://www.codebuff.com";
 
 function requestInput(request: ChatCompletionRequest): FreebuffRequestInput {
     return JSON.parse(JSON.stringify(request)) as FreebuffRequestInput;
@@ -229,12 +229,17 @@ export class FreebuffCoordinator {
         let lastError: Error | undefined;
         let bestWaiting: FreebuffWaitingRoomError | undefined;
         for (const connection of candidates) {
+            let emitted = false;
             try {
-                yield* this.streamFromConnection(connection, agentId, request);
+                for await (const chunk of this.streamFromConnection(connection, agentId, request)) {
+                    emitted = true;
+                    yield chunk;
+                }
                 return;
             } catch (error) {
                 const caught = error instanceof Error ? error : new Error("FreeBuff request failed");
                 lastError = caught;
+                if (emitted) throw caught;
                 if (caught instanceof FreebuffWaitingRoomError) {
                     if (bestWaiting === undefined || (caught.position ?? Number.MAX_SAFE_INTEGER) < (bestWaiting.position ?? Number.MAX_SAFE_INTEGER)) bestWaiting = caught;
                     continue;
