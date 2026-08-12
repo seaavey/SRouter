@@ -10,6 +10,7 @@ const PROVIDER_ALIASES: Record<string, string> = {
     commandcode: "commandcode",
     gemini: "gemini",
     vertex: "vertex",
+    neosantara: "neosantara",
 };
 
 export function getProviderAlias(providerId: string): string {
@@ -46,6 +47,19 @@ export const DEFAULT_CATALOG: ProviderDefinition[] = [
             { id: "gpt-5.6-luna", object: "model", owned_by: "kiro" },
             { id: "simple-task", object: "model", owned_by: "kiro" },
         ],
+    },
+    {
+        id: "neosantara",
+        name: "Neosantara",
+        category: "api_key",
+        protocol: "openai",
+        description: "Neosantara unified OpenAI-compatible AI gateway.",
+        icon: "🌏",
+        defaultBaseUrl: "https://api.neosantara.xyz/v1",
+        requiresApiKey: true,
+        supportsCustomUrl: true,
+        status: { state: "disconnected", message: "Neosantara API key missing" },
+        models: [],
     },
     {
         id: "openai_codex",
