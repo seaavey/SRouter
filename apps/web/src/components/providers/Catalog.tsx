@@ -1,6 +1,6 @@
 import { Search } from "lucide-react";
 import type { ProviderDefinition } from "@srouter/types";
-import { ProviderRow } from "./provider-row";
+import { ProviderRow } from "./ProviderRow";
 import { categoryDescriptions, categoryLabels } from "./catalog-utils";
 
 interface CatalogGroup {

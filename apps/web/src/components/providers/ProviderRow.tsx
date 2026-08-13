@@ -2,7 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { ChevronRight } from "lucide-react";
 import type { ProviderDefinition } from "@srouter/types";
 import { Badge } from "@/components/ui/badge";
-import { ProviderIcon } from "@/components/ui/provider-icon";
+import { ProviderIcon } from "@/components/ui/ProviderIcon";
 import { getConnectedCount } from "./provider-status";
 
 const protocolLabels: Record<string, string> = {
@@ -34,10 +34,18 @@ export function ProviderRow({ provider }: { provider: ProviderDefinition }) {
 
             <span className="min-w-0">
                 <span className="flex min-w-0 items-center gap-2">
-                    <span className="truncate text-xs font-semibold text-foreground">{provider.name}</span>
+                    <span className="truncate text-xs font-semibold text-foreground">
+                        {provider.name}
+                    </span>
                     {isConnected ? (
-                        <Badge variant="emerald" className="shrink-0 gap-1 px-1.5 py-0 font-mono text-[10px]">
-                            <span className="size-1 rounded-full bg-emerald-500" aria-hidden="true" />
+                        <Badge
+                            variant="emerald"
+                            className="shrink-0 gap-1 px-1.5 py-0 font-mono text-[10px]"
+                        >
+                            <span
+                                className="size-1 rounded-full bg-emerald-500"
+                                aria-hidden="true"
+                            />
                             {connectedCount}
                         </Badge>
                     ) : null}
@@ -45,7 +53,9 @@ export function ProviderRow({ provider }: { provider: ProviderDefinition }) {
                 <span className="mt-0.5 flex min-w-0 items-center gap-1.5 font-mono text-[10px] text-muted-foreground">
                     <span className="truncate">{provider.id}</span>
                     <span aria-hidden="true">·</span>
-                    <span className="shrink-0">{protocolLabels[provider.protocol] ?? provider.protocol}</span>
+                    <span className="shrink-0">
+                        {protocolLabels[provider.protocol] ?? provider.protocol}
+                    </span>
                     <span aria-hidden="true">·</span>
                     <span className="shrink-0">{authLabel(provider)}</span>
                 </span>

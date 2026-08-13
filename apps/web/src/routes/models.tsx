@@ -6,8 +6,8 @@ import { api } from "@/lib/api";
 import type { ModelListResponse, ModelObject } from "@srouter/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useModels } from "@/hooks/useModels";
-import { ModelCard } from "@/components/models/model-card";
-import { ModelTable } from "@/components/models/model-table";
+import { ModelCard } from "@/components/models/ModelCard";
+import { ModelTable } from "@/components/models/ModelTable";
 
 export const Route = createFileRoute("/models")({
     staticData: { title: "Models" },

@@ -3,13 +3,13 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, AlertTriangle, ExternalLink, Search } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { ProviderIcon } from "@/components/ui/provider-icon";
-import { ConnectOAuthModal } from "@/components/ui/connect-oauth-modal";
+import { ProviderIcon } from "@/components/ui/ProviderIcon";
+import { ConnectOAuthModal } from "@/components/ui/ConnectOAuthModal";
 import { useProvider, type AddConnectionPayload } from "@/hooks/useProvider";
 import { useCopy } from "@/hooks/useCopy";
-import { ConnectionCard } from "@/components/providers/connection-card";
-import { ConnectionForm, type ConnectionFormInput } from "@/components/providers/connection-form";
-import { ProviderModelCard } from "@/components/providers/provider-model-card";
+import { ConnectionCard } from "@/components/providers/ConnectionCard";
+import { ConnectionForm, type ConnectionFormInput } from "@/components/providers/ConnectionForm";
+import { ProviderModelCard } from "@/components/providers/ProviderModelCard";
 
 export const Route = createFileRoute("/providers/$providerId")({
     component: ProviderDetailPage,

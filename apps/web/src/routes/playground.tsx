@@ -4,12 +4,12 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import type { ModelListResponse } from "@srouter/types";
 import { usePlayground } from "@/hooks/usePlayground";
-import { CodeSheet } from "@/components/playground/code-sheet";
-import { ConversationViewport } from "@/components/playground/conversation-viewport";
-import { MessageComposer } from "@/components/playground/message-composer";
-import { ParamsSheet } from "@/components/playground/params-sheet";
-import { PlaygroundCommandBar } from "@/components/playground/playground-command-bar";
-import { RequestSummary } from "@/components/playground/request-summary";
+import { CodeSheet } from "@/components/playground/CodeSheet";
+import { ConversationViewport } from "@/components/playground/ConversationViewport";
+import { MessageComposer } from "@/components/playground/MessageComposer";
+import { ParamsSheet } from "@/components/playground/ParamsSheet";
+import { PlaygroundCommandBar } from "@/components/playground/PlaygroundCommandBar";
+import { RequestSummary } from "@/components/playground/RequestSummary";
 
 export const Route = createFileRoute("/playground")({
     staticData: { title: "Playground" },

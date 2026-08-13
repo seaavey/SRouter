@@ -37,8 +37,13 @@ export function Topbar() {
 
             <div className="flex shrink-0 items-center gap-1">
                 <div className="mr-2 hidden items-center gap-2 border-r border-border/70 pr-3 md:flex">
-                    <span className="font-mono text-[9px] uppercase tracking-[0.1em] text-muted-foreground">API</span>
-                    <code className="max-w-72 truncate text-[10px] text-muted-foreground" title={API_BASE}>
+                    <span className="font-mono text-[9px] uppercase tracking-[0.1em] text-muted-foreground">
+                        API
+                    </span>
+                    <code
+                        className="max-w-72 truncate text-[10px] text-muted-foreground"
+                        title={API_BASE}
+                    >
                         {API_BASE}
                     </code>
                     <Button

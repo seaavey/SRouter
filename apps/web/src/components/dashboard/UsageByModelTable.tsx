@@ -3,7 +3,14 @@ import { Database, Search } from "lucide-react";
 import type { UsageStats } from "@/lib/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table";
 
 type UsageByModelTableProps = {
     models: UsageStats["byModel"];
@@ -12,7 +19,9 @@ type UsageByModelTableProps = {
 export function UsageByModelTable({ models }: UsageByModelTableProps) {
     const [searchModel, setSearchModel] = useState("");
     const normalizedSearch = searchModel.trim().toLowerCase();
-    const filteredModels = models.filter((model) => model.model.toLowerCase().includes(normalizedSearch));
+    const filteredModels = models.filter((model) =>
+        model.model.toLowerCase().includes(normalizedSearch),
+    );
     const hasUsage = models.length > 0;
 
     return (
@@ -24,7 +33,9 @@ export function UsageByModelTable({ models }: UsageByModelTableProps) {
                     </div>
                     <div className="min-w-0">
                         <CardTitle className="text-sm">Usage by model</CardTitle>
-                        <CardDescription>Exact token usage and estimated spend for every model.</CardDescription>
+                        <CardDescription>
+                            Exact token usage and estimated spend for every model.
+                        </CardDescription>
                     </div>
                 </div>
 
@@ -69,7 +80,8 @@ export function UsageByModelTable({ models }: UsageByModelTableProps) {
                         </TableHeader>
                         <TableBody>
                             {filteredModels.map((model) => {
-                                const totalTokens = model.totalInputTokens + model.totalOutputTokens;
+                                const totalTokens =
+                                    model.totalInputTokens + model.totalOutputTokens;
 
                                 return (
                                     <TableRow key={model.model}>

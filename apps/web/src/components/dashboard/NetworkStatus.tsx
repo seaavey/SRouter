@@ -28,7 +28,9 @@ function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) 
             className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md border border-border/70 bg-background/70 px-2.5 text-[11px] font-semibold text-muted-foreground transition-[color,background-color,transform] hover:bg-secondary hover:text-foreground active:translate-y-px"
         >
             {copied ? <Check className="size-3 text-emerald-500" /> : <Copy className="size-3" />}
-            <span className={copied ? "text-emerald-500" : undefined}>{copied ? "Copied" : label}</span>
+            <span className={copied ? "text-emerald-500" : undefined}>
+                {copied ? "Copied" : label}
+            </span>
         </button>
     );
 }
@@ -46,10 +48,15 @@ export function NetworkStatus() {
                             <Code2 className="size-4 text-foreground" strokeWidth={1.75} />
                         </div>
                         <div className="min-w-0">
-                            <h2 id="api-integration-title" className="text-xs font-semibold tracking-tight text-foreground">
+                            <h2
+                                id="api-integration-title"
+                                className="text-xs font-semibold tracking-tight text-foreground"
+                            >
                                 API integration
                             </h2>
-                            <p className="mt-0.5 text-[10px] text-muted-foreground">Connect any OpenAI-compatible client</p>
+                            <p className="mt-0.5 text-[10px] text-muted-foreground">
+                                Connect any OpenAI-compatible client
+                            </p>
                         </div>
                     </div>
                     <span className="shrink-0 rounded-full border border-border/60 bg-secondary/30 px-2 py-1 font-mono text-[9px] text-muted-foreground">
@@ -64,17 +71,25 @@ export function NetworkStatus() {
                         </span>
                         <CopyButton text={API_BASE} label="Copy" />
                     </div>
-                    <code className="mt-3 block truncate font-mono text-[11px] text-foreground">{API_BASE}</code>
+                    <code className="mt-3 block truncate font-mono text-[11px] text-foreground">
+                        {API_BASE}
+                    </code>
                 </div>
             </div>
 
             <div className="border-t border-border/60 px-4 pb-4 pt-3.5">
                 <div className="mb-2.5 flex items-center justify-between gap-3 px-0.5">
                     <div>
-                        <h3 className="text-[11px] font-semibold text-foreground">Private access</h3>
-                        <p className="mt-0.5 text-[9px] text-muted-foreground">Secure routes for remote clients</p>
+                        <h3 className="text-[11px] font-semibold text-foreground">
+                            Private access
+                        </h3>
+                        <p className="mt-0.5 text-[9px] text-muted-foreground">
+                            Secure routes for remote clients
+                        </p>
                     </div>
-                    <span className="font-mono text-[8px] uppercase tracking-[0.14em] text-muted-foreground">Optional</span>
+                    <span className="font-mono text-[8px] uppercase tracking-[0.14em] text-muted-foreground">
+                        Optional
+                    </span>
                 </div>
 
                 <div className="overflow-hidden rounded-lg border border-border/60 bg-background/35">
@@ -83,11 +98,18 @@ export function NetworkStatus() {
                             <Cloud className="size-3.5" strokeWidth={1.75} />
                         </div>
                         <div className="min-w-0 flex-1">
-                            <p className="text-[11px] font-medium text-foreground">Cloudflare Tunnel</p>
-                            <p className="mt-0.5 truncate text-[9px] text-muted-foreground">Expose the gateway without opening ports</p>
+                            <p className="text-[11px] font-medium text-foreground">
+                                Cloudflare Tunnel
+                            </p>
+                            <p className="mt-0.5 truncate text-[9px] text-muted-foreground">
+                                Expose the gateway without opening ports
+                            </p>
                         </div>
                         <span className="flex shrink-0 items-center gap-1.5 rounded-full border border-border/60 bg-secondary/20 px-2 py-1 font-mono text-[8px] text-muted-foreground">
-                            <span className="size-1 rounded-full bg-muted-foreground/50" aria-hidden="true" />
+                            <span
+                                className="size-1 rounded-full bg-muted-foreground/50"
+                                aria-hidden="true"
+                            />
                             Off
                         </span>
                     </div>
@@ -98,10 +120,15 @@ export function NetworkStatus() {
                         </div>
                         <div className="min-w-0 flex-1">
                             <p className="text-[11px] font-medium text-foreground">Tailscale</p>
-                            <p className="mt-0.5 truncate text-[9px] text-muted-foreground">Reach SRouter through your private mesh</p>
+                            <p className="mt-0.5 truncate text-[9px] text-muted-foreground">
+                                Reach SRouter through your private mesh
+                            </p>
                         </div>
                         <span className="flex shrink-0 items-center gap-1.5 rounded-full border border-border/60 bg-secondary/20 px-2 py-1 font-mono text-[8px] text-muted-foreground">
-                            <span className="size-1 rounded-full bg-muted-foreground/50" aria-hidden="true" />
+                            <span
+                                className="size-1 rounded-full bg-muted-foreground/50"
+                                aria-hidden="true"
+                            />
                             Off
                         </span>
                     </div>

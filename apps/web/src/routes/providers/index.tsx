@@ -3,10 +3,10 @@ import { createFileRoute } from "@tanstack/react-router";
 import { RefreshCw, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCatalog } from "@/hooks/useCatalog";
-import { AddProviderSheet } from "@/components/providers/add-provider-sheet";
-import { Catalog } from "@/components/providers/catalog";
-import { CatalogSkeleton } from "@/components/providers/catalog-skeleton";
-import { CatalogToolbar } from "@/components/providers/catalog-toolbar";
+import { AddProviderSheet } from "@/components/providers/AddProviderSheet";
+import { Catalog } from "@/components/providers/Catalog";
+import { CatalogSkeleton } from "@/components/providers/CatalogSkeleton";
+import { CatalogToolbar } from "@/components/providers/CatalogToolbar";
 
 export const Route = createFileRoute("/providers/")({
     staticData: { title: "Providers" },

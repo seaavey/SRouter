@@ -42,7 +42,9 @@ export function PlaygroundCommandBar({
                         <span className="text-foreground/70">streaming</span>
                     </div>
                     <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
-                        <label htmlFor="playground-model" className="sr-only">Model</label>
+                        <label htmlFor="playground-model" className="sr-only">
+                            Model
+                        </label>
                         <select
                             id="playground-model"
                             value={model}
@@ -53,7 +55,9 @@ export function PlaygroundCommandBar({
                         >
                             {modelsPending ? <option value="">Loading models...</option> : null}
                             {modelsError ? <option value="">Models unavailable</option> : null}
-                            {!modelsPending && !modelsError && models.length === 0 ? <option value="">No models available</option> : null}
+                            {!modelsPending && !modelsError && models.length === 0 ? (
+                                <option value="">No models available</option>
+                            ) : null}
                             {models.map((item) => (
                                 <option key={item.id} value={item.id}>
                                     {item.id}
@@ -64,16 +68,36 @@ export function PlaygroundCommandBar({
                             {selectedModel?.owned_by ?? "No route"}
                         </div>
                     </div>
-                    <p id="playground-model-status" className="mt-2 min-h-4 text-[11px] leading-relaxed text-muted-foreground" role="status" aria-live="polite">
+                    <p
+                        id="playground-model-status"
+                        className="mt-2 min-h-4 text-[11px] leading-relaxed text-muted-foreground"
+                        role="status"
+                        aria-live="polite"
+                    >
                         {modelsError ? (
                             <>
-                                {modelsQueryError instanceof Error ? modelsQueryError.message : "Could not load models."}{" "}
-                                <button type="button" onClick={onRetryModels} className="font-medium text-foreground underline underline-offset-2 transition-colors hover:text-muted-foreground">
+                                {modelsQueryError instanceof Error
+                                    ? modelsQueryError.message
+                                    : "Could not load models."}{" "}
+                                <button
+                                    type="button"
+                                    onClick={onRetryModels}
+                                    className="font-medium text-foreground underline underline-offset-2 transition-colors hover:text-muted-foreground"
+                                >
                                     Retry
                                 </button>
                             </>
                         ) : models.length === 0 && !modelsPending ? (
-                            <>Add a provider or model in <Link to="/providers" className="font-medium text-foreground underline underline-offset-2 transition-colors hover:text-muted-foreground">Providers</Link>.</>
+                            <>
+                                Add a provider or model in{" "}
+                                <Link
+                                    to="/providers"
+                                    className="font-medium text-foreground underline underline-offset-2 transition-colors hover:text-muted-foreground"
+                                >
+                                    Providers
+                                </Link>
+                                .
+                            </>
                         ) : selectedModel ? (
                             `Requests use the ${selectedModel.owned_by ?? "SRouter"} route.`
                         ) : (
@@ -87,12 +111,24 @@ export function PlaygroundCommandBar({
                         <SlidersHorizontal />
                         Parameters
                     </Button>
-                    <Button type="button" variant="outline" size="sm" onClick={onOpenCode} disabled={!selectedModel}>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={onOpenCode}
+                        disabled={!selectedModel}
+                    >
                         <Code2 />
                         Export request
                     </Button>
                     {hasMessages ? (
-                        <Button type="button" variant="ghost" size="sm" onClick={onClear} aria-label="Clear conversation">
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={onClear}
+                            aria-label="Clear conversation"
+                        >
                             <Eraser />
                             Clear
                         </Button>

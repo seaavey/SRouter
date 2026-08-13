@@ -25,7 +25,9 @@ export function ModelUsageOverview({ models }: ModelUsageOverviewProps) {
                     <h2 id="model-usage-title" className="text-sm font-semibold text-foreground">
                         Model traffic
                     </h2>
-                    <p className="mt-0.5 text-[11px] text-muted-foreground">Highest token volume in the current dataset</p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                        Highest token volume in the current dataset
+                    </p>
                 </div>
                 <span className="hidden font-mono text-[10px] uppercase tracking-[0.1em] text-muted-foreground sm:block">
                     tokens / requests
@@ -43,12 +45,19 @@ export function ModelUsageOverview({ models }: ModelUsageOverviewProps) {
                 <div className="mt-4 space-y-3" aria-label="Top models by token volume">
                     {topModels.map((model) => {
                         const totalTokens = model.totalInputTokens + model.totalOutputTokens;
-                        const width = maxTokens > 0 ? Math.max((totalTokens / maxTokens) * 100, 1) : 0;
+                        const width =
+                            maxTokens > 0 ? Math.max((totalTokens / maxTokens) * 100, 1) : 0;
                         const breakdown = `${model.totalInputTokens.toLocaleString()} input, ${model.totalOutputTokens.toLocaleString()} output`;
 
                         return (
-                            <div key={model.model} className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-end gap-x-6 gap-y-1.5">
-                                <p className="truncate font-mono text-[11px] font-medium text-foreground" title={model.model}>
+                            <div
+                                key={model.model}
+                                className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-end gap-x-6 gap-y-1.5"
+                            >
+                                <p
+                                    className="truncate font-mono text-[11px] font-medium text-foreground"
+                                    title={model.model}
+                                >
                                     {model.model}
                                 </p>
                                 <div className="flex items-baseline gap-4 font-mono tabular-nums">
@@ -57,7 +66,9 @@ export function ModelUsageOverview({ models }: ModelUsageOverviewProps) {
                                     </span>
                                     <span className="w-20 text-right text-[11px] text-foreground">
                                         {totalTokens.toLocaleString()}
-                                        <span className="ml-1 text-[9px] text-muted-foreground">tok</span>
+                                        <span className="ml-1 text-[9px] text-muted-foreground">
+                                            tok
+                                        </span>
                                     </span>
                                 </div>
                                 <div
@@ -66,7 +77,10 @@ export function ModelUsageOverview({ models }: ModelUsageOverviewProps) {
                                     title={breakdown}
                                     className="col-span-2 h-px bg-border/60"
                                 >
-                                    <span className="block h-px bg-foreground" style={{ width: `${width}%` }} />
+                                    <span
+                                        className="block h-px bg-foreground"
+                                        style={{ width: `${width}%` }}
+                                    />
                                 </div>
                             </div>
                         );

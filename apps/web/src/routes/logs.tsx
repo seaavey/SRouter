@@ -6,8 +6,8 @@ import { api } from "@/lib/api";
 import type { ListResponse, RequestLogEntry } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLogs } from "@/hooks/useLogs";
-import { LogTable } from "@/components/logs/log-table";
-import { LogDetailSheet } from "@/components/logs/log-detail-sheet";
+import { LogTable } from "@/components/logs/LogTable";
+import { LogDetailSheet } from "@/components/logs/LogDetailSheet";
 
 export const Route = createFileRoute("/logs")({
     staticData: { title: "Logs" },

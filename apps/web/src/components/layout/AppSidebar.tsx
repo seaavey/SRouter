@@ -54,7 +54,9 @@ export function AppSidebar() {
                     {navGroups.map((group, groupIndex) => (
                         <SidebarGroup
                             key={group.label}
-                            className={groupIndex === 0 ? "p-0" : "border-t border-border/60 p-0 pt-4"}
+                            className={
+                                groupIndex === 0 ? "p-0" : "border-t border-border/60 p-0 pt-4"
+                            }
                         >
                             <SidebarGroupLabel className="mb-1 h-6 rounded-none px-2 font-mono text-[9px] font-medium uppercase tracking-[0.12em] text-muted-foreground/70">
                                 {group.label}
@@ -82,7 +84,10 @@ export function AppSidebar() {
                                                 tooltip={label}
                                                 className="h-8 rounded-none border-l-2 px-2.5 transition-colors group-data-[collapsible=icon]:border-l-0"
                                             >
-                                                <Icon strokeWidth={1.75} className="size-3.5 shrink-0" />
+                                                <Icon
+                                                    strokeWidth={1.75}
+                                                    className="size-3.5 shrink-0"
+                                                />
                                                 <span className="text-xs">{label}</span>
                                             </SidebarMenuButton>
                                         </SidebarMenuItem>

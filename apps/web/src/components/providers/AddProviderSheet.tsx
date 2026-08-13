@@ -45,7 +45,9 @@ function Field({ htmlFor, label, hint, children }: FieldProps) {
                 {label}
             </label>
             {children}
-            {hint ? <p className="text-[11px] leading-relaxed text-muted-foreground">{hint}</p> : null}
+            {hint ? (
+                <p className="text-[11px] leading-relaxed text-muted-foreground">{hint}</p>
+            ) : null}
         </div>
     );
 }
@@ -62,7 +64,8 @@ export function AddProviderSheet({ open, onOpenChange }: AddProviderSheetProps) 
     const [formError, setFormError] = useState("");
 
     const addMutation = useMutation({
-        mutationFn: (payload: CreateProviderPayload) => api.post<ProviderDefinition>("/v1/providers", payload),
+        mutationFn: (payload: CreateProviderPayload) =>
+            api.post<ProviderDefinition>("/v1/providers", payload),
         onSuccess: () => {
             void queryClient.invalidateQueries({ queryKey: ["providers"] });
             setName("");
@@ -111,7 +114,10 @@ export function AddProviderSheet({ open, onOpenChange }: AddProviderSheetProps) 
                                 role="alert"
                                 className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-2.5 text-xs text-destructive"
                             >
-                                <TriangleAlert className="mt-px size-3.5 shrink-0" strokeWidth={1.75} />
+                                <TriangleAlert
+                                    className="mt-px size-3.5 shrink-0"
+                                    strokeWidth={1.75}
+                                />
                                 <span>{formError}</span>
                             </div>
                         ) : null}
@@ -132,7 +138,9 @@ export function AddProviderSheet({ open, onOpenChange }: AddProviderSheetProps) 
                                 <select
                                     id="provider-category"
                                     value={category}
-                                    onChange={(event) => setCategory(event.target.value as ProviderCategory)}
+                                    onChange={(event) =>
+                                        setCategory(event.target.value as ProviderCategory)
+                                    }
                                     className={selectClassName}
                                 >
                                     <option value="custom">Custom</option>
@@ -145,7 +153,9 @@ export function AddProviderSheet({ open, onOpenChange }: AddProviderSheetProps) 
                                 <select
                                     id="provider-protocol"
                                     value={protocol}
-                                    onChange={(event) => setProtocol(event.target.value as ProviderProtocol)}
+                                    onChange={(event) =>
+                                        setProtocol(event.target.value as ProviderProtocol)
+                                    }
                                     className={selectClassName}
                                 >
                                     <option value="openai">OpenAI compatible</option>
@@ -168,7 +178,11 @@ export function AddProviderSheet({ open, onOpenChange }: AddProviderSheetProps) 
                             />
                         </Field>
 
-                        <Field htmlFor="provider-base-url" label="Base URL" hint="Root endpoint used for every request.">
+                        <Field
+                            htmlFor="provider-base-url"
+                            label="Base URL"
+                            hint="Root endpoint used for every request."
+                        >
                             <Input
                                 id="provider-base-url"
                                 value={baseUrl}
@@ -195,7 +209,12 @@ export function AddProviderSheet({ open, onOpenChange }: AddProviderSheetProps) 
                     </div>
 
                     <SheetFooter className="shrink-0 flex-row justify-end gap-2 border-t border-border/70 p-4">
-                        <Button type="button" variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => onOpenChange(false)}
+                        >
                             Cancel
                         </Button>
                         <Button type="submit" size="sm" disabled={addMutation.isPending}>

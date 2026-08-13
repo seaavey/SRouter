@@ -18,11 +18,7 @@ interface OAuthLoginResponse {
     redirectUri: string;
 }
 
-export function ConnectOAuthModal({
-    provider,
-    open,
-    onOpenChange,
-}: ConnectOAuthModalProps) {
+export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuthModalProps) {
     const queryClient = useQueryClient();
     const [copied, setCopied] = useState(false);
     const [callbackUrlInput, setCallbackUrlInput] = useState("");
@@ -51,7 +47,11 @@ export function ConnectOAuthModal({
                 setAuthUrl(res.authorizeUrl);
                 setIsLoadingUrl(false);
                 try {
-                    window.open(res.authorizeUrl, "_blank", "width=600,height=700,status=yes,scrollbars=yes");
+                    window.open(
+                        res.authorizeUrl,
+                        "_blank",
+                        "width=600,height=700,status=yes,scrollbars=yes",
+                    );
                 } catch {
                     // Popup blocked
                 }
@@ -67,7 +67,11 @@ export function ConnectOAuthModal({
         if (!open || !provider) return;
 
         const handleMessage = (event: MessageEvent) => {
-            if (event.data && typeof event.data === "object" && event.data.type === "SROUTER_OAUTH_SUCCESS") {
+            if (
+                event.data &&
+                typeof event.data === "object" &&
+                event.data.type === "SROUTER_OAUTH_SUCCESS"
+            ) {
                 void queryClient.invalidateQueries({ queryKey: ["providers", provider.id] });
                 void queryClient.invalidateQueries({ queryKey: ["providers", "catalog"] });
                 onOpenChange(false);
@@ -163,7 +167,11 @@ export function ConnectOAuthModal({
                 {/* Waiting State Banner */}
                 <div className="flex items-center gap-3 rounded-lg border border-border/60 bg-secondary/30 p-3 text-xs font-mono text-foreground">
                     <Loader2 className="size-4 text-orange-500 animate-spin shrink-0" />
-                    <span>{isLoadingUrl ? "Generating PKCE session…" : "Waiting for popup authorization..."}</span>
+                    <span>
+                        {isLoadingUrl
+                            ? "Generating PKCE session…"
+                            : "Waiting for popup authorization..."}
+                    </span>
                 </div>
 
                 {/* Divider */}
@@ -201,7 +209,11 @@ export function ConnectOAuthModal({
                                 disabled={!authUrl}
                                 className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 bg-secondary/60 hover:bg-secondary px-3 py-2 text-xs font-semibold text-foreground transition-all shrink-0 disabled:opacity-50"
                             >
-                                {copied ? <Check className="size-3.5 text-emerald-500" /> : <Copy className="size-3.5" />}
+                                {copied ? (
+                                    <Check className="size-3.5 text-emerald-500" />
+                                ) : (
+                                    <Copy className="size-3.5" />
+                                )}
                                 <span>Copy</span>
                             </button>
                         </div>
