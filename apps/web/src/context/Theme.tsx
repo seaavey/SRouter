@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useTheme as useThemeState } from "@/lib/theme";
+import { useTheme as useThemeState } from "@/hooks/useTheme";
 
 type ThemeContextValue = ReturnType<typeof useThemeState>;
 

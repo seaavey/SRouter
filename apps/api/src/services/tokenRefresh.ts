@@ -1,6 +1,6 @@
 import { getAllProvidersDB, updateProviderTokensDB, getProviderByIdDB } from "@srouter/db";
-import { AntigravityOAuth, OpenAICodexOAuth } from "@srouter/providers";
 import type { AIProvider, ProviderConfig } from "@srouter/types";
+import { authProviderHandlers } from "@/logic/auth.providers.js";
 import { registry } from "./registry.js";
 
 // Refresh tokens before they expire — lead time in ms
@@ -21,17 +21,14 @@ type OAuthClient = {
 };
 
 /**
- * Resolve the OAuth client class for a provider type.
- * Codex → OpenAICodexOAuth, antigravity → AntigravityOAuth, claude → ClaudeOAuth.
+ * Resolve the OAuth client class for a provider type from the shared auth-provider handlers.
+ * Codex → OpenAICodexOAuth, antigravity → AntigravityOAuth. Providers without an oauthClass
+ * (commandcode, anthropic) and the stale "claude" alias resolve to null → no-op.
  */
 function getOAuthClient(providerType: string): OAuthClient | null {
-    if (providerType === "openai_codex") {
-        return new OpenAICodexOAuth();
-    }
-    if (providerType === "antigravity") {
-        return new AntigravityOAuth();
-    }
-    return null;
+    const handler = authProviderHandlers[providerType];
+    if (!handler?.oauthClass) return null;
+    return new handler.oauthClass();
 }
 
 /**

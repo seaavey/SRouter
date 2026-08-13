@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMatches } from "@tanstack/react-router";
 import { Check, Copy, Moon, Sun } from "lucide-react";
-import { useTheme } from "@/context/theme";
+import { useTheme } from "@/context/Theme";
 import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 

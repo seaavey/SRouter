@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useTheme } from "@/context/theme";
+import { useTheme } from "@/context/Theme";
 import { Toaster as Sonner, type ToasterProps } from "sonner";
 import {
     CircleCheckIcon,

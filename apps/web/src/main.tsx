@@ -4,11 +4,10 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { RouterProvider, createRouter } from "@tanstack/react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ThemeProvider } from "./context/theme";
+import { ThemeProvider } from "./context/Theme";
 import { Toaster } from "./components/ui/sonner";
 import { routeTree } from "./routeTree.gen";
 import "./styles.css";
-
 
 const queryClient = new QueryClient({
     defaultOptions: {

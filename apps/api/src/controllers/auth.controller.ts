@@ -1,5 +1,14 @@
 import type { Context } from "hono";
 import { AuthLogic } from "@/logic/auth.logic.js";
+import {
+    anthropicAuthHandler,
+    antigravityAuthHandler,
+    commandCodeAuthHandler,
+    openaiCodexAuthHandler,
+    type AuthProviderHandler,
+    type OAuthLoginParams,
+    type TokenImportParams,
+} from "@/logic/auth.providers.js";
 import { err, ok } from "@/utils/response.js";
 
 export interface OAuthCallbackBody {
@@ -53,245 +62,185 @@ function renderOAuthSuccessHTML(providerName: string): Response {
     });
 }
 
-export class AuthController {
-    // Initiate OAuth PKCE Login Flow
-    public static loginOpenAI(c: Context): Response {
-        const customClientId = c.req.query("client_id") || undefined;
-        const redirectUri = c.req.query("redirect_uri") || undefined;
-        const prompt = c.req.query("prompt") || undefined;
+// --- Generic engine (parameterized by an AuthProviderHandler) ---
 
-        const result = AuthLogic.initiateOAuthPKCE({
-            clientId: customClientId,
-            redirectUri,
-            prompt,
-        });
+/**
+ * Initiate a PKCE OAuth login. Mirrors the original per-provider behavior:
+ * - OpenAI login lets errors bubble (global handler → 500).
+ * - Antigravity login catches errors and returns 400 invalid_request_error.
+ * The `handleErrors` flag encodes that asymmetry.
+ */
+function loginFor(
+    handler: AuthProviderHandler,
+    initiate: (params: OAuthLoginParams) => ReturnType<typeof AuthLogic.initiateOAuthPKCE>,
+    c: Context,
+    handleErrors: boolean,
+): Response {
+    const clientId = c.req.query("client_id") || undefined;
+    const redirectUri = c.req.query("redirect_uri") || undefined;
+    const prompt = c.req.query("prompt") || undefined;
+
+    try {
+        const result = initiate({ clientId, redirectUri, prompt });
 
         if (c.req.query("format") === "json") {
             return ok(c, result);
         }
 
         return c.redirect(result.authorizeUrl);
+    } catch (error) {
+        if (!handleErrors) throw error;
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        return err(c, errorMessage, 400, { type: "invalid_request_error" });
+    }
+}
+
+/**
+ * Handle an OAuth callback (GET from browser popup, or POST with a callbackUrl body).
+ * Shared by the main app and the secondary OAuth listener (port 1455).
+ */
+async function handleOAuthCallbackFor(
+    handler: AuthProviderHandler,
+    processCallback: (code: string, state: string) => Promise<unknown>,
+    c: Context,
+): Promise<Response> {
+    let code = c.req.query("code") || undefined;
+    let state = c.req.query("state") || undefined;
+
+    if ((!code || !state) && c.req.method === "POST") {
+        try {
+            const body = await c.req.json<OAuthCallbackBody>();
+            if (body.callbackUrl) {
+                try {
+                    const parsedUrl = new URL(body.callbackUrl);
+                    code = code || parsedUrl.searchParams.get("code") || undefined;
+                    state = state || parsedUrl.searchParams.get("state") || undefined;
+                } catch {
+                    // Ignore invalid URL string
+                }
+            }
+            code = code || body.code;
+            state = state || body.state;
+        } catch {
+            // Ignore JSON parse error
+        }
     }
 
-    // Callback handler reusable by both main app and secondary OAuth listener (port 1455)
-    public static async handleOAuthCallback(c: Context): Promise<Response> {
-        let code = c.req.query("code") || undefined;
-        let state = c.req.query("state") || undefined;
+    if (!code || !state) {
+        return err(c, "Missing required 'code' or 'state' parameters in OAuth callback", 400, {
+            type: "invalid_request_error",
+        });
+    }
 
-        if ((!code || !state) && c.req.method === "POST") {
-            try {
-                const body = await c.req.json<OAuthCallbackBody>();
-                if (body.callbackUrl) {
-                    try {
-                        const parsedUrl = new URL(body.callbackUrl);
-                        code = code || parsedUrl.searchParams.get("code") || undefined;
-                        state = state || parsedUrl.searchParams.get("state") || undefined;
-                    } catch {
-                        // Ignore invalid URL string
-                    }
-                }
-                code = code || body.code;
-                state = state || body.state;
-            } catch {
-                // Ignore JSON parse error
-            }
-        }
+    try {
+        const providerConfig = (await processCallback(code, state)) as {
+            name: string;
+        };
 
-        if (!code || !state) {
-            return err(c, "Missing required 'code' or 'state' parameters in OAuth callback", 400, {
-                type: "invalid_request_error",
+        if (c.req.method === "POST" || c.req.header("accept")?.includes("application/json")) {
+            return ok(c, {
+                success: true,
+                message: handler.oauthSuccessMessage,
+                provider: providerConfig,
             });
         }
 
-        try {
-            const providerConfig = await AuthLogic.processOAuthCallback(code, state);
+        return renderOAuthSuccessHTML(providerConfig.name);
+    } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        return err(c, errorMessage, 500);
+    }
+}
 
-            if (c.req.method === "POST" || c.req.header("accept")?.includes("application/json")) {
-                return ok(c, {
-                    success: true,
-                    message: "Login OpenAI Codex Berhasil!",
-                    provider: providerConfig,
-                });
-            }
-
-            return renderOAuthSuccessHTML(providerConfig.name);
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            return err(c, errorMessage, 500);
-        }
+/**
+ * Import a provider token/API key from a JSON body.
+ */
+async function importTokenFor(
+    handler: AuthProviderHandler,
+    importLogic: (body: TokenImportParams) => unknown,
+    c: Context,
+): Promise<Response> {
+    let body: TokenImportBody;
+    try {
+        body = await c.req.json<TokenImportBody>();
+    } catch {
+        return err(c, "Invalid JSON body", 400, { type: "invalid_request_error" });
     }
 
-    // Helper for Token Importing
-    public static async importToken(c: Context): Promise<Response> {
-        let body: TokenImportBody;
-        try {
-            body = await c.req.json<TokenImportBody>();
-        } catch {
-            return err(c, "Invalid JSON body", 400, { type: "invalid_request_error" });
-        }
+    if (!body.accessToken) {
+        return err(c, "Field 'accessToken' is required", 400, { type: "invalid_request_error" });
+    }
 
-        if (!body.accessToken) {
-            return err(c, "Field 'accessToken' is required", 400, { type: "invalid_request_error" });
-        }
+    const providerConfig = importLogic(body);
 
-        const providerConfig = AuthLogic.processTokenImport(body);
+    return ok(
+        c,
+        {
+            success: true,
+            message: handler.tokenImportMessage,
+            provider: providerConfig,
+        },
+        201,
+    );
+}
 
-        return ok(
+// --- Public API (thin adapters, names preserved so routes/index.ts stay unchanged) ---
+
+export class AuthController {
+    // OpenAI OAuth
+    public static loginOpenAI(c: Context): Response {
+        return loginFor(openaiCodexAuthHandler, (p) => AuthLogic.initiateOAuthPKCE(p), c, false);
+    }
+
+    public static async handleOAuthCallback(c: Context): Promise<Response> {
+        return handleOAuthCallbackFor(
+            openaiCodexAuthHandler,
+            (code, state) => AuthLogic.processOAuthCallback(code, state),
             c,
-            {
-                success: true,
-                message: "OpenAI Codex Access Token registered and saved directly to SQLite database!",
-                provider: providerConfig,
-            },
-            201,
         );
     }
 
-    // --- Antigravity OAuth Handlers ---
+    public static async importToken(c: Context): Promise<Response> {
+        return importTokenFor(openaiCodexAuthHandler, (b) => AuthLogic.processTokenImport(b), c);
+    }
+
+    // Antigravity OAuth
     public static loginAntigravity(c: Context): Response {
-        const customClientId = c.req.query("client_id") || undefined;
-        const redirectUri = c.req.query("redirect_uri") || undefined;
-        const prompt = c.req.query("prompt") || undefined;
-
-        try {
-            const result = AuthLogic.initiateAntigravityOAuthPKCE({
-                clientId: customClientId,
-                redirectUri,
-                prompt,
-            });
-
-            if (c.req.query("format") === "json") {
-                return ok(c, result);
-            }
-
-            return c.redirect(result.authorizeUrl);
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            return err(c, errorMessage, 400, { type: "invalid_request_error" });
-        }
+        return loginFor(
+            antigravityAuthHandler,
+            (p) => AuthLogic.initiateAntigravityOAuthPKCE(p),
+            c,
+            true,
+        );
     }
 
     public static async handleAntigravityOAuthCallback(c: Context): Promise<Response> {
-        let code = c.req.query("code") || undefined;
-        let state = c.req.query("state") || undefined;
-
-        if ((!code || !state) && c.req.method === "POST") {
-            try {
-                const body = await c.req.json<OAuthCallbackBody>();
-                if (body.callbackUrl) {
-                    try {
-                        const parsedUrl = new URL(body.callbackUrl);
-                        code = code || parsedUrl.searchParams.get("code") || undefined;
-                        state = state || parsedUrl.searchParams.get("state") || undefined;
-                    } catch {
-                        // Ignore invalid URL string
-                    }
-                }
-                code = code || body.code;
-                state = state || body.state;
-            } catch {
-                // Ignore JSON parse error
-            }
-        }
-
-        if (!code || !state) {
-            return err(c, "Missing required 'code' or 'state' parameters in OAuth callback", 400, {
-                type: "invalid_request_error",
-            });
-        }
-
-        try {
-            const providerConfig = await AuthLogic.processAntigravityOAuthCallback(code, state);
-
-            if (c.req.method === "POST" || c.req.header("accept")?.includes("application/json")) {
-                return ok(c, {
-                    success: true,
-                    message: "Login Antigravity OAuth Berhasil!",
-                    provider: providerConfig,
-                });
-            }
-
-            return renderOAuthSuccessHTML(providerConfig.name);
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            return err(c, errorMessage, 500);
-        }
+        return handleOAuthCallbackFor(
+            antigravityAuthHandler,
+            (code, state) => AuthLogic.processAntigravityOAuthCallback(code, state),
+            c,
+        );
     }
 
     public static async importAntigravityToken(c: Context): Promise<Response> {
-        let body: TokenImportBody;
-        try {
-            body = await c.req.json<TokenImportBody>();
-        } catch {
-            return err(c, "Invalid JSON body", 400, { type: "invalid_request_error" });
-        }
-
-        if (!body.accessToken) {
-            return err(c, "Field 'accessToken' is required", 400, { type: "invalid_request_error" });
-        }
-
-        const providerConfig = AuthLogic.processAntigravityTokenImport(body);
-
-        return ok(
+        return importTokenFor(
+            antigravityAuthHandler,
+            (b) => AuthLogic.processAntigravityTokenImport(b),
             c,
-            {
-                success: true,
-                message: "Antigravity Access Token registered and saved directly to SQLite database!",
-                provider: providerConfig,
-            },
-            201,
         );
     }
 
-    // --- CommandCode Provider Handlers ---
+    // CommandCode Provider (API key)
     public static async importCommandCodeToken(c: Context): Promise<Response> {
-        let body: TokenImportBody;
-        try {
-            body = await c.req.json<TokenImportBody>();
-        } catch {
-            return err(c, "Invalid JSON body", 400, { type: "invalid_request_error" });
-        }
-
-        if (!body.accessToken) {
-            return err(c, "Field 'accessToken' is required", 400, { type: "invalid_request_error" });
-        }
-
-        const providerConfig = AuthLogic.processCommandCodeTokenImport(body);
-
-        return ok(
+        return importTokenFor(
+            commandCodeAuthHandler,
+            (b) => AuthLogic.processCommandCodeTokenImport(b),
             c,
-            {
-                success: true,
-                message: "Command Code API Key registered and saved directly to SQLite database!",
-                provider: providerConfig,
-            },
-            201,
         );
     }
 
-    // --- Anthropic Provider Handlers ---
+    // Anthropic Provider (API key)
     public static async importAnthropicToken(c: Context): Promise<Response> {
-        let body: TokenImportBody;
-        try {
-            body = await c.req.json<TokenImportBody>();
-        } catch {
-            return err(c, "Invalid JSON body", 400, { type: "invalid_request_error" });
-        }
-
-        if (!body.accessToken) {
-            return err(c, "Field 'accessToken' is required", 400, { type: "invalid_request_error" });
-        }
-
-        const providerConfig = AuthLogic.processAnthropicTokenImport(body);
-
-        return ok(
-            c,
-            {
-                success: true,
-                message: "Anthropic API Key registered and saved directly to SQLite database!",
-                provider: providerConfig,
-            },
-            201,
-        );
+        return importTokenFor(anthropicAuthHandler, (b) => AuthLogic.processAnthropicTokenImport(b), c);
     }
 }
