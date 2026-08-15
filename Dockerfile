@@ -60,26 +60,11 @@ COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
 COPY --from=builder /app/node_modules ./node_modules
 
-# Copy compiled workspace packages
-COPY --from=builder /app/packages/constants/dist ./packages/constants/dist
-COPY --from=builder /app/packages/constants/package.json ./packages/constants/package.json
-COPY --from=builder /app/packages/db/dist ./packages/db/dist
-COPY --from=builder /app/packages/db/package.json ./packages/db/package.json
-COPY --from=builder /app/packages/executors/dist ./packages/executors/dist
-COPY --from=builder /app/packages/executors/package.json ./packages/executors/package.json
-COPY --from=builder /app/packages/pricing/dist ./packages/pricing/dist
-COPY --from=builder /app/packages/pricing/package.json ./packages/pricing/package.json
-COPY --from=builder /app/packages/providers/dist ./packages/providers/dist
-COPY --from=builder /app/packages/providers/package.json ./packages/providers/package.json
-COPY --from=builder /app/packages/translator/dist ./packages/translator/dist
-COPY --from=builder /app/packages/translator/package.json ./packages/translator/package.json
-COPY --from=builder /app/packages/types/dist ./packages/types/dist
-COPY --from=builder /app/packages/types/package.json ./packages/types/package.json
-
-# Copy compiled API server & Web Dashboard build
-COPY --from=builder /app/apps/api/dist ./apps/api/dist
-COPY --from=builder /app/apps/api/package.json ./apps/api/package.json
-COPY --from=builder /app/apps/web/dist ./apps/web/dist
+# Copy compiled workspace packages + their per-package node_modules layers
+# (pnpm workspaces symlink deps like @hono/node-server into each package's
+#  own node_modules, NOT the root — skipping these breaks module resolution)
+COPY --from=builder /app/packages ./packages
+COPY --from=builder /app/apps ./apps
 
 # Expose API/Web port (3000) and OAuth callback receiver port (1455)
 EXPOSE 3000 1455
