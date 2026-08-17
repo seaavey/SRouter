@@ -113,8 +113,7 @@ test("ProviderRegistry caches listModels responses across multiple calls within 
     // Initial call fetches models
     const models1 = await registry.listAllModels();
     assert.equal(callCount, 1);
-    assert.equal(models1.length, 1);
-    assert.equal(models1[0]?.id, "test/model-1");
+    assert.ok(models1.some((m) => m.id === "test/model-1"));
 
     // Second call within TTL hits cache (callCount remains 1)
     const models2 = await registry.listAllModels();
@@ -194,12 +193,12 @@ test("ProviderRegistry serves a stale aggregate snapshot while refreshing", asyn
     const elapsedMs = Date.now() - startedAt;
 
     assert.ok(elapsedMs < 60, `stale read took ${elapsedMs}ms`);
-    assert.equal(staleModels[0]?.id, "test/stale");
+    assert.ok(staleModels.some((m) => m.id === "test/stale"));
     assert.equal(callCount, 2);
 
     await delay(140);
     const freshModels = await registry.listAllModels();
-    assert.equal(freshModels[0]?.id, "test/fresh");
+    assert.ok(freshModels.some((m) => m.id === "test/fresh"));
     assert.equal(callCount, 2);
 });
 
@@ -236,7 +235,7 @@ test("ProviderRegistry bounds slow refreshes and keeps cached models", async () 
     const elapsedMs = Date.now() - startedAt;
 
     assert.ok(elapsedMs < 150, `timed out read took ${elapsedMs}ms`);
-    assert.equal(models[0]?.id, "test/cached");
+    assert.ok(models.some((m) => m.id === "test/cached"));
     assert.equal(callCount, 2);
 });
 
@@ -381,4 +380,112 @@ test("ProviderRegistry automatically fails over to backup account when primary a
 
     assert.equal(chunks.length, 1);
     assert.equal(chunks[0]?.choices[0]?.delta.content, "Recovered stream from acc2!");
+});
+
+test("ProviderRegistry includes srouter/auto in listAllModels and routes to highest ranked healthy model", async () => {
+    let codexCalled = false;
+    let claudeCalled = false;
+
+    const codexProvider: AIProvider = {
+        id: "openai_codex_test",
+        name: "OpenAI Codex",
+        listModels: async () => [{ id: "openai_codex/gpt-4o", object: "model" }],
+        chatCompletion: async (req) => {
+            codexCalled = true;
+            return {
+                id: "chatcmpl-codex",
+                object: "chat.completion",
+                created: Date.now(),
+                model: req.model,
+                choices: [
+                    {
+                        index: 0,
+                        message: { role: "assistant", content: "Hello from GPT-4o!" },
+                        finish_reason: "stop"
+                    }
+                ]
+            };
+        },
+        chatCompletionStream: async function* (req) {
+            codexCalled = true;
+            yield {
+                id: "chatcmpl-codex",
+                object: "chat.completion.chunk",
+                created: Date.now(),
+                model: req.model,
+                choices: [
+                    { index: 0, delta: { content: "Stream from GPT-4o!" }, finish_reason: null }
+                ]
+            };
+        }
+    };
+
+    const claudeProvider: AIProvider = {
+        id: "anthropic_test",
+        name: "Anthropic Claude",
+        listModels: async () => [{ id: "anthropic/claude-3-7-sonnet", object: "model" }],
+        chatCompletion: async (req) => {
+            claudeCalled = true;
+            return {
+                id: "chatcmpl-claude",
+                object: "chat.completion",
+                created: Date.now(),
+                model: req.model,
+                choices: [
+                    {
+                        index: 0,
+                        message: { role: "assistant", content: "Hello from Claude 3.7!" },
+                        finish_reason: "stop"
+                    }
+                ]
+            };
+        },
+        chatCompletionStream: async function* (req) {
+            claudeCalled = true;
+            yield {
+                id: "chatcmpl-claude",
+                object: "chat.completion.chunk",
+                created: Date.now(),
+                model: req.model,
+                choices: [
+                    { index: 0, delta: { content: "Stream from Claude 3.7!" }, finish_reason: null }
+                ]
+            };
+        }
+    };
+
+    const registry = new ProviderRegistry();
+    registry.registerProvider(codexProvider);
+    registry.registerProvider(claudeProvider);
+
+    // Verify srouter/auto and auto appear in model list
+    const models = await registry.listAllModels();
+    assert.equal(models[0]?.id, "srouter/auto");
+    assert.equal(models[1]?.id, "auto");
+
+    // srouter/auto prioritizes Claude 3.7 Sonnet (Rank 0) over GPT-4o (Rank 2)
+    const res = await registry.chatCompletion({
+        model: "srouter/auto",
+        messages: [{ role: "user", content: "Hello" }]
+    });
+
+    assert.equal(claudeCalled, true);
+    assert.equal(codexCalled, false);
+    assert.equal(res.choices[0]?.message.content, "Hello from Claude 3.7!");
+
+    // If Claude fails with 429 rate limit, srouter/auto automatically falls back to GPT-4o
+    claudeCalled = false;
+    codexCalled = false;
+    registry
+        .getCircuitBreaker()
+        .recordFailure("anthropic_test", new Error("Rate limit 429"), 10000);
+
+    const fallbackRes = await registry.chatCompletion({
+        model: "srouter/auto",
+        messages: [{ role: "user", content: "Hello" }]
+    });
+
+    assert.equal(claudeCalled, false);
+    assert.equal(codexCalled, true);
+    assert.equal(fallbackRes.choices[0]?.message.content, "Hello from GPT-4o!");
 });
