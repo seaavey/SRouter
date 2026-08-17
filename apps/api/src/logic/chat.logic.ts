@@ -1,5 +1,5 @@
-import { findMatchingFallbackRulesDB, logRequestDB } from "@srouter/db";
-import { extractUsageBreakdown, estimateCostForUsage } from "@srouter/translator";
+import { findMatchingFallbackRulesDB, getTokenSaverSettingsDB, logRequestDB } from "@srouter/db";
+import { applyTokenSaver, estimateCostForUsage, extractUsageBreakdown } from "@srouter/translator";
 import type {
     ChatCompletionChunk,
     ChatCompletionRequest,
@@ -57,7 +57,9 @@ export class ChatLogic {
         startTime: number,
         depth = 0
     ): Promise<ChatCompletionResponse> {
-        const originalModel = body.model;
+        const effectiveBody =
+            depth === 0 ? applyTokenSaver(body, getTokenSaverSettingsDB()).request : body;
+        const originalModel = effectiveBody.model;
         const matchingRules = findMatchingFallbackRulesDB(originalModel);
 
         const candidates: Array<{ model: string; rule?: FallbackRule }> = [
@@ -88,7 +90,7 @@ export class ChatLogic {
             }
 
             const currentModel = candidate.model;
-            const currentReq: ChatCompletionRequest = { ...body, model: currentModel };
+            const currentReq: ChatCompletionRequest = { ...effectiveBody, model: currentModel };
             const providerId = currentModel.split("/")[0] || "default";
 
             try {
@@ -108,12 +110,17 @@ export class ChatLogic {
                     depth < MAX_INTERCEPT_DEPTH &&
                     Array.isArray(toolCalls) &&
                     toolCalls.length > 0 &&
-                    toolCalls.some((tc) => shouldInterceptToolCall(tc.function.name, body.tools))
+                    toolCalls.some((tc) =>
+                        shouldInterceptToolCall(tc.function.name, effectiveBody.tools)
+                    )
                 ) {
-                    const updatedMessages: ChatMessage[] = [...body.messages, choice.message];
+                    const updatedMessages: ChatMessage[] = [
+                        ...effectiveBody.messages,
+                        choice.message
+                    ];
 
                     for (const tc of toolCalls) {
-                        if (shouldInterceptToolCall(tc.function.name, body.tools)) {
+                        if (shouldInterceptToolCall(tc.function.name, effectiveBody.tools)) {
                             const { toolCallId, result } = await executeInterceptedSearch(tc);
                             updatedMessages.push({
                                 role: "tool",
@@ -198,7 +205,9 @@ export class ChatLogic {
         startTime: number,
         depth = 0
     ): AsyncGenerator<ChatCompletionChunk, void, void> {
-        const originalModel = body.model;
+        const effectiveBody =
+            depth === 0 ? applyTokenSaver(body, getTokenSaverSettingsDB()).request : body;
+        const originalModel = effectiveBody.model;
         const matchingRules = findMatchingFallbackRulesDB(originalModel);
 
         const candidates: Array<{ model: string; rule?: FallbackRule }> = [
@@ -229,7 +238,7 @@ export class ChatLogic {
             }
 
             const currentModel = candidate.model;
-            const currentReq: ChatCompletionRequest = { ...body, model: currentModel };
+            const currentReq: ChatCompletionRequest = { ...effectiveBody, model: currentModel };
             const providerId = currentModel.split("/")[0] || "default";
 
             let yieldedAny = false;
@@ -290,7 +299,9 @@ export class ChatLogic {
                 const assembledToolCalls = Array.from(toolCallsMap.values());
                 const hasInterceptableCall =
                     depth < MAX_INTERCEPT_DEPTH &&
-                    assembledToolCalls.some((tc) => shouldInterceptToolCall(tc.name, body.tools));
+                    assembledToolCalls.some((tc) =>
+                        shouldInterceptToolCall(tc.name, effectiveBody.tools)
+                    );
 
                 if (hasInterceptableCall) {
                     const assistantToolCalls: ToolCall[] = assembledToolCalls.map((tc) => ({
@@ -308,10 +319,13 @@ export class ChatLogic {
                         tool_calls: assistantToolCalls
                     };
 
-                    const updatedMessages: ChatMessage[] = [...body.messages, assistantMessage];
+                    const updatedMessages: ChatMessage[] = [
+                        ...effectiveBody.messages,
+                        assistantMessage
+                    ];
 
                     for (const tc of assembledToolCalls) {
-                        if (shouldInterceptToolCall(tc.name, body.tools)) {
+                        if (shouldInterceptToolCall(tc.name, effectiveBody.tools)) {
                             const { toolCallId, result } = await executeInterceptedSearch({
                                 id: tc.id,
                                 function: { name: tc.name, arguments: tc.arguments }

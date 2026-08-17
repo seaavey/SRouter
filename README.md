@@ -63,6 +63,13 @@ Equipped with an embedded OAuth token refresh daemon, real-time quota telemetry,
 - **Tiered Multi-Account Failover**: Seamlessly shifts traffic across multiple accounts registered to the same provider when rate limits occur.
 - **Smart Cross-Provider Fallback Cascades**: Configurable rule-based fallbacks (exact, wildcard prefix, or global) that re-route downstream requests before the first SSE chunk is emitted.
 
+### 💰 Token Saver Engine (`/token-saver`)
+
+- **Compress Tool Output (`rtk`)**: Intelligent minification of `git diff`, `git status`/`log`, `ripgrep`, directory listings (`ls`, `tree`), and runtime logs before LLM dispatch (**60–90% fewer input tokens**).
+- **Lazy Senior Dev (`ponytail`)**: Prompt optimization biasing models toward minimal code: YAGNI principles, standard library reuse over external dependencies, and surgical deletion over addition.
+- **Compress LLM Output (`caveman`)**: Terse-style system prompt injection eliminating conversational filler, greetings, and boilerplate summaries (**~65% to 87% fewer output tokens**).
+- **Interactive Simulator & Granular Toggles**: Full control with master switch, individual module toggles, and live before/after test lab.
+
 ### 🔄 Autonomous OAuth PKCE & Token Sweeper
 
 - **Automated Lifecycle Management**: Embedded background daemon continuously monitors and refreshes OAuth tokens (Google Antigravity, OpenAI Codex, Qoder) before they expire.
