@@ -57,6 +57,13 @@ Equipped with an embedded OAuth token refresh daemon, real-time quota telemetry,
 - **Bi-Directional Schema Translation**: Automatic conversion between OpenAI JSON schemas, Claude tool calls, and Gemini reasoning protocols.
 - **True SSE Streaming**: Native Server-Sent Events streaming with real-time chunk normalization and usage metrics.
 
+### 🛡️ Circuit Breakers, Smart Fallbacks & Meta-Routing (`srouter/auto`)
+
+- **Autonomous Circuit Breaker**: Real-time account health monitoring, error pattern detection (`429`, `403`, `502`, `503`, quota exhaustion), and automatic cooldown recovery.
+- **Tiered Multi-Account Failover**: Seamlessly shifts traffic across multiple accounts registered to the same provider when rate limits occur.
+- **Smart Cross-Provider Fallback Cascades**: Configurable rule-based fallbacks (exact, wildcard prefix, or global) that re-route downstream requests before the first SSE chunk is emitted.
+- **Smart Meta-Routing (`srouter/auto` & `auto`)**: Built-in intelligent routing that automatically dispatches requests to the highest-ranked healthy model available in your pool.
+
 ### 🔄 Autonomous OAuth PKCE & Token Sweeper
 
 - **Automated Lifecycle Management**: Embedded background daemon continuously monitors and refreshes OAuth tokens (Google Antigravity, OpenAI Codex, Qoder) before they expire.

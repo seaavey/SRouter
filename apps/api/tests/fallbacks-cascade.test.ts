@@ -182,3 +182,87 @@ test("ChatLogic cascades streaming request to fallback provider before first chu
     assert.equal(chunks.length, 1);
     assert.equal(chunks[0]?.choices[0]?.delta.content, "Streaming seamlessly from fallback!");
 });
+
+test("ChatLogic logs resolvedModel when srouter/auto meta-model is used", async () => {
+    const autoProvider: AIProvider = {
+        id: "auto_test_provider",
+        name: "Auto Test Provider",
+        listModels: async () => [{ id: "auto_test_provider/claude-3-7-sonnet", object: "model" }],
+        chatCompletion: async (req) => ({
+            id: "chatcmpl-auto-test",
+            object: "chat.completion",
+            created: Date.now(),
+            model: req.model,
+            choices: [
+                {
+                    index: 0,
+                    message: { role: "assistant", content: "Auto routed answer" },
+                    finish_reason: "stop"
+                }
+            ]
+        }),
+        chatCompletionStream: async function* (req) {
+            yield {
+                id: "chatcmpl-auto-stream-test",
+                object: "chat.completion.chunk",
+                created: Date.now(),
+                model: req.model,
+                choices: [
+                    {
+                        index: 0,
+                        delta: { content: "Auto stream answer" },
+                        finish_reason: null
+                    }
+                ]
+            };
+        }
+    };
+
+    registry.registerProvider(autoProvider);
+    registeredProviderIds.push(autoProvider.id);
+
+    // 1. Non-streaming test
+    const startTime = Date.now();
+    const res = await ChatLogic.processNonStreamingCompletion(
+        {
+            model: "srouter/auto",
+            messages: [{ role: "user", content: "Auto test query" }]
+        },
+        startTime
+    );
+
+    assert.equal(res.choices[0]?.message.content, "Auto routed answer");
+
+    const recentLogs = getRecentLogsDB(5);
+    const autoLog = recentLogs.find(
+        (l) =>
+            l.model === "srouter/auto" && l.resolvedModel === "auto_test_provider/claude-3-7-sonnet"
+    );
+    assert.ok(autoLog, "Expected to find log with model srouter/auto and resolvedModel set");
+    assert.equal(autoLog?.resolvedModel, "auto_test_provider/claude-3-7-sonnet");
+
+    // 2. Streaming test
+    const streamGen = ChatLogic.processStreamingCompletion(
+        {
+            model: "srouter/auto",
+            messages: [{ role: "user", content: "Auto streaming query" }]
+        },
+        Date.now()
+    );
+
+    const streamChunks = [];
+    for await (const chunk of streamGen) {
+        streamChunks.push(chunk);
+    }
+    assert.equal(streamChunks.length, 1);
+
+    const streamLogs = getRecentLogsDB(5);
+    const streamLog = streamLogs.find(
+        (l) =>
+            l.model === "srouter/auto" && l.resolvedModel === "auto_test_provider/claude-3-7-sonnet"
+    );
+    assert.ok(
+        streamLog,
+        "Expected to find streaming log with model srouter/auto and resolvedModel set"
+    );
+});

@@ -135,18 +135,44 @@ export function LogTable({ logs, onSelect }: LogTableProps) {
                         </button>
                     );
                 },
-                cell: ({ row }) => (
-                    <div className="flex items-center gap-1.5 max-w-xs">
-                        <span className="font-mono text-xs font-semibold text-foreground truncate block">
-                            {row.original.model}
-                        </span>
-                        {row.original.fallbackOccurred && (
-                            <span className="shrink-0 inline-flex items-center rounded px-1 py-0.2 text-[9px] font-mono font-bold bg-amber-500/15 text-amber-500 border border-amber-500/30">
-                                Fallback
-                            </span>
-                        )}
-                    </div>
-                )
+                cell: ({ row }) => {
+                    const model = row.original.model;
+                    const isAuto =
+                        model === "auto" ||
+                        model === "srouter/auto" ||
+                        model === "srouter/smart" ||
+                        model.startsWith("auto/");
+                    const resolved = row.original.resolvedModel;
+
+                    return (
+                        <div className="flex flex-col gap-0.5 max-w-xs">
+                            <div className="flex items-center gap-1.5">
+                                <span className="font-mono text-xs font-semibold text-foreground truncate block">
+                                    {model}
+                                </span>
+                                {isAuto && (
+                                    <span className="shrink-0 inline-flex items-center rounded px-1 py-0.2 text-[9px] font-mono font-bold bg-indigo-500/15 text-indigo-400 border border-indigo-500/30">
+                                        Auto
+                                    </span>
+                                )}
+                                {row.original.fallbackOccurred && (
+                                    <span className="shrink-0 inline-flex items-center rounded px-1 py-0.2 text-[9px] font-mono font-bold bg-amber-500/15 text-amber-500 border border-amber-500/30">
+                                        Fallback
+                                    </span>
+                                )}
+                            </div>
+                            {resolved && resolved !== model && (
+                                <span
+                                    className="font-mono text-[10px] text-muted-foreground truncate flex items-center gap-1"
+                                    title={`Dispatched to: ${resolved}`}
+                                >
+                                    <span className="text-indigo-400">↳</span>
+                                    <span>{resolved}</span>
+                                </span>
+                            )}
+                        </div>
+                    );
+                }
             },
             {
                 accessorKey: "statusCode",

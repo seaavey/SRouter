@@ -137,7 +137,8 @@ export function initDatabase(): void {
         { name: "estimated_cost", definition: "estimated_cost REAL NOT NULL DEFAULT 0" },
         { name: "fallback_occurred", definition: "fallback_occurred INTEGER NOT NULL DEFAULT 0" },
         { name: "fallback_path", definition: "fallback_path TEXT" },
-        { name: "fallback_reason", definition: "fallback_reason TEXT" }
+        { name: "fallback_reason", definition: "fallback_reason TEXT" },
+        { name: "resolved_model", definition: "resolved_model TEXT" }
     ];
     for (const col of logColumns) {
         try {

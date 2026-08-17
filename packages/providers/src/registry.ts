@@ -609,6 +609,13 @@ export class ProviderRegistry {
                     const targetReq: ChatCompletionRequest = { ...req, model: modelId };
                     const response = await provider.chatCompletion(targetReq);
                     this.circuitBreaker.recordSuccess(provider.id);
+                    if (
+                        !response.model ||
+                        response.model === "default" ||
+                        isAutoModel(response.model)
+                    ) {
+                        response.model = modelId;
+                    }
                     return response;
                 } catch (err) {
                     lastError = err;
@@ -658,6 +665,12 @@ export class ProviderRegistry {
                         if (!yieldedAny) {
                             yieldedAny = true;
                             this.circuitBreaker.recordSuccess(provider.id);
+                        }
+                        if (
+                            chunk &&
+                            (!chunk.model || chunk.model === "default" || isAutoModel(chunk.model))
+                        ) {
+                            chunk.model = modelId;
                         }
                         yield chunk;
                     }
