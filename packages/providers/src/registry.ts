@@ -12,6 +12,7 @@ import type {
     ModelObject,
     ProviderDefinition
 } from "@srouter/types";
+import { CircuitBreaker, circuitBreaker as defaultCircuitBreaker } from "./circuitBreaker.js";
 
 export function getProviderAlias(providerId: string): string {
     return providerAlias(providerBaseId(providerId));
@@ -72,6 +73,7 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
 export class ProviderRegistry {
     private providers: Map<string, AIProvider> = new Map();
     private defaultProvider: AIProvider;
+    private circuitBreaker: CircuitBreaker;
     private modelsCache: Map<string, CachedProviderModels> = new Map();
     private modelsInflight: Map<string, Promise<ModelObject[]>> = new Map();
     private modelsFailures: Map<string, number> = new Map();
@@ -82,10 +84,15 @@ export class ProviderRegistry {
     private modelsTtlMs: number = 5 * 60 * 1000; // 5 minutes default TTL
     private modelsFetchTimeoutMs: number = DEFAULT_MODELS_FETCH_TIMEOUT_MS;
 
-    constructor(defaultProvider?: AIProvider, modelsTtlMs?: number) {
+    constructor(
+        defaultProvider?: AIProvider,
+        modelsTtlMs?: number,
+        circuitBreakerInstance?: CircuitBreaker
+    ) {
         if (modelsTtlMs !== undefined) {
             this.modelsTtlMs = modelsTtlMs;
         }
+        this.circuitBreaker = circuitBreakerInstance ?? defaultCircuitBreaker;
         this.defaultProvider = defaultProvider ?? {
             id: "default",
             name: "Default Provider",
@@ -106,6 +113,10 @@ export class ProviderRegistry {
             }
         };
         this.registerProvider(this.defaultProvider);
+    }
+
+    getCircuitBreaker(): CircuitBreaker {
+        return this.circuitBreaker;
     }
 
     setModelsTtlMs(ttlMs: number): void {
@@ -324,7 +335,7 @@ export class ProviderRegistry {
         return catalog;
     }
 
-    async getProviderForModel(modelId: string): Promise<AIProvider> {
+    async getCandidateProvidersForModel(modelId: string): Promise<AIProvider[]> {
         const candidates: AIProvider[] = [];
 
         // 1. Direct match from registered providers' listModels() (cached)
@@ -377,18 +388,22 @@ export class ProviderRegistry {
         }
 
         if (candidates.length > 0) {
-            // Round-robin load balancing across all connected accounts
-            const index = Math.floor(Math.random() * candidates.length);
-            return candidates[index] ?? candidates[0] ?? this.defaultProvider;
+            // Sort by circuit breaker health and apply round-robin shuffle among healthy candidates
+            return this.circuitBreaker.sortCandidatesByHealth(candidates);
         }
 
         if (this.defaultProvider.id !== "default") {
-            return this.defaultProvider;
+            return [this.defaultProvider];
         }
 
         throw new Error(
             `No active provider connection found for model "${modelId}". Please connect a provider account in the Providers tab (e.g. Qoder, OpenAI, Antigravity) or verify the model prefix.`
         );
+    }
+
+    async getProviderForModel(modelId: string): Promise<AIProvider> {
+        const candidates = await this.getCandidateProvidersForModel(modelId);
+        return candidates[0] ?? this.defaultProvider;
     }
 
     private buildModelList(results: ProviderModelResult[]): ModelObject[] {
@@ -457,14 +472,57 @@ export class ProviderRegistry {
     }
 
     async chatCompletion(req: ChatCompletionRequest): Promise<ChatCompletionResponse> {
-        const provider = await this.getProviderForModel(req.model);
-        return provider.chatCompletion(req);
+        const candidates = await this.getCandidateProvidersForModel(req.model);
+        let lastError: unknown = null;
+
+        for (let i = 0; i < candidates.length; i++) {
+            const candidate = candidates[i]!;
+            try {
+                const response = await candidate.chatCompletion(req);
+                this.circuitBreaker.recordSuccess(candidate.id);
+                return response;
+            } catch (err) {
+                lastError = err;
+                this.circuitBreaker.recordFailure(candidate.id, err);
+                if (i < candidates.length - 1) {
+                    continue;
+                }
+            }
+        }
+
+        throw lastError;
     }
 
     async *chatCompletionStream(
         req: ChatCompletionRequest
     ): AsyncGenerator<ChatCompletionChunk, void, void> {
-        const provider = await this.getProviderForModel(req.model);
-        yield* provider.chatCompletionStream(req);
+        const candidates = await this.getCandidateProvidersForModel(req.model);
+        let lastError: unknown = null;
+
+        for (let i = 0; i < candidates.length; i++) {
+            const candidate = candidates[i]!;
+            let yieldedAny = false;
+            try {
+                const stream = candidate.chatCompletionStream(req);
+                for await (const chunk of stream) {
+                    if (!yieldedAny) {
+                        yieldedAny = true;
+                        this.circuitBreaker.recordSuccess(candidate.id);
+                    }
+                    yield chunk;
+                }
+                if (yieldedAny) {
+                    return;
+                }
+            } catch (err) {
+                lastError = err;
+                this.circuitBreaker.recordFailure(candidate.id, err);
+                if (yieldedAny || i === candidates.length - 1) {
+                    throw err;
+                }
+            }
+        }
+
+        if (lastError) throw lastError;
     }
 }

@@ -276,3 +276,109 @@ test("ProviderRegistry coalesces concurrent forced refreshes", async () => {
     await Promise.all([firstRefresh, secondRefresh]);
     assert.equal(callCount, 2);
 });
+
+test("CircuitBreaker tracks provider health and handles cooldown recovery", async () => {
+    const registry = new ProviderRegistry();
+    const cb = registry.getCircuitBreaker();
+    cb.reset();
+
+    assert.equal(cb.isAvailable("acc_1"), true);
+    assert.equal(cb.getHealth("acc_1").state, "healthy");
+
+    // Record failure with 50ms cooldown
+    cb.recordFailure("acc_1", new Error("Rate limit exceeded 429"), 50);
+    assert.equal(cb.isAvailable("acc_1"), false);
+    assert.equal(cb.getHealth("acc_1").state, "cooldown");
+
+    // After cooldown duration, auto-recovers to healthy
+    await delay(60);
+    assert.equal(cb.isAvailable("acc_1"), true);
+    assert.equal(cb.getHealth("acc_1").state, "healthy");
+});
+
+test("ProviderRegistry automatically fails over to backup account when primary account fails", async () => {
+    let acc1Called = false;
+    let acc2Called = false;
+
+    const acc1: AIProvider = {
+        id: "antigravity_acc1",
+        name: "Antigravity Account 1",
+        listModels: async () => [{ id: "antigravity/gemini-2.5-flash", object: "model" }],
+        chatCompletion: async () => {
+            acc1Called = true;
+            throw new Error("429 Too Many Requests: Resource Exhausted");
+        },
+        chatCompletionStream: async function* () {
+            acc1Called = true;
+            throw new Error("429 Too Many Requests: Resource Exhausted");
+        }
+    };
+
+    const acc2: AIProvider = {
+        id: "antigravity_acc2",
+        name: "Antigravity Account 2",
+        listModels: async () => [{ id: "antigravity/gemini-2.5-flash", object: "model" }],
+        chatCompletion: async () => {
+            acc2Called = true;
+            return {
+                id: "chatcmpl-test",
+                object: "chat.completion",
+                created: Date.now(),
+                model: "antigravity/gemini-2.5-flash",
+                choices: [
+                    {
+                        index: 0,
+                        message: { role: "assistant", content: "Recovered from acc2!" },
+                        finish_reason: "stop"
+                    }
+                ]
+            };
+        },
+        chatCompletionStream: async function* () {
+            acc2Called = true;
+            yield {
+                id: "chatcmpl-test",
+                object: "chat.completion.chunk",
+                created: Date.now(),
+                model: "antigravity/gemini-2.5-flash",
+                choices: [
+                    {
+                        index: 0,
+                        delta: { content: "Recovered stream from acc2!" },
+                        finish_reason: null
+                    }
+                ]
+            };
+        }
+    };
+
+    const registry = new ProviderRegistry();
+    registry.registerProvider(acc1);
+    registry.registerProvider(acc2);
+
+    // Non-streaming completion failover test
+    const res = await registry.chatCompletion({
+        model: "antigravity/gemini-2.5-flash",
+        messages: [{ role: "user", content: "Hello" }]
+    });
+
+    assert.equal(acc1Called, true);
+    assert.equal(acc2Called, true);
+    assert.equal(res.choices[0]?.message.content, "Recovered from acc2!");
+
+    // Streaming completion failover test
+    acc1Called = false;
+    acc2Called = false;
+    const stream = registry.chatCompletionStream({
+        model: "antigravity/gemini-2.5-flash",
+        messages: [{ role: "user", content: "Hello streaming" }]
+    });
+
+    const chunks = [];
+    for await (const chunk of stream) {
+        chunks.push(chunk);
+    }
+
+    assert.equal(chunks.length, 1);
+    assert.equal(chunks[0]?.choices[0]?.delta.content, "Recovered stream from acc2!");
+});
