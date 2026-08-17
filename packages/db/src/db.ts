@@ -126,17 +126,20 @@ export function initDatabase(): void {
         );
     `);
 
-    // Ensure analytics columns exist if table was created previously
-    const analyticsColumns: Array<{ name: string; definition: string }> = [
+    // Ensure analytics columns and fallback audit columns exist if table was created previously
+    const logColumns: Array<{ name: string; definition: string }> = [
         { name: "cached_tokens", definition: "cached_tokens INTEGER NOT NULL DEFAULT 0" },
         {
             name: "cache_creation_tokens",
             definition: "cache_creation_tokens INTEGER NOT NULL DEFAULT 0"
         },
         { name: "reasoning_tokens", definition: "reasoning_tokens INTEGER NOT NULL DEFAULT 0" },
-        { name: "estimated_cost", definition: "estimated_cost REAL NOT NULL DEFAULT 0" }
+        { name: "estimated_cost", definition: "estimated_cost REAL NOT NULL DEFAULT 0" },
+        { name: "fallback_occurred", definition: "fallback_occurred INTEGER NOT NULL DEFAULT 0" },
+        { name: "fallback_path", definition: "fallback_path TEXT" },
+        { name: "fallback_reason", definition: "fallback_reason TEXT" }
     ];
-    for (const col of analyticsColumns) {
+    for (const col of logColumns) {
         try {
             db.exec(`ALTER TABLE request_logs ADD COLUMN ${col.definition};`);
         } catch {
@@ -144,7 +147,21 @@ export function initDatabase(): void {
         }
     }
 
-    // 5. Table for Global System Settings
+    // 5. Table for Fallback Rules
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS fallback_rules (
+            id TEXT PRIMARY KEY,
+            source_model TEXT NOT NULL,
+            target_model TEXT NOT NULL,
+            priority INTEGER NOT NULL DEFAULT 1,
+            enabled INTEGER NOT NULL DEFAULT 1,
+            trigger_on_status TEXT,
+            max_retries INTEGER DEFAULT 1,
+            created_at INTEGER NOT NULL
+        );
+    `);
+
+    // 6. Table for Global System Settings
     db.exec(`
         CREATE TABLE IF NOT EXISTS system_settings (
             key TEXT PRIMARY KEY,

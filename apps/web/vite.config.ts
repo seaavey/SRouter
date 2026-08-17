@@ -12,7 +12,9 @@ export default defineConfig({
     ],
     resolve: {
         alias: {
-            "@": path.resolve(__dirname, "./src")
+            "@": path.resolve(__dirname, "./src"),
+            "@srouter/types": path.resolve(__dirname, "../../packages/types/src/index.ts"),
+            "@srouter/constants": path.resolve(__dirname, "../../packages/constants/src/index.ts")
         }
     },
     server: {

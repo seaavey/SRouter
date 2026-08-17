@@ -11,7 +11,14 @@
         "jsxImportSource": "hono/jsx",
         "baseUrl": ".",
         "paths": {
-            "@/*": ["./src/*"]
+            "@/*": ["./src/*"],
+            "@srouter/types": ["../../packages/types/src/index.ts"],
+            "@srouter/constants": ["../../packages/constants/src/index.ts"],
+            "@srouter/pricing": ["../../packages/pricing/src/index.ts"],
+            "@srouter/translator": ["../../packages/translator/src/index.ts"],
+            "@srouter/providers": ["../../packages/providers/src/index.ts"],
+            "@srouter/executors": ["../../packages/executors/src/index.ts"],
+            "@srouter/db": ["../../packages/db/src/index.ts"]
         },
         "rootDir": "./src",
         "outDir": "./dist"

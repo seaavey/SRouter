@@ -11,8 +11,8 @@ export function logRequestDB(entry: Omit<RequestLogEntry, "id" | "createdAt">): 
     const createdAt = Date.now();
 
     const query = db.prepare(`
-        INSERT INTO request_logs (id, api_key_id, provider_id, model, prompt_tokens, completion_tokens, total_tokens, status_code, latency_ms, cached_tokens, cache_creation_tokens, reasoning_tokens, estimated_cost, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO request_logs (id, api_key_id, provider_id, model, prompt_tokens, completion_tokens, total_tokens, status_code, latency_ms, cached_tokens, cache_creation_tokens, reasoning_tokens, estimated_cost, fallback_occurred, fallback_path, fallback_reason, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     query.run(
@@ -29,6 +29,9 @@ export function logRequestDB(entry: Omit<RequestLogEntry, "id" | "createdAt">): 
         entry.cacheCreationTokens ?? 0,
         entry.reasoningTokens ?? 0,
         entry.estimatedCost ?? 0,
+        entry.fallbackOccurred ? 1 : 0,
+        entry.fallbackPath ?? null,
+        entry.fallbackReason ?? null,
         createdAt
     );
 
@@ -57,6 +60,9 @@ export function getRecentLogsDB(limit = 50): RequestLogEntry[] {
         cacheCreationTokens: Number(row.cache_creation_tokens ?? 0),
         reasoningTokens: Number(row.reasoning_tokens ?? 0),
         estimatedCost: Number(row.estimated_cost ?? 0),
+        fallbackOccurred: Boolean(row.fallback_occurred),
+        fallbackPath: row.fallback_path ? String(row.fallback_path) : undefined,
+        fallbackReason: row.fallback_reason ? String(row.fallback_reason) : undefined,
         createdAt: Number(row.created_at ?? 0)
     }));
 }

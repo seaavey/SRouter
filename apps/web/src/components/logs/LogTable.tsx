@@ -136,9 +136,16 @@ export function LogTable({ logs, onSelect }: LogTableProps) {
                     );
                 },
                 cell: ({ row }) => (
-                    <span className="font-mono text-xs font-semibold text-foreground truncate block max-w-xs">
-                        {row.original.model}
-                    </span>
+                    <div className="flex items-center gap-1.5 max-w-xs">
+                        <span className="font-mono text-xs font-semibold text-foreground truncate block">
+                            {row.original.model}
+                        </span>
+                        {row.original.fallbackOccurred && (
+                            <span className="shrink-0 inline-flex items-center rounded px-1 py-0.2 text-[9px] font-mono font-bold bg-amber-500/15 text-amber-500 border border-amber-500/30">
+                                Fallback
+                            </span>
+                        )}
+                    </div>
                 )
             },
             {
