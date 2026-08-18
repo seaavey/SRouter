@@ -23,10 +23,38 @@ import { startTokenRefreshSweeper } from "@/services/tokenRefresh.js";
 import { resolveWebDistPath } from "@/services/webDist.js";
 import { warmModelRegistry } from "@/services/registry.js";
 
+import { HTTPException } from "hono/http-exception";
+
 const app = new Hono();
 
 // Global Error Handler
 app.onError((err, c) => {
+    if (err instanceof HTTPException) {
+        return c.json(
+            {
+                error: {
+                    message: err.message || "Invalid request",
+                    type: "invalid_request_error",
+                    code: err.status === 400 ? "invalid_request" : undefined
+                }
+            },
+            err.status
+        );
+    }
+
+    if (err instanceof SyntaxError && "message" in err && (err as Error).message.includes("JSON")) {
+        return c.json(
+            {
+                error: {
+                    message: "Malformed JSON in request body",
+                    type: "invalid_request_error",
+                    code: "invalid_json"
+                }
+            },
+            400
+        );
+    }
+
     console.error("🔥 API Route Exception:", err);
     return c.json(
         {
@@ -102,6 +130,42 @@ serve(
 
 // Secondary listener on Port 1455 for OAuth callbacks and local Anthropic proxy
 const oauthApp = new Hono();
+oauthApp.onError((err, c) => {
+    if (err instanceof HTTPException) {
+        return c.json(
+            {
+                error: {
+                    message: err.message || "Invalid request",
+                    type: "invalid_request_error",
+                    code: err.status === 400 ? "invalid_request" : undefined
+                }
+            },
+            err.status
+        );
+    }
+    if (err instanceof SyntaxError && "message" in err && (err as Error).message.includes("JSON")) {
+        return c.json(
+            {
+                error: {
+                    message: "Malformed JSON in request body",
+                    type: "invalid_request_error",
+                    code: "invalid_json"
+                }
+            },
+            400
+        );
+    }
+    console.error("🔥 OAuth API Route Exception:", err);
+    return c.json(
+        {
+            error: {
+                message: err.message || "Internal Server Error",
+                type: "internal_error"
+            }
+        },
+        500
+    );
+});
 oauthApp.get("/auth/callback", (c) => handleOAuthCallback(c));
 oauthApp.post("/auth/callback", (c) => handleOAuthCallback(c));
 oauthApp.get("/auth/antigravity/callback", (c) => handleAntigravityOAuthCallback(c));

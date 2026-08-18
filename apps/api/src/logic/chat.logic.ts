@@ -69,36 +69,15 @@ export class ChatLogic {
         const originalModel = effectiveBody.model;
         const matchingRules = findMatchingFallbackRulesDB(originalModel);
 
-        const exactRules = matchingRules.filter(
-            (r) => r.sourceModel.toLowerCase().trim() === originalModel.toLowerCase().trim()
-        );
+        const candidates: Array<{ model: string; rule?: FallbackRule }> = [
+            { model: originalModel }
+        ];
+        const visitedModels = new Set<string>([originalModel]);
 
-        let candidates: Array<{ model: string; rule?: FallbackRule }>;
-        const visitedModels = new Set<string>();
-
-        if (exactRules.length > 0) {
-            // originalModel is a Combo alias: route directly to prioritized targets
-            candidates = [];
-            for (const rule of exactRules) {
-                if (!visitedModels.has(rule.targetModel)) {
-                    visitedModels.add(rule.targetModel);
-                    candidates.push({ model: rule.targetModel, rule });
-                }
-            }
-            for (const rule of matchingRules) {
-                if (!visitedModels.has(rule.targetModel)) {
-                    visitedModels.add(rule.targetModel);
-                    candidates.push({ model: rule.targetModel, rule });
-                }
-            }
-        } else {
-            candidates = [{ model: originalModel }];
-            visitedModels.add(originalModel);
-            for (const rule of matchingRules) {
-                if (!visitedModels.has(rule.targetModel)) {
-                    visitedModels.add(rule.targetModel);
-                    candidates.push({ model: rule.targetModel, rule });
-                }
+        for (const rule of matchingRules) {
+            if (!visitedModels.has(rule.targetModel)) {
+                visitedModels.add(rule.targetModel);
+                candidates.push({ model: rule.targetModel, rule });
             }
         }
 
@@ -238,35 +217,15 @@ export class ChatLogic {
         const originalModel = effectiveBody.model;
         const matchingRules = findMatchingFallbackRulesDB(originalModel);
 
-        const exactRules = matchingRules.filter(
-            (r) => r.sourceModel.toLowerCase().trim() === originalModel.toLowerCase().trim()
-        );
+        const candidates: Array<{ model: string; rule?: FallbackRule }> = [
+            { model: originalModel }
+        ];
+        const visitedModels = new Set<string>([originalModel]);
 
-        let candidates: Array<{ model: string; rule?: FallbackRule }>;
-        const visitedModels = new Set<string>();
-
-        if (exactRules.length > 0) {
-            candidates = [];
-            for (const rule of exactRules) {
-                if (!visitedModels.has(rule.targetModel)) {
-                    visitedModels.add(rule.targetModel);
-                    candidates.push({ model: rule.targetModel, rule });
-                }
-            }
-            for (const rule of matchingRules) {
-                if (!visitedModels.has(rule.targetModel)) {
-                    visitedModels.add(rule.targetModel);
-                    candidates.push({ model: rule.targetModel, rule });
-                }
-            }
-        } else {
-            candidates = [{ model: originalModel }];
-            visitedModels.add(originalModel);
-            for (const rule of matchingRules) {
-                if (!visitedModels.has(rule.targetModel)) {
-                    visitedModels.add(rule.targetModel);
-                    candidates.push({ model: rule.targetModel, rule });
-                }
+        for (const rule of matchingRules) {
+            if (!visitedModels.has(rule.targetModel)) {
+                visitedModels.add(rule.targetModel);
+                candidates.push({ model: rule.targetModel, rule });
             }
         }
 
