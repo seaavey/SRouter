@@ -149,20 +149,28 @@ export function deleteFallbackRuleDB(id: string): boolean {
  */
 export function findMatchingFallbackRulesDB(sourceModel: string): FallbackRule[] {
     const allRules = getAllFallbackRulesDB().filter((r) => r.enabled);
+    const normalizedSource = sourceModel.toLowerCase().trim();
     const prefix = sourceModel.includes("/") ? sourceModel.split("/")[0] : undefined;
+    const normalizedPrefix = prefix?.toLowerCase().trim();
 
     const matches: { rule: FallbackRule; matchScore: number }[] = [];
 
     for (const rule of allRules) {
-        // Prevent trivial self-loop
-        if (rule.targetModel === sourceModel) continue;
+        const ruleSourceNormalized = rule.sourceModel.toLowerCase().trim();
+        const ruleTargetNormalized = rule.targetModel.toLowerCase().trim();
 
-        if (rule.sourceModel === sourceModel) {
+        // Prevent trivial self-loop
+        if (ruleTargetNormalized === normalizedSource) continue;
+
+        if (rule.sourceModel === sourceModel || ruleSourceNormalized === normalizedSource) {
             // Exact match (highest priority score)
             matches.push({ rule, matchScore: 1 });
-        } else if (rule.sourceModel.endsWith("/*")) {
-            const rulePrefix = rule.sourceModel.slice(0, -2);
-            if (prefix && (prefix === rulePrefix || sourceModel.startsWith(`${rulePrefix}/`))) {
+        } else if (ruleSourceNormalized.endsWith("/*")) {
+            const rulePrefix = ruleSourceNormalized.slice(0, -2);
+            if (
+                normalizedPrefix &&
+                (normalizedPrefix === rulePrefix || normalizedSource.startsWith(`${rulePrefix}/`))
+            ) {
                 matches.push({ rule, matchScore: 2 });
             }
         } else if (rule.sourceModel === "*") {

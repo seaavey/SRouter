@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ComboRouteImport } from './routes/combo'
 import { Route as KeysRouteImport } from './routes/keys'
 import { Route as LogsRouteImport } from './routes/logs'
 import { Route as PlaygroundRouteImport } from './routes/playground'
@@ -23,6 +24,11 @@ import { Route as ProvidersProviderIdRouteImport } from './routes/providers/$pro
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ComboRoute = ComboRouteImport.update({
+  id: '/combo',
+  path: '/combo',
   getParentRoute: () => rootRouteImport,
 } as any)
 const KeysRoute = KeysRouteImport.update({
@@ -73,6 +79,7 @@ const ProvidersProviderIdRoute = ProvidersProviderIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/combo': typeof ComboRoute
   '/keys': typeof KeysRoute
   '/logs': typeof LogsRoute
   '/playground': typeof PlaygroundRoute
@@ -85,6 +92,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/combo': typeof ComboRoute
   '/keys': typeof KeysRoute
   '/logs': typeof LogsRoute
   '/playground': typeof PlaygroundRoute
@@ -97,6 +105,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/combo': typeof ComboRoute
   '/keys': typeof KeysRoute
   '/logs': typeof LogsRoute
   '/playground': typeof PlaygroundRoute
@@ -111,6 +120,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/combo'
     | '/keys'
     | '/logs'
     | '/playground'
@@ -123,6 +133,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/combo'
     | '/keys'
     | '/logs'
     | '/playground'
@@ -134,6 +145,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/combo'
     | '/keys'
     | '/logs'
     | '/playground'
@@ -147,6 +159,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ComboRoute: typeof ComboRoute
   KeysRoute: typeof KeysRoute
   LogsRoute: typeof LogsRoute
   PlaygroundRoute: typeof PlaygroundRoute
@@ -163,6 +176,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/combo': {
+      id: '/combo'
+      path: '/combo'
+      fullPath: '/combo'
+      preLoaderRoute: typeof ComboRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/keys': {
@@ -247,6 +267,7 @@ const ProvidersRouteWithChildren = ProvidersRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ComboRoute: ComboRoute,
   KeysRoute: KeysRoute,
   LogsRoute: LogsRoute,
   PlaygroundRoute: PlaygroundRoute,

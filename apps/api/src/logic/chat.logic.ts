@@ -45,8 +45,15 @@ function shouldTriggerFallback(rule: FallbackRule, err: unknown): boolean {
     const status = extractStatusCode(err);
     if (status && rule.triggerOnStatus.includes(status)) return true;
     const msg = err instanceof Error ? err.message : String(err);
-    if (/rate\s*limit|too\s+many\s+requests|quota|exhausted|capacity|high\s+traffic/i.test(msg)) {
-        return rule.triggerOnStatus.includes(429) || rule.triggerOnStatus.includes(403);
+    if (
+        /rate\s*limit|too\s+many\s+requests|quota|exhausted|capacity|high\s+traffic|overloaded|no active provider connection|not found|unknown model|invalid model|no provider found/i.test(
+            msg
+        )
+    ) {
+        return true;
+    }
+    if (status === undefined) {
+        return true;
     }
     return false;
 }
@@ -62,15 +69,36 @@ export class ChatLogic {
         const originalModel = effectiveBody.model;
         const matchingRules = findMatchingFallbackRulesDB(originalModel);
 
-        const candidates: Array<{ model: string; rule?: FallbackRule }> = [
-            { model: originalModel }
-        ];
-        const visitedModels = new Set<string>([originalModel]);
+        const exactRules = matchingRules.filter(
+            (r) => r.sourceModel.toLowerCase().trim() === originalModel.toLowerCase().trim()
+        );
 
-        for (const rule of matchingRules) {
-            if (!visitedModels.has(rule.targetModel)) {
-                visitedModels.add(rule.targetModel);
-                candidates.push({ model: rule.targetModel, rule });
+        let candidates: Array<{ model: string; rule?: FallbackRule }>;
+        const visitedModels = new Set<string>();
+
+        if (exactRules.length > 0) {
+            // originalModel is a Combo alias: route directly to prioritized targets
+            candidates = [];
+            for (const rule of exactRules) {
+                if (!visitedModels.has(rule.targetModel)) {
+                    visitedModels.add(rule.targetModel);
+                    candidates.push({ model: rule.targetModel, rule });
+                }
+            }
+            for (const rule of matchingRules) {
+                if (!visitedModels.has(rule.targetModel)) {
+                    visitedModels.add(rule.targetModel);
+                    candidates.push({ model: rule.targetModel, rule });
+                }
+            }
+        } else {
+            candidates = [{ model: originalModel }];
+            visitedModels.add(originalModel);
+            for (const rule of matchingRules) {
+                if (!visitedModels.has(rule.targetModel)) {
+                    visitedModels.add(rule.targetModel);
+                    candidates.push({ model: rule.targetModel, rule });
+                }
             }
         }
 
@@ -210,15 +238,35 @@ export class ChatLogic {
         const originalModel = effectiveBody.model;
         const matchingRules = findMatchingFallbackRulesDB(originalModel);
 
-        const candidates: Array<{ model: string; rule?: FallbackRule }> = [
-            { model: originalModel }
-        ];
-        const visitedModels = new Set<string>([originalModel]);
+        const exactRules = matchingRules.filter(
+            (r) => r.sourceModel.toLowerCase().trim() === originalModel.toLowerCase().trim()
+        );
 
-        for (const rule of matchingRules) {
-            if (!visitedModels.has(rule.targetModel)) {
-                visitedModels.add(rule.targetModel);
-                candidates.push({ model: rule.targetModel, rule });
+        let candidates: Array<{ model: string; rule?: FallbackRule }>;
+        const visitedModels = new Set<string>();
+
+        if (exactRules.length > 0) {
+            candidates = [];
+            for (const rule of exactRules) {
+                if (!visitedModels.has(rule.targetModel)) {
+                    visitedModels.add(rule.targetModel);
+                    candidates.push({ model: rule.targetModel, rule });
+                }
+            }
+            for (const rule of matchingRules) {
+                if (!visitedModels.has(rule.targetModel)) {
+                    visitedModels.add(rule.targetModel);
+                    candidates.push({ model: rule.targetModel, rule });
+                }
+            }
+        } else {
+            candidates = [{ model: originalModel }];
+            visitedModels.add(originalModel);
+            for (const rule of matchingRules) {
+                if (!visitedModels.has(rule.targetModel)) {
+                    visitedModels.add(rule.targetModel);
+                    candidates.push({ model: rule.targetModel, rule });
+                }
             }
         }
 

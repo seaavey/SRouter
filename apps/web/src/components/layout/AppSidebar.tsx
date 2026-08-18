@@ -4,6 +4,7 @@ import {
     Coins,
     Cpu,
     Gauge,
+    GitFork,
     KeyRound,
     LayoutDashboard,
     ScrollText,
@@ -33,6 +34,7 @@ const mainNavItems = [
 
 const routingNavItems = [
     { to: "/providers", label: "Providers", icon: Boxes },
+    { to: "/combo", label: "Combo", icon: GitFork },
     { to: "/token-saver", label: "Token Saver", icon: Coins },
     { to: "/quota", label: "Quotas & Limits", icon: Gauge },
     { to: "/logs", label: "Audit Logs", icon: ScrollText }

@@ -5,7 +5,6 @@ import {
     Cpu,
     Database,
     Download,
-    GitFork,
     KeyRound,
     Palette,
     RotateCcw,
@@ -23,7 +22,6 @@ import { Button } from "@/components/ui/button";
 
 import { SecuritySettings } from "@/components/settings/SecuritySettings";
 import { GatewaySettings } from "@/components/settings/GatewaySettings";
-import { FallbackSettings } from "@/components/settings/FallbackSettings";
 import { AppearanceSettings } from "@/components/settings/AppearanceSettings";
 import { LoggingSettings } from "@/components/settings/LoggingSettings";
 import { PlaygroundSettings } from "@/components/settings/PlaygroundSettings";
@@ -37,14 +35,7 @@ export const Route = createFileRoute("/settings")({
 });
 
 type SettingsTab =
-    | "security"
-    | "gateway"
-    | "fallbacks"
-    | "appearance"
-    | "logging"
-    | "playground"
-    | "data"
-    | "system";
+    "security" | "gateway" | "appearance" | "logging" | "playground" | "data" | "system";
 
 interface ServerSettingsResponse {
     requireApiKey: boolean;
@@ -113,7 +104,6 @@ function SettingsPage() {
     const tabs: { id: SettingsTab; label: string; icon: typeof Palette; hasBadge?: boolean }[] = [
         { id: "security", label: "Security & API Key", icon: KeyRound },
         { id: "gateway", label: "Gateway & Proxy", icon: Server },
-        { id: "fallbacks", label: "Smart Fallbacks", icon: GitFork },
         { id: "appearance", label: "Appearance", icon: Palette },
         { id: "logging", label: "Logging & Privacy", icon: Shield },
         { id: "playground", label: "Playground Defaults", icon: Terminal },
@@ -224,8 +214,6 @@ function SettingsPage() {
                     {activeTab === "gateway" && (
                         <GatewaySettings settings={settings} updateSetting={updateSetting} />
                     )}
-
-                    {activeTab === "fallbacks" && <FallbackSettings />}
 
                     {activeTab === "appearance" && (
                         <AppearanceSettings
