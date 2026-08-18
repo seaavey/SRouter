@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.1.1] - 2026-08-18
+
+### 🚀 Production Release Highlights
+
+#### 🔀 Model Combo & Automated Failover Cascades (`/combo`)
+
+- **Dedicated Model Combo Dashboard (`/combo`)**: Visual pipeline grouping displaying multi-step failover chains (_Step 1 Primary ➔ Step 2 Failover ➔ Step 3 Backup_) with provider logos and model capability badges (Vision 👁️ & Reasoning 🧠).
+- **macOS-Style Creation & Picker Modal**: Interactive dialog with real-time regex alias validation, model priority reordering, and model selector grouped by provider.
+- **1-Click Starter Templates**: Instant setup for _Flagship Fallback Chain_, _High Throughput & Speed_, and _Deep Reasoning Mix_.
+- **Direct Target Dispatch & Zero Idle Latency**: Combo aliases directly route to target model chains without candidate 0 execution delays.
+- **Case-Insensitive Resolution**: Fallback matching supports case-insensitive model identifiers (`claude` matches `Claude`).
+- **Resilient Fallback Triggers**: Automated failover on HTTP 429, 403, 5xx, missing provider drivers, rate limit exhaustion, and upstream connection failures.
+- **Developer Devtools**: One-click **"Test in Playground"** and instant **"Copy cURL"** command export.
+
+#### ✂️ Multi-Stage Token Saver Engine (`/settings/token-saver`)
+
+- **Rule-Based Prompt Compression**: Reduces prompt token overhead and upstream cost before LLM execution.
+- **Configurable Strategies**: Customizable whitespace compaction, redundant comment stripping, and repetitive string compression.
+- **Dashboard Metrics**: Dedicated settings interface showing estimated cost savings and compression ratios.
+
+#### 🛡️ Robust Validation & Error Resilience
+
+- **Graceful Malformed JSON Handling**: Safely parses malformed JSON and empty request bodies returning standard OpenAI `invalid_request_error` (HTTP 400) without throwing unhandled Hono `HTTPException`.
+- **Global Error Handling**: Comprehensive error normalization across root listeners and secondary OAuth port (1455).
+
+---
+
 ## [0.1.0-rc.2] - 2026-08-16
 
 ### 🚀 Release Candidate 2 Highlights

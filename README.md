@@ -8,7 +8,7 @@ _Unify OpenAI, Anthropic Claude, Google Antigravity, Qoder, Kiro, and custom AI 
 
 <br/>
 
-[![Version](https://img.shields.io/badge/version-v0.1.0--rc.2-blue.svg?style=flat-square)](https://github.com/seaavey/SRouter/releases)
+[![Version](https://img.shields.io/badge/version-v0.1.1-blue.svg?style=flat-square)](https://github.com/seaavey/SRouter/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-v22%20%7C%20v24-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)

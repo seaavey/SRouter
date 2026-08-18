@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 
-export const CURRENT_VERSION = "v0.1.0-rc.2";
+export const CURRENT_VERSION = "v0.1.1";
 export const GITHUB_REPO = "seaavey/SRouter";
 
 export interface GitHubTag {
