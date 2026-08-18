@@ -1,9 +1,8 @@
-import React, { useEffect, useLayoutEffect, useRef, useState, useMemo } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
     ArrowUp,
     Bot,
     Brain,
-    Check,
     ChevronDown,
     Database,
     FileText,
@@ -12,13 +11,13 @@ import {
     MessageSquare,
     Mic,
     Paperclip,
-    Search,
     Sparkles,
     Square,
     Trash2,
     X,
     Zap
 } from "lucide-react";
+import { ModelPickerDropdown } from "./ModelPickerDropdown";
 import { PlaygroundSettingsPopover } from "./PlaygroundSettingsPopover";
 import type { PlaygroundModel } from "./types";
 
@@ -163,16 +162,10 @@ export function PromptBar({
     const [expanded, setExpanded] = useState(false);
     const [rowBox, setRowBox] = useState<{ top: number; height: number } | null>(null);
     const [engaged, setEngaged] = useState(false);
-    const [modelBox, setModelBox] = useState<{ top: number; height: number } | null>(null);
-    const [modelHovered, setModelHovered] = useState<number | null>(null);
-    const [modelSearch, setModelSearch] = useState("");
-
     const containerRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const measureRef = useRef<HTMLSpanElement>(null);
-    const modelMenuRef = useRef<HTMLDivElement>(null);
     const rowRefs = useRef<(HTMLButtonElement | null)[]>([]);
-    const modelRowRefs = useRef<(HTMLButtonElement | null)[]>([]);
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
     const token = dismissed ? null : parseToken(input);
@@ -189,12 +182,6 @@ export function PromptBar({
         return [];
     }, [menu, query]);
 
-    const filteredModels = useMemo(() => {
-        const effective =
-            models.length > 0 ? models : model ? [{ id: model, owned_by: "gateway" }] : [];
-        return effective.filter((m) => m.id.toLowerCase().includes(modelSearch.toLowerCase()));
-    }, [models, model, modelSearch]);
-
     useEffect(() => {
         setActive(0);
         setEngaged(false);
@@ -206,20 +193,9 @@ export function PromptBar({
         if (target) setRowBox({ top: target.offsetTop, height: target.offsetHeight });
     }, [menu, query, active, rows.length]);
 
-    // Gliding highlight for model menu
-    const modelIndex = filteredModels.findIndex((m) => m.id === model);
-    useLayoutEffect(() => {
-        if (!modelOpen) return;
-        const target = modelRowRefs.current[modelHovered ?? modelIndex];
-        if (target) setModelBox({ top: target.offsetTop, height: target.offsetHeight });
-    }, [modelOpen, modelHovered, modelIndex, filteredModels.length]);
-
     // Close menus on click outside
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
-            if (modelMenuRef.current && !modelMenuRef.current.contains(e.target as Node)) {
-                setModelOpen(false);
-            }
             if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
                 setPlusOpen(false);
             }
@@ -419,81 +395,13 @@ export function PromptBar({
                 )}
 
                 {/* ── Model Picker Dropdown ─────────────────────────────── */}
-                {modelOpen && (
-                    <div
-                        ref={modelMenuRef}
-                        onMouseLeave={() => setModelHovered(null)}
-                        className="absolute left-0 sm:left-10 bottom-full z-40 mb-2 w-72 sm:w-80 rounded-[12px] border border-[var(--line)] bg-[var(--surface)] p-1.5 shadow-2xl backdrop-blur-xl"
-                        style={{
-                            animation: "pop-in 180ms cubic-bezier(0.23,1,0.32,1) both",
-                            transformOrigin: "bottom left"
-                        }}
-                    >
-                        {/* Search in model dropdown */}
-                        <div className="relative mb-1 px-1 pt-1">
-                            <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-[var(--ink-3)]" />
-                            <input
-                                type="text"
-                                value={modelSearch}
-                                onChange={(e) => setModelSearch(e.target.value)}
-                                placeholder="Search models..."
-                                className="h-7 w-full rounded-[6px] border border-[var(--line)] bg-[var(--canvas)] pl-8 pr-2 font-mono text-[11px] text-[var(--ink)] placeholder:text-[var(--ink-3)] focus:border-[var(--line-strong)] focus:outline-none"
-                            />
-                        </div>
-
-                        {/* Gliding hover highlight */}
-                        <span
-                            aria-hidden
-                            className="pointer-events-none absolute inset-x-1.5 rounded-[6px] bg-[var(--hover)]"
-                            style={{
-                                top: modelBox?.top ?? 0,
-                                height: modelBox?.height ?? 0,
-                                opacity: modelBox && modelHovered !== null ? 1 : 0,
-                                transition:
-                                    "top 200ms cubic-bezier(0.23,1,0.32,1), height 200ms cubic-bezier(0.23,1,0.32,1), opacity 150ms ease"
-                            }}
-                        />
-
-                        <div className="max-h-60 overflow-y-auto space-y-0.5 pt-1">
-                            {filteredModels.map((m, i) => {
-                                const isSelected = m.id === model;
-                                return (
-                                    <button
-                                        key={m.id}
-                                        type="button"
-                                        ref={(el) => {
-                                            modelRowRefs.current[i] = el;
-                                        }}
-                                        onMouseDown={(e) => e.preventDefault()}
-                                        onMouseEnter={() => setModelHovered(i)}
-                                        onClick={() => {
-                                            handleSelectModel(m);
-                                            inputRef.current?.focus();
-                                        }}
-                                        className="relative z-10 flex h-8 w-full items-center justify-between gap-2 rounded-[6px] px-2 text-left font-mono transition-colors cursor-pointer"
-                                    >
-                                        <div className="flex min-w-0 items-center gap-2">
-                                            <Bot className="size-3 text-[var(--ink-3)] shrink-0" />
-                                            <span className="truncate text-[11.5px] font-medium text-[var(--ink)]">
-                                                {m.id}
-                                            </span>
-                                        </div>
-                                        <div className="flex items-center gap-1.5 shrink-0">
-                                            {m.owned_by && (
-                                                <span className="rounded bg-[var(--field)] px-1 py-0.2 text-[9px] text-[var(--ink-3)] uppercase font-semibold">
-                                                    {m.owned_by}
-                                                </span>
-                                            )}
-                                            {isSelected && (
-                                                <Check className="size-3 text-emerald-500 stroke-[2.5]" />
-                                            )}
-                                        </div>
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </div>
-                )}
+                <ModelPickerDropdown
+                    isOpen={modelOpen}
+                    models={models}
+                    currentModel={model}
+                    onSelectModel={handleSelectModel}
+                    onClose={() => setModelOpen(false)}
+                />
 
                 {/* ── Main Composer Container ───────────────────────────── */}
                 <div

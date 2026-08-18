@@ -61,8 +61,10 @@ app.route("/", messagesRoute);
 
 // Serve Web Dashboard in production if built dist exists
 const webDistPath = resolveWebDistPath();
+const hasWebDist =
+    fs.existsSync(webDistPath) && fs.existsSync(path.join(webDistPath, "index.html"));
 
-if (fs.existsSync(webDistPath) && fs.existsSync(path.join(webDistPath, "index.html"))) {
+if (hasWebDist) {
     const relWebDist = path.relative(process.cwd(), webDistPath) || ".";
     app.use("/*", serveStatic({ root: relWebDist }));
     app.get("*", serveStatic({ path: path.join(relWebDist, "index.html") }));
@@ -86,7 +88,14 @@ serve(
         port
     },
     (info) => {
-        console.log(`🚀 SRouter API Server running at http://localhost:${info.port}`);
+        console.log(`🚀 SRouter Server running at http://localhost:${info.port}`);
+        if (hasWebDist) {
+            console.log(`🌐 Web Dashboard & API live at http://localhost:${info.port}`);
+        } else {
+            console.log(
+                `ℹ️ Web dist not found. Running in API-only mode at http://localhost:${info.port}`
+            );
+        }
         warmModelRegistry();
     }
 );

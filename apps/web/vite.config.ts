@@ -17,6 +17,9 @@ export default defineConfig({
             "@srouter/constants": path.resolve(__dirname, "../../packages/constants/src/index.ts")
         }
     },
+    build: {
+        chunkSizeWarningLimit: 1000
+    },
     server: {
         port: 5173,
         proxy: {

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
     AlertTriangle,
@@ -17,6 +17,7 @@ import { ProviderIcon } from "@/components/ProviderIcon";
 import { ConnectOAuthModal } from "@/components/ui/ConnectOAuthModal";
 import { useProvider, type AddConnectionPayload } from "@/hooks/useProvider";
 import { useCopy } from "@/hooks/useCopy";
+import { useFavorites } from "@/hooks/useFavorites";
 import { toast } from "sonner";
 import { ConnectionCard } from "@/components/providers/ConnectionCard";
 import { ConnectionForm, type ConnectionFormInput } from "@/components/providers/ConnectionForm";
@@ -47,6 +48,7 @@ function ProviderDetailPage() {
     const [isOAuthModalOpen, setIsOAuthModalOpen] = useState(false);
     const [formError, setFormError] = useState("");
     const { copied, copy } = useCopy();
+    const { isFavorite } = useFavorites();
 
     const storageKey = `srouter_deleted_models_${providerId}`;
     const [deletedModelIds, setDeletedModelIds] = useState<string[]>(() => {
@@ -58,6 +60,29 @@ function ProviderDetailPage() {
         }
     });
 
+    const handleRestoreModel = (modelId: string) => {
+        setDeletedModelIds((prev) => {
+            const updated = prev.filter((id) => id !== modelId);
+            try {
+                localStorage.setItem(storageKey, JSON.stringify(updated));
+            } catch {}
+            return updated;
+        });
+        toast.success(`Model "${modelId}" restored`);
+    };
+
+    const handleRestoreMultiple = (modelIds: string[]) => {
+        const removeSet = new Set(modelIds);
+        setDeletedModelIds((prev) => {
+            const updated = prev.filter((id) => !removeSet.has(id));
+            try {
+                localStorage.setItem(storageKey, JSON.stringify(updated));
+            } catch {}
+            return updated;
+        });
+        toast.success(`Restored ${modelIds.length} hidden model${modelIds.length > 1 ? "s" : ""}`);
+    };
+
     const handleDeleteModel = (modelId: string) => {
         setDeletedModelIds((prev) => {
             const updated = prev.includes(modelId) ? prev : [...prev, modelId];
@@ -66,13 +91,38 @@ function ProviderDetailPage() {
             } catch {}
             return updated;
         });
+        toast.info(`Model "${modelId}" hidden from list`, {
+            action: {
+                label: "Undo",
+                onClick: () => handleRestoreModel(modelId)
+            }
+        });
+    };
+
+    const handleDeleteMultipleModels = (modelIds: string[]) => {
+        setDeletedModelIds((prev) => {
+            const set = new Set([...prev, ...modelIds]);
+            const updated = Array.from(set);
+            try {
+                localStorage.setItem(storageKey, JSON.stringify(updated));
+            } catch {}
+            return updated;
+        });
+        toast.info(`Hidden ${modelIds.length} model${modelIds.length > 1 ? "s" : ""} from list`, {
+            action: {
+                label: "Undo",
+                onClick: () => handleRestoreMultiple(modelIds)
+            }
+        });
     };
 
     const handleRestoreAllModels = () => {
+        const count = deletedModelIds.length;
         setDeletedModelIds([]);
         try {
             localStorage.removeItem(storageKey);
         } catch {}
+        toast.success(`Restored ${count} hidden model${count > 1 ? "s" : ""}`);
     };
 
     const handleAddConnection = () => {
@@ -109,6 +159,24 @@ function ProviderDetailPage() {
             }
         });
     };
+
+    const activeModels = useMemo(() => {
+        if (!provider?.models) return [];
+        return provider.models.filter((m) => !deletedModelIds.includes(m.id));
+    }, [provider?.models, deletedModelIds]);
+
+    const filteredModels = useMemo(() => {
+        return activeModels.filter((m) => m.id.toLowerCase().includes(modelSearch.toLowerCase()));
+    }, [activeModels, modelSearch]);
+
+    const sortedModels = useMemo(() => {
+        return [...filteredModels].sort((a, b) => {
+            const favA = isFavorite(a.id) ? 1 : 0;
+            const favB = isFavorite(b.id) ? 1 : 0;
+            if (favA !== favB) return favB - favA;
+            return a.id.localeCompare(b.id);
+        });
+    }, [filteredModels, isFavorite]);
 
     if (isLoading || !provider) {
         if (!provider && error) {
@@ -152,11 +220,6 @@ function ProviderDetailPage() {
 
     const connections = provider.connections ?? [];
     const activeConnectionsCount = connections.filter((c) => c.enabled).length;
-    const activeModels = (provider.models ?? []).filter((m) => !deletedModelIds.includes(m.id));
-    const filteredModels = activeModels.filter((m) =>
-        m.id.toLowerCase().includes(modelSearch.toLowerCase())
-    );
-
     const websiteUrl = getProviderWebsiteUrl(provider.id, provider.defaultBaseUrl);
 
     return (
@@ -356,7 +419,7 @@ function ProviderDetailPage() {
                     </div>
                 </div>
 
-                {filteredModels.length === 0 ? (
+                {sortedModels.length === 0 ? (
                     <div className="rounded-xl border border-dashed border-border/80 p-12 text-center text-xs text-muted-foreground space-y-2">
                         <p>
                             {modelSearch
@@ -376,14 +439,15 @@ function ProviderDetailPage() {
                     </div>
                 ) : viewMode === "table" ? (
                     <ProviderModelTable
-                        models={filteredModels}
+                        models={sortedModels}
                         copied={copied}
                         onCopy={(id) => void copy(id)}
                         onDelete={handleDeleteModel}
+                        onDeleteMultiple={handleDeleteMultipleModels}
                     />
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
-                        {filteredModels.map((m) => (
+                        {sortedModels.map((m) => (
                             <ProviderModelCard
                                 key={m.id}
                                 model={m}
