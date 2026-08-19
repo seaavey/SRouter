@@ -54,9 +54,9 @@ export class OpenCodeAdapter extends AbstractToolAdapter {
             const model = parsed.model || parsed.default_model || undefined;
             const linked = Boolean(
                 baseUrl &&
-                    (baseUrl.includes("localhost") ||
-                        baseUrl.includes("127.0.0.1") ||
-                        baseUrl.includes("srouter"))
+                (baseUrl.includes("localhost") ||
+                    baseUrl.includes("127.0.0.1") ||
+                    baseUrl.includes("srouter"))
             );
 
             return {

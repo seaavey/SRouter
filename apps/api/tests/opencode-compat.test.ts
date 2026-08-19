@@ -4,8 +4,51 @@ import { Hono } from "hono";
 import { chatRoute } from "../src/routes/v1/chat.js";
 import { modelsRoute } from "../src/routes/v1/models.js";
 import { providersRoute } from "../src/routes/v1/providers.js";
+import { registry } from "../src/services/registry.js";
+import type { AIProvider, ChatCompletionRequest, ChatCompletionResponse } from "@srouter/types";
+import { deleteLogsByProviderDB } from "@srouter/db";
 
-test("OpenCode Compatibility - supports both /v1 and root endpoints", async () => {
+test("OpenCode Compatibility - supports both /v1 and root endpoints", async (t) => {
+    const mockProviderId = "opencode_mock_provider";
+    const mockModelId = "opencode_mock_provider/test-model";
+
+    const mockProvider: AIProvider = {
+        id: mockProviderId,
+        name: "OpenCode Mock Provider",
+        listModels: async () => [{ id: mockModelId, object: "model" }],
+        chatCompletion: async (req: ChatCompletionRequest): Promise<ChatCompletionResponse> => {
+            return {
+                id: "chatcmpl-mock-opencode",
+                object: "chat.completion",
+                created: Date.now(),
+                model: req.model,
+                choices: [
+                    {
+                        index: 0,
+                        message: {
+                            role: "assistant",
+                            content: "SRouter siap digunakan!"
+                        },
+                        finish_reason: "stop"
+                    }
+                ],
+                usage: {
+                    prompt_tokens: 10,
+                    completion_tokens: 10,
+                    total_tokens: 20
+                }
+            };
+        },
+        chatCompletionStream: async function* () {}
+    };
+
+    registry.registerProvider(mockProvider);
+
+    t.after(() => {
+        deleteLogsByProviderDB(mockProviderId);
+        registry.unregisterProvider(mockProviderId);
+    });
+
     const app = new Hono();
     app.route("/v1", modelsRoute);
     app.route("/v1", chatRoute);
@@ -46,7 +89,7 @@ test("OpenCode Compatibility - supports both /v1 and root endpoints", async () =
                 Authorization: "Bearer sk-local-srouter"
             },
             body: JSON.stringify({
-                model: "gorouter/claude-opus-4-8",
+                model: mockModelId,
                 messages: [
                     {
                         role: "user",
@@ -56,7 +99,30 @@ test("OpenCode Compatibility - supports both /v1 and root endpoints", async () =
             })
         })
     );
-    assert.notEqual(chatRes.status, 404);
-    assert.notEqual(chatRes.status, 401);
     assert.equal(chatRes.status, 200);
+    const chatBody = (await chatRes.json()) as ChatCompletionResponse;
+    assert.equal(chatBody.choices[0].message.content, "SRouter siap digunakan!");
+
+    // 4. Test POST /chat/completions (root level)
+    const rootChatRes = await app.fetch(
+        new Request("http://localhost:3000/chat/completions", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: "Bearer sk-local-srouter"
+            },
+            body: JSON.stringify({
+                model: mockModelId,
+                messages: [
+                    {
+                        role: "user",
+                        content: "Halo SRouter root endpoint"
+                    }
+                ]
+            })
+        })
+    );
+    assert.equal(rootChatRes.status, 200);
+    const rootChatBody = (await rootChatRes.json()) as ChatCompletionResponse;
+    assert.equal(rootChatBody.choices[0].message.content, "SRouter siap digunakan!");
 });
