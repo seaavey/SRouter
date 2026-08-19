@@ -80,7 +80,9 @@ export class OpenCodeAdapter extends AbstractToolAdapter {
 
     async link(context: ToolConfigContext): Promise<LinkResult> {
         const configPath = this.getConfigPath();
-        const backupPath = await this.store.createBackup(this.id, configPath);
+        const backupPath = context.dryRun
+            ? undefined
+            : await this.store.createBackup(this.id, configPath);
 
         let data: Record<string, any> = {};
         try {
