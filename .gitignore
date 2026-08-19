@@ -44,11 +44,8 @@ Thumbs.db
 # TypeScript incremental build metadata
 apps/web/tsconfig.tsbuildinfo
 
-# Dependencies Lock Files
+# Lockfiles from alternative package managers (pnpm-lock.yaml is tracked for CI/Docker)
 package-lock.json
 yarn.lock
-pnpm-lock.yaml
 bun.lock
 bun.lockb
-*.lock
-*-lock.yaml
