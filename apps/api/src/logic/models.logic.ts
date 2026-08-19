@@ -13,8 +13,21 @@ export class ModelsLogic {
         modelId: string,
         forceRefresh = false
     ): Promise<ModelObject | undefined> {
+        if (!modelId) return undefined;
         const models = await registry.listAllModels(undefined, forceRefresh);
-        return models.find((m) => m.id === modelId);
+
+        const cleanId = modelId.replace(/^srouter\//, "");
+
+        // Direct match or clean / prefix match
+        const match = models.find(
+            (m) =>
+                m.id === modelId ||
+                m.id === cleanId ||
+                m.id.replace(/^srouter\//, "") === cleanId ||
+                m.id.endsWith(`/${cleanId}`) ||
+                cleanId.endsWith(`/${m.id}`)
+        );
+        return match;
     }
 
     public static refreshModels(forceRefresh = false): Promise<ModelObject[]> {

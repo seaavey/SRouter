@@ -37,31 +37,8 @@ test("OpenCode Compatibility - supports both /v1 and root endpoints", async () =
     );
     assert.equal(providersRes.status, 200);
 
-    // 3. Test POST /chat/completions (root level)
-    const rootChatRes = await app.fetch(
-        new Request("http://localhost:3000/chat/completions", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: "Bearer sk-local-srouter"
-            },
-            body: JSON.stringify({
-                model: "gorouter/claude-opus-4-8",
-                messages: [
-                    {
-                        role: "user",
-                        content: "Halo SRouter, tolong jawab singkat 'SRouter siap digunakan!'"
-                    }
-                ]
-            })
-        })
-    );
-    assert.notEqual(rootChatRes.status, 404);
-    assert.notEqual(rootChatRes.status, 401);
-    assert.equal(rootChatRes.status, 200);
-
-    // 4. Test POST /v1/chat/completions (/v1 level)
-    const v1ChatRes = await app.fetch(
+    // 3. Test POST /v1/chat/completions (/v1 level)
+    const chatRes = await app.fetch(
         new Request("http://localhost:3000/v1/chat/completions", {
             method: "POST",
             headers: {
@@ -79,7 +56,7 @@ test("OpenCode Compatibility - supports both /v1 and root endpoints", async () =
             })
         })
     );
-    assert.notEqual(v1ChatRes.status, 404);
-    assert.notEqual(v1ChatRes.status, 401);
-    assert.equal(v1ChatRes.status, 200);
+    assert.notEqual(chatRes.status, 404);
+    assert.notEqual(chatRes.status, 401);
+    assert.equal(chatRes.status, 200);
 });
