@@ -21,7 +21,7 @@ _Unify OpenAI, Anthropic Claude, Google Antigravity, Qoder, Kiro, and custom AI 
 
 <br/>
 
-[Key Features](#-key-features) • [Why SRouter?](#-why-srouter) • [Architecture](#-architecture) • [Performance](#-performance--benchmarks) • [Supported Providers](#-supported-providers) • [Quick Start](#-quick-start) • [Docker Deployment](#-docker-deployment) • [Client Integration](#-client-integration) • [API Reference](#-api-reference) • [Configuration](#-configuration) • [Contributing](#-contributing)
+[Key Features](#-key-features) • [Why SRouter?](#-why-srouter) • [Architecture](#-architecture) • [Performance](#-performance--benchmarks) • [Supported Providers](#-supported-providers) • [Quick Start](#-quick-start) • [CLI Tool](#-cli-tool-sroutercli) • [Docker Deployment](#-docker-deployment) • [Client Integration](#-client-integration) • [API Reference](#-api-reference) • [Configuration](#-configuration) • [Contributing](#-contributing)
 
 </div>
 
@@ -237,7 +237,103 @@ The stack boots with live hot-reloading:
 3. Generate a Virtual API key in **API Keys** (optional if Open Access is enabled).
 4. Jump into the **Playground** to start chatting!
 
+### 5. Connect AI Coding Tools via CLI (Optional)
+
+Configure your terminal coding tools (Claude Code, OpenCode) with one command:
+
+```bash
+pnpm srouter setup
+```
+
 ---
+
+## 💻 CLI Tool (`@srouter/cli`)
+
+SRouter includes an official CLI tool to seamlessly link and configure AI coding tools (such as **Claude Code** and **OpenCode**) to proxy requests through your SRouter Gateway.
+
+### Quick Start
+
+Run the interactive setup wizard directly from the repository or via `pnpm`:
+
+```bash
+# Launch the interactive wizard
+pnpm srouter setup
+
+# Or via npx
+npx @srouter/cli setup
+```
+
+### Key CLI Commands
+
+#### 1. Interactive Setup Wizard (`srouter setup` / `config`)
+
+Scans local SRouter health, lets you select which AI tools to connect, chooses the active model, and automatically updates configuration files:
+
+```bash
+pnpm srouter setup
+```
+
+#### 2. Link a Specific Tool (`srouter link`)
+
+Directly configure Claude Code or OpenCode with model overrides:
+
+```bash
+# Link Claude Code with a general model
+pnpm srouter link claude --model claude-3-7-sonnet
+
+# Link Claude Code with tier-specific models (Opus, Sonnet, Haiku)
+pnpm srouter link claude \
+  --opus-model claude-3-opus-20240229 \
+  --sonnet-model claude-3-7-sonnet-20250219 \
+  --haiku-model claude-3-5-haiku-20241022
+
+# Link OpenCode
+pnpm srouter link opencode --model claude-3-7-sonnet
+
+# Preview changes without modifying files (Dry-Run)
+pnpm srouter link claude --dry-run
+```
+
+#### 3. Status & Diagnostic Doctor (`srouter status` / `doctor`)
+
+Inspect your detected OS/shell, SRouter gateway connectivity, active models, and tool configuration states:
+
+```bash
+pnpm srouter status
+# or
+pnpm srouter doctor
+```
+
+#### 4. Shell Environment Variables (`srouter env`)
+
+Generate shell export commands to quickly route terminal sessions to SRouter:
+
+```bash
+# Export variables for Bash / Zsh
+eval "$(pnpm srouter env claude)"
+
+# Generate specific shell syntax (bash, zsh, fish, powershell, cmd)
+pnpm srouter env --shell powershell
+pnpm srouter env --shell fish
+```
+
+#### 5. Run Tools on the Fly (`srouter run`)
+
+Launch your AI coding tools with SRouter proxy environment variables injected at runtime:
+
+```bash
+pnpm srouter run claude
+pnpm srouter run opencode
+```
+
+#### 6. Rollback / Unlink (`srouter unlink`)
+
+Safely restore the original tool configuration from automatic backups:
+
+```bash
+pnpm srouter unlink claude
+pnpm srouter unlink opencode
+```
 
 ## 🐳 Docker Deployment
 
@@ -434,6 +530,7 @@ SRouter is structured as a clean, modular monorepo managed with **pnpm** and **T
 SRouter/
 ├── apps/
 │   ├── api/                 # Hono REST API server, OAuth handler & Token Sweeper
+│   ├── cli/                 # Official CLI for auto-connecting AI coding tools (@srouter/cli)
 │   └── web/                 # Dashboard UI (Vite, React 19, TanStack Router/Table)
 ├── packages/
 │   ├── constants/           # Shared provider definitions, seed data & constants
