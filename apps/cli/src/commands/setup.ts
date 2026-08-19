@@ -126,15 +126,15 @@ export async function setupCommand(options: SetupWizardOptions = {}): Promise<vo
         let hint = "";
 
         if (st.linked) {
-            label = `${adapter.name} [✔ SUDAH DI-SETTING]`;
+            label = `${adapter.name} [✔ CONFIGURED]`;
             const modelPart = st.currentModel ? `, Model: ${st.currentModel}` : "";
-            hint = `Aktif terhubung ke ${st.currentBaseUrl}${modelPart} (Pilih untuk update setting)`;
+            hint = `Active on ${st.currentBaseUrl}${modelPart} (Select to update settings)`;
         } else if (st.installed) {
-            label = `${adapter.name} [○ BELUM DI-SETTING]`;
-            hint = `${adapter.description} (Terinstall di sistem)`;
+            label = `${adapter.name} [○ NOT CONFIGURED]`;
+            hint = `${adapter.description} (Installed on system)`;
         } else {
-            label = `${adapter.name} [✖ BELUM TERINSTALL]`;
-            hint = `${adapter.description} (Executable tidak ditemukan di PATH)`;
+            label = `${adapter.name} [✖ NOT INSTALLED]`;
+            hint = `${adapter.description} (Executable not found in PATH)`;
         }
 
         return {
@@ -146,7 +146,7 @@ export async function setupCommand(options: SetupWizardOptions = {}): Promise<vo
 
     const selectedTools = await multiselect({
         message:
-            "Pilih tool AI coding yang ingin dihubungkan ke SRouter (Gunakan Space untuk memilih, Enter untuk konfirmasi):",
+            "Select AI coding tools to connect to SRouter (Use Space to select, Enter to confirm):",
         options: toolOptions,
         required: false
     });
@@ -167,13 +167,13 @@ export async function setupCommand(options: SetupWizardOptions = {}): Promise<vo
         });
 
         note(
-            `Base URL:    ${pc.cyan(baseUrl)}\n${apiKey ? `API Key:     ${pc.gray("••••••••" + apiKey.slice(-4))}\n` : ""}\n${pc.yellow("Tidak ada tool yang dipilih untuk dihubungkan.")}`,
+            `Base URL:    ${pc.cyan(baseUrl)}\n${apiKey ? `API Key:     ${pc.gray("••••••••" + apiKey.slice(-4))}\n` : ""}\n${pc.yellow("No tools selected for configuration.")}`,
             "Configuration Summary"
         );
         outro(
             pc.bold(
                 pc.green(
-                    "✔ Gateway berhasil disimpan. Anda dapat menjalankan 'srouter setup' atau 'srouter link <tool>' kapan saja."
+                    "✔ Gateway settings saved. You can run 'srouter setup' or 'srouter link <tool>' at any time."
                 )
             )
         );
@@ -188,7 +188,7 @@ export async function setupCommand(options: SetupWizardOptions = {}): Promise<vo
                 label: m
             }));
             const modelChoice = await select({
-                message: "Pilih default model untuk tool:",
+                message: "Select default model for tools:",
                 options: [...modelOptions, { value: "__custom__", label: "Custom model name..." }]
             });
 
@@ -237,16 +237,16 @@ export async function setupCommand(options: SetupWizardOptions = {}): Promise<vo
         !options.haikuModel
     ) {
         const configTiersChoice = await select({
-            message: "Konfigurasi model tier Claude Code (Opus, Sonnet, Haiku)?",
+            message: "Configure Claude Code specific model tiers (Opus, Sonnet, Haiku)?",
             options: [
                 {
                     value: "auto",
-                    label: "Gunakan model default / lewati",
+                    label: "Use general default model / skip",
                     hint: selectedModel || "Default Claude models"
                 },
                 {
                     value: "custom",
-                    label: "Kustomisasi per tier (Opus, Sonnet, Haiku)"
+                    label: "Customize per tier (Opus, Sonnet, Haiku)"
                 }
             ]
         });
@@ -265,9 +265,9 @@ export async function setupCommand(options: SetupWizardOptions = {}): Promise<vo
             ): Promise<string | undefined> => {
                 if (availableModels.length > 0) {
                     const choice = await select({
-                        message: `Pilih model untuk ${tierName} (${envVar}):`,
+                        message: `Select model for ${tierName} (${envVar}):`,
                         options: [
-                            { value: "__skip__", label: "Lewati (Gunakan default)" },
+                            { value: "__skip__", label: "Skip (Use default)" },
                             ...availableModels.map((m) => ({ value: m, label: m })),
                             { value: "__custom__", label: "Custom model name..." }
                         ]
@@ -276,7 +276,7 @@ export async function setupCommand(options: SetupWizardOptions = {}): Promise<vo
                     if (choice === "__skip__") return undefined;
                     if (choice === "__custom__") {
                         const customInput = await text({
-                            message: `Enter custom model ID untuk ${tierName}:`,
+                            message: `Enter custom model ID for ${tierName}:`,
                             placeholder: defaultVal || "claude-3-7-sonnet"
                         });
                         if (isCancel(customInput)) return undefined;
@@ -287,7 +287,7 @@ export async function setupCommand(options: SetupWizardOptions = {}): Promise<vo
                 }
 
                 const customInput = await text({
-                    message: `Enter model ID untuk ${tierName} (${envVar}, optional):`,
+                    message: `Enter model ID for ${tierName} (${envVar}, optional):`,
                     placeholder: defaultVal || "claude-3-7-sonnet"
                 });
                 if (isCancel(customInput)) return undefined;

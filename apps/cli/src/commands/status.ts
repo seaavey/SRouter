@@ -60,11 +60,11 @@ export async function statusCommand(options: StatusCommandOptions): Promise<void
     for (const adapter of adapters) {
         const status = await adapter.getStatus();
         const icon = status.linked
-            ? pc.green("● SUDAH DI-SETTING (LINKED)")
-            : pc.gray("○ BELUM DI-SETTING (UNLINKED)");
+            ? pc.green("● CONFIGURED (LINKED)")
+            : pc.gray("○ NOT CONFIGURED (UNLINKED)");
         const installBadge = status.installed
-            ? pc.green("[Terinstall]")
-            : pc.yellow("[Tidak ada di PATH]");
+            ? pc.green("[Installed]")
+            : pc.yellow("[Not in PATH]");
 
         console.log(`\n  ${pc.bold(pc.cyan(adapter.name))} ${icon} ${installBadge}`);
         console.log(`  ${pc.gray("ID:")}          ${adapter.id}`);
@@ -85,7 +85,7 @@ export async function statusCommand(options: StatusCommandOptions): Promise<void
             }
         } else {
             console.log(
-                `  ${pc.gray("Status:")}      ${pc.yellow("Belum dihubungkan ke proxy SRouter")}`
+                `  ${pc.gray("Status:")}      ${pc.yellow("Not connected to SRouter proxy")}`
             );
         }
     }
