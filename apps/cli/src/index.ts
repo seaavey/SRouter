@@ -1,10 +1,10 @@
 import { Command } from "commander";
-import { setupCommand } from "./commands/setup.ts";
-import { linkCommand } from "./commands/link.ts";
-import { unlinkCommand } from "./commands/unlink.ts";
-import { statusCommand } from "./commands/status.ts";
-import { envCommand } from "./commands/env.ts";
-import { runCommand } from "./commands/run.ts";
+import { setupCommand } from "./commands/setup.js";
+import { linkCommand } from "./commands/link.js";
+import { unlinkCommand } from "./commands/unlink.js";
+import { statusCommand } from "./commands/status.js";
+import { envCommand } from "./commands/env.js";
+import { runCommand } from "./commands/run.js";
 
 export function createCli(): Command {
     const program = new Command();
@@ -80,7 +80,11 @@ export function createCli(): Command {
     return program;
 }
 
-if (process.argv[1]?.endsWith("srouter.js") || process.argv[1]?.endsWith("index.ts")) {
+if (
+    process.argv[1]?.endsWith("srouter.js") ||
+    process.argv[1]?.endsWith("index.ts") ||
+    process.argv[1]?.endsWith("index.js")
+) {
     const program = createCli();
     program.parse(process.argv);
 }

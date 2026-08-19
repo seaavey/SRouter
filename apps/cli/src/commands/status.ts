@@ -1,6 +1,6 @@
-import { getAllAdapters } from "../adapters/index.ts";
-import { defaultStore } from "../lib/configStore.ts";
-import { checkServerHealth, fetchAvailableModels } from "../lib/srouterClient.ts";
+import { getAllAdapters } from "../adapters/index.js";
+import { defaultStore } from "../lib/configStore.js";
+import { checkServerHealth, fetchAvailableModels } from "../lib/srouterClient.js";
 import {
     formatError,
     formatInfo,
@@ -8,7 +8,7 @@ import {
     formatWarning,
     pc,
     showHeader
-} from "../lib/ui.ts";
+} from "../lib/ui.js";
 
 export interface StatusCommandOptions {
     url?: string;

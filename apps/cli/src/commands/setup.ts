@@ -9,10 +9,10 @@ import {
     cancel,
     note
 } from "@clack/prompts";
-import { getAllAdapters } from "../adapters/index.ts";
-import { defaultStore } from "../lib/configStore.ts";
-import { checkServerHealth, fetchAvailableModels } from "../lib/srouterClient.ts";
-import { pc, showHeader } from "../lib/ui.ts";
+import { getAllAdapters } from "../adapters/index.js";
+import { defaultStore } from "../lib/configStore.js";
+import { checkServerHealth, fetchAvailableModels } from "../lib/srouterClient.js";
+import { pc, showHeader } from "../lib/ui.js";
 
 export interface SetupWizardOptions {
     url?: string;
@@ -94,7 +94,6 @@ export async function setupCommand(options: SetupWizardOptions = {}): Promise<vo
 
         if (keyInput.trim()) {
             apiKey = keyInput.trim();
-            // Re-fetch models with API key if previously empty
             if (availableModels.length === 0) {
                 availableModels = await fetchAvailableModels(baseUrl, apiKey);
             }
@@ -201,7 +200,6 @@ export async function setupCommand(options: SetupWizardOptions = {}): Promise<vo
         });
     }
 
-    // Save preferences
     await defaultStore.saveConfig({
         defaultBaseUrl: baseUrl,
         defaultApiKey: apiKey,

@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import { ConfigStore } from "../src/lib/configStore.ts";
-import { ClaudeAdapter } from "../src/adapters/claude.ts";
+import { ConfigStore } from "../src/lib/configStore.js";
+import { ClaudeAdapter } from "../src/adapters/claude.js";
 
 test("ClaudeAdapter - link and unlink lifecycle", async () => {
     const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "srouter-claude-test-"));

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createCli } from "../src/index.ts";
+import { createCli } from "../src/index.js";
 
 test("CLI - command registration and metadata", () => {
     const program = createCli();

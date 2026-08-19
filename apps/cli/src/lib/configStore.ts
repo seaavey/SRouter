@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import type { BackupEntry, CliConfig } from "../types/index.ts";
+import type { BackupEntry, CliConfig } from "../types/index.js";
 
 export const DEFAULT_CLI_CONFIG: CliConfig = {
     defaultBaseUrl: "http://localhost:3000/v1",
@@ -54,7 +54,6 @@ export class ConfigStore {
         try {
             await fs.access(originalPath);
         } catch {
-            // Original file does not exist yet, no need to backup
             return undefined;
         }
 
@@ -98,12 +97,10 @@ export class ConfigStore {
             await fs.mkdir(path.dirname(latest.originalPath), { recursive: true });
             await fs.copyFile(latest.backupPath, latest.originalPath);
 
-            // Remove restored backup from registry
             const config = await this.loadConfig();
             const updatedBackups = config.backups.filter((b) => b.backupPath !== latest.backupPath);
             await this.saveConfig({ backups: updatedBackups });
 
-            // Remove physical backup file
             await fs.rm(latest.backupPath, { force: true });
             return true;
         } catch {

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
-import { checkServerHealth, fetchAvailableModels } from "../src/lib/srouterClient.ts";
+import { checkServerHealth, fetchAvailableModels } from "../src/lib/srouterClient.js";
 
 test("srouterClient - checkServerHealth and fetchAvailableModels", async () => {
     const server = http.createServer((req, res) => {

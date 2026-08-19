@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import { ConfigStore } from "../src/lib/configStore.ts";
+import { ConfigStore } from "../src/lib/configStore.js";
 
 test("ConfigStore - load and save config", async () => {
     const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "srouter-cli-test-"));

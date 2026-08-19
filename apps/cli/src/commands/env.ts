@@ -1,6 +1,6 @@
-import { getAdapter, getAllAdapters } from "../adapters/index.ts";
-import { defaultStore } from "../lib/configStore.ts";
-import { formatError, pc } from "../lib/ui.ts";
+import { getAdapter, getAllAdapters } from "../adapters/index.js";
+import { defaultStore } from "../lib/configStore.js";
+import { formatError, pc } from "../lib/ui.js";
 
 export interface EnvCommandOptions {
     url?: string;
@@ -38,7 +38,6 @@ export async function envCommand(toolId?: string, options: EnvCommandOptions = {
         }
         envVars = adapter.getEnv(context);
     } else {
-        // Collect combined env vars across all adapters
         envVars = {
             ANTHROPIC_BASE_URL: baseUrl,
             OPENAI_BASE_URL: baseUrl

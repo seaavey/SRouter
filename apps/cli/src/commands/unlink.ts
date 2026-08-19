@@ -1,5 +1,5 @@
-import { getAdapter, getAllAdapters } from "../adapters/index.ts";
-import { formatError, formatInfo, formatSuccess, pc } from "../lib/ui.ts";
+import { getAdapter, getAllAdapters } from "../adapters/index.js";
+import { formatError, formatInfo, formatSuccess, pc } from "../lib/ui.js";
 
 export async function unlinkCommand(toolId: string): Promise<void> {
     const adapter = getAdapter(toolId);

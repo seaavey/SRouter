@@ -3,9 +3,9 @@ import path from "node:path";
 import os from "node:os";
 import { exec } from "node:child_process";
 import { promisify } from "node:util";
-import { AbstractToolAdapter } from "./base.ts";
-import type { LinkResult, ToolConfigContext, ToolStatus } from "../types/index.ts";
-import { ConfigStore, defaultStore } from "../lib/configStore.ts";
+import { AbstractToolAdapter } from "./base.js";
+import type { LinkResult, ToolConfigContext, ToolStatus } from "../types/index.js";
+import { ConfigStore, defaultStore } from "../lib/configStore.js";
 
 const execAsync = promisify(exec);
 

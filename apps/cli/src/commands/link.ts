@@ -1,6 +1,6 @@
-import { getAdapter, getAllAdapters } from "../adapters/index.ts";
-import { defaultStore } from "../lib/configStore.ts";
-import { formatError, formatSuccess, pc } from "../lib/ui.ts";
+import { getAdapter, getAllAdapters } from "../adapters/index.js";
+import { defaultStore } from "../lib/configStore.js";
+import { formatError, formatSuccess, pc } from "../lib/ui.js";
 
 export interface LinkCommandOptions {
     url?: string;

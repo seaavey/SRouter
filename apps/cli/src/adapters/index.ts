@@ -1,11 +1,11 @@
-import type { BaseToolAdapter } from "../types/index.ts";
-import { ConfigStore, defaultStore } from "../lib/configStore.ts";
-import { ClaudeAdapter } from "./claude.ts";
-import { OpenCodeAdapter } from "./opencode.ts";
+import type { BaseToolAdapter } from "../types/index.js";
+import { ConfigStore, defaultStore } from "../lib/configStore.js";
+import { ClaudeAdapter } from "./claude.js";
+import { OpenCodeAdapter } from "./opencode.js";
 
-export { ClaudeAdapter } from "./claude.ts";
-export { OpenCodeAdapter } from "./opencode.ts";
-export { AbstractToolAdapter } from "./base.ts";
+export { ClaudeAdapter } from "./claude.js";
+export { OpenCodeAdapter } from "./opencode.js";
+export { AbstractToolAdapter } from "./base.js";
 
 export function createAdapters(store: ConfigStore = defaultStore): BaseToolAdapter[] {
     return [new ClaudeAdapter(store), new OpenCodeAdapter(store)];
