@@ -63,25 +63,25 @@ pnpm --filter api start
 
 ## Endpoints
 
-| Method | Endpoint | Purpose |
-| --- | --- | --- |
-| `GET` | `/health` | Health check |
-| `GET` | `/v1` | Gateway metadata / discovery |
-| `POST` | `/v1/chat/completions` | OpenAI-compatible completion, including SSE |
-| `POST` | `/v1/chat/completion` | Alias for chat completion |
-| `POST` | `/v1/messages` | Anthropic-compatible messages |
-| `GET` | `/v1/models` | List available models |
-| `GET` | `/v1/models/:model` | Inspect a model |
-| `GET` | `/v1/providers` | List provider connections |
-| `POST` | `/v1/providers` | Create or update provider configuration |
-| `DELETE` | `/v1/providers/:id` | Remove a provider |
-| `GET` | `/v1/keys` | List virtual API keys |
-| `POST` | `/v1/keys` | Create a virtual API key |
-| `DELETE` | `/v1/keys/:id` | Revoke a key |
-| `GET` | `/v1/quota` | Provider quota and reset data |
-| `GET` | `/v1/logs` | Request audit logs |
-| `GET` | `/v1/logs/stats` | Usage statistics |
-| `GET/POST` | `/v1/settings` | Gateway configuration |
+| Method     | Endpoint               | Purpose                                     |
+| ---------- | ---------------------- | ------------------------------------------- |
+| `GET`      | `/health`              | Health check                                |
+| `GET`      | `/v1`                  | Gateway metadata / discovery                |
+| `POST`     | `/v1/chat/completions` | OpenAI-compatible completion, including SSE |
+| `POST`     | `/v1/chat/completion`  | Alias for chat completion                   |
+| `POST`     | `/v1/messages`         | Anthropic-compatible messages               |
+| `GET`      | `/v1/models`           | List available models                       |
+| `GET`      | `/v1/models/:model`    | Inspect a model                             |
+| `GET`      | `/v1/providers`        | List provider connections                   |
+| `POST`     | `/v1/providers`        | Create or update provider configuration     |
+| `DELETE`   | `/v1/providers/:id`    | Remove a provider                           |
+| `GET`      | `/v1/keys`             | List virtual API keys                       |
+| `POST`     | `/v1/keys`             | Create a virtual API key                    |
+| `DELETE`   | `/v1/keys/:id`         | Revoke a key                                |
+| `GET`      | `/v1/quota`            | Provider quota and reset data               |
+| `GET`      | `/v1/logs`             | Request audit logs                          |
+| `GET`      | `/v1/logs/stats`       | Usage statistics                            |
+| `GET/POST` | `/v1/settings`         | Gateway configuration                       |
 
 Provider authentication and OAuth callbacks are also mounted under the `/v1` API surface.
 
@@ -89,13 +89,13 @@ Provider authentication and OAuth callbacks are also mounted under the `/v1` API
 
 The app reads these gateway-level environment variables:
 
-| Variable | Default | Description |
-| --- | --- | --- |
-| `PORT` | `3000` | HTTP server port |
-| `OAUTH_PORT` | `1455` | OAuth callback listener |
-| `DATABASE_PATH` | `srouter.db` | SQLite database path |
-| `NODE_ENV` | `development` | Runtime environment |
-| `WEB_DIST_PATH` | `apps/web/dist` | Built dashboard path |
+| Variable        | Default         | Description             |
+| --------------- | --------------- | ----------------------- |
+| `PORT`          | `3000`          | HTTP server port        |
+| `OAUTH_PORT`    | `1455`          | OAuth callback listener |
+| `DATABASE_PATH` | `srouter.db`    | SQLite database path    |
+| `NODE_ENV`      | `development`   | Runtime environment     |
+| `WEB_DIST_PATH` | `apps/web/dist` | Built dashboard path    |
 
 For local development, the repository root `.env.example` can be copied to `.env`.
 

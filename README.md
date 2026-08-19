@@ -2,9 +2,9 @@
 
 # ⚡ SRouter
 
-### Your local-first AI gateway for every model you use.
+### One gateway for every AI provider you use.
 
-Route OpenAI, Anthropic, Gemini, Qoder, Kiro, and custom providers through one API — with streaming, OAuth refresh, quotas, virtual keys, and a built-in dashboard.
+SRouter is a local-first AI gateway and LLM proxy for OpenAI-, Anthropic-, and custom-compatible providers. Keep one stable API while SRouter handles routing, authentication, translation, quotas, and observability.
 
 <p>
   <a href="https://github.com/seaavey/SRouter/releases"><img src="https://img.shields.io/badge/version-v0.1.1--rc.1-6366f1?style=flat-square" alt="Version"></a>
@@ -17,58 +17,48 @@ Route OpenAI, Anthropic, Gemini, Qoder, Kiro, and custom providers through one A
 </p>
 
 <p>
-  <a href="#-why-srouter">Why SRouter?</a> ·
-  <a href="#-quick-start">Quick Start</a> ·
-  <a href="#-providers">Providers</a> ·
-  <a href="#-cli">CLI</a> ·
-  <a href="#-integrate">Integrate</a> ·
-  <a href="#-performance">Performance</a> ·
-  <a href="#-api">API</a>
+  <a href="#quick-start">Quick Start</a> ·
+  <a href="#supported-providers">Providers</a> ·
+  <a href="#cli">CLI</a> ·
+  <a href="#integrate">Integrate</a> ·
+  <a href="#api">API</a> ·
+  <a href="#development">Development</a>
 </p>
 
 </div>
 
 ---
 
-## The problem
+## What SRouter does
 
-Using multiple AI providers usually means juggling different APIs, authentication flows, rate limits, model names, and client configuration.
+Using multiple AI providers usually means juggling different APIs, authentication flows, rate limits, model names, and client configuration. SRouter gives your tools one gateway and keeps provider-specific complexity in one place.
 
-## The idea
+```mermaid
+flowchart TD
+  apps["Your apps & tools<br/>Cursor · Claude Code · OpenCode · Aider · SDKs · cURL"]
+  router["SRouter Gateway<br/><br/>Auth → Translation → Routing → Quotas → Logs<br/>SQLite WAL + OAuth refresh"]
+  openai["OpenAI / Codex<br/>and custom endpoints"]
+  anthropic["Anthropic"]
+  other["Gemini / Qoder / Kiro"]
 
-SRouter sits between your tools and your AI providers. Your application talks to one familiar API while SRouter handles provider-specific auth, translation, routing, fallback, quotas, and telemetry behind the scenes.
-
-```text
-┌─────────────────────────────────────────────────────────────┐
-│ Your apps & tools                                          │
-│ Cursor · Claude Code · OpenCode · Aider · SDKs · cURL     │
-└──────────────────────────────┬──────────────────────────────┘
-                               │ OpenAI / Anthropic API
-                               ▼
-┌─────────────────────────────────────────────────────────────┐
-│ ⚡ SRouter                                                   │
-│                                                             │
-│ Auth → Translation → Routing → Quotas → Logging            │
-│          ↳ SQLite WAL + OAuth token sweeper               │
-└──────────────┬──────────────┬──────────────┬────────────────┘
-               │              │              │
-               ▼              ▼              ▼
-          OpenAI / Codex   Anthropic     Gemini / Qoder / Kiro
-          and custom providers
+  apps -->|OpenAI / Anthropic API| router
+  router --> openai
+  router --> anthropic
+  router --> other
 ```
 
-## ✨ Why SRouter?
+## Why SRouter?
 
-| Without a gateway | With SRouter |
-| --- | --- |
-| Different SDK/API shapes | One OpenAI + Anthropic compatible interface |
-| OAuth tokens expire unexpectedly | Background token refresh |
-| Provider quotas are hard to see | Live quota & reset telemetry |
-| Switching providers requires client changes | Centralized model routing |
-| Extra Redis/Postgres services | Embedded SQLite WAL |
-| Debugging AI requests is painful | Playground + audit logs |
+| Without a gateway                           | With SRouter                                |
+| ------------------------------------------- | ------------------------------------------- |
+| Different SDK/API shapes                    | One OpenAI + Anthropic compatible interface |
+| OAuth tokens expire unexpectedly            | Background token refresh                    |
+| Provider quotas are hard to see             | Live quota & reset telemetry                |
+| Switching providers requires client changes | Centralized model routing                   |
+| Extra Redis/Postgres services               | Embedded SQLite WAL                         |
+| Debugging AI requests is painful            | Playground + audit logs                     |
 
-## 🚀 What you get
+## Capabilities
 
 ### One API for many providers
 
@@ -104,32 +94,33 @@ The core stack uses Hono + native SQLite WAL. No external database is required f
 
 ---
 
-## 🌐 Providers
+## Supported Providers
 
-SRouter currently supports these provider families and custom endpoints:
+SRouter supports the following provider families and custom endpoints. Availability of
+features may vary by provider and account configuration.
 
-| Provider | Auth | Model prefix | SSE | Quota |
-| --- | --- | --- | :---: | :---: |
-| Google Antigravity | OAuth 2.0 PKCE | `antigravity/*` | ✅ | ✅ |
-| OpenAI Codex / ChatGPT | OAuth 2.0 PKCE | `openai_codex/*` | ✅ | ✅ |
-| Anthropic Claude | API Key / OAuth | `anthropic/*` | ✅ | ✅ |
-| Qoder | Device Token / OAuth | `qoder/*` | ✅ | ✅ |
-| Amazon Q / Kiro | AWS SigV4 / API Key | `kiro/*` | ✅ | ✅ |
-| Neosantara | Bearer API Key | `neosantara/*` | ✅ | ✅ |
-| GoRouter | Bearer API Key | `gorouter/*` | ✅ | ✅ |
-| BluesMinds | Bearer API Key | `bluesminds/*` | ✅ | ✅ |
-| SeekAI | Bearer API Key | `seekai/*` | ✅ | ✅ |
-| TabiToken | Bearer API Key | `tabitoken/*` | ✅ | ✅ |
-| TokenRouter | Bearer API Key | `tokenrouter/*` | ✅ | ✅ |
-| Command Code | Bearer API Key | `commandcode/*` | ✅ | ✅ |
-| CodeBuddy | Access Token / OAuth | `codebuddy/*` | ✅ | ✅ |
-| Custom Endpoints | Custom | `custom/*` | ✅ | Configurable |
+| Provider               | Authentication        | Model prefix     | Streaming |    Quota     |
+| ---------------------- | --------------------- | ---------------- | :-------: | :----------: |
+| Google Antigravity     | OAuth 2.0 with PKCE   | `antigravity/*`  |    ✅     |      ✅      |
+| OpenAI Codex / ChatGPT | OAuth 2.0 with PKCE   | `openai_codex/*` |    ✅     |      ✅      |
+| Anthropic Claude       | API key or OAuth      | `anthropic/*`    |    ✅     |      ✅      |
+| Qoder                  | Device token or OAuth | `qoder/*`        |    ✅     |      ✅      |
+| Amazon Q / Kiro        | AWS SigV4 or API key  | `kiro/*`         |    ✅     |      ✅      |
+| Neosantara             | Bearer API key        | `neosantara/*`   |    ✅     |      ✅      |
+| GoRouter               | Bearer API key        | `gorouter/*`     |    ✅     |      ✅      |
+| BluesMinds             | Bearer API key        | `bluesminds/*`   |    ✅     |      ✅      |
+| SeekAI                 | Bearer API key        | `seekai/*`       |    ✅     |      ✅      |
+| TabiToken              | Bearer API key        | `tabitoken/*`    |    ✅     |      ✅      |
+| TokenRouter            | Bearer API key        | `tokenrouter/*`  |    ✅     |      ✅      |
+| Command Code           | Bearer API key        | `commandcode/*`  |    ✅     |      ✅      |
+| CodeBuddy              | Access token or OAuth | `codebuddy/*`    |    ✅     |      ✅      |
+| Custom endpoints       | Custom                | `custom/*`       |    ✅     | Configurable |
 
-> Provider capabilities can vary by upstream implementation and account.
+> **Note:** Provider capabilities depend on the upstream implementation and your account.
 
 ---
 
-## ⚡ Quick Start
+## Quick Start
 
 ### Requirements
 
@@ -168,15 +159,17 @@ Then open:
 - API Gateway: `http://localhost:3000`
 - OAuth callback: `http://localhost:1455`
 
-### 5. Connect a provider
+### 5. Configure a provider
 
-Open the dashboard → **Providers** → authenticate a provider → optionally create a virtual API key → start testing in **Playground**.
+Open the dashboard, go to **Providers**, and authenticate a provider. Then create a virtual API key and test a model from **Playground**.
 
 ### 6. Connect coding tools
 
 ```bash
 pnpm srouter setup
 ```
+
+For a production-style deployment without a local Node.js setup, use the [Docker](#docker) instructions below.
 
 ---
 
@@ -214,7 +207,7 @@ npx @srouter/cli setup
 
 ---
 
-## 🐳 Docker
+## Docker
 
 Pull the pre-built image from GHCR:
 
@@ -248,7 +241,7 @@ docker compose down
 
 ---
 
-## 🔌 Integrate
+## Integrate
 
 SRouter is designed to work with clients that already speak OpenAI or Anthropic APIs.
 
@@ -280,13 +273,13 @@ for chunk in response:
 import OpenAI from "openai";
 
 const client = new OpenAI({
-  baseURL: "http://localhost:3000/v1",
-  apiKey: process.env.SROUTER_API_KEY || "sr-live-dev-key",
+    baseURL: "http://localhost:3000/v1",
+    apiKey: process.env.SROUTER_API_KEY || "sr-live-dev-key"
 });
 
 const response = await client.chat.completions.create({
-  model: "openai_codex/gpt-4o",
-  messages: [{ role: "user", content: "Write a high-performance LRU cache in TypeScript." }],
+    model: "openai_codex/gpt-4o",
+    messages: [{ role: "user", content: "Write a high-performance LRU cache in TypeScript." }]
 });
 
 console.log(response.choices[0].message.content);
@@ -336,50 +329,50 @@ Model:    <any discovered SRouter model>
 
 ---
 
-## 📡 API
+## API
 
 ### Core
 
-| Method | Endpoint | Purpose |
-| --- | --- | --- |
+| Method | Endpoint               | Purpose                                 |
+| ------ | ---------------------- | --------------------------------------- |
 | `POST` | `/v1/chat/completions` | OpenAI-compatible chat completion + SSE |
-| `POST` | `/v1/chat/completion` | Alias for chat completion |
-| `POST` | `/v1/messages` | Anthropic-compatible messages |
-| `GET` | `/v1/models` | List available models |
-| `GET` | `/v1/models/:model` | Inspect model details |
+| `POST` | `/v1/chat/completion`  | Alias for chat completion               |
+| `POST` | `/v1/messages`         | Anthropic-compatible messages           |
+| `GET`  | `/v1/models`           | List available models                   |
+| `GET`  | `/v1/models/:model`    | Inspect model details                   |
 
 ### Management & telemetry
 
-| Method | Endpoint | Purpose |
-| --- | --- | --- |
-| `GET` | `/health` | Gateway health |
-| `GET` | `/v1/quota` | Provider quota + reset timing |
-| `GET` | `/v1/providers` | List provider connections |
-| `POST` | `/v1/providers` | Add/update a provider |
-| `DELETE` | `/v1/providers/:id` | Remove a provider |
-| `GET` | `/v1/keys` | List virtual API keys |
-| `POST` | `/v1/keys` | Create a virtual API key |
-| `DELETE` | `/v1/keys/:id` | Revoke a key |
-| `GET` | `/v1/settings` | Read gateway settings |
-| `POST` | `/v1/settings` | Update gateway settings |
-| `GET` | `/v1/logs` | Request audit logs |
-| `GET` | `/v1/logs/stats` | Usage + cost aggregates |
+| Method   | Endpoint            | Purpose                       |
+| -------- | ------------------- | ----------------------------- |
+| `GET`    | `/health`           | Gateway health                |
+| `GET`    | `/v1/quota`         | Provider quota + reset timing |
+| `GET`    | `/v1/providers`     | List provider connections     |
+| `POST`   | `/v1/providers`     | Add/update a provider         |
+| `DELETE` | `/v1/providers/:id` | Remove a provider             |
+| `GET`    | `/v1/keys`          | List virtual API keys         |
+| `POST`   | `/v1/keys`          | Create a virtual API key      |
+| `DELETE` | `/v1/keys/:id`      | Revoke a key                  |
+| `GET`    | `/v1/settings`      | Read gateway settings         |
+| `POST`   | `/v1/settings`      | Update gateway settings       |
+| `GET`    | `/v1/logs`          | Request audit logs            |
+| `GET`    | `/v1/logs/stats`    | Usage + cost aggregates       |
 
 ---
 
-## ⚙️ Configuration
+## Configuration
 
-| Variable | Default | Description |
-| --- | --- | --- |
-| `PORT` | `3000` | API server + production dashboard port |
-| `OAUTH_PORT` | `1455` | OAuth PKCE callback listener |
-| `DATABASE_PATH` | `srouter.db` | SQLite database path |
-| `NODE_ENV` | `development` | `development` or `production` |
-| `WEB_DIST_PATH` | `apps/web/dist` | Dashboard static asset path |
+| Variable        | Default         | Description                            |
+| --------------- | --------------- | -------------------------------------- |
+| `PORT`          | `3000`          | API server + production dashboard port |
+| `OAUTH_PORT`    | `1455`          | OAuth PKCE callback listener           |
+| `DATABASE_PATH` | `srouter.db`    | SQLite database path                   |
+| `NODE_ENV`      | `development`   | `development` or `production`          |
+| `WEB_DIST_PATH` | `apps/web/dist` | Dashboard static asset path            |
 
 ---
 
-## 🏗 Architecture
+## Architecture
 
 ```mermaid
 flowchart LR
@@ -413,17 +406,17 @@ packages/
 
 ---
 
-## 📊 Performance
+## Resource profile
 
 SRouter is designed to keep the gateway lightweight without sacrificing the convenience of a full dashboard.
 
 ### Memory footprint at a glance
 
-| Runtime | RAM | Relative footprint |
-| --- | ---: | ---: |
-| ⚡ **SRouter API** | **65.2 MiB** ≈ **68 MB** | **1.00×** |
-| 🖥️ **SRouter API + Dashboard** | **206.1 MiB** ≈ **216 MB** | **3.16× API-only** |
-| 🔹 **9router API** | **104.5 MiB** ≈ **110 MB** | **1.60× SRouter API** |
+| Runtime                        |                        RAM |    Relative footprint |
+| ------------------------------ | -------------------------: | --------------------: |
+| ⚡ **SRouter API**             |   **65.2 MiB** ≈ **68 MB** |             **1.00×** |
+| 🖥️ **SRouter API + Dashboard** | **206.1 MiB** ≈ **216 MB** |    **3.16× API-only** |
+| 🔹 **9router API**             | **104.5 MiB** ≈ **110 MB** | **1.60× SRouter API** |
 
 ```text
 Idle RAM footprint (lower is better)
@@ -436,9 +429,7 @@ SRouter + Dashboard    206.1 MiB  ███████████████�
 
 ### The takeaway
 
-**SRouter API uses ~38% less RAM than 9router API** in the documented comparison, while the full API + Dashboard runtime remains a separate trade-off for teams that want the complete web UI.
-
-> **Benchmark note:** These are the repository's documented idle-runtime measurements under the tested Node.js environment. RAM usage is environment-dependent; this section is a footprint comparison, not a universal latency benchmark.
+> **Benchmark note:** These are documented idle-runtime measurements under the tested Node.js environment. RAM usage is environment-dependent; this section describes a footprint profile, not a universal latency benchmark.
 
 ### Why the footprint stays small
 
@@ -448,7 +439,7 @@ SRouter + Dashboard    206.1 MiB  ███████████████�
 
 ---
 
-## 🧪 Development
+## Development
 
 ```bash
 # Check formatting
@@ -468,7 +459,7 @@ For targeted package testing, see the individual package test scripts and `CONTR
 
 ---
 
-## 🛣 Roadmap
+## Roadmap
 
 - [x] Multi-provider OAuth PKCE + background token sweeper
 - [x] Real-time quota and rate-limit monitoring
@@ -482,19 +473,19 @@ For targeted package testing, see the individual package test scripts and `CONTR
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 Issues, ideas, and pull requests are welcome.
 
 Start with [CONTRIBUTING.md](CONTRIBUTING.md) for the development workflow and project conventions.
 
-## 🔐 Security
+## Security
 
 Please read [SECURITY.md](SECURITY.md) for the security policy and responsible disclosure process.
 
-## 📄 License
+## License
 
-SRouter is released under the **MIT License**. See [`LICENSE`](LICENSE).
+SRouter is released under the **MIT License**. See [LICENSE](LICENSE).
 
 ---
 

@@ -8,18 +8,18 @@ Part of the [`SRouter`](../../README.md) monorepo.
 
 The dashboard currently exposes these main areas:
 
-| Route | Purpose |
-| --- | --- |
-| `/` | Usage overview and gateway statistics |
-| `/providers` | Browse and manage provider connections |
-| `/providers/:providerId` | Provider details and configuration |
-| `/playground` | Interactive model testing and streaming |
-| `/quota` | Upstream quota and reset telemetry |
-| `/keys` | Virtual API key management |
-| `/logs` | Request audit logs |
-| `/settings` | Gateway configuration |
-| `/token-saver` | Token Saver controls and test lab |
-| `/combo` | Combined tooling / workflow view |
+| Route                    | Purpose                                 |
+| ------------------------ | --------------------------------------- |
+| `/`                      | Usage overview and gateway statistics   |
+| `/providers`             | Browse and manage provider connections  |
+| `/providers/:providerId` | Provider details and configuration      |
+| `/playground`            | Interactive model testing and streaming |
+| `/quota`                 | Upstream quota and reset telemetry      |
+| `/keys`                  | Virtual API key management              |
+| `/logs`                  | Request audit logs                      |
+| `/settings`              | Gateway configuration                   |
+| `/token-saver`           | Token Saver controls and test lab       |
+| `/combo`                 | Combined tooling / workflow view        |
 
 The app uses TanStack Router for file-based routing and TanStack Query for server state. The dashboard is designed to talk to the SRouter API rather than providers directly.
 

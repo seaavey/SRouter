@@ -143,15 +143,15 @@ pnpm srouter unlink opencode
 
 The CLI accepts a common set of gateway options:
 
-| Option | Purpose |
-| --- | --- |
-| `--url` | SRouter gateway base URL |
-| `--key` | SRouter API key |
-| `--model` | Default model ID |
-| `--opus-model` | Claude Code Opus model |
-| `--sonnet-model` | Claude Code Sonnet model |
-| `--haiku-model` | Claude Code Haiku model |
-| `--dry-run` | Preview changes without writing configuration |
+| Option           | Purpose                                       |
+| ---------------- | --------------------------------------------- |
+| `--url`          | SRouter gateway base URL                      |
+| `--key`          | SRouter API key                               |
+| `--model`        | Default model ID                              |
+| `--opus-model`   | Claude Code Opus model                        |
+| `--sonnet-model` | Claude Code Sonnet model                      |
+| `--haiku-model`  | Claude Code Haiku model                       |
+| `--dry-run`      | Preview changes without writing configuration |
 
 The default development gateway is normally `http://localhost:3000/v1`.
 
