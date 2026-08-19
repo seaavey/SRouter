@@ -1,9 +1,9 @@
 import { Hono } from "hono";
 import { LogsController } from "@/controllers/logs.controller.js";
-import { adminAuth } from "@/middleware/adminAuth.js";
+import { apiKeyAuth } from "@/middleware/apiKeyAuth.js";
 
 export const logsRoute = new Hono();
-logsRoute.use("/*", adminAuth);
+logsRoute.use("/*", apiKeyAuth);
 
 // GET /v1/logs - Get recent request logs
 logsRoute.get("/logs", LogsController.listLogs);

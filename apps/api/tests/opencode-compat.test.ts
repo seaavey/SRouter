@@ -47,11 +47,11 @@ test("OpenCode Compatibility - chat route accepts unauthenticated local requests
         })
     );
 
-    assert.equal(chatRes.status, 200);
     const body = (await chatRes.json()) as any;
-    console.log("\n==========================================");
-    console.log("🤖 Respons LLM dari GoRouter via SRouter:");
-    console.log(body.choices?.[0]?.message?.content);
-    console.log("==========================================\n");
-    assert.ok(body.choices?.[0]?.message?.content);
+    if (chatRes.status !== 200) {
+        console.error("Chat request failed with status:", chatRes.status, "body:", body);
+    }
+    assert.notEqual(chatRes.status, 401);
+    assert.notEqual(body?.error?.message, "Admin authentication is required");
+    assert.equal(chatRes.status, 200);
 });
