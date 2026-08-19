@@ -30,7 +30,8 @@
         "format": "prettier --write .",
         "format:check": "prettier --check .",
         "lint": "turbo lint",
-        "test": "turbo test"
+        "test": "turbo test",
+        "srouter": "pnpm --filter @srouter/cli exec tsx src/index.ts"
     },
     "engines": {
         "node": ">=22.0.0"
