@@ -6,6 +6,9 @@ export interface LinkCommandOptions {
     url?: string;
     key?: string;
     model?: string;
+    opusModel?: string;
+    sonnetModel?: string;
+    haikuModel?: string;
     dryRun?: boolean;
 }
 
@@ -27,12 +30,18 @@ export async function linkCommand(toolId: string, options: LinkCommandOptions): 
     const baseUrl = options.url || savedConfig.defaultBaseUrl || "http://localhost:3000/v1";
     const apiKey = options.key || savedConfig.defaultApiKey;
     const model = options.model || savedConfig.defaultModel;
+    const opusModel = options.opusModel || savedConfig.defaultOpusModel;
+    const sonnetModel = options.sonnetModel || savedConfig.defaultSonnetModel;
+    const haikuModel = options.haikuModel || savedConfig.defaultHaikuModel;
 
     try {
         const result = await adapter.link({
             baseUrl,
             apiKey,
             model,
+            opusModel,
+            sonnetModel,
+            haikuModel,
             dryRun: options.dryRun
         });
 
@@ -45,6 +54,15 @@ export async function linkCommand(toolId: string, options: LinkCommandOptions): 
         console.log(`  ${pc.gray("Proxy URL:")}     ${pc.white(baseUrl)}`);
         if (model) {
             console.log(`  ${pc.gray("Model:")}         ${pc.white(model)}`);
+        }
+        if (opusModel) {
+            console.log(`  ${pc.gray("Opus Model:")}    ${pc.white(opusModel)}`);
+        }
+        if (sonnetModel) {
+            console.log(`  ${pc.gray("Sonnet Model:")}  ${pc.white(sonnetModel)}`);
+        }
+        if (haikuModel) {
+            console.log(`  ${pc.gray("Haiku Model:")}   ${pc.white(haikuModel)}`);
         }
         if (result.backupPath) {
             console.log(`  ${pc.gray("Backup Saved:")}  ${pc.white(result.backupPath)}`);

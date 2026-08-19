@@ -7,6 +7,9 @@ export interface RunCommandOptions {
     url?: string;
     key?: string;
     model?: string;
+    opusModel?: string;
+    sonnetModel?: string;
+    haikuModel?: string;
 }
 
 export async function runCommand(
@@ -31,11 +34,17 @@ export async function runCommand(
     const baseUrl = options.url || savedConfig.defaultBaseUrl || "http://localhost:3000/v1";
     const apiKey = options.key || savedConfig.defaultApiKey;
     const model = options.model || savedConfig.defaultModel;
+    const opusModel = options.opusModel || savedConfig.defaultOpusModel;
+    const sonnetModel = options.sonnetModel || savedConfig.defaultSonnetModel;
+    const haikuModel = options.haikuModel || savedConfig.defaultHaikuModel;
 
     const envToInject = adapter.getEnv({
         baseUrl,
         apiKey,
-        model
+        model,
+        opusModel,
+        sonnetModel,
+        haikuModel
     });
 
     const binaryName = toolId === "claude" ? "claude" : "opencode";

@@ -23,6 +23,18 @@ export function createCli(): Command {
         .option("-u, --url <url>", "SRouter Gateway Base URL (e.g. http://localhost:3000/v1)")
         .option("-k, --key <key>", "SRouter API Key")
         .option("-m, --model <model>", "Default model ID to configure")
+        .option(
+            "--opus-model <model>",
+            "Default Opus model for Claude Code (ANTHROPIC_DEFAULT_OPUS_MODEL)"
+        )
+        .option(
+            "--sonnet-model <model>",
+            "Default Sonnet model for Claude Code (ANTHROPIC_DEFAULT_SONNET_MODEL)"
+        )
+        .option(
+            "--haiku-model <model>",
+            "Default Haiku model for Claude Code (ANTHROPIC_DEFAULT_HAIKU_MODEL)"
+        )
         .action(async (opts) => {
             await setupCommand(opts);
         });
@@ -33,6 +45,9 @@ export function createCli(): Command {
         .option("-u, --url <url>", "SRouter Gateway Base URL")
         .option("-k, --key <key>", "SRouter API Key")
         .option("-m, --model <model>", "Model ID")
+        .option("--opus-model <model>", "Opus model ID (ANTHROPIC_DEFAULT_OPUS_MODEL)")
+        .option("--sonnet-model <model>", "Sonnet model ID (ANTHROPIC_DEFAULT_SONNET_MODEL)")
+        .option("--haiku-model <model>", "Haiku model ID (ANTHROPIC_DEFAULT_HAIKU_MODEL)")
         .option("--dry-run", "Simulate without writing files")
         .action(async (tool, opts) => {
             await linkCommand(tool, opts);
@@ -61,7 +76,11 @@ export function createCli(): Command {
         .option("-u, --url <url>", "SRouter Gateway Base URL")
         .option("-k, --key <key>", "SRouter API Key")
         .option("-m, --model <model>", "Model ID")
+        .option("--opus-model <model>", "Opus model ID (ANTHROPIC_DEFAULT_OPUS_MODEL)")
+        .option("--sonnet-model <model>", "Sonnet model ID (ANTHROPIC_DEFAULT_SONNET_MODEL)")
+        .option("--haiku-model <model>", "Haiku model ID (ANTHROPIC_DEFAULT_HAIKU_MODEL)")
         .option("--fish", "Generate fish shell export syntax")
+        .option("--shell <shell>", "Target shell syntax (bash, zsh, fish, powershell, cmd)")
         .action(async (tool, opts) => {
             await envCommand(tool, opts);
         });
@@ -72,6 +91,9 @@ export function createCli(): Command {
         .option("-u, --url <url>", "SRouter Gateway Base URL")
         .option("-k, --key <key>", "SRouter API Key")
         .option("-m, --model <model>", "Model ID")
+        .option("--opus-model <model>", "Opus model ID (ANTHROPIC_DEFAULT_OPUS_MODEL)")
+        .option("--sonnet-model <model>", "Sonnet model ID (ANTHROPIC_DEFAULT_SONNET_MODEL)")
+        .option("--haiku-model <model>", "Haiku model ID (ANTHROPIC_DEFAULT_HAIKU_MODEL)")
         .allowUnknownOption()
         .action(async (tool, args, opts) => {
             await runCommand(tool, args, opts);

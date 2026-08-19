@@ -1,5 +1,6 @@
 import { getAllAdapters } from "../adapters/index.js";
 import { defaultStore } from "../lib/configStore.js";
+import { getSystemInfo } from "../lib/platform.js";
 import { checkServerHealth, fetchAvailableModels } from "../lib/srouterClient.js";
 import {
     formatError,
@@ -17,6 +18,14 @@ export interface StatusCommandOptions {
 
 export async function statusCommand(options: StatusCommandOptions): Promise<void> {
     showHeader();
+
+    const sysInfo = getSystemInfo();
+    console.log(pc.bold(pc.underline("System Environment:")));
+    console.log(`  ${pc.gray("OS:")}          ${pc.white(sysInfo.displayName)}`);
+    console.log(`  ${pc.gray("Platform:")}    ${pc.white(sysInfo.platform)} (${sysInfo.arch})`);
+    console.log(`  ${pc.gray("Shell:")}       ${pc.white(sysInfo.detectedShell)}`);
+    console.log(`  ${pc.gray("Home Dir:")}    ${pc.white(sysInfo.homeDir)}`);
+    console.log("");
 
     const savedConfig = await defaultStore.loadConfig();
     const baseUrl = options.url || savedConfig.defaultBaseUrl || "http://localhost:3000/v1";
@@ -50,10 +59,12 @@ export async function statusCommand(options: StatusCommandOptions): Promise<void
     const adapters = getAllAdapters();
     for (const adapter of adapters) {
         const status = await adapter.getStatus();
-        const icon = status.linked ? pc.green("● LINKED") : pc.gray("○ UNLINKED");
+        const icon = status.linked
+            ? pc.green("● SUDAH DI-SETTING (LINKED)")
+            : pc.gray("○ BELUM DI-SETTING (UNLINKED)");
         const installBadge = status.installed
-            ? pc.green("[Installed]")
-            : pc.yellow("[Not in PATH]");
+            ? pc.green("[Terinstall]")
+            : pc.yellow("[Tidak ada di PATH]");
 
         console.log(`\n  ${pc.bold(pc.cyan(adapter.name))} ${icon} ${installBadge}`);
         console.log(`  ${pc.gray("ID:")}          ${adapter.id}`);
@@ -63,6 +74,19 @@ export async function statusCommand(options: StatusCommandOptions): Promise<void
             if (status.currentModel) {
                 console.log(`  ${pc.gray("Model:")}       ${pc.green(status.currentModel)}`);
             }
+            if (status.currentOpusModel) {
+                console.log(`  ${pc.gray("Opus Model:")}  ${pc.green(status.currentOpusModel)}`);
+            }
+            if (status.currentSonnetModel) {
+                console.log(`  ${pc.gray("Sonnet Model:")}${pc.green(status.currentSonnetModel)}`);
+            }
+            if (status.currentHaikuModel) {
+                console.log(`  ${pc.gray("Haiku Model:")} ${pc.green(status.currentHaikuModel)}`);
+            }
+        } else {
+            console.log(
+                `  ${pc.gray("Status:")}      ${pc.yellow("Belum dihubungkan ke proxy SRouter")}`
+            );
         }
     }
 

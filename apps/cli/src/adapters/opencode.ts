@@ -1,13 +1,9 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import os from "node:os";
-import { exec } from "node:child_process";
-import { promisify } from "node:util";
 import { AbstractToolAdapter } from "./base.js";
 import type { LinkResult, ToolConfigContext, ToolStatus } from "../types/index.js";
 import { ConfigStore, defaultStore } from "../lib/configStore.js";
-
-const execAsync = promisify(exec);
+import { getOpenCodeConfigPath, isExecutableInPath } from "../lib/platform.js";
 
 export class OpenCodeAdapter extends AbstractToolAdapter {
     readonly id = "opencode";
@@ -25,16 +21,13 @@ export class OpenCodeAdapter extends AbstractToolAdapter {
         if (this.customConfigPath) {
             return this.customConfigPath;
         }
-        return path.join(os.homedir(), ".config", "opencode", "config.json");
+        return getOpenCodeConfigPath();
     }
 
     async isInstalled(): Promise<boolean> {
-        try {
-            await execAsync("which opencode || which interpreter");
-            return true;
-        } catch {
-            return false;
-        }
+        const opencode = await isExecutableInPath("opencode");
+        if (opencode) return true;
+        return isExecutableInPath("interpreter");
     }
 
     async getStatus(): Promise<ToolStatus> {

@@ -2,6 +2,9 @@ export interface ToolConfigContext {
     baseUrl: string;
     apiKey?: string;
     model?: string;
+    opusModel?: string;
+    sonnetModel?: string;
+    haikuModel?: string;
     dryRun?: boolean;
 }
 
@@ -13,6 +16,9 @@ export interface ToolStatus {
     configPath?: string;
     currentBaseUrl?: string;
     currentModel?: string;
+    currentOpusModel?: string;
+    currentSonnetModel?: string;
+    currentHaikuModel?: string;
 }
 
 export interface LinkResult {
@@ -44,6 +50,9 @@ export interface CliConfig {
     defaultBaseUrl: string;
     defaultApiKey?: string;
     defaultModel?: string;
+    defaultOpusModel?: string;
+    defaultSonnetModel?: string;
+    defaultHaikuModel?: string;
     backups: BackupEntry[];
     lastSetupAt?: number;
 }

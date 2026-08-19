@@ -1,13 +1,9 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import os from "node:os";
-import { exec } from "node:child_process";
-import { promisify } from "node:util";
 import { AbstractToolAdapter } from "./base.js";
 import type { LinkResult, ToolConfigContext, ToolStatus } from "../types/index.js";
 import { ConfigStore, defaultStore } from "../lib/configStore.js";
-
-const execAsync = promisify(exec);
+import { getClaudeConfigPath, isExecutableInPath } from "../lib/platform.js";
 
 export class ClaudeAdapter extends AbstractToolAdapter {
     readonly id = "claude";
@@ -25,16 +21,11 @@ export class ClaudeAdapter extends AbstractToolAdapter {
         if (this.customConfigPath) {
             return this.customConfigPath;
         }
-        return path.join(os.homedir(), ".claude.json");
+        return getClaudeConfigPath();
     }
 
     async isInstalled(): Promise<boolean> {
-        try {
-            await execAsync("which claude");
-            return true;
-        } catch {
-            return false;
-        }
+        return isExecutableInPath("claude");
     }
 
     async getStatus(): Promise<ToolStatus> {
@@ -49,7 +40,26 @@ export class ClaudeAdapter extends AbstractToolAdapter {
                 parsed.baseUrl ||
                 parsed.env?.ANTHROPIC_BASE_URL ||
                 undefined;
-            const model = parsed.model || parsed.env?.ANTHROPIC_MODEL || undefined;
+            const model =
+                parsed.model || parsed.env?.ANTHROPIC_MODEL || parsed.ANTHROPIC_MODEL || undefined;
+            const opusModel =
+                parsed.ANTHROPIC_DEFAULT_OPUS_MODEL ||
+                parsed.env?.ANTHROPIC_DEFAULT_OPUS_MODEL ||
+                parsed.ANTHROPIC_OPUS_MODEL ||
+                parsed.env?.ANTHROPIC_OPUS_MODEL ||
+                undefined;
+            const sonnetModel =
+                parsed.ANTHROPIC_DEFAULT_SONNET_MODEL ||
+                parsed.env?.ANTHROPIC_DEFAULT_SONNET_MODEL ||
+                parsed.ANTHROPIC_SONNET_MODEL ||
+                parsed.env?.ANTHROPIC_SONNET_MODEL ||
+                undefined;
+            const haikuModel =
+                parsed.ANTHROPIC_DEFAULT_HAIKU_MODEL ||
+                parsed.env?.ANTHROPIC_DEFAULT_HAIKU_MODEL ||
+                parsed.ANTHROPIC_HAIKU_MODEL ||
+                parsed.env?.ANTHROPIC_HAIKU_MODEL ||
+                undefined;
             const linked = Boolean(
                 baseUrl &&
                 (baseUrl.includes("localhost") ||
@@ -64,7 +74,10 @@ export class ClaudeAdapter extends AbstractToolAdapter {
                 linked,
                 configPath,
                 currentBaseUrl: baseUrl,
-                currentModel: model
+                currentModel: model,
+                currentOpusModel: opusModel,
+                currentSonnetModel: sonnetModel,
+                currentHaikuModel: haikuModel
             };
         } catch {
             return {
@@ -98,6 +111,34 @@ export class ClaudeAdapter extends AbstractToolAdapter {
         if (context.model) {
             data.model = context.model;
         }
+        if (context.opusModel) {
+            data.ANTHROPIC_DEFAULT_OPUS_MODEL = context.opusModel;
+        }
+        if (context.sonnetModel) {
+            data.ANTHROPIC_DEFAULT_SONNET_MODEL = context.sonnetModel;
+        }
+        if (context.haikuModel) {
+            data.ANTHROPIC_DEFAULT_HAIKU_MODEL = context.haikuModel;
+        }
+
+        if (data.env && typeof data.env === "object") {
+            data.env.ANTHROPIC_BASE_URL = context.baseUrl;
+            if (context.apiKey) {
+                data.env.ANTHROPIC_API_KEY = context.apiKey;
+            }
+            if (context.model) {
+                data.env.ANTHROPIC_MODEL = context.model;
+            }
+            if (context.opusModel) {
+                data.env.ANTHROPIC_DEFAULT_OPUS_MODEL = context.opusModel;
+            }
+            if (context.sonnetModel) {
+                data.env.ANTHROPIC_DEFAULT_SONNET_MODEL = context.sonnetModel;
+            }
+            if (context.haikuModel) {
+                data.env.ANTHROPIC_DEFAULT_HAIKU_MODEL = context.haikuModel;
+            }
+        }
 
         if (!context.dryRun) {
             await fs.mkdir(path.dirname(configPath), { recursive: true });
@@ -122,6 +163,16 @@ export class ClaudeAdapter extends AbstractToolAdapter {
             const data = JSON.parse(raw);
             delete data.ANTHROPIC_BASE_URL;
             delete data.ANTHROPIC_API_KEY;
+            delete data.ANTHROPIC_DEFAULT_OPUS_MODEL;
+            delete data.ANTHROPIC_DEFAULT_SONNET_MODEL;
+            delete data.ANTHROPIC_DEFAULT_HAIKU_MODEL;
+            if (data.env && typeof data.env === "object") {
+                delete data.env.ANTHROPIC_BASE_URL;
+                delete data.env.ANTHROPIC_API_KEY;
+                delete data.env.ANTHROPIC_DEFAULT_OPUS_MODEL;
+                delete data.env.ANTHROPIC_DEFAULT_SONNET_MODEL;
+                delete data.env.ANTHROPIC_DEFAULT_HAIKU_MODEL;
+            }
             await fs.writeFile(configPath, JSON.stringify(data, null, 4), "utf-8");
             return true;
         } catch {
@@ -138,6 +189,15 @@ export class ClaudeAdapter extends AbstractToolAdapter {
         }
         if (context.model) {
             env.ANTHROPIC_MODEL = context.model;
+        }
+        if (context.opusModel) {
+            env.ANTHROPIC_DEFAULT_OPUS_MODEL = context.opusModel;
+        }
+        if (context.sonnetModel) {
+            env.ANTHROPIC_DEFAULT_SONNET_MODEL = context.sonnetModel;
+        }
+        if (context.haikuModel) {
+            env.ANTHROPIC_DEFAULT_HAIKU_MODEL = context.haikuModel;
         }
         return env;
     }

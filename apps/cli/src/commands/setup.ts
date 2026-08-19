@@ -11,6 +11,7 @@ import {
 } from "@clack/prompts";
 import { getAllAdapters } from "../adapters/index.js";
 import { defaultStore } from "../lib/configStore.js";
+import { getSystemInfo } from "../lib/platform.js";
 import { checkServerHealth, fetchAvailableModels } from "../lib/srouterClient.js";
 import { pc, showHeader } from "../lib/ui.js";
 
@@ -18,11 +19,17 @@ export interface SetupWizardOptions {
     url?: string;
     key?: string;
     model?: string;
+    opusModel?: string;
+    sonnetModel?: string;
+    haikuModel?: string;
 }
 
 export async function setupCommand(options: SetupWizardOptions = {}): Promise<void> {
     showHeader();
-    intro(pc.bold(pc.magenta("SRouter AI Coding Setup Wizard")));
+    const sysInfo = getSystemInfo();
+    intro(
+        `${pc.bold(pc.magenta("SRouter AI Coding Setup Wizard"))} ${pc.gray(`(${sysInfo.displayName})`)}`
+    );
 
     const savedConfig = await defaultStore.loadConfig();
     let baseUrl =
@@ -32,6 +39,9 @@ export async function setupCommand(options: SetupWizardOptions = {}): Promise<vo
         "http://localhost:3000/v1";
     let apiKey = options.key || process.env.SROUTER_API_KEY || savedConfig.defaultApiKey;
     let selectedModel = options.model || savedConfig.defaultModel;
+    let opusModel = options.opusModel || savedConfig.defaultOpusModel;
+    let sonnetModel = options.sonnetModel || savedConfig.defaultSonnetModel;
+    let haikuModel = options.haikuModel || savedConfig.defaultHaikuModel;
 
     // Step 1: Detect SRouter Server
     const s = spinner();
@@ -112,23 +122,33 @@ export async function setupCommand(options: SetupWizardOptions = {}): Promise<vo
 
     const toolOptions = adapters.map((adapter, idx) => {
         const st = adapterStatuses[idx];
-        const statusHint = st.linked
-            ? "currently linked"
-            : st.installed
-              ? "installed"
-              : "not in PATH";
+        let label = adapter.name;
+        let hint = "";
+
+        if (st.linked) {
+            label = `${adapter.name} [✔ SUDAH DI-SETTING]`;
+            const modelPart = st.currentModel ? `, Model: ${st.currentModel}` : "";
+            hint = `Aktif terhubung ke ${st.currentBaseUrl}${modelPart} (Pilih untuk update setting)`;
+        } else if (st.installed) {
+            label = `${adapter.name} [○ BELUM DI-SETTING]`;
+            hint = `${adapter.description} (Terinstall di sistem)`;
+        } else {
+            label = `${adapter.name} [✖ BELUM TERINSTALL]`;
+            hint = `${adapter.description} (Executable tidak ditemukan di PATH)`;
+        }
+
         return {
             value: adapter.id,
-            label: adapter.name,
-            hint: `${adapter.description} (${statusHint})`
+            label,
+            hint
         };
     });
 
     const selectedTools = await multiselect({
-        message: "Pilih tool AI coding yang ingin dihubungkan ke SRouter:",
+        message:
+            "Pilih tool AI coding yang ingin dihubungkan ke SRouter (Gunakan Space untuk memilih, Enter untuk konfirmasi):",
         options: toolOptions,
-        required: true,
-        initialValues: adapters.map((a) => a.id)
+        required: false
     });
 
     if (isCancel(selectedTools)) {
@@ -138,6 +158,27 @@ export async function setupCommand(options: SetupWizardOptions = {}): Promise<vo
     }
 
     const toolsToConfigure = Array.isArray(selectedTools) ? (selectedTools as string[]) : [];
+
+    if (toolsToConfigure.length === 0) {
+        await defaultStore.saveConfig({
+            defaultBaseUrl: baseUrl,
+            defaultApiKey: apiKey,
+            lastSetupAt: Date.now()
+        });
+
+        note(
+            `Base URL:    ${pc.cyan(baseUrl)}\n${apiKey ? `API Key:     ${pc.gray("••••••••" + apiKey.slice(-4))}\n` : ""}\n${pc.yellow("Tidak ada tool yang dipilih untuk dihubungkan.")}`,
+            "Configuration Summary"
+        );
+        outro(
+            pc.bold(
+                pc.green(
+                    "✔ Gateway berhasil disimpan. Anda dapat menjalankan 'srouter setup' atau 'srouter link <tool>' kapan saja."
+                )
+            )
+        );
+        return;
+    }
 
     // Step 4: Model Selection
     if (!selectedModel) {
@@ -188,6 +229,101 @@ export async function setupCommand(options: SetupWizardOptions = {}): Promise<vo
         }
     }
 
+    // Step 4.1: Claude Code Specific Models (Opus, Sonnet, Haiku)
+    if (
+        toolsToConfigure.includes("claude") &&
+        !options.opusModel &&
+        !options.sonnetModel &&
+        !options.haikuModel
+    ) {
+        const configTiersChoice = await select({
+            message: "Konfigurasi model tier Claude Code (Opus, Sonnet, Haiku)?",
+            options: [
+                {
+                    value: "auto",
+                    label: "Gunakan model default / lewati",
+                    hint: selectedModel || "Default Claude models"
+                },
+                {
+                    value: "custom",
+                    label: "Kustomisasi per tier (Opus, Sonnet, Haiku)"
+                }
+            ]
+        });
+
+        if (isCancel(configTiersChoice)) {
+            cancel("Setup cancelled.");
+            process.exitCode = 0;
+            return;
+        }
+
+        if (configTiersChoice === "custom") {
+            const pickTierModel = async (
+                tierName: string,
+                envVar: string,
+                defaultVal?: string
+            ): Promise<string | undefined> => {
+                if (availableModels.length > 0) {
+                    const choice = await select({
+                        message: `Pilih model untuk ${tierName} (${envVar}):`,
+                        options: [
+                            { value: "__skip__", label: "Lewati (Gunakan default)" },
+                            ...availableModels.map((m) => ({ value: m, label: m })),
+                            { value: "__custom__", label: "Custom model name..." }
+                        ]
+                    });
+                    if (isCancel(choice)) return undefined;
+                    if (choice === "__skip__") return undefined;
+                    if (choice === "__custom__") {
+                        const customInput = await text({
+                            message: `Enter custom model ID untuk ${tierName}:`,
+                            placeholder: defaultVal || "claude-3-7-sonnet"
+                        });
+                        if (isCancel(customInput)) return undefined;
+                        const val = typeof customInput === "string" ? customInput.trim() : "";
+                        return val || undefined;
+                    }
+                    return choice as string;
+                }
+
+                const customInput = await text({
+                    message: `Enter model ID untuk ${tierName} (${envVar}, optional):`,
+                    placeholder: defaultVal || "claude-3-7-sonnet"
+                });
+                if (isCancel(customInput)) return undefined;
+                const val = typeof customInput === "string" ? customInput.trim() : "";
+                return val || undefined;
+            };
+
+            const pickedSonnet = await pickTierModel(
+                "Sonnet",
+                "ANTHROPIC_DEFAULT_SONNET_MODEL",
+                selectedModel || "claude-3-7-sonnet"
+            );
+            if (pickedSonnet !== undefined) {
+                sonnetModel = pickedSonnet;
+            }
+
+            const pickedOpus = await pickTierModel(
+                "Opus",
+                "ANTHROPIC_DEFAULT_OPUS_MODEL",
+                "claude-3-opus-20240229"
+            );
+            if (pickedOpus !== undefined) {
+                opusModel = pickedOpus;
+            }
+
+            const pickedHaiku = await pickTierModel(
+                "Haiku",
+                "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+                "claude-3-5-haiku-20241022"
+            );
+            if (pickedHaiku !== undefined) {
+                haikuModel = pickedHaiku;
+            }
+        }
+    }
+
     // Step 5: Execute Linking
     s.start("Applying SRouter configurations...");
     const linkResults: { name: string; path: string; backup?: string }[] = [];
@@ -199,7 +335,10 @@ export async function setupCommand(options: SetupWizardOptions = {}): Promise<vo
         const result = await adapter.link({
             baseUrl,
             apiKey,
-            model: selectedModel
+            model: selectedModel,
+            opusModel: toolId === "claude" ? opusModel : undefined,
+            sonnetModel: toolId === "claude" ? sonnetModel : undefined,
+            haikuModel: toolId === "claude" ? haikuModel : undefined
         });
 
         linkResults.push({
@@ -213,6 +352,9 @@ export async function setupCommand(options: SetupWizardOptions = {}): Promise<vo
         defaultBaseUrl: baseUrl,
         defaultApiKey: apiKey,
         defaultModel: selectedModel,
+        defaultOpusModel: opusModel,
+        defaultSonnetModel: sonnetModel,
+        defaultHaikuModel: haikuModel,
         lastSetupAt: Date.now()
     });
 
@@ -220,9 +362,13 @@ export async function setupCommand(options: SetupWizardOptions = {}): Promise<vo
 
     // Step 6: Summary Notes
     const summaryLines = [
-        `Base URL: ${pc.cyan(baseUrl)}`,
-        ...(apiKey ? [`API Key:  ${pc.gray("••••••••" + apiKey.slice(-4))}`] : []),
-        ...(selectedModel ? [`Model:    ${pc.cyan(selectedModel)}`] : []),
+        `OS / System: ${pc.cyan(sysInfo.displayName)}`,
+        `Base URL:    ${pc.cyan(baseUrl)}`,
+        ...(apiKey ? [`API Key:     ${pc.gray("••••••••" + apiKey.slice(-4))}`] : []),
+        ...(selectedModel ? [`Model:       ${pc.cyan(selectedModel)}`] : []),
+        ...(opusModel ? [`Opus:        ${pc.cyan(opusModel)}`] : []),
+        ...(sonnetModel ? [`Sonnet:      ${pc.cyan(sonnetModel)}`] : []),
+        ...(haikuModel ? [`Haiku:       ${pc.cyan(haikuModel)}`] : []),
         "",
         pc.bold("Configured Tools:")
     ];
