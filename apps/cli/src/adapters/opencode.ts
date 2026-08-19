@@ -54,9 +54,9 @@ export class OpenCodeAdapter extends AbstractToolAdapter {
             const model = parsed.model || parsed.default_model || undefined;
             const linked = Boolean(
                 baseUrl &&
-                (baseUrl.includes("localhost") ||
-                    baseUrl.includes("127.0.0.1") ||
-                    baseUrl.includes("srouter"))
+                    (baseUrl.includes("localhost") ||
+                        baseUrl.includes("127.0.0.1") ||
+                        baseUrl.includes("srouter"))
             );
 
             return {
@@ -96,6 +96,13 @@ export class OpenCodeAdapter extends AbstractToolAdapter {
         // Schema declaration
         data["$schema"] = "https://opencode.ai/config.json";
 
+        // Clean any conflicting legacy fields
+        delete data.providers;
+        delete data.openai_base_url;
+        delete data.api_base;
+        delete data.api_key;
+        delete data.openai_api_key;
+
         // OpenCode provider configuration
         data.provider = data.provider || {};
         const existingSrouter = data.provider.srouter || {};
@@ -123,14 +130,6 @@ export class OpenCodeAdapter extends AbstractToolAdapter {
 
         // OpenCode format for active model: "provider/model"
         data.model = `srouter/${cleanModelId}`;
-
-        // Legacy / generic fields for backward compatibility
-        data.openai_base_url = context.baseUrl;
-        data.api_base = context.baseUrl;
-        if (context.apiKey) {
-            data.api_key = context.apiKey;
-            data.openai_api_key = context.apiKey;
-        }
 
         if (!context.dryRun) {
             await fs.mkdir(path.dirname(configPath), { recursive: true });
@@ -162,9 +161,8 @@ export class OpenCodeAdapter extends AbstractToolAdapter {
             delete data.openai_base_url;
             delete data.api_base;
             delete data.openai_api_key;
-            if (data.providers?.srouter) {
-                delete data.providers.srouter;
-            }
+            delete data.api_key;
+            delete data.providers;
             await fs.writeFile(configPath, JSON.stringify(data, null, 4), "utf-8");
             return true;
         } catch {
