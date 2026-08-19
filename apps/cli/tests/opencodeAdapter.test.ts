@@ -38,7 +38,7 @@ test("OpenCodeAdapter - link and unlink lifecycle", async () => {
         const statusAfter = await adapter.getStatus();
         assert.equal(statusAfter.linked, true);
         assert.equal(statusAfter.currentBaseUrl, "http://localhost:3000/v1");
-        assert.equal(statusAfter.currentModel, "claude-3-7-sonnet");
+        assert.equal(statusAfter.currentModel, "srouter/claude-3-7-sonnet");
 
         // Check getEnv
         const env = adapter.getEnv({

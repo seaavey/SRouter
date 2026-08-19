@@ -45,6 +45,7 @@ export class OpenCodeAdapter extends AbstractToolAdapter {
             const raw = await fs.readFile(configPath, "utf-8");
             const parsed = JSON.parse(raw);
             const baseUrl =
+                parsed.provider?.srouter?.options?.baseURL ||
                 parsed.openai_base_url ||
                 parsed.api_base ||
                 parsed.baseUrl ||
@@ -92,21 +93,44 @@ export class OpenCodeAdapter extends AbstractToolAdapter {
             data = {};
         }
 
+        // Schema declaration
+        data["$schema"] = "https://opencode.ai/config.json";
+
+        // OpenCode provider configuration
+        data.provider = data.provider || {};
+        const existingSrouter = data.provider.srouter || {};
+        const existingModels = existingSrouter.models || {};
+
+        const rawModel = context.model || "claude-3-7-sonnet";
+        const cleanModelId = rawModel.startsWith("srouter/")
+            ? rawModel.replace(/^srouter\//, "")
+            : rawModel;
+
+        existingModels[cleanModelId] = {
+            id: cleanModelId,
+            name: cleanModelId
+        };
+
+        data.provider.srouter = {
+            name: "SRouter",
+            npm: "@ai-sdk/openai",
+            options: {
+                baseURL: context.baseUrl,
+                apiKey: context.apiKey || "sk-local-srouter"
+            },
+            models: existingModels
+        };
+
+        // OpenCode format for active model: "provider/model"
+        data.model = `srouter/${cleanModelId}`;
+
+        // Legacy / generic fields for backward compatibility
         data.openai_base_url = context.baseUrl;
         data.api_base = context.baseUrl;
         if (context.apiKey) {
             data.api_key = context.apiKey;
             data.openai_api_key = context.apiKey;
         }
-        if (context.model) {
-            data.model = context.model;
-        }
-
-        data.providers = data.providers || {};
-        data.providers.srouter = {
-            baseUrl: context.baseUrl,
-            apiKey: context.apiKey || ""
-        };
 
         if (!context.dryRun) {
             await fs.mkdir(path.dirname(configPath), { recursive: true });
@@ -129,6 +153,12 @@ export class OpenCodeAdapter extends AbstractToolAdapter {
         try {
             const raw = await fs.readFile(configPath, "utf-8");
             const data = JSON.parse(raw);
+            if (data.provider?.srouter) {
+                delete data.provider.srouter;
+            }
+            if (data.model?.startsWith("srouter/")) {
+                delete data.model;
+            }
             delete data.openai_base_url;
             delete data.api_base;
             delete data.openai_api_key;
@@ -152,7 +182,10 @@ export class OpenCodeAdapter extends AbstractToolAdapter {
             env.ANTHROPIC_API_KEY = context.apiKey;
         }
         if (context.model) {
-            env.OPENCODE_MODEL = context.model;
+            const cleanModelId = context.model.startsWith("srouter/")
+                ? context.model.replace(/^srouter\//, "")
+                : context.model;
+            env.OPENCODE_MODEL = `srouter/${cleanModelId}`;
         }
         return env;
     }
