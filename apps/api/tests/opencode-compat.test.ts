@@ -37,13 +37,21 @@ test("OpenCode Compatibility - chat route accepts unauthenticated local requests
             },
             body: JSON.stringify({
                 model: "gorouter/claude-opus-4-8",
-                messages: [{ role: "user", content: "hello" }]
+                messages: [
+                    {
+                        role: "user",
+                        content: "Halo SRouter, tolong jawab singkat 'SRouter siap digunakan!'"
+                    }
+                ]
             })
         })
     );
 
-    // Should NOT return 401 Admin authentication is required
-    assert.notEqual(chatRes.status, 401);
+    assert.equal(chatRes.status, 200);
     const body = (await chatRes.json()) as any;
-    assert.notEqual(body?.error?.message, "Admin authentication is required");
+    console.log("\n==========================================");
+    console.log("🤖 Respons LLM dari GoRouter via SRouter:");
+    console.log(body.choices?.[0]?.message?.content);
+    console.log("==========================================\n");
+    assert.ok(body.choices?.[0]?.message?.content);
 });
