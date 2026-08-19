@@ -84,8 +84,13 @@ app.route("/v1", authRoute);
 app.route("/v1", quotaRoute);
 app.route("/v1", settingsRoute);
 
-// Also mount root-level /messages for Anthropic clients sending to base URL directly
+// Also mount root-level routes for OpenAI / Anthropic clients and AI SDKs sending to base URL directly
+app.route("/", chatRoute);
 app.route("/", messagesRoute);
+app.route("/", modelsRoute);
+app.route("/", providersRoute);
+app.route("/", settingsRoute);
+app.route("/", quotaRoute);
 
 // Serve Web Dashboard in production if built dist exists
 const webDistPath = resolveWebDistPath();
