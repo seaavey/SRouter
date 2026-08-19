@@ -54,8 +54,9 @@ export async function setupCommand(options: SetupWizardOptions = {}): Promise<vo
             message: "Enter SRouter Gateway Base URL:",
             initialValue: baseUrl,
             validate(value) {
-                if (!value.trim()) return "Base URL cannot be empty";
-                if (!value.startsWith("http://") && !value.startsWith("https://")) {
+                const val = typeof value === "string" ? value.trim() : "";
+                if (!val) return "Base URL cannot be empty";
+                if (!val.startsWith("http://") && !val.startsWith("https://")) {
                     return "URL must start with http:// or https://";
                 }
             }
@@ -67,7 +68,11 @@ export async function setupCommand(options: SetupWizardOptions = {}): Promise<vo
             return;
         }
 
-        baseUrl = urlInput.trim();
+        const urlStr = typeof urlInput === "string" ? urlInput.trim() : baseUrl;
+        if (urlStr) {
+            baseUrl = urlStr;
+        }
+
         s.start(`Connecting to ${pc.cyan(baseUrl)}...`);
         health = await checkServerHealth(baseUrl, apiKey);
         if (health.healthy) {
@@ -92,8 +97,9 @@ export async function setupCommand(options: SetupWizardOptions = {}): Promise<vo
             return;
         }
 
-        if (keyInput.trim()) {
-            apiKey = keyInput.trim();
+        const keyStr = typeof keyInput === "string" ? keyInput.trim() : "";
+        if (keyStr) {
+            apiKey = keyStr;
             if (availableModels.length === 0) {
                 availableModels = await fetchAvailableModels(baseUrl, apiKey);
             }
@@ -131,7 +137,7 @@ export async function setupCommand(options: SetupWizardOptions = {}): Promise<vo
         return;
     }
 
-    const toolsToConfigure = selectedTools as string[];
+    const toolsToConfigure = Array.isArray(selectedTools) ? (selectedTools as string[]) : [];
 
     // Step 4: Model Selection
     if (!selectedModel) {
@@ -161,7 +167,9 @@ export async function setupCommand(options: SetupWizardOptions = {}): Promise<vo
                     process.exitCode = 0;
                     return;
                 }
-                selectedModel = customModelInput.trim() || undefined;
+                const customModelStr =
+                    typeof customModelInput === "string" ? customModelInput.trim() : "";
+                selectedModel = customModelStr || undefined;
             } else {
                 selectedModel = modelChoice as string;
             }
@@ -175,7 +183,8 @@ export async function setupCommand(options: SetupWizardOptions = {}): Promise<vo
                 process.exitCode = 0;
                 return;
             }
-            selectedModel = modelInput.trim() || undefined;
+            const modelStr = typeof modelInput === "string" ? modelInput.trim() : "";
+            selectedModel = modelStr || undefined;
         }
     }
 
