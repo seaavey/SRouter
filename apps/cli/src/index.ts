@@ -11,7 +11,9 @@ export function createCli(): Command {
 
     program
         .name("srouter")
-        .description("CLI tool to configure and link AI coding tools to SRouter")
+        .description(
+            "CLI tool to connect, configure, and proxy AI coding tools with SRouter Gateway"
+        )
         .version("0.1.1-rc.1");
 
     program
@@ -25,15 +27,15 @@ export function createCli(): Command {
         .option("-m, --model <model>", "Default model ID to configure")
         .option(
             "--opus-model <model>",
-            "Default Opus model for Claude Code (ANTHROPIC_DEFAULT_OPUS_MODEL)"
+            "Default Opus tier model for Claude Code (ANTHROPIC_DEFAULT_OPUS_MODEL)"
         )
         .option(
             "--sonnet-model <model>",
-            "Default Sonnet model for Claude Code (ANTHROPIC_DEFAULT_SONNET_MODEL)"
+            "Default Sonnet tier model for Claude Code (ANTHROPIC_DEFAULT_SONNET_MODEL)"
         )
         .option(
             "--haiku-model <model>",
-            "Default Haiku model for Claude Code (ANTHROPIC_DEFAULT_HAIKU_MODEL)"
+            "Default Haiku tier model for Claude Code (ANTHROPIC_DEFAULT_HAIKU_MODEL)"
         )
         .action(async (opts) => {
             await setupCommand(opts);
@@ -42,13 +44,22 @@ export function createCli(): Command {
     program
         .command("link <tool>")
         .description("Configure a specific tool to use SRouter proxy (claude, opencode)")
-        .option("-u, --url <url>", "SRouter Gateway Base URL")
+        .option("-u, --url <url>", "SRouter Gateway Base URL (e.g. http://localhost:3000/v1)")
         .option("-k, --key <key>", "SRouter API Key")
         .option("-m, --model <model>", "Model ID")
-        .option("--opus-model <model>", "Opus model ID (ANTHROPIC_DEFAULT_OPUS_MODEL)")
-        .option("--sonnet-model <model>", "Sonnet model ID (ANTHROPIC_DEFAULT_SONNET_MODEL)")
-        .option("--haiku-model <model>", "Haiku model ID (ANTHROPIC_DEFAULT_HAIKU_MODEL)")
-        .option("--dry-run", "Simulate without writing files")
+        .option(
+            "--opus-model <model>",
+            "Opus tier model ID for Claude Code (ANTHROPIC_DEFAULT_OPUS_MODEL)"
+        )
+        .option(
+            "--sonnet-model <model>",
+            "Sonnet tier model ID for Claude Code (ANTHROPIC_DEFAULT_SONNET_MODEL)"
+        )
+        .option(
+            "--haiku-model <model>",
+            "Haiku tier model ID for Claude Code (ANTHROPIC_DEFAULT_HAIKU_MODEL)"
+        )
+        .option("--dry-run", "Preview configuration changes without writing files")
         .action(async (tool, opts) => {
             await linkCommand(tool, opts);
         });
@@ -63,8 +74,8 @@ export function createCli(): Command {
     program
         .command("status")
         .alias("doctor")
-        .description("Inspect SRouter server connectivity and tool integration status")
-        .option("-u, --url <url>", "SRouter Gateway Base URL")
+        .description("Inspect SRouter gateway connectivity, active models, and tool link status")
+        .option("-u, --url <url>", "SRouter Gateway Base URL (e.g. http://localhost:3000/v1)")
         .option("-k, --key <key>", "SRouter API Key")
         .action(async (opts) => {
             await statusCommand(opts);
@@ -73,13 +84,22 @@ export function createCli(): Command {
     program
         .command("env [tool]")
         .description("Print shell export commands for SRouter proxy environment variables")
-        .option("-u, --url <url>", "SRouter Gateway Base URL")
+        .option("-u, --url <url>", "SRouter Gateway Base URL (e.g. http://localhost:3000/v1)")
         .option("-k, --key <key>", "SRouter API Key")
         .option("-m, --model <model>", "Model ID")
-        .option("--opus-model <model>", "Opus model ID (ANTHROPIC_DEFAULT_OPUS_MODEL)")
-        .option("--sonnet-model <model>", "Sonnet model ID (ANTHROPIC_DEFAULT_SONNET_MODEL)")
-        .option("--haiku-model <model>", "Haiku model ID (ANTHROPIC_DEFAULT_HAIKU_MODEL)")
-        .option("--fish", "Generate fish shell export syntax")
+        .option(
+            "--opus-model <model>",
+            "Opus tier model ID for Claude Code (ANTHROPIC_DEFAULT_OPUS_MODEL)"
+        )
+        .option(
+            "--sonnet-model <model>",
+            "Sonnet tier model ID for Claude Code (ANTHROPIC_DEFAULT_SONNET_MODEL)"
+        )
+        .option(
+            "--haiku-model <model>",
+            "Haiku tier model ID for Claude Code (ANTHROPIC_DEFAULT_HAIKU_MODEL)"
+        )
+        .option("--fish", "Generate fish shell export syntax (shorthand for --shell fish)")
         .option("--shell <shell>", "Target shell syntax (bash, zsh, fish, powershell, cmd)")
         .action(async (tool, opts) => {
             await envCommand(tool, opts);
@@ -87,13 +107,22 @@ export function createCli(): Command {
 
     program
         .command("run <tool> [args...]")
-        .description("Run a tool CLI with SRouter environment variables injected on the fly")
-        .option("-u, --url <url>", "SRouter Gateway Base URL")
+        .description("Run a tool CLI directly with SRouter proxy environment variables injected")
+        .option("-u, --url <url>", "SRouter Gateway Base URL (e.g. http://localhost:3000/v1)")
         .option("-k, --key <key>", "SRouter API Key")
         .option("-m, --model <model>", "Model ID")
-        .option("--opus-model <model>", "Opus model ID (ANTHROPIC_DEFAULT_OPUS_MODEL)")
-        .option("--sonnet-model <model>", "Sonnet model ID (ANTHROPIC_DEFAULT_SONNET_MODEL)")
-        .option("--haiku-model <model>", "Haiku model ID (ANTHROPIC_DEFAULT_HAIKU_MODEL)")
+        .option(
+            "--opus-model <model>",
+            "Opus tier model ID for Claude Code (ANTHROPIC_DEFAULT_OPUS_MODEL)"
+        )
+        .option(
+            "--sonnet-model <model>",
+            "Sonnet tier model ID for Claude Code (ANTHROPIC_DEFAULT_SONNET_MODEL)"
+        )
+        .option(
+            "--haiku-model <model>",
+            "Haiku tier model ID for Claude Code (ANTHROPIC_DEFAULT_HAIKU_MODEL)"
+        )
         .allowUnknownOption()
         .action(async (tool, args, opts) => {
             await runCommand(tool, args, opts);

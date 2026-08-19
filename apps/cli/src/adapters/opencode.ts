@@ -7,8 +7,8 @@ import { getOpenCodeConfigPath, isExecutableInPath } from "../lib/platform.js";
 
 export class OpenCodeAdapter extends AbstractToolAdapter {
     readonly id = "opencode";
-    readonly name = "OpenCode / Interpreter";
-    readonly description = "Open-source AI coding CLI and agentic interpreter";
+    readonly name = "OpenCode";
+    readonly description = "Open-source AI coding assistant and agent";
 
     private customConfigPath?: string;
 
