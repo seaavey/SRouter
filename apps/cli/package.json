@@ -1,0 +1,26 @@
+{
+    "name": "@srouter/cli",
+    "version": "0.1.1-rc.1",
+    "description": "CLI tool for SRouter to automatically configure and link AI coding tools",
+    "type": "module",
+    "bin": {
+        "srouter": "./bin/srouter.js"
+    },
+    "scripts": {
+        "clean": "rm -rf dist",
+        "test": "tsx --test tests/**/*.test.ts"
+    },
+    "dependencies": {
+        "@clack/prompts": "^0.9.1",
+        "@srouter/constants": "workspace:*",
+        "@srouter/types": "workspace:*",
+        "commander": "^13.1.0",
+        "picocolors": "^1.1.1"
+    },
+    "devDependencies": {
+        "@types/node": "^26.1.1",
+        "tsup": "^8.5.1",
+        "tsx": "^4.23.0",
+        "typescript": "^5.0.0"
+    }
+}
