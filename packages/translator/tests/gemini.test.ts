@@ -2,9 +2,17 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
     buildAntigravityContents,
+    buildAntigravityEnvelope,
     buildAntigravityTools,
     cleanJSONSchemaForAntigravity,
-    parseAntigravityModelName
+    getAntigravityModelFallbacks,
+    parseAntigravityModelName,
+    parseAntigravityTextualToolCall,
+    parseRetryFromErrorMessage,
+    resolveAntigravityOutputCap,
+    stripCompetitiveAgentPrompts,
+    stripTrailingAssistantTurn,
+    stripZeroWidth
 } from "../src/gemini.js";
 import type { ChatCompletionRequest } from "@srouter/types";
 
@@ -145,4 +153,73 @@ test("parseAntigravityModelName maps public ids to CloudCode internal ids", () =
         parseAntigravityModelName("antigravity/gemini-3.6-flash-high"),
         "gemini-3.6-flash-high"
     );
+});
+
+test("stripCompetitiveAgentPrompts removes Claude / Anthropic identity sentences", () => {
+    const raw =
+        "You are a Claude agent, built on Anthropic's Claude Agent SDK. Please write Python code.";
+    const cleaned = stripCompetitiveAgentPrompts(raw);
+    assert.equal(cleaned, "Please write Python code.");
+
+    const raw2 = "You are Claude Code, an interactive CLI tool. Help me fix bugs.";
+    const cleaned2 = stripCompetitiveAgentPrompts(raw2);
+    assert.equal(cleaned2, "Help me fix bugs.");
+});
+
+test("stripZeroWidth removes zero-width characters from strings and objects", () => {
+    const withZeroWidth = "Hello\u200BWorld\uFEFF!";
+    assert.equal(stripZeroWidth(withZeroWidth), "HelloWorld!");
+    assert.deepEqual(stripZeroWidth({ key: "val\u200Cue" }), { key: "value" });
+});
+
+test("stripTrailingAssistantTurn removes lone model turn at the end", () => {
+    const contents = [
+        { role: "user", parts: [{ text: "Hello" }] },
+        { role: "model", parts: [{ text: "{" }] }
+    ];
+    const stripped = stripTrailingAssistantTurn(contents);
+    assert.equal(stripped.length, 1);
+    assert.equal(stripped[0]?.role, "user");
+});
+
+test("parseAntigravityTextualToolCall parses markdown tool call", () => {
+    const text = '[Tool call: get_current_weather]\nArguments: {"location": "San Francisco"}';
+    const parsed = parseAntigravityTextualToolCall(text);
+    assert.ok(parsed);
+    assert.equal(parsed.name, "get_current_weather");
+    assert.deepEqual(parsed.args, { location: "San Francisco" });
+});
+
+test("resolveAntigravityOutputCap and getAntigravityModelFallbacks work correctly", () => {
+    assert.equal(resolveAntigravityOutputCap("gemini-3.7-flash-high"), 65536);
+    assert.equal(resolveAntigravityOutputCap("claude-opus-4-6-thinking"), 64000);
+    assert.equal(resolveAntigravityOutputCap("unknown-model"), 8192);
+
+    const fallbacks = getAntigravityModelFallbacks("gemini-3.1-pro-high");
+    assert.deepEqual(fallbacks, ["gemini-pro-agent", "gemini-3.1-pro-high", "gemini-3-pro"]);
+});
+
+test("parseRetryFromErrorMessage extracts duration from Google error messages", () => {
+    assert.equal(
+        parseRetryFromErrorMessage("Your quota will reset after 2h7m23s"),
+        (2 * 3600 + 7 * 60 + 23) * 1000
+    );
+    assert.equal(
+        parseRetryFromErrorMessage("Resets in 160h27m24s"),
+        (160 * 3600 + 27 * 60 + 24) * 1000
+    );
+    assert.equal(parseRetryFromErrorMessage("Resets after 0s"), 2000);
+    assert.equal(parseRetryFromErrorMessage("Unknown error"), null);
+});
+
+test("buildAntigravityEnvelope supports enabledCreditTypes", () => {
+    const env = buildAntigravityEnvelope({
+        projectId: "test-proj",
+        model: "gemini-3.7-flash-tiered",
+        requestType: "agent",
+        request: { contents: [] },
+        enabledCreditTypes: ["GOOGLE_ONE_AI"]
+    });
+    assert.equal(env.project, "test-proj");
+    assert.deepEqual(env.enabledCreditTypes, ["GOOGLE_ONE_AI"]);
 });

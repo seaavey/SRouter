@@ -20,9 +20,12 @@ import {
     generateProjectId,
     generateSessionId,
     geminiStreamToOpenAIChunks,
+    getAntigravityModelFallbacks,
     isImageModel,
     parseAntigravityModelName,
     parseImageConfig,
+    parseRetryFromErrorMessage,
+    resolveAntigravityOutputCap,
     stripBlacklistedRequest
 } from "@srouter/translator";
 import { OpenAIExecutor } from "./openai.js";
@@ -37,12 +40,20 @@ export interface AntigravityExecutorOptions {
     accessToken?: string;
     refreshToken?: string;
     projectId?: string;
+    enabledCreditTypes?: string[];
+    creditsMode?: "never" | "on_demand" | "always";
 }
 
 /**
  * Antigravity Executor — Google Antigravity IDE backend (daily-cloudcode-pa).
- * Ported from 9router open-sse/executors/antigravity.js (envelope + native SSE + retry).
- * Falls back to OpenAI-compatible endpoint for local proxy / AIzaSy API keys.
+ * Ported from 9router / OmniRoute open-sse/executors/antigravity.
+ * Features:
+ * - Pro fallback cascade chain on HTTP 400 Bad Request
+ * - Google One AI paid credits fallback / mode on quota exhaustion (429)
+ * - Trailing assistant turn stripper & competing agent prompt sanitizer
+ * - Output token cap clamping (prevents 400 on oversized max_tokens)
+ * - Zero-width character stripping and textual tool call parsing
+ * - Falls back to OpenAI-compatible endpoint for local proxy / AIzaSy API keys.
  */
 export class AntigravityExecutor implements AIProvider {
     id: string;
@@ -55,6 +66,9 @@ export class AntigravityExecutor implements AIProvider {
     private refreshToken?: string;
     private projectId: string;
     private sessionId: string;
+    private enabledCreditTypes?: string[];
+    private creditsMode: "never" | "on_demand" | "always";
+    private remainingCredits?: Array<{ creditType: string; creditAmount: string }>;
     private openaiFallback: OpenAIExecutor;
 
     constructor(options: AntigravityExecutorOptions = {}) {
@@ -66,6 +80,8 @@ export class AntigravityExecutor implements AIProvider {
         this.refreshToken = options.refreshToken;
         this.projectId = options.projectId ?? generateProjectId();
         this.sessionId = generateSessionId();
+        this.enabledCreditTypes = options.enabledCreditTypes;
+        this.creditsMode = options.creditsMode ?? "on_demand";
         this.openaiFallback = new OpenAIExecutor({
             id: this.id,
             name: this.name,
@@ -84,6 +100,10 @@ export class AntigravityExecutor implements AIProvider {
             this.openaiFallback.updateToken(accessToken);
         }
         if (refreshToken) this.refreshToken = refreshToken;
+    }
+
+    getRemainingCredits(): Array<{ creditType: string; creditAmount: string }> | undefined {
+        return this.remainingCredits;
     }
 
     private getHeaders(extra?: Record<string, string>): Record<string, string> {
@@ -159,17 +179,17 @@ export class AntigravityExecutor implements AIProvider {
 
     /**
      * Build the Antigravity request envelope + sanitized request body.
-     * Port of 9router transformRequest (standard agent request path).
      */
     private buildRequest(
         model: string,
         req: ChatCompletionRequest,
-        stream: boolean
+        stream: boolean,
+        enabledCreditTypes?: string[]
     ): { url: string; body: Record<string, unknown> } {
         const cleanBaseUrl = this.getAntigravityBaseUrl();
         const modelName = parseAntigravityModelName(model);
 
-        // Build contents (with tool support)
+        // Build contents (with tool support, prompt stripping, zero-width stripping, trailing turn stripping)
         const contents = buildAntigravityContents(req);
 
         // ─── Image generation: different request structure ───
@@ -193,7 +213,8 @@ export class AntigravityExecutor implements AIProvider {
                 requestType: "image_gen",
                 request,
                 body: req as unknown as { requestId?: string },
-                sessionId: this.sessionId
+                sessionId: this.sessionId,
+                enabledCreditTypes
             });
             // Image gen MUST use non-streaming generateContent
             const url = `${cleanBaseUrl}/v1internal:generateContent`;
@@ -202,11 +223,20 @@ export class AntigravityExecutor implements AIProvider {
 
         // ─── Standard request ───
         const tools = buildAntigravityTools(req);
+        const maxCap = resolveAntigravityOutputCap(modelName);
+        const requestedMaxTokens = typeof req.max_tokens === "number" ? req.max_tokens : undefined;
+        const maxOutputTokens = requestedMaxTokens ? Math.min(requestedMaxTokens, maxCap) : maxCap;
 
         const request: Record<string, unknown> = {
             contents,
             sessionId: this.sessionId,
-            safetySettings: undefined
+            safetySettings: undefined,
+            generationConfig: {
+                maxOutputTokens,
+                topP: typeof req.top_p === "number" ? req.top_p : 1.0,
+                topK: 40,
+                ...(typeof req.temperature === "number" && { temperature: req.temperature })
+            }
         };
         if (tools.length > 0) {
             request.tools = tools;
@@ -221,7 +251,8 @@ export class AntigravityExecutor implements AIProvider {
             requestType: "agent",
             request,
             body: req as unknown as { requestId?: string },
-            sessionId: this.sessionId
+            sessionId: this.sessionId,
+            enabledCreditTypes
         });
 
         const url = stream
@@ -297,13 +328,81 @@ export class AntigravityExecutor implements AIProvider {
         }
 
         await this.ensureProjectId();
-        const { url, body } = this.buildRequest(req.model, req, true);
+
+        const modelFallbacks = getAntigravityModelFallbacks(req.model);
+        let lastError: Error | null = null;
+
+        for (let i = 0; i < modelFallbacks.length; i++) {
+            const candidateModel = modelFallbacks[i] ?? req.model;
+            try {
+                yield* this.streamCandidateWithCreditRetry(candidateModel, req);
+                return;
+            } catch (err: unknown) {
+                lastError = err instanceof Error ? err : new Error(String(err));
+                // Only retry next candidate if HTTP 400 (Bad Request) and not the last candidate
+                const is400 = lastError.message.includes("(400)");
+                if (is400 && i < modelFallbacks.length - 1) {
+                    continue;
+                }
+                throw lastError;
+            }
+        }
+
+        if (lastError) throw lastError;
+    }
+
+    private async *streamCandidateWithCreditRetry(
+        model: string,
+        req: ChatCompletionRequest
+    ): AsyncGenerator<ChatCompletionChunk, void, void> {
+        const useCreditsFirst =
+            this.creditsMode === "always" ||
+            (this.enabledCreditTypes && this.enabledCreditTypes.includes("GOOGLE_ONE_AI"));
+
+        let currentCreditTypes = useCreditsFirst ? ["GOOGLE_ONE_AI"] : this.enabledCreditTypes;
+        let creditsRetryAttempted = Boolean(useCreditsFirst);
+
+        try {
+            yield* this.executeStreamAttempt(model, req, currentCreditTypes);
+        } catch (err: unknown) {
+            const errStr = err instanceof Error ? err.message : String(err);
+            const is429 = errStr.includes("(429)");
+            const isQuotaExhausted =
+                errStr.includes("RESOURCE_EXHAUSTED") ||
+                errStr.includes("quota_exhausted") ||
+                errStr.includes("reset after") ||
+                errStr.includes("Resets in");
+
+            const shouldRetryCredits =
+                (is429 || isQuotaExhausted) &&
+                this.creditsMode !== "never" &&
+                !creditsRetryAttempted;
+
+            if (shouldRetryCredits) {
+                creditsRetryAttempted = true;
+                currentCreditTypes = ["GOOGLE_ONE_AI"];
+                yield* this.executeStreamAttempt(model, req, currentCreditTypes);
+                return;
+            }
+
+            throw err;
+        }
+    }
+
+    private async *executeStreamAttempt(
+        model: string,
+        req: ChatCompletionRequest,
+        enabledCreditTypes?: string[]
+    ): AsyncGenerator<ChatCompletionChunk, void, void> {
+        const { url, body } = this.buildRequest(model, req, true, enabledCreditTypes);
         const streamUrl = url.includes("?") ? url : `${url}?alt=sse`;
         const res = await fetchWithRetry(streamUrl, body, this.getHeaders());
 
         if (!res.ok) {
             const errorText = await res.text();
-            throw new Error(`Antigravity Provider Error (${res.status}): ${errorText}`);
+            const retryMs = parseRetryFromErrorMessage(errorText);
+            const retryHint = retryMs ? ` [Retry-After: ~${Math.ceil(retryMs / 1000)}s]` : "";
+            throw new Error(`Antigravity Provider Error (${res.status}): ${errorText}${retryHint}`);
         }
 
         if (!res.body) {
@@ -323,6 +422,10 @@ export class AntigravityExecutor implements AIProvider {
             } catch {
                 // ignore malformed JSON
             }
+        }
+
+        if (state.remainingCredits) {
+            this.remainingCredits = state.remainingCredits;
         }
     }
 }

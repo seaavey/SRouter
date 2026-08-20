@@ -134,7 +134,7 @@ export function geminiToOpenAIResponse(
 export const ANTIGRAVITY_IDE_VERSION = "2.1.1";
 export const ANTIGRAVITY_IDE_USER_AGENT = `antigravity/ide/${ANTIGRAVITY_IDE_VERSION} darwin/arm64`;
 
-const MAX_ANTIGRAVITY_OUTPUT_TOKENS = 64000;
+export const MAX_ANTIGRAVITY_OUTPUT_TOKENS = 64000;
 
 export function generateProjectId(): string {
     const adjectives = ["useful", "bright", "swift", "calm", "bold"];
@@ -203,9 +203,10 @@ export function buildAntigravityEnvelope(args: {
     request: Record<string, unknown>;
     body?: { requestId?: string };
     sessionId?: string;
+    enabledCreditTypes?: string[];
 }): Record<string, unknown> {
-    const { projectId, model, requestType, request, body, sessionId } = args;
-    return {
+    const { projectId, model, requestType, request, body, sessionId, enabledCreditTypes } = args;
+    const envelope: Record<string, unknown> = {
         project: projectId,
         model,
         userAgent: "antigravity",
@@ -213,6 +214,10 @@ export function buildAntigravityEnvelope(args: {
         requestId: buildIdeRequestId({ body, request, sessionId, model, requestType }),
         request
     };
+    if (enabledCreditTypes && enabledCreditTypes.length > 0) {
+        envelope.enabledCreditTypes = enabledCreditTypes;
+    }
+    return envelope;
 }
 
 export function buildGeminiStreamUrl(baseUrl: string, modelName: string): string {
@@ -526,6 +531,7 @@ export interface GeminiStreamState {
     finishReason?: string;
     usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number };
     toolNameMap?: Map<string, string> | null;
+    remainingCredits?: Array<{ creditType: string; creditAmount: string }> | null;
 }
 
 export function createGeminiStreamState(
@@ -569,7 +575,7 @@ function emitGeminiFunctionCall(
 ): ChatCompletionChunk {
     const rawName = functionCall.name;
     const fcName = state.toolNameMap?.get(rawName) || rawName;
-    const fcArgs = functionCall.args || {};
+    const fcArgs = stripZeroWidth(functionCall.args || {});
     const toolCallIndex = state.functionIndex++;
     state.geminiToolCallCount++;
     return buildGeminiChunk(
@@ -639,13 +645,26 @@ export function geminiStreamToOpenAIChunks(
             }
 
             if (part.text !== undefined && part.text !== "") {
-                results.push(
-                    buildGeminiChunk(
-                        state,
-                        isThought ? { reasoning_content: part.text } : { content: part.text },
-                        null
-                    )
-                );
+                const textualToolCall = parseAntigravityTextualToolCall(part.text);
+                if (textualToolCall) {
+                    results.push(
+                        emitGeminiFunctionCall(
+                            {
+                                name: textualToolCall.name,
+                                args: textualToolCall.args as Record<string, unknown>
+                            },
+                            state
+                        )
+                    );
+                } else {
+                    results.push(
+                        buildGeminiChunk(
+                            state,
+                            isThought ? { reasoning_content: part.text } : { content: part.text },
+                            null
+                        )
+                    );
+                }
             }
 
             if (part.functionCall) {
@@ -692,6 +711,12 @@ export function geminiStreamToOpenAIChunks(
         };
     }
 
+    // Google One AI remaining credits extraction
+    const rawCredits = chunk.remainingCredits || response.remainingCredits;
+    if (Array.isArray(rawCredits)) {
+        state.remainingCredits = rawCredits as Array<{ creditType: string; creditAmount: string }>;
+    }
+
     // Finish reason
     if (candidate.finishReason) {
         let finishReason =
@@ -708,11 +733,12 @@ export function geminiStreamToOpenAIChunks(
     return results.length > 0 ? results : null;
 }
 
-// ─── Antigravity request building (port of 9router executors/antigravity.js) ───
+// ─── Antigravity request building (port of 9router / OmniRoute executors/antigravity) ───
 
 // Fields Google generateContent rejects (Claude/OpenAI/Qwen thinking fields)
 const ANTIGRAVITY_REQUEST_BLACKLIST = [
     "output_config",
+    "output_format",
     "thinking",
     "reasoning_effort",
     "reasoning",
@@ -753,6 +779,125 @@ export function parseImageConfig(model: string): Record<string, string> {
     return config;
 }
 
+// Strip zero-width Unicode characters
+export function stripZeroWidth<T = unknown>(value: T): T {
+    if (typeof value === "string") {
+        return value.replace(/[\u200B-\u200D\uFEFF]/g, "") as unknown as T;
+    }
+    if (Array.isArray(value)) {
+        return value.map((item) => stripZeroWidth(item)) as unknown as T;
+    }
+    if (value && typeof value === "object") {
+        return Object.fromEntries(
+            Object.entries(value as Record<string, unknown>).map(([key, item]) => [
+                key,
+                stripZeroWidth(item)
+            ])
+        ) as unknown as T;
+    }
+    return value;
+}
+
+// Competing-agent prompts that trigger Google Antigravity backend 429 RESOURCE_EXHAUSTED filter
+export const COMPETITIVE_AGENT_PROMPT_PATTERNS: RegExp[] = [
+    /\byou are a claude agent\b[^.\n]*\.?\s*/i,
+    /\bbuilt on anthropic's claude agent sdk\b[^.\n]*\.?\s*/i,
+    /\byou are claude code\b[^.\n]*\.?\s*/i,
+    /\byou are an ai assistant created by anthropic\b[^.\n]*\.?\s*/i
+];
+
+export function stripCompetitiveAgentPrompts(text: string): string {
+    if (!text || typeof text !== "string") return text;
+    let res = text;
+    for (const pattern of COMPETITIVE_AGENT_PROMPT_PATTERNS) {
+        res = res
+            .replace(pattern, "")
+            .replace(/\n{3,}/g, "\n\n")
+            .trimStart();
+    }
+    return res;
+}
+
+/**
+ * Strip trailing assistant / model turn from contents.
+ * Vertex AI & CloudCode reject requests ending on a model turn with 400.
+ */
+export function stripTrailingAssistantTurn(contents: GeminiContent[]): GeminiContent[] {
+    while (contents.length > 1 && contents[contents.length - 1]?.role === "model") {
+        contents.pop();
+    }
+    return contents;
+}
+
+/**
+ * Resolve maximum output tokens cap per model family to avoid upstream 400 on oversized max_tokens.
+ */
+export function resolveAntigravityOutputCap(modelId?: string): number {
+    if (!modelId) return 8192;
+    const lower = modelId.toLowerCase();
+    if (lower.includes("thinking") || lower.includes("opus") || lower.includes("sonnet")) {
+        return 64000;
+    }
+    if (lower.includes("pro") || lower.includes("flash")) {
+        return 65536;
+    }
+    return 8192;
+}
+
+/**
+ * Pro family fallback chains when an upstream model ID returns 400 Bad Request.
+ */
+export const ANTIGRAVITY_PRO_FALLBACK_CHAINS: Record<string, string[]> = {
+    "gemini-3.1-pro-high": ["gemini-pro-agent", "gemini-3.1-pro-high", "gemini-3-pro"],
+    "gemini-3.1-pro-low": ["gemini-pro-agent", "gemini-3.1-pro-low", "gemini-3-pro"],
+    "gemini-pro-agent": ["gemini-pro-agent", "gemini-3.1-pro-high", "gemini-3-pro"]
+};
+
+export function getAntigravityModelFallbacks(modelName: string): string[] {
+    const clean = parseAntigravityModelName(modelName);
+    const raw = modelName.includes("/") ? (modelName.split("/")[1] ?? modelName) : modelName;
+    return (
+        ANTIGRAVITY_PRO_FALLBACK_CHAINS[clean] || ANTIGRAVITY_PRO_FALLBACK_CHAINS[raw] || [clean]
+    );
+}
+
+/**
+ * Parse textual markdown tool calls: `[Tool call: ...] \nArguments: ...`
+ */
+export function parseAntigravityTextualToolCall(
+    text: unknown
+): { name: string; args: unknown } | null {
+    if (typeof text !== "string") return null;
+    const normalized = text.replace(/[\u200B-\u200D\uFEFF]/g, "");
+    const match = normalized.match(
+        /^[\s\S]*?\[Tool call:\s*([^\]\n]+)\]\s*\nArguments:\s*([\s\S]+?)\s*$/
+    );
+    if (!match) return null;
+    const name = match[1]?.trim();
+    const rawArgs = match[2]?.trim();
+    if (!name || !rawArgs) return null;
+    try {
+        return { name, args: stripZeroWidth(JSON.parse(rawArgs)) };
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Parse retry duration from 429 error messages (e.g. "quota will reset after 2h7m23s" or "Resets in 160h27m24s").
+ */
+export function parseRetryFromErrorMessage(errorMessage?: string): number | null {
+    if (!errorMessage || typeof errorMessage !== "string") return null;
+    const match = errorMessage.match(/resets? (?:after|in) (\d+h)?(\d+m)?(\d+s)?/i);
+    if (!match) return null;
+
+    let totalMs = 0;
+    if (match[1]) totalMs += parseInt(match[1]) * 3600 * 1000;
+    if (match[2]) totalMs += parseInt(match[2]) * 60 * 1000;
+    if (match[3]) totalMs += parseInt(match[3]) * 1000;
+    return totalMs === 0 ? 2000 : totalMs;
+}
+
 // Strip any {alias}/ or {providerId}/ prefix and map to Google CloudCode internal model names
 export function parseAntigravityModelName(rawModel: string): string {
     const model = rawModel.includes("/") ? (rawModel.split("/")[1] ?? rawModel) : rawModel;
@@ -784,7 +929,7 @@ export function parseAntigravityModelName(rawModel: string): string {
  * Build Antigravity Gemini contents from ChatCompletionRequest messages, mapping tools.
  */
 export function buildAntigravityContents(req: ChatCompletionRequest): GeminiContent[] {
-    const contents: GeminiContent[] = [];
+    const rawContents: GeminiContent[] = [];
 
     // Map tool_call_id to function name
     const toolCallNameMap = new Map<string, string>();
@@ -803,15 +948,16 @@ export function buildAntigravityContents(req: ChatCompletionRequest): GeminiCont
         const parts: GeminiContentPart[] = [];
 
         if (m.role === "assistant" && Array.isArray(m.tool_calls) && m.tool_calls.length > 0) {
-            const text = typeof m.content === "string" ? m.content.trim() : "";
+            let text = typeof m.content === "string" ? m.content.trim() : "";
             if (text) {
-                parts.push({ text });
+                text = stripCompetitiveAgentPrompts(stripZeroWidth(text));
+                if (text) parts.push({ text });
             }
 
             for (const tc of m.tool_calls) {
                 let args: Record<string, unknown> = {};
                 try {
-                    args = JSON.parse(tc.function.arguments || "{}");
+                    args = stripZeroWidth(JSON.parse(tc.function.arguments || "{}"));
                 } catch {
                     args = { raw: tc.function.arguments };
                 }
@@ -835,7 +981,7 @@ export function buildAntigravityContents(req: ChatCompletionRequest): GeminiCont
                         ? JSON.parse(m.content)
                         : (m.content as unknown as Record<string, unknown>);
                 if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-                    responseObj = parsed as Record<string, unknown>;
+                    responseObj = stripZeroWidth(parsed) as Record<string, unknown>;
                 } else {
                     responseObj = { output: parsed ?? "" };
                 }
@@ -850,22 +996,37 @@ export function buildAntigravityContents(req: ChatCompletionRequest): GeminiCont
                 }
             });
         } else {
-            const text =
+            let text =
                 typeof m.content === "string"
                     ? m.content
                     : Array.isArray(m.content)
                       ? m.content.map((c) => (c.type === "text" ? c.text || "" : "")).join("\n")
                       : String(m.content ?? "");
+            text = stripCompetitiveAgentPrompts(stripZeroWidth(text));
             if (text) parts.push({ text });
         }
 
         if (parts.length === 0) parts.push({ text: "..." });
-        contents.push({ role, parts });
+        rawContents.push({ role, parts });
     }
+
+    // Merge adjacent contents of the same role
+    const contents: GeminiContent[] = [];
+    for (const c of rawContents) {
+        if (!Array.isArray(c.parts) || c.parts.length === 0) continue;
+        if (contents.length > 0 && contents[contents.length - 1]?.role === c.role) {
+            contents[contents.length - 1]?.parts.push(...c.parts);
+        } else {
+            contents.push(c);
+        }
+    }
+
     if (contents.length === 0) {
         contents.push({ role: "user", parts: [{ text: "..." }] });
     }
-    return contents;
+
+    // Strip trailing assistant / model turn
+    return stripTrailingAssistantTurn(contents);
 }
 
 /**

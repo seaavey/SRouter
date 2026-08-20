@@ -1,6 +1,7 @@
 # Provider Executors Reference — @srouter/executors
 
 ## Table of Contents
+
 1. [Architecture](#architecture)
 2. [Executor Interface](#executor-interface)
 3. [Provider Implementations](#provider-implementations)
@@ -60,24 +61,28 @@ Return type is `ExecutorResult` which standardizes response handling across prov
 ## Provider Implementations
 
 ### Standard OpenAI (`OpenAIExecutor`)
+
 - Protocol: OpenAI `/v1/chat/completions`
 - Strips provider prefix from model names (`provider/model` → `model`)
 - Dynamic model listing via `/models`
 - Base class for all OpenAI-compatible wrappers
 
 ### Anthropic Claude (`AnthropicExecutor`)
+
 - Auth: API key or OAuth token
 - Injects dynamic `Anthropic-Beta` headers (`interleaved-thinking`, `token-efficient-tools`)
 - Adds CLI spoof headers
 - Translates between OpenAI format and `/v1/messages` via `@srouter/translator`
 
 ### Antigravity / Gemini (`AntigravityExecutor`)
+
 - Auth: Google OAuth tokens (`ya29.*`) or API key
 - Generates IDE envelope metadata (project, model, requestId, sessionId, userAgent)
 - Sanitizes JSON schemas for Gemini compatibility (`cleanJSONSchemaForAntigravity`)
 - Handles Gemini SSE token format and image generation endpoints
 
 ### OpenAI Codex (`CodexExecutor`)
+
 - Auth: OpenAI OAuth token
 - Connects to ChatGPT backend (`chatgpt.com/backend-api/codex/responses`)
 - Injects default coding agent prompt
@@ -85,38 +90,43 @@ Return type is `ExecutorResult` which standardizes response handling across prov
 - **Peek-first strategy**: reads first 256KB to catch upstream 200-OK transient capacity errors before committing to stream
 
 ### Qoder (`QoderExecutor`)
+
 - Auth: OAuth device token or Personal Access Token (`pt-`)
 - **WAF bypass**: Custom base64 transposition body encoding (`qoderEncodeBody`)
 - **COSY signature**: AES-128-CBC session encryption, RSA-1024 public key encryption, MD5 signature
 - PAT exchange for `jt-` tokens
 
 ### Kiro / Amazon Q (`KiroExecutor`)
+
 - Auth: AWS Builder ID / IDC / Social login
 - **Binary protocol**: AWS EventStream with 16-byte prelude, CRC32 verification, big-endian payload framing
 - Tool execution state tracking
 - Communicates with `runtime.us-east-1.kiro.dev`
 
 ### CodeBuddy (`CodeBuddyExecutor`)
+
 - Auth: OAuth or Bearer token
 - Connects to `www.codebuddy.ai/v2/chat/completions`
 - Translates content to typed block arrays
 - Enforces system persona `You are CodeBuddy Code.`
 
 ### CommandCode (`CommandCodeExecutor`)
+
 - Auth: API key / Bearer
 - Connects to `api.commandcode.ai/alpha/generate`
 - **NDJSON streaming** (not SSE) — transforms to OpenAI chunk format
 - Translates chat messages to memory/thread structures
 
 ### OpenAI-Compatible Wrappers
+
 These inherit from `OpenAIExecutor` with preconfigured base URLs:
 
-| Executor | Base URL |
-|----------|----------|
-| `GoRouterExecutor` | `https://gorouter.app` |
-| `BluesMindsExecutor` | `https://api.bluesminds.com/v1` |
-| `SeekAIExecutor` | `https://seekai.cc/v1` |
-| `TabiTokenExecutor` | `https://tabitoken.com/v1` |
+| Executor              | Base URL                         |
+| --------------------- | -------------------------------- |
+| `GoRouterExecutor`    | `https://gorouter.app`           |
+| `BluesMindsExecutor`  | `https://api.bluesminds.com/v1`  |
+| `SeekAIExecutor`      | `https://seekai.cc/v1`           |
+| `TabiTokenExecutor`   | `https://tabitoken.com/v1`       |
 | `TokenRouterExecutor` | `https://api.tokenrouter.com/v1` |
 
 ---
@@ -124,13 +134,17 @@ These inherit from `OpenAIExecutor` with preconfigured base URLs:
 ## Resiliency Primitives
 
 ### Retry Logic (`retry.ts`)
+
 `fetchWithRetry()` provides:
+
 - Parses `Retry-After`, `x-ratelimit-reset-after`, `x-ratelimit-reset` headers
 - Recognizes transient errors: `high traffic`, `overloaded`, `concurrency`, `capacity`, HTTP 500/502/503/504
 - Exponential backoff with configurable caps
 
 ### Web Search Engine (`search.ts`)
+
 High-availability search waterfall used for tool interception:
+
 1. Tavily API (`api.tavily.com`)
 2. Brave Search API (`api.search.brave.com`)
 3. Serper Google Search (`google.serper.dev`)
@@ -139,6 +153,7 @@ High-availability search waterfall used for tool interception:
 6. Wikipedia API fallback
 
 ### SSE Utilities (`sse.ts`)
+
 - Error extraction from SSE streams
 - Capacity/rate-limit detection
 - Stream line parsing
@@ -148,6 +163,7 @@ High-availability search waterfall used for tool interception:
 ## Adding a New Provider
 
 ### Simple (OpenAI-compatible)
+
 If the upstream speaks standard OpenAI API:
 
 ```typescript
@@ -160,13 +176,14 @@ export class MyProviderExecutor extends OpenAIExecutor {
             id: "myprovider",
             name: "MyProvider",
             apiKey,
-            baseUrl: "https://api.myprovider.com/v1",
+            baseUrl: "https://api.myprovider.com/v1"
         });
     }
 }
 ```
 
 ### Complex (Custom protocol)
+
 For providers with non-standard APIs:
 
 1. Create `packages/executors/src/myprovider.ts`
@@ -177,6 +194,7 @@ For providers with non-standard APIs:
 6. Add tests in `packages/executors/tests/`
 
 ### Then wire it up:
+
 1. Export from `packages/executors/src/index.ts`
 2. Add constants in `packages/constants/src/providers.ts` (base URL, model catalog)
 3. Add seed in `packages/constants/src/seed.ts`

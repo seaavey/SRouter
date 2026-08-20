@@ -1,6 +1,7 @@
 # CLI Reference — @srouter/cli
 
 ## Table of Contents
+
 1. [Architecture](#architecture)
 2. [Commands](#commands)
 3. [Tool Adapters](#tool-adapters)
@@ -42,6 +43,7 @@ apps/cli/
 ```
 
 ### Key Dependencies
+
 - `commander` ^13.1.0 — CLI framework
 - `@clack/prompts` ^0.9.1 — Interactive prompts
 - `picocolors` ^1.1.1 — Terminal colors
@@ -66,6 +68,7 @@ Interactive onboarding wizard:
 ### `srouter status` / `srouter doctor`
 
 Diagnostic report:
+
 - **System**: OS, platform, arch, shell, home directory
 - **Gateway**: health status, latency (ms), available model count
 - **Tools**: per-tool installation state, link state, config path, active proxy URL, active models
@@ -75,6 +78,7 @@ Diagnostic report:
 Direct tool configuration without the wizard.
 
 **Options:**
+
 - `-u, --url <url>` — Gateway URL
 - `-k, --key <key>` — API key
 - `-m, --model <model>` — Default model
@@ -86,12 +90,14 @@ Falls back to saved defaults from `~/.srouter/cli.json` for any omitted flags.
 ### `srouter unlink <tool>`
 
 Restores original tool configuration:
+
 1. Attempts to restore from backup at `~/.srouter/backups/<tool>-<timestamp>.json`
 2. If no backup exists, strips SRouter-specific env vars from the config file
 
 ### `srouter run <tool> [args...]`
 
 Launches a tool with SRouter proxy env vars injected into the process (no disk modification):
+
 - Spawns child process with `stdio: "inherit"`
 - Injects `ANTHROPIC_BASE_URL`, `OPENAI_BASE_URL`, `ANTHROPIC_API_KEY`, etc.
 - Passes through extra CLI args and preserves exit codes
@@ -99,6 +105,7 @@ Launches a tool with SRouter proxy env vars injected into the process (no disk m
 ### `srouter env [tool]`
 
 Generates shell export statements for manual session setup:
+
 ```bash
 eval "$(pnpm srouter env claude)"
 ```
@@ -113,8 +120,8 @@ The adapter pattern (`AbstractToolAdapter` in `src/adapters/base.ts`) provides a
 
 ```typescript
 interface BaseToolAdapter {
-    readonly id: string;       // e.g., "claude"
-    readonly name: string;     // e.g., "Claude Code"
+    readonly id: string; // e.g., "claude"
+    readonly name: string; // e.g., "Claude Code"
     readonly description: string;
     isInstalled(): Promise<boolean>;
     getStatus(): Promise<ToolStatus>;
@@ -127,24 +134,28 @@ interface BaseToolAdapter {
 ### Claude Code Adapter
 
 **Config file resolution** (in priority order):
+
 1. `$CLAUDE_CONFIG_DIR/config.json`
 2. `~/.claude.json`
 3. Windows: `%APPDATA%/Claude/config.json`
 4. macOS/Linux: `~/.claude/config.json` or `~/.config/claude/config.json`
 
 **What it writes:**
+
 - `ANTHROPIC_BASE_URL`, `ANTHROPIC_API_KEY`, `model`
 - Tier overrides: `ANTHROPIC_DEFAULT_OPUS_MODEL`, `ANTHROPIC_DEFAULT_SONNET_MODEL`, `ANTHROPIC_DEFAULT_HAIKU_MODEL`
 
 ### OpenCode Adapter
 
 **Config file resolution:**
+
 1. Windows: `%APPDATA%/opencode/config.json`
 2. macOS: `~/Library/Application Support/opencode/config.json`
 3. Linux: `$XDG_CONFIG_HOME/opencode/config.json` or `~/.config/opencode/config.json`
 4. Fallback: `~/.opencode.json`
 
 **What it writes:**
+
 - Provider block: `provider.srouter` with `@ai-sdk/openai` SDK config
 - Active model: `model: "srouter/<model-id>"`
 
@@ -158,6 +169,7 @@ Located at `~/.srouter/`:
 - `backups/` — Timestamped copies of tool configs created before any link modification
 
 The `ConfigStore` class provides:
+
 - `createBackup(toolId, originalPath)` — Snapshot before modification
 - `restoreLatestBackup(toolId)` — Restore and clean up
 - `get/set` methods for all defaults
@@ -172,6 +184,7 @@ The `ConfigStore` class provides:
 4. Add tests in `tests/<tool-name>Adapter.test.ts`
 
 The adapter handles:
+
 - Config file discovery across platforms
 - Backup creation before modification
 - Clean rollback on unlink

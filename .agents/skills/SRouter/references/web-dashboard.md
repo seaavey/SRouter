@@ -1,6 +1,7 @@
 # Web Dashboard Reference — apps/web
 
 ## Table of Contents
+
 1. [Architecture](#architecture)
 2. [Routes & Pages](#routes--pages)
 3. [Component Organization](#component-organization)
@@ -43,6 +44,7 @@ apps/web/src/
 ```
 
 ### Key Dependencies
+
 - React 19 + `@types/react` ^19.1
 - TanStack Router ^1.114 (file-based routing, auto code-splitting)
 - TanStack React Query ^5.76 (server state)
@@ -55,7 +57,9 @@ apps/web/src/
 - Sonner (toast notifications)
 
 ### Dev Server
+
 Vite dev server runs on port 5173 with proxy:
+
 - `/v1` → `http://localhost:3000`
 - `/health` → `http://localhost:3000`
 
@@ -63,33 +67,37 @@ Vite dev server runs on port 5173 with proxy:
 
 ## Routes & Pages
 
-| Path | Page | Description |
-|------|------|-------------|
-| `/` | Dashboard | KPI stats, token usage, network status |
-| `/playground` | Playground | Chat studio with streaming & reasoning |
-| `/keys` | API Keys | Virtual key management |
-| `/providers` | Providers Layout | Outlet container |
-| `/providers/` | Provider Catalog | Grid/list view of all providers |
-| `/providers/$providerId` | Provider Detail | Keys, OAuth, model catalog |
-| `/combo` | Model Combo | Failover chains & resilience |
-| `/token-saver` | Token Saver | Prompt compression settings |
-| `/quota` | Quotas | Rate limits & usage tracking |
-| `/logs` | Audit Logs | Request log inspection |
-| `/settings` | Settings | Security, gateway, appearance |
+| Path                     | Page             | Description                            |
+| ------------------------ | ---------------- | -------------------------------------- |
+| `/`                      | Dashboard        | KPI stats, token usage, network status |
+| `/playground`            | Playground       | Chat studio with streaming & reasoning |
+| `/keys`                  | API Keys         | Virtual key management                 |
+| `/providers`             | Providers Layout | Outlet container                       |
+| `/providers/`            | Provider Catalog | Grid/list view of all providers        |
+| `/providers/$providerId` | Provider Detail  | Keys, OAuth, model catalog             |
+| `/combo`                 | Model Combo      | Failover chains & resilience           |
+| `/token-saver`           | Token Saver      | Prompt compression settings            |
+| `/quota`                 | Quotas           | Rate limits & usage tracking           |
+| `/logs`                  | Audit Logs       | Request log inspection                 |
+| `/settings`              | Settings         | Security, gateway, appearance          |
 
 ---
 
 ## Component Organization
 
 ### Layout
+
 - `AppSidebar.tsx` — Machined cockpit sidebar, collapsible, nav groups
 - `Topbar.tsx` — Dynamic breadcrumbs, provider name resolution, theme toggle
 
 ### Auth
+
 - `AdminAuthGate.tsx` — Password setup, sign-in, loopback detection
 
 ### Feature Modules
+
 Each page has its own component directory:
+
 - `dashboard/` — KPI cards, model usage, network status
 - `providers/` — Catalog, cards, connection forms, model tables
 - `playground/` — Chat viewport, message composer, thinking traces, code export
@@ -100,10 +108,12 @@ Each page has its own component directory:
 - `settings/` — Security, gateway, appearance, logging, data, system
 
 ### UI Primitives
+
 `components/ui/` — Base UI powered accessible components:
 button, card, dialog, sheet, sidebar, table, switch, checkbox, badge, breadcrumb, tooltip, skeleton, sonner, ConnectOAuthModal
 
 ### Skeletons
+
 `components/skeletons/` — Loading states for every major page
 
 ---
@@ -111,18 +121,21 @@ button, card, dialog, sheet, sidebar, table, switch, checkbox, badge, breadcrumb
 ## State Management
 
 ### Server State (TanStack Query)
+
 - Global `staleTime: 30_000ms`
 - Query invalidation on mutations
 - Polling queries for real-time telemetry:
-  - `/v1/logs/stats` every 30s
-  - `/v1/quota` every 15s
+    - `/v1/logs/stats` every 30s
+    - `/v1/quota` every 15s
 
 ### Client State
+
 - **LocalStorage + hooks**: Playground sessions, favorites, settings
 - **URL params**: TanStack Router search params for deep linking
 - **React Context**: Theme (dark/light mode)
 
 ### Cross-tab sync
+
 - `useFavorites` uses `storage` event + `CustomEvent` for cross-tab favorite model pinning
 
 ---
@@ -130,6 +143,7 @@ button, card, dialog, sheet, sidebar, table, switch, checkbox, badge, breadcrumb
 ## API Integration
 
 ### HTTP Client (`lib/api.ts`)
+
 ```typescript
 // Typed wrapper around native fetch
 api.get<T>(path: string): Promise<T>
@@ -144,12 +158,14 @@ api.delete<T>(path: string): Promise<T>
 - `getGatewayBaseUrl()` auto-detects dev/prod/custom base URL
 
 ### SSE Streaming (`hooks/usePlayground.ts`)
+
 - Uses `ReadableStreamDefaultReader` + `TextDecoder`
 - Parses OpenAI SSE format (`data: {...}`, `[DONE]`)
 - Extracts reasoning deltas (`reasoning_content`, `thought`, `thinking`)
 - Token usage metrics (cached tokens, prompt details)
 
 ### OAuth PKCE (`lib/pkce.ts`)
+
 - `codeVerifier` + `codeChallenge` (SHA-256 base64url) + `state`
 - Popup window auth with `postMessage` listener (`SROUTER_OAUTH_SUCCESS`)
 - Polling fallback for closed popups
@@ -159,20 +175,25 @@ api.delete<T>(path: string): Promise<T>
 ## Styling System
 
 ### Tailwind CSS v4 with OKLCH
+
 Colors defined in `styles.css` as `@theme` tokens using OKLCH color space:
+
 - Semantic tokens: `--canvas`, `--field`, `--line`, `--ink`, `--surface`, `--accent`
 - Both light and dark theme variants
 
 ### Typography
+
 - **Font**: JetBrains Mono (monospace)
 - **Character spacing**: `-0.015em`
 - **Header tracking**: `0.14em` uppercase
 - **Grid pattern**: `bg-grid-pattern`
 
 ### Theme Transitions
+
 `useTheme.ts` uses native `document.startViewTransition` API with circular ripple `clipPath` animation from click coordinates.
 
 ### Animations
+
 - Shimmer text effects (`animate-shimmer-text`)
 - Pop-in transitions
 - Dark/light cockpit-styled Sonner toasts
@@ -182,11 +203,13 @@ Colors defined in `styles.css` as `@theme` tokens using OKLCH color space:
 ## Key Features Per Page
 
 ### Dashboard (`/`)
+
 - 4 KPI stat cards: Total Requests, Total Tokens (in/out), Estimated Cost, Models Routed
 - Interactive model usage progress bars
 - Network status tile with gateway base URL and mesh access info
 
 ### Providers (`/providers`)
+
 - Grid/list catalog view with category filters (OAuth, API Key, Free Tier, Custom)
 - Provider detail with live connection status
 - Multi-key connection manager (multiple API keys + OAuth PKCE)
@@ -194,6 +217,7 @@ Colors defined in `styles.css` as `@theme` tokens using OKLCH color space:
 - Model manager: table/grid views, search, favorites, hide/delete with undo
 
 ### Playground (`/playground`)
+
 - Multi-session chat with auto-naming, history, create/delete
 - Real-time streaming with latency counter & token breakdown
 - Reasoning/thinking trace disclosure
@@ -202,33 +226,39 @@ Colors defined in `styles.css` as `@theme` tokens using OKLCH color space:
 - Parameter drawer (system prompt, temperature, max tokens, reasoning effort)
 
 ### API Keys (`/keys`)
+
 - Virtual key creation with rate limits (RPM) and quota limits
 - One-time secret disclosure modal
 - Revocation/deletion confirmation
 - Key telemetry metrics
 
 ### Model Combo (`/combo`)
+
 - 3-tier resilience architecture visualization
 - Multi-tier failover cascades
 - Trigger status code configuration
 - Preset templates + drag-and-drop priority
 
 ### Quotas (`/quota`)
+
 - Real-time rate limit progress bars with status indicators
 - Reset countdown timers
 - Per-provider model usage telemetry
 
 ### Audit Logs (`/logs`)
+
 - Last 100 requests with real-time stream
 - Quick filters by ID/Model/Provider and status
 - Slide-out detail sheet (headers, params, response, latency)
 
 ### Token Saver (`/token-saver`)
+
 - Tool compression: Git, Grep, Tree, Logs, ANSI strip
 - Prompt optimizer: Lazy Senior Dev mode + Caveman mode
 - Live system prompt preview with token savings estimate
 
 ### Settings (`/settings`)
+
 - Security: API key enforcement toggle
 - Gateway: timeout, retries, token refresh lead
 - Appearance: theme, density

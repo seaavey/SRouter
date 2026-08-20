@@ -1,6 +1,7 @@
 # API Server Reference — apps/api
 
 ## Table of Contents
+
 1. [Architecture](#architecture)
 2. [File Structure](#file-structure)
 3. [Server Entry Point](#server-entry-point)
@@ -67,6 +68,7 @@ apps/api/src/
 ```
 
 ### Key Dependencies
+
 - `hono` + `@hono/node-server` — HTTP framework
 - `@hono/zod-validator` + `zod` — Request validation
 - Internal: `@srouter/db`, `@srouter/executors`, `@srouter/providers`, `@srouter/translator`, `@srouter/pricing`, `@srouter/constants`, `@srouter/types`
@@ -78,15 +80,16 @@ apps/api/src/
 **Dual server architecture** (`src/index.ts`):
 
 1. **Primary listener (port 3000):**
-   - All API routes under `/v1`
-   - Embedded SPA serving (static files from `apps/web/dist`)
-   - Model registry warming on startup
+    - All API routes under `/v1`
+    - Embedded SPA serving (static files from `apps/web/dist`)
+    - Model registry warming on startup
 
 2. **Secondary listener (port 1455):**
-   - OAuth redirect callbacks (`/auth/*/callback`)
-   - Also mounts `/v1/messages`, `/v1/chat`, `/v1/models` for CLI tools configured on this port
+    - OAuth redirect callbacks (`/auth/*/callback`)
+    - Also mounts `/v1/messages`, `/v1/chat`, `/v1/models` for CLI tools configured on this port
 
 ### Startup sequence:
+
 1. Database seeding (`seedDefaultProviders()`, `loadSavedProvidersFromDB()`)
 2. Token sweeper start (`startTokenRefreshSweeper()`)
 3. HTTP listeners bind
@@ -98,28 +101,28 @@ apps/api/src/
 
 ### Core API
 
-| Method | Path | Auth | Purpose |
-|--------|------|------|---------|
+| Method | Path                   | Auth   | Purpose                             |
+| ------ | ---------------------- | ------ | ----------------------------------- |
 | `POST` | `/v1/chat/completions` | apiKey | OpenAI chat completion (JSON + SSE) |
-| `POST` | `/v1/messages` | apiKey | Anthropic messages (translated) |
-| `GET` | `/v1/models` | apiKey | List all available models |
-| `GET` | `/v1/models/:model` | apiKey | Model details by ID |
-| `GET` | `/health` | none | Health check |
+| `POST` | `/v1/messages`         | apiKey | Anthropic messages (translated)     |
+| `GET`  | `/v1/models`           | apiKey | List all available models           |
+| `GET`  | `/v1/models/:model`    | apiKey | Model details by ID                 |
+| `GET`  | `/health`              | none   | Health check                        |
 
 ### Management
 
-| Method | Path | Auth | Purpose |
-|--------|------|------|---------|
-| `GET/POST` | `/v1/providers` | apiKey/admin | List/add providers |
-| `GET` | `/v1/providers/catalog` | apiKey | Grouped provider catalog |
-| `POST` | `/v1/providers/verify` | admin | Test upstream connection |
-| `DELETE` | `/v1/providers/:id` | admin | Remove provider |
-| `GET/POST` | `/v1/keys` | apiKey/admin | List/create virtual keys |
-| `DELETE` | `/v1/keys/:id` | admin | Revoke key |
-| `GET/POST` | `/v1/settings` | apiKey/admin | Read/update settings |
-| `GET` | `/v1/logs` | apiKey | Request audit logs |
-| `GET` | `/v1/logs/stats` | apiKey | Usage + cost aggregates |
-| `GET` | `/v1/quota` | apiKey | Provider quota + limits |
+| Method     | Path                    | Auth         | Purpose                  |
+| ---------- | ----------------------- | ------------ | ------------------------ |
+| `GET/POST` | `/v1/providers`         | apiKey/admin | List/add providers       |
+| `GET`      | `/v1/providers/catalog` | apiKey       | Grouped provider catalog |
+| `POST`     | `/v1/providers/verify`  | admin        | Test upstream connection |
+| `DELETE`   | `/v1/providers/:id`     | admin        | Remove provider          |
+| `GET/POST` | `/v1/keys`              | apiKey/admin | List/create virtual keys |
+| `DELETE`   | `/v1/keys/:id`          | admin        | Revoke key               |
+| `GET/POST` | `/v1/settings`          | apiKey/admin | Read/update settings     |
+| `GET`      | `/v1/logs`              | apiKey       | Request audit logs       |
+| `GET`      | `/v1/logs/stats`        | apiKey       | Usage + cost aggregates  |
+| `GET`      | `/v1/quota`             | apiKey       | Provider quota + limits  |
 
 ### OAuth (`/v1/auth/{provider}/...`)
 
@@ -132,18 +135,19 @@ Supported: `openai`, `antigravity`, `claude`, `codebuddy`, `qoder`
 
 ### Settings Extensions
 
-| Method | Path | Purpose |
-|--------|------|---------|
-| `GET/PUT` | `/v1/settings/token-saver` | Token saver config |
-| `POST` | `/v1/settings/token-saver/test` | Preview compression |
-| `GET/POST` | `/v1/settings/fallbacks` | Fallback rules |
-| `PUT/DELETE` | `/v1/settings/fallbacks/:id` | Update/delete rule |
+| Method       | Path                            | Purpose             |
+| ------------ | ------------------------------- | ------------------- |
+| `GET/PUT`    | `/v1/settings/token-saver`      | Token saver config  |
+| `POST`       | `/v1/settings/token-saver/test` | Preview compression |
+| `GET/POST`   | `/v1/settings/fallbacks`        | Fallback rules      |
+| `PUT/DELETE` | `/v1/settings/fallbacks/:id`    | Update/delete rule  |
 
 ---
 
 ## Middleware Pipeline
 
 ### 1. `apiKeyAuth` (most routes)
+
 - Bypasses if admin session cookie is present
 - If `requireApiKey` is disabled and no key provided: access permitted
 - Extracts from `x-api-key`, `Authorization: Bearer`, or raw `Authorization`
@@ -151,12 +155,14 @@ Supported: `openai`, `antigravity`, `claude`, `codebuddy`, `qoder`
 - Returns 401 with `invalid_api_key` or `missing_api_key`
 
 ### 2. `adminAuth` (management routes)
+
 - Reads `srouter_admin_session` cookie
 - SHA-256 hashes cookie, queries `admin_sessions` table
 - Cleans expired sessions lazily
 - Returns 401 `authentication_required` on failure
 
 ### 3. `validateJson` (chat routes)
+
 - Wraps Zod schema validation
 - Catches empty/malformed JSON
 - Returns OpenAI-standard 400 `invalid_request_error`
@@ -178,6 +184,7 @@ The chat execution flow in `chat.logic.ts`:
 9. **Audit Log** — Record everything to `request_logs`
 
 ### Fallback triggers:
+
 HTTP 429, 403, 5xx, missing provider driver, rate limit exhaustion, upstream connection failure
 
 ---
@@ -185,6 +192,7 @@ HTTP 429, 403, 5xx, missing provider driver, rate limit exhaustion, upstream con
 ## OAuth PKCE Flows
 
 ### Lifecycle:
+
 1. **Login** → Generate `codeVerifier`, `codeChallenge` (S256), `state`
 2. **Store** → Save session in SQLite `oauth_sessions` (15-min TTL)
 3. **Redirect** → Send user to provider auth URL
@@ -194,6 +202,7 @@ HTTP 429, 403, 5xx, missing provider driver, rate limit exhaustion, upstream con
 7. **Response** → HTML page with `postMessage({ type: "SROUTER_OAUTH_SUCCESS" })`
 
 ### Provider-specific configurations in `auth.providers.ts`:
+
 Each provider has: `idPrefix`, `displayName`, `oauthClass`, `clientId()`, `defaultRedirectUri`, `mapOAuthTokens`, `buildExecutor`
 
 ---
@@ -203,17 +212,20 @@ Each provider has: `idPrefix`, `displayName`, `oauthClass`, `clientId()`, `defau
 Background daemon in `tokenRefresh.ts`:
 
 ### Configuration:
+
 - `REFRESH_LEAD_MS`: 5 minutes before expiration
 - `SWEEP_INTERVAL_MS`: 60 seconds
 - `inFlightRefreshes`: Deduplication map preventing concurrent refresh stampedes
 
 ### Refresh conditions (`isDueForRefresh`):
+
 - No `refreshToken` → never due
 - No `accessToken` → due immediately
 - `tokenExpiresAt` set → due if `now >= expiry - 5min`
 - No expiry recorded → due if never refreshed or `> 12h` since last refresh
 
 ### Execution:
+
 1. **Background sweep** — 5s initial delay, then every 60s. Timers use `.unref()`.
 2. **Single refresh** — OAuth client refresh → update SQLite → update live executor
 3. **Lazy pre-route** — `ensureFreshToken()` called before every chat execution
@@ -225,16 +237,19 @@ Background daemon in `tokenRefresh.ts`:
 Global singleton in `registry.ts`:
 
 ### Seeding:
+
 - Iterates `DEFAULT_PROVIDERS` from `@srouter/constants`
 - Inserts catalog metadata with `{ __is_seed_driver: "true" }`
 - Cleans stale seeds, updates modified configs
 
 ### Loading:
+
 - Reads `providers` table (enabled, non-seed)
 - Dynamically constructs executor instances
 - Registers in live `ProviderRegistry`
 
 ### Model warming:
+
 - `warmModelRegistry()` → `registry.refreshModels()` on startup
 
 ---
@@ -254,6 +269,7 @@ Global singleton in `registry.ts`:
 ## Error Handling
 
 ### Global handler patterns:
+
 - `HTTPException` → `{ error: { message, type: "invalid_request_error", code } }`
 - `SyntaxError` (JSON) → 400 `invalid_json`
 - Unhandled → 500 `internal_error`
@@ -261,6 +277,7 @@ Global singleton in `registry.ts`:
 - Anthropic protocol → `{ type: "error", error: { type, message } }`
 
 ### Response helpers:
+
 - `ok(c, data, status?)` — Success response
 - `err(c, message, status?, code?)` — Error response
 
@@ -269,14 +286,17 @@ Global singleton in `registry.ts`:
 ## Admin Auth System
 
 ### Password security:
+
 - Scrypt hashing for admin password
 - Session tokens stored as SHA-256 hashes
 - Loopback detection for initial setup
 
 ### Session management:
+
 - Cookie-based (`srouter_admin_session`)
 - Configurable secure cookies via `SROUTER_SECURE_COOKIES`
 - Lazy expired session cleanup
 
 ### Remote setup:
+
 - `SROUTER_SETUP_TOKEN` env var for non-localhost initial setup

@@ -1,6 +1,7 @@
 # Constants, Types & Pricing Reference — @srouter/constants, @srouter/types, @srouter/pricing
 
 ## Table of Contents
+
 1. [Constants Package](#constants-package)
 2. [Types Package](#types-package)
 3. [Pricing Package](#pricing-package)
@@ -12,6 +13,7 @@
 `packages/constants/src/` — Single source of truth for provider metadata, URLs, model catalogs, and OAuth config.
 
 ### File Structure
+
 ```
 packages/constants/src/
 ├── providers.ts    # Provider catalog, base URLs, model catalogs, helper functions
@@ -22,27 +24,28 @@ packages/constants/src/
 
 ### Provider Base URLs (`providers.ts`)
 
-| Constant | URL |
-|----------|-----|
-| `OPENAI_BASE_URL` | `https://api.openai.com/v1` |
-| `ANTHROPIC_BASE_URL` | `https://api.anthropic.com` |
-| `CODEX_BASE_URL` | `https://chatgpt.com/backend-api/codex` |
-| `ANTIGRAVITY_IDE_BASE_URL` | Google Cloud Code endpoint |
-| `NEOSANTARA_BASE_URL` | Neosantara API |
-| `GOROUTER_BASE_URL` | `https://gorouter.app` |
-| `BLUESMINDS_BASE_URL` | `https://api.bluesminds.com/v1` |
-| `SEEKAI_BASE_URL` | `https://seekai.cc/v1` |
-| `TABITOKEN_BASE_URL` | `https://tabitoken.com/v1` |
-| `TOKENROUTER_BASE_URL` | `https://api.tokenrouter.com/v1` |
-| `COMMANDCODE_BASE_URL` | `https://api.commandcode.ai` |
-| `CODEBUDDY_BASE_URL` | `https://www.codebuddy.ai` |
-| `QODER_CHAT_BASE` | Qoder API endpoint |
+| Constant                   | URL                                     |
+| -------------------------- | --------------------------------------- |
+| `OPENAI_BASE_URL`          | `https://api.openai.com/v1`             |
+| `ANTHROPIC_BASE_URL`       | `https://api.anthropic.com`             |
+| `CODEX_BASE_URL`           | `https://chatgpt.com/backend-api/codex` |
+| `ANTIGRAVITY_IDE_BASE_URL` | Google Cloud Code endpoint              |
+| `NEOSANTARA_BASE_URL`      | Neosantara API                          |
+| `GOROUTER_BASE_URL`        | `https://gorouter.app`                  |
+| `BLUESMINDS_BASE_URL`      | `https://api.bluesminds.com/v1`         |
+| `SEEKAI_BASE_URL`          | `https://seekai.cc/v1`                  |
+| `TABITOKEN_BASE_URL`       | `https://tabitoken.com/v1`              |
+| `TOKENROUTER_BASE_URL`     | `https://api.tokenrouter.com/v1`        |
+| `COMMANDCODE_BASE_URL`     | `https://api.commandcode.ai`            |
+| `CODEBUDDY_BASE_URL`       | `https://www.codebuddy.ai`              |
+| `QODER_CHAT_BASE`          | Qoder API endpoint                      |
 
 ### Known Provider Catalog (`KNOWN_PROVIDERS`)
 
 Single source of truth for 13 built-in providers: `kiro`, `neosantara`, `gorouter`, `bluesminds`, `seekai`, `tabitoken`, `tokenrouter`, `openai_codex`, `anthropic`, `antigravity`, `commandcode`, `qoder`, `codebuddy`.
 
 **Helper functions:**
+
 - `providerById(id)` — Lookup provider definition
 - `isKnownProvider(id)` — Check if ID is a built-in provider
 - `providerBaseId(id)` — Get base provider type from a connection ID
@@ -80,6 +83,7 @@ Each model entry includes: `id`, `name`, `created`, `object`, and optionally `ca
 `packages/types/src/` — All TypeScript interfaces, domain models, and Zod validation schemas.
 
 ### File Structure
+
 ```
 packages/types/src/
 ├── openai.ts       # OpenAI Chat Completion types
@@ -97,13 +101,15 @@ packages/types/src/
 ### Core Interfaces
 
 #### `AIProvider` (`provider.ts`)
+
 The main interface every executor must implement:
+
 ```typescript
 interface AIProvider {
     id: string;
     name: string;
-    category?: ProviderCategory;    // "oauth" | "api_key" | "custom" | "free_tier"
-    protocol?: ProviderProtocol;    // "openai" | "anthropic" | "custom"
+    category?: ProviderCategory; // "oauth" | "api_key" | "custom" | "free_tier"
+    protocol?: ProviderProtocol; // "openai" | "anthropic" | "custom"
     listModels(): Promise<ModelObject[]>;
     chatCompletion(req: ChatCompletionRequest): Promise<ChatCompletionResponse>;
     chatCompletionStream(req: ChatCompletionRequest): AsyncGenerator<ChatCompletionChunk>;
@@ -111,7 +117,9 @@ interface AIProvider {
 ```
 
 #### `ProviderConfig` (`provider.ts`)
+
 Database row shape for the `providers` table:
+
 ```typescript
 interface ProviderConfig {
     id: string;
@@ -125,10 +133,10 @@ interface ProviderConfig {
     refreshToken?: string;
     accountId?: string;
     organizationId?: string;
-    providerSpecificData?: string;  // JSON
+    providerSpecificData?: string; // JSON
     tokenExpiresAt?: number;
     lastRefreshedAt?: number;
-    customHeaders?: string;         // JSON
+    customHeaders?: string; // JSON
     enabled: boolean;
     createdAt: string;
 }
@@ -152,6 +160,7 @@ interface ProviderConfig {
 ### Zod Schemas (`schemas.ts`)
 
 Runtime validation schemas (used by API middleware):
+
 - `ChatCompletionRequestSchema` — validates incoming chat requests
 - `ChatMessageSchema` — validates message structure
 - `ToolDefinitionSchema` — validates tool definitions
@@ -175,6 +184,7 @@ Runtime validation schemas (used by API middleware):
 `packages/pricing/` — Token cost estimation engine with JSONC pricing data.
 
 ### File Structure
+
 ```
 packages/pricing/
 ├── data/
@@ -197,11 +207,13 @@ packages/pricing/
 ### Model Name Matcher (`matcher.ts`)
 
 `normalizeModelName()` pipeline:
+
 1. Strip tags: `:free`, `:latest`, `:online`
 2. Strip provider namespaces: `commandcode/deepseek/deepseek-v4-flash` → `deepseek-v4-flash`
 3. Resolve aliases case-insensitively: `claude-3.5-sonnet` → `claude-3-5-sonnet-20241022`
 
 `findCanonicalModelKey()` — Four-stage lookup:
+
 1. Exact raw match
 2. Normalized match
 3. Case-insensitive normalized match
@@ -214,6 +226,7 @@ calculateCostFromTokens(tokens: TokenBreakdown, pricing: ModelPrice): number
 ```
 
 Formula:
+
 ```
 nonCachedInput = max(0, inputTokens - cachedTokens - cacheCreationTokens)
 
@@ -230,17 +243,17 @@ Prompt tokens are treated as cache-inclusive — cached and cache creation token
 
 ```jsonc
 {
-  "anthropic": [
-    {
-      "model": "claude-3-5-sonnet-20241022",
-      "aliases": ["claude-3.5-sonnet", "claude-3-5-sonnet"],
-      "input": 3.0,        // per 1M tokens
-      "output": 15.0,
-      "cached_input": 0.3,
-      "cache_creation": 3.75,
-      "reasoning_output": 15.0
-    }
-  ]
+    "anthropic": [
+        {
+            "model": "claude-3-5-sonnet-20241022",
+            "aliases": ["claude-3.5-sonnet", "claude-3-5-sonnet"],
+            "input": 3.0, // per 1M tokens
+            "output": 15.0,
+            "cached_input": 0.3,
+            "cache_creation": 3.75,
+            "reasoning_output": 15.0
+        }
+    ]
 }
 ```
 

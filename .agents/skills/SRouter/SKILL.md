@@ -1,7 +1,7 @@
 ---
 name: srouter
 description: |
-  Complete development guide for the SRouter project — a local-first AI gateway and LLM proxy router built with Hono, TypeScript, SQLite WAL, and React 19. Use this skill whenever working on the SRouter codebase: adding providers, modifying the API gateway, editing the web dashboard, updating the CLI, writing tests, debugging routing/OAuth/streaming issues, managing the monorepo, or understanding the architecture. Trigger on any mention of SRouter, AI gateway, LLM proxy, provider routing, virtual API keys, model combo/failover, token saver, OAuth PKCE token refresh, quota monitoring, or any work inside the SRouter monorepo at /home/seaavey/Projects/SRouter. Also trigger when the user mentions provider executors, chat completions proxy, Anthropic Messages translation, or the @srouter/* packages.
+    Complete development guide for the SRouter project — a local-first AI gateway and LLM proxy router built with Hono, TypeScript, SQLite WAL, and React 19. Use this skill whenever working on the SRouter codebase: adding providers, modifying the API gateway, editing the web dashboard, updating the CLI, writing tests, debugging routing/OAuth/streaming issues, managing the monorepo, or understanding the architecture. Trigger on any mention of SRouter, AI gateway, LLM proxy, provider routing, virtual API keys, model combo/failover, token saver, OAuth PKCE token refresh, quota monitoring, or any work inside the SRouter monorepo at /home/seaavey/Projects/SRouter. Also trigger when the user mentions provider executors, chat completions proxy, Anthropic Messages translation, or the @srouter/* packages.
 ---
 
 # ⚡ SRouter — Development Skill
@@ -35,30 +35,32 @@ SRouter is a **pnpm + Turborepo monorepo** that gives developers one stable API 
 ```
 
 **Ports:**
+
 - `3000` — API gateway + production dashboard
 - `5173` — Vite dev server (dashboard, dev mode only)
 - `1455` — OAuth PKCE callback listener
 
 ## Tech Stack
 
-| Layer         | Technology                                              |
-| ------------- | ------------------------------------------------------- |
-| Runtime       | Node.js ≥22 (required for native `node:sqlite`)         |
-| Language      | TypeScript 5.8, ESM (`"type": "module"`)                |
-| HTTP server   | Hono v4.13                                              |
-| Database      | SQLite WAL via `node:sqlite` (zero external deps)       |
-| Frontend      | React 19, TanStack Router, TanStack Table v8            |
-| Styling       | Tailwind CSS v4, Base UI                                |
-| Package mgr   | pnpm 11.20.0 (via Corepack)                             |
-| Build system  | Turborepo, esbuild (API), Vite (web)                    |
-| CI/CD         | GitHub Actions (Node 22+24 matrix, GHCR Docker publish) |
-| Formatting    | Prettier (4-space indent, double quotes, no trailing commas) |
+| Layer        | Technology                                                   |
+| ------------ | ------------------------------------------------------------ |
+| Runtime      | Node.js ≥22 (required for native `node:sqlite`)              |
+| Language     | TypeScript 5.8, ESM (`"type": "module"`)                     |
+| HTTP server  | Hono v4.13                                                   |
+| Database     | SQLite WAL via `node:sqlite` (zero external deps)            |
+| Frontend     | React 19, TanStack Router, TanStack Table v8                 |
+| Styling      | Tailwind CSS v4, Base UI                                     |
+| Package mgr  | pnpm 11.20.0 (via Corepack)                                  |
+| Build system | Turborepo, esbuild (API), Vite (web)                         |
+| CI/CD        | GitHub Actions (Node 22+24 matrix, GHCR Docker publish)      |
+| Formatting   | Prettier (4-space indent, double quotes, no trailing commas) |
 
 ## Code Conventions
 
 These conventions apply throughout the codebase. Follow them in all new code.
 
 ### Formatting (Prettier)
+
 - **Tab width**: 4 spaces
 - **Quotes**: Double quotes (`"`)
 - **Print width**: 100 characters
@@ -66,13 +68,16 @@ These conventions apply throughout the codebase. Follow them in all new code.
 - Run `pnpm format:check` to verify, `pnpm format` to auto-fix
 
 ### Commits
+
 Use **Conventional Commits**: `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `perf:`, `chore:`
 Scope is optional but helpful: `feat(quota): add live quota tracking`
 
 ### Module System
+
 All packages use ESM (`"type": "module"`). Use `import`/`export` syntax, never `require()`.
 
 ### TypeScript
+
 - Strict mode enabled
 - Zod for runtime validation (schemas in `@srouter/types`)
 - Prefer interfaces over type aliases for object shapes
@@ -148,23 +153,25 @@ Client request (OpenAI or Anthropic format)
 ### Provider System
 
 SRouter supports 14+ providers. Each provider has:
+
 1. **An executor** in `packages/executors/src/` — handles the actual HTTP call to the upstream API
 2. **A registry entry** in `packages/providers/` — manages credentials, OAuth state, health
 3. **A constants entry** in `packages/constants/` — model catalogs, branding, presets
 
 **Provider categories:**
 
-| Category          | Providers                                                     | Auth Type              |
-| ----------------- | ------------------------------------------------------------- | ---------------------- |
-| OAuth PKCE        | Antigravity, OpenAI Codex, Qoder, CodeBuddy                  | OAuth 2.0 + PKCE       |
-| API Key (Bearer)  | Neosantara, GoRouter, BluesMinds, SeekAI, TabiToken, TokenRouter, CommandCode | Bearer token |
-| AWS SigV4         | Kiro (Amazon Q)                                               | AWS credentials        |
-| Mixed             | Anthropic (API key or OAuth)                                  | Configurable           |
-| Custom            | User-defined endpoints                                        | Custom                 |
+| Category         | Providers                                                                     | Auth Type        |
+| ---------------- | ----------------------------------------------------------------------------- | ---------------- |
+| OAuth PKCE       | Antigravity, OpenAI Codex, Qoder, CodeBuddy                                   | OAuth 2.0 + PKCE |
+| API Key (Bearer) | Neosantara, GoRouter, BluesMinds, SeekAI, TabiToken, TokenRouter, CommandCode | Bearer token     |
+| AWS SigV4        | Kiro (Amazon Q)                                                               | AWS credentials  |
+| Mixed            | Anthropic (API key or OAuth)                                                  | Configurable     |
+| Custom           | User-defined endpoints                                                        | Custom           |
 
 ### Model Combo & Failover
 
 The combo system lets users define multi-step failover chains:
+
 ```
 combo/my-flagship → Step 1: anthropic/claude-3-7-sonnet
                   → Step 2: openai_codex/gpt-4o (failover)
@@ -176,6 +183,7 @@ Failover triggers on: HTTP 429, 403, 5xx, missing provider driver, rate limit ex
 ### Virtual API Keys
 
 Keys are prefixed `sr-live-*` and support:
+
 - Configurable expiration
 - Rate limits
 - Usage quotas
@@ -185,6 +193,7 @@ Keys are prefixed `sr-live-*` and support:
 ### Token Saver
 
 Multi-stage prompt compression before LLM execution:
+
 1. Whitespace compaction
 2. Redundant comment stripping
 3. Repetitive string compression
@@ -205,14 +214,14 @@ Multi-stage prompt compression before LLM execution:
 This is the most common extension point. Read [references/executors.md](references/executors.md) for the full guide. Quick checklist:
 
 1. **Create executor** in `packages/executors/src/<provider-name>.ts`
-   - Implement the executor interface returning `ExecutorResult`
-   - Handle streaming SSE and non-streaming responses
-   - Normalize usage data (prompt_tokens, completion_tokens)
+    - Implement the executor interface returning `ExecutorResult`
+    - Handle streaming SSE and non-streaming responses
+    - Normalize usage data (prompt_tokens, completion_tokens)
 
 2. **Register in constants** — add to `packages/constants/src/`
-   - Model catalog with capabilities (vision, reasoning)
-   - Provider branding (name, logo URL, color)
-   - Default base URL
+    - Model catalog with capabilities (vision, reasoning)
+    - Provider branding (name, logo URL, color)
+    - Default base URL
 
 3. **Add provider type** — update `packages/types/src/` with Zod schema
 
@@ -225,6 +234,7 @@ This is the most common extension point. Read [references/executors.md](referenc
 ### Modifying the Dashboard
 
 Read [references/web-dashboard.md](references/web-dashboard.md). Key patterns:
+
 - Routes defined via TanStack Router file-based routing
 - API calls use custom hooks with `fetch` to `localhost:3000`
 - Theme system: dark/light with View Transitions API

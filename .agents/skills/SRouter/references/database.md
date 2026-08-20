@@ -1,6 +1,7 @@
 # Database Reference — @srouter/db
 
 ## Table of Contents
+
 1. [Architecture](#architecture)
 2. [SQLite Configuration](#sqlite-configuration)
 3. [Schema & Tables](#schema--tables)
@@ -34,6 +35,7 @@ packages/db/src/
 ## SQLite Configuration
 
 ### Database path resolution:
+
 1. `process.env.DATABASE_PATH`
 2. `./apps/api/srouter.db`
 3. `./srouter.db`
@@ -41,6 +43,7 @@ packages/db/src/
 Parent directories are created automatically.
 
 ### PRAGMAs:
+
 ```sql
 PRAGMA journal_mode = WAL;    -- Write-Ahead Logging for concurrent reads
 PRAGMA foreign_keys = ON;
@@ -49,6 +52,7 @@ PRAGMA foreign_keys = ON;
 WAL mode is critical — it allows concurrent reads during writes without blocking. Don't switch to journal mode.
 
 ### Schema migrations:
+
 Tables use `CREATE TABLE IF NOT EXISTS`. Column additions use guarded `ALTER TABLE ... ADD COLUMN` wrapped in try/catch for idempotent evolution.
 
 ---
@@ -56,6 +60,7 @@ Tables use `CREATE TABLE IF NOT EXISTS`. Column additions use guarded `ALTER TAB
 ## Schema & Tables
 
 ### `providers`
+
 ```sql
 id TEXT PRIMARY KEY,
 provider_id TEXT,
@@ -77,6 +82,7 @@ created_at TEXT
 ```
 
 ### `api_keys`
+
 ```sql
 id TEXT PRIMARY KEY,
 key TEXT UNIQUE,               -- Format: sr-live-{hex16}
@@ -89,6 +95,7 @@ created_at TEXT
 ```
 
 ### `request_logs`
+
 ```sql
 id TEXT PRIMARY KEY,
 api_key_id TEXT,
@@ -111,6 +118,7 @@ created_at TEXT
 ```
 
 ### `oauth_sessions`
+
 ```sql
 state TEXT PRIMARY KEY,
 code_verifier TEXT,
@@ -120,6 +128,7 @@ created_at TEXT
 ```
 
 ### `fallback_rules`
+
 ```sql
 id TEXT PRIMARY KEY,
 source_model TEXT,
@@ -132,6 +141,7 @@ created_at TEXT
 ```
 
 ### `admin_account`
+
 ```sql
 id INTEGER PRIMARY KEY CHECK(id=1),   -- Single admin
 password_hash TEXT,
@@ -140,6 +150,7 @@ updated_at TEXT
 ```
 
 ### `admin_sessions`
+
 ```sql
 token_hash TEXT PRIMARY KEY,           -- SHA-256 of session cookie
 created_at TEXT,
@@ -147,6 +158,7 @@ expires_at TEXT
 ```
 
 ### `system_settings`
+
 ```sql
 key TEXT PRIMARY KEY,
 value TEXT
@@ -159,6 +171,7 @@ value TEXT
 Each table has a dedicated repository file with typed functions:
 
 ### Providers (`providers.ts`)
+
 - `getAllProvidersDB()` — All providers
 - `getProviderByIdDB(id)` — Single provider
 - `getConnectionsByProviderIdDB(providerId)` — All connections for a provider type
@@ -168,11 +181,13 @@ Each table has a dedicated repository file with typed functions:
 - `updateProviderTokensDB(input)` — Token-only update (for refresh cycles)
 
 ### API Keys (`apiKeys.ts`)
+
 - `getAllAPIKeysDB()`, `getAPIKeyByKeyDB(key)`
 - `createAPIKeyDB(data)` — Generates `sr-live-{hex16}` key
 - `incrementAPIKeyUsageDB(keyId, tokens)` — Atomic usage increment
 
 ### Logs (`logs.ts`)
+
 - `logRequestDB(entry)`, `getRecentLogsDB(limit)`
 - `getUsageSummaryDB()` — Aggregate token + cost stats
 - `getProviderUsageSummaryDB(providerId)`
@@ -180,14 +195,16 @@ Each table has a dedicated repository file with typed functions:
 - `getUsageByModelDB()` — Global model usage for billing
 
 ### Fallbacks (`fallbacks.ts`)
+
 - CRUD operations + `findMatchingFallbackRulesDB(sourceModel)`
 - **Multi-tier matching**:
-  1. Exact model match → priority score 1
-  2. Wildcard prefix (`anthropic/*`) → priority score 2
-  3. Global wildcard (`*`) → priority score 3
+    1. Exact model match → priority score 1
+    2. Wildcard prefix (`anthropic/*`) → priority score 2
+    3. Global wildcard (`*`) → priority score 3
 - Prevents self-loops, sorted by rule priority ASC
 
 ### Quota (`quota.ts`)
+
 - `fetchAntigravityLiveQuota()` — Live Google Cloud Code quota via internal API
 - `getProviderQuotaAccount()` — Dispatches between live queries and logged usage
 
@@ -196,17 +213,19 @@ Each table has a dedicated repository file with typed functions:
 ## Key Operations
 
 ### Creating an API key
+
 ```typescript
 import { createAPIKeyDB } from "@srouter/db";
 const newKey = createAPIKeyDB({
     name: "My App Key",
-    rateLimit: 100,     // RPM
+    rateLimit: 100, // RPM
     quotaLimit: 1000000 // max tokens
 });
 // newKey.key === "sr-live-a1b2c3d4e5f6g7h8"
 ```
 
 ### Logging a request
+
 ```typescript
 import { logRequestDB } from "@srouter/db";
 logRequestDB({
@@ -223,6 +242,7 @@ logRequestDB({
 ```
 
 ### Finding fallback rules
+
 ```typescript
 import { findMatchingFallbackRulesDB } from "@srouter/db";
 const rules = findMatchingFallbackRulesDB("anthropic/claude-3-7-sonnet");
@@ -234,6 +254,7 @@ const rules = findMatchingFallbackRulesDB("anthropic/claude-3-7-sonnet");
 ## Working with the DB
 
 ### Important constraints:
+
 1. **Single-file database** — All data in one `.db` file. Back up this file to back up everything.
 2. **WAL mode** — Creates `.db-wal` and `.db-shm` companion files. Include all three when backing up.
 3. **Synchronous API** — `DatabaseSync` is blocking. Queries are fast enough for the gateway's throughput.

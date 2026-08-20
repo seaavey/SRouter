@@ -1,6 +1,7 @@
 # Provider Registry & Circuit Breaker Reference — @srouter/providers
 
 ## Table of Contents
+
 1. [Architecture](#architecture)
 2. [ProviderRegistry](#providerregistry)
 3. [Model Resolution Pipeline](#model-resolution-pipeline)
@@ -76,14 +77,14 @@ When a request comes in for a model like `anthropic/claude-3-7-sonnet`, the regi
 1. **Direct Match** — Exact lookup of `alias/model` or `providerId/model` or bare `model` against cached dynamic model catalogs of all registered executors
 
 2. **Prefix Matching** — If not found in catalogs, resolves provider prefix:
-   - `openai/gpt-4o` → find OpenAI executor
-   - `qd/deepseek-v3` → find Qoder executor via alias
-   - `claude/claude-3-5-sonnet` → find Anthropic executor via alias
+    - `openai/gpt-4o` → find OpenAI executor
+    - `qd/deepseek-v3` → find Qoder executor via alias
+    - `claude/claude-3-5-sonnet` → find Anthropic executor via alias
 
 3. **Circuit-Breaker Ordering** — Sorts candidate providers by health:
-   - Healthy accounts first
-   - Round-robin among healthy candidates
-   - Cooldown/exhausted accounts pushed to end
+    - Healthy accounts first
+    - Round-robin among healthy candidates
+    - Cooldown/exhausted accounts pushed to end
 
 ### Failover Execution
 
@@ -112,15 +113,16 @@ The key constraint: if streaming has already yielded tokens to the client, failo
 
 ### States
 
-| State | Meaning |
-|-------|---------|
-| `healthy` | Account is operational, can receive requests |
-| `cooldown` | Recently failed, waiting for backoff timer to expire |
-| `exhausted` | Rate limited or quota depleted, longer cooldown |
+| State       | Meaning                                              |
+| ----------- | ---------------------------------------------------- |
+| `healthy`   | Account is operational, can receive requests         |
+| `cooldown`  | Recently failed, waiting for backoff timer to expire |
+| `exhausted` | Rate limited or quota depleted, longer cooldown      |
 
 ### Error Recognition
 
 Detects rate-limit & quota errors from:
+
 - HTTP 429 status
 - Response body keywords: `quota exhausted`, `capacity`, `high traffic`, `rate limit`
 
@@ -150,13 +152,13 @@ generatePKCE(): {
 
 ### Provider-Specific OAuth Clients
 
-| Class | Provider | Client ID | Key Features |
-|-------|----------|-----------|--------------|
-| `OpenAICodexOAuth` | OpenAI Codex | `app_EMoamEEZ73f0CkXaXp7hrann` | Extracts `chatgpt_account_id` from token response or id_token JWT |
-| `AntigravityOAuth` | Google Antigravity | `1071006060591-...` | Google Cloud Platform PKCE with offline consent |
-| `ClaudeOAuth` | Claude Code | `9d1c250a-e61b-...` | JSON payload token exchange (not form-encoded) |
-| `QoderOAuth` | Qoder | Device flow | Device authorization code challenge + poll |
-| `CodeBuddyOAuth` | CodeBuddy | Plugin auth | State acquisition + token polling (`/v2/plugin/auth/*`) |
+| Class              | Provider           | Client ID                      | Key Features                                                      |
+| ------------------ | ------------------ | ------------------------------ | ----------------------------------------------------------------- |
+| `OpenAICodexOAuth` | OpenAI Codex       | `app_EMoamEEZ73f0CkXaXp7hrann` | Extracts `chatgpt_account_id` from token response or id_token JWT |
+| `AntigravityOAuth` | Google Antigravity | `1071006060591-...`            | Google Cloud Platform PKCE with offline consent                   |
+| `ClaudeOAuth`      | Claude Code        | `9d1c250a-e61b-...`            | JSON payload token exchange (not form-encoded)                    |
+| `QoderOAuth`       | Qoder              | Device flow                    | Device authorization code challenge + poll                        |
+| `CodeBuddyOAuth`   | CodeBuddy          | Plugin auth                    | State acquisition + token polling (`/v2/plugin/auth/*`)           |
 
 ### Common OAuth Flow
 

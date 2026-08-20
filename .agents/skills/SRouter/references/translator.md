@@ -1,6 +1,7 @@
 # Translation Layer Reference — @srouter/translator
 
 ## Table of Contents
+
 1. [Architecture](#architecture)
 2. [OpenAI ↔ Anthropic Translation](#openai--anthropic-translation)
 3. [OpenAI ↔ Codex/Responses API](#openai--codexresponses-api)
@@ -35,6 +36,7 @@ Two-way conversion between OpenAI Chat Completions and Anthropic Messages API.
 ### Request Translation
 
 **`anthropicToOpenAIRequest`** / **`openAIToAnthropicRequest`**:
+
 - System prompts: Anthropic `system` field ↔ OpenAI `role: "system"` messages
 - Multimodal: Base64 image blocks converted between formats
 - Tool use: Anthropic `tool_use` content blocks ↔ OpenAI `tool_calls` array
@@ -44,9 +46,10 @@ Two-way conversion between OpenAI Chat Completions and Anthropic Messages API.
 ### Response & Stream Translation
 
 **`openAIToAnthropicResponse`** / **`openAIToAnthropicStream`**:
+
 - Transforms OpenAI chunks into Anthropic SSE events:
-  - `message_start`, `content_block_start`, `content_block_delta`
-  - `content_block_stop`, `message_delta`, `message_stop`
+    - `message_start`, `content_block_start`, `content_block_delta`
+    - `content_block_stop`, `message_delta`, `message_stop`
 - Separates `reasoning_content` into Anthropic `thinking` content blocks
 - Maps tool call streaming into `input_json_delta`
 
@@ -57,6 +60,7 @@ Two-way conversion between OpenAI Chat Completions and Anthropic Messages API.
 Conversion for ChatGPT backend / OpenAI Codex which uses the Responses API format.
 
 ### `chatToResponsesBody(req)`
+
 - System messages → `role: "developer"` or top-level `instructions`
 - Assistant `tool_calls` → `type: "function_call"`
 - Tool results → `type: "function_call_output"`
@@ -64,7 +68,9 @@ Conversion for ChatGPT backend / OpenAI Codex which uses the Responses API forma
 - Filters through strict `RESPONSES_BODY_ALLOWLIST`
 
 ### `responsesEventToChunk(eventType, data, state)`
+
 Maps Responses SSE events to OpenAI chunks:
+
 - `response.output_text.delta` → text delta
 - `response.output_item.added` → content block
 - `response.function_call_arguments.delta` → tool call args
@@ -75,17 +81,22 @@ Maps Responses SSE events to OpenAI chunks:
 ## OpenAI ↔ Gemini/Antigravity
 
 ### `buildAntigravityContents(req)`
+
 Maps messages to Gemini format: `{ role: "user" | "model", parts: [...] }`
 
 ### `cleanJSONSchemaForAntigravity(schema)`
+
 Recursively purges unsupported JSON schema keywords for Gemini compatibility:
+
 - Removes: `minLength`, `pattern`, `additionalProperties`, `anyOf`, `allOf`, `default`, `$defs`
 - Converts `const` → `enum`
 - Flattens type arrays
 - Ensures objects have properties
 
 ### `geminiStreamToOpenAIChunks(chunk, state)`
+
 Parses Gemini response format:
+
 - Handles `thought` / `thoughtSignature` reasoning blocks
 - Inline image data
 - Function calls → OpenAI tool_calls
@@ -97,6 +108,7 @@ Parses Gemini response format:
 Multi-stage prompt compression in `tokenSaver.ts`:
 
 ### Tool Output Compression
+
 - `compressGitDiff()` — Strips index hashes, mode changes, compresses diff headers (`@@ L10 @@`)
 - `compressGitStatusOrLog()` — Compresses git commit blocks and status boilerplate
 - `compressGrepOutput()` — Groups multi-line matches under single file headers
@@ -105,18 +117,22 @@ Multi-stage prompt compression in `tokenSaver.ts`:
 - `stripAnsiCodes()` — Removes ANSI color/control escape sequences
 
 ### System Prompt Injection
+
 - **Lazy Senior Dev (ponytail mode)**: Injects YAGNI instructions, stdlib reuse rules, surgical edit requirements
 - **Caveman Mode (terse output)**: Strips pleasantries and filler for ~80% token reduction
 
 ### Integration
-Token Saver is applied in the chat execution pipeline *before* the request reaches the provider executor. Settings are persisted in `@srouter/db` system_settings.
+
+Token Saver is applied in the chat execution pipeline _before_ the request reaches the provider executor. Settings are persisted in `@srouter/db` system_settings.
 
 ---
 
 ## Usage & Cost Normalization
 
 ### `extractUsageBreakdown(provider, usage)`
+
 Normalizes provider-specific token fields into a standard structure:
+
 ```typescript
 {
     promptTokens: number,
@@ -129,6 +145,7 @@ Normalizes provider-specific token fields into a standard structure:
 ```
 
 ### `estimateCostForUsage(provider, model, breakdown)`
+
 Uses `@srouter/pricing` to compute dollar costs:
 
 $$\text{nonCachedInput} = \max(0, \text{inputTokens} - \text{cachedTokens} - \text{cacheCreationTokens})$$
@@ -138,7 +155,9 @@ $$\text{Cost} = \frac{\text{nonCachedInput} \times P_{\text{in}} + \text{cachedT
 The pricing data lives in `packages/pricing/data/pricing.jsonc` — a JSONC file with model-level pricing, aliases, and cached token rates.
 
 ### Model Name Resolution (`packages/pricing/src/matcher.ts`)
+
 Four-stage lookup:
+
 1. Exact raw match
 2. Normalized match (strip tags, namespaces)
 3. Case-insensitive normalized
