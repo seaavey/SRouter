@@ -22,6 +22,22 @@ import type {
 } from "@srouter/types";
 import { parseDataLine, streamLines } from "./base.js";
 
+/**
+ * ============================================================================
+ * SRouter Qoder Executor
+ *
+ * Inspired by & ported from OmniRoute (open-sse/executors/qoder & services/qoder*)
+ * Upstream Reference: https://github.com/diegosouzapw/OmniRoute
+ *
+ * Key Capabilities:
+ * - WAF-Bypass Body Encoding (Custom alphabet transposition)
+ * - COSY Request Signing (1024-bit RSA + AES-128-CBC handshake)
+ * - Dual Authentication (Device Code OAuth PKCE & Personal Access Token)
+ * - SSE Envelope Unwrapping ({ statusCodeValue, body })
+ * - Thinking/Reasoning tool_choice compatibility sanitizer
+ * ============================================================================
+ */
+
 export interface QoderProviderSpecificData {
     authMethod?: "pat" | "device" | string;
     userId?: string;
@@ -39,6 +55,35 @@ export interface QoderExecutorOptions {
     accessToken?: string;
     refreshToken?: string;
     providerSpecificData?: QoderProviderSpecificData;
+}
+
+/**
+ * Detects if Qwen / Qoder reasoning (thinking) is active on a request.
+ */
+export function isQwenThinkingActive(
+    req: ChatCompletionRequest,
+    modelConfig?: Record<string, unknown>
+): boolean {
+    const raw = req as unknown as Record<string, unknown>;
+    const thinking = raw.thinking;
+    if (thinking === true || raw.enable_thinking === true) return true;
+    if (typeof thinking === "object" && thinking !== null && !Array.isArray(thinking)) {
+        if ((thinking as Record<string, unknown>).type === "enabled") return true;
+    }
+    return Boolean(modelConfig?.is_reasoning);
+}
+
+/**
+ * Strips incompatible tool_choice parameter when thinking/reasoning is active on Qwen/Qoder
+ * to avoid upstream DashScope 400 Bad Request errors.
+ */
+export function sanitizeQwenThinkingToolChoice(
+    payload: Record<string, unknown>,
+    isThinking: boolean
+): void {
+    if (isThinking && "tool_choice" in payload) {
+        delete payload.tool_choice;
+    }
 }
 
 // ─── WAF-Bypass Body Encoding ───
@@ -551,6 +596,7 @@ export class QoderExecutor implements AIProvider {
             system: systemText,
             messages,
             tools: Array.isArray(req.tools) ? req.tools : [],
+            ...(req.tool_choice ? { tool_choice: req.tool_choice } : {}),
             parameters: { max_tokens: maxTokens },
             chat_context: {
                 chatPrompt: "",
@@ -574,6 +620,8 @@ export class QoderExecutor implements AIProvider {
                 begin_at: Date.now()
             }
         };
+
+        sanitizeQwenThinkingToolChoice(payload, isReasoning);
 
         return { qoderKey, payload, modelConfig };
     }
