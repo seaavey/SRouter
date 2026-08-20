@@ -10,6 +10,8 @@ import {
     QODER_LOGIN_VERSION,
     QODER_MACHINE_OS,
     QODER_MACHINE_TYPE,
+    QODER_MODELS,
+    QODER_MODEL_ALIASES,
     QODER_RSA_PUBLIC_KEY,
     QODER_USERINFO_URL
 } from "@srouter/constants";
@@ -482,52 +484,56 @@ export class QoderExecutor implements AIProvider {
 
     async listModels(): Promise<ModelObject[]> {
         const baseId = this.id.split("_")[0]?.split("-")[0] ?? this.id;
+        const modelMap = new Map<string, ModelObject>();
+
+        // 1. Add all standard known Qoder models as base catalog
+        for (const def of QODER_MODELS) {
+            modelMap.set(`${baseId}/${def.id}`, {
+                id: `${baseId}/${def.id}`,
+                object: "model",
+                owned_by: baseId
+            });
+        }
+
+        // 2. Fetch dynamic models from upstream if credentials are valid
         try {
             const creds = await this.resolveCredentials();
-            if (!creds.accessToken) {
-                return [];
+            if (creds.accessToken) {
+                const url = this.getModelListUrl(creds.isJobToken);
+                const headers = {
+                    Accept: "application/json",
+                    "Accept-Encoding": "identity",
+                    ...buildCosyHeaders(Buffer.alloc(0), url, {
+                        userId: creds.userId,
+                        authToken: creds.accessToken,
+                        name: creds.name,
+                        email: creds.email,
+                        machineId: creds.machineId
+                    })
+                };
+
+                const res = await fetch(url, { method: "GET", headers });
+                if (res.ok) {
+                    const data = (await res.json()) as { chat?: Array<Record<string, unknown>> };
+                    if (data.chat && Array.isArray(data.chat)) {
+                        for (const item of data.chat) {
+                            const key = item.key as string | undefined;
+                            if (!key) continue;
+                            this.rawConfigs.set(key, item);
+                            modelMap.set(`${baseId}/${key}`, {
+                                id: `${baseId}/${key}`,
+                                object: "model",
+                                owned_by: baseId
+                            });
+                        }
+                    }
+                }
             }
-
-            const url = this.getModelListUrl(creds.isJobToken);
-            const headers = {
-                Accept: "application/json",
-                "Accept-Encoding": "identity",
-                ...buildCosyHeaders(Buffer.alloc(0), url, {
-                    userId: creds.userId,
-                    authToken: creds.accessToken,
-                    name: creds.name,
-                    email: creds.email,
-                    machineId: creds.machineId
-                })
-            };
-
-            const res = await fetch(url, { method: "GET", headers });
-            if (!res.ok) {
-                return [];
-            }
-
-            const data = (await res.json()) as { chat?: Array<Record<string, unknown>> };
-            if (!data.chat || !Array.isArray(data.chat)) {
-                return [];
-            }
-
-            const models: ModelObject[] = [];
-            for (const item of data.chat) {
-                const key = item.key as string | undefined;
-                if (!key) continue;
-                this.rawConfigs.set(key, item);
-                if (item.enable === false) continue;
-                models.push({
-                    id: `${baseId}/${key}`,
-                    object: "model",
-                    owned_by: baseId
-                });
-            }
-
-            return models;
         } catch {
-            return [];
+            // fallback to static models
         }
+
+        return Array.from(modelMap.values());
     }
 
     private stripModelPrefix(model: string): string {
@@ -543,7 +549,9 @@ export class QoderExecutor implements AIProvider {
         payload: Record<string, unknown>;
         modelConfig: Record<string, unknown>;
     }> {
-        const qoderKey = this.stripModelPrefix(req.model);
+        const rawKey = this.stripModelPrefix(req.model);
+        const mappedKey = QODER_MODEL_ALIASES[rawKey.toLowerCase()] || rawKey;
+        const qoderKey = this.rawConfigs.has(rawKey) ? rawKey : mappedKey;
         let modelConfig = this.rawConfigs.get(qoderKey);
         if (!modelConfig) {
             modelConfig = {

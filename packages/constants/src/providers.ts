@@ -86,6 +86,65 @@ export const ANTIGRAVITY_MODELS: AntigravityModelDefinition[] = [
 ];
 
 export const ANTIGRAVITY_MODEL_IDS: string[] = ANTIGRAVITY_MODELS.map((m) => m.id);
+
+export interface QoderModelDefinition {
+    id: string;
+    name: string;
+    level?: string;
+}
+
+export const QODER_MODELS: QoderModelDefinition[] = [
+    { id: "qwen3.8-max-preview", name: "Qwen 3.8 Max Preview", level: "qmodel_preview" },
+    { id: "qwen3.7-max", name: "Qwen 3.7 Max", level: "qmodel_latest" },
+    { id: "qwen3.7-plus", name: "Qwen 3.7 Plus", level: "qmodel" },
+    { id: "kimi-k3", name: "Kimi K3", level: "kmodel_latest" },
+    { id: "kimi-k2.7-code", name: "Kimi K2.7 Code", level: "kmodel" },
+    { id: "glm-5.2", name: "GLM 5.2", level: "gm51model" },
+    { id: "deepseek-v4-pro", name: "DeepSeek V4 Pro", level: "dmodel" },
+    { id: "deepseek-v4-flash", name: "DeepSeek V4 Flash", level: "dfmodel" },
+    { id: "minimax-m3", name: "MiniMax M3", level: "mmodel" },
+    { id: "ultimate", name: "Qoder Ultimate" },
+    { id: "qmodel_38max", name: "Qwen 3.8 Max" },
+    { id: "qmodel_preview", name: "Qwen Preview" },
+    { id: "qmodel_latest", name: "Qwen Latest" },
+    { id: "qmodel", name: "Qwen Standard" },
+    { id: "auto", name: "Qoder Auto" },
+    { id: "performance", name: "Qoder Performance" },
+    { id: "efficient", name: "Qoder Efficient" },
+    { id: "lite", name: "Qoder Lite" },
+    { id: "kmodel_latest", name: "Kimi K3 (Raw)" },
+    { id: "kmodel", name: "Kimi K2.7 (Raw)" },
+    { id: "gmodel", name: "GLM (Raw)" },
+    { id: "gm51model", name: "GLM 5.2 (Raw)" },
+    { id: "dmodel", name: "DeepSeek Pro (Raw)" },
+    { id: "dfmodel", name: "DeepSeek Flash (Raw)" },
+    { id: "mmodel", name: "MiniMax (Raw)" }
+];
+
+export const QODER_MODEL_ALIASES: Record<string, string> = {
+    "qwen3.8-max-preview": "qmodel_preview",
+    "qwen-3.8-max-preview": "qmodel_preview",
+    "qwen3.8-max": "qmodel_38max",
+    "qwen-3.8-max": "qmodel_38max",
+    "qwen3.7-max": "qmodel_latest",
+    "qwen-3.7-max": "qmodel_latest",
+    "qwen3.7-plus": "qmodel",
+    "qwen-3.7-plus": "qmodel",
+    "kimi-k3": "kmodel_latest",
+    "kimi-k2.7-code": "kmodel",
+    "glm-5.2": "gm51model",
+    "deepseek-v4-pro": "dmodel",
+    "deepseek-v4-flash": "dfmodel",
+    "minimax-m3": "mmodel",
+    ultimate: "ultimate",
+    auto: "auto",
+    performance: "performance",
+    efficient: "efficient",
+    lite: "lite"
+};
+
+export const QODER_MODEL_IDS: string[] = QODER_MODELS.map((m) => m.id);
+
 export const QODER_OPENAPI_BASE = "https://openapi.qoder.sh";
 export const QODER_CENTER_BASE = "https://center.qoder.sh";
 export const QODER_CHAT_BASE = "https://api3.qoder.sh";

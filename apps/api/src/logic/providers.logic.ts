@@ -183,23 +183,30 @@ export class ProvidersLogic {
         const connectedCount = connections.filter((c) => c.enabled).length;
 
         let liveModels = provider.models;
-        const registeredProvider =
-            registry.getProvider(providerId) ||
-            Array.from(registry.getAllProviders().values()).find(
-                (p) =>
-                    p.id.startsWith(providerId) ||
-                    p.id.startsWith(`${providerId}_`) ||
-                    p.id.startsWith(`${providerId}-`)
-            );
+        const matchingProviders = Array.from(registry.getAllProviders().values()).filter(
+            (p) =>
+                p.id === providerId ||
+                p.id.startsWith(`${providerId}_`) ||
+                p.id.startsWith(`${providerId}-`)
+        );
 
-        if (registeredProvider) {
-            try {
-                const fetched = await registry.getProviderModels(registeredProvider);
-                if (fetched.length > 0) {
-                    liveModels = fetched;
+        if (matchingProviders.length > 0) {
+            const modelMap = new Map<string, ModelObject>();
+            for (const m of provider.models) {
+                modelMap.set(m.id, m);
+            }
+            for (const p of matchingProviders) {
+                try {
+                    const fetched = await registry.getProviderModels(p);
+                    for (const m of fetched) {
+                        modelMap.set(m.id, m);
+                    }
+                } catch {
+                    // ignore individual provider model fetch failure
                 }
-            } catch {
-                // fallback to catalog models
+            }
+            if (modelMap.size > 0) {
+                liveModels = Array.from(modelMap.values());
             }
         }
 

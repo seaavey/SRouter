@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Loader2, Copy, Check, X, Key, Globe } from "lucide-react";
+import { Loader2, Copy, Check, X, Key, Globe, ExternalLink } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import type { ProviderConfig, ProviderDefinition } from "@srouter/types";
@@ -35,7 +35,7 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
     const isCodeBuddy = baseId === "codebuddy";
     const isPolling = isQoder || isCodeBuddy;
 
-    // Fetch backend-registered PKCE OAuth session & open popup
+    // Fetch backend-registered PKCE OAuth session without auto-opening popup
     useEffect(() => {
         if (!open || !provider) {
             setAuthUrl("");
@@ -68,22 +68,26 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                 setAuthUrl(res.authorizeUrl);
                 setOauthState(res.state);
                 setIsLoadingUrl(false);
-                try {
-                    const popup = window.open(
-                        res.authorizeUrl,
-                        "_blank",
-                        "width=600,height=700,status=yes,scrollbars=yes"
-                    );
-                    popupRef.current = popup;
-                } catch {
-                    // Popup blocked
-                }
             })
             .catch((err: Error) => {
                 setIsLoadingUrl(false);
                 setError(err.message || "Failed to initiate OAuth login session");
             });
     }, [open, provider, baseId]);
+
+    const handleOpenPopup = () => {
+        if (!authUrl) return;
+        try {
+            const popup = window.open(
+                authUrl,
+                "_blank",
+                "width=600,height=700,status=yes,scrollbars=yes"
+            );
+            popupRef.current = popup;
+        } catch {
+            // Popup blocked
+        }
+    };
 
     // Listen for postMessage from auto-closing popup window (for redirect-based OAuth)
     useEffect(() => {
@@ -317,6 +321,15 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                                         value={authUrl || "Generating authorization URL..."}
                                         className="w-full rounded-lg border border-border/60 bg-secondary/30 px-3 py-2 text-xs font-mono text-muted-foreground focus:outline-none truncate"
                                     />
+                                    <button
+                                        type="button"
+                                        onClick={handleOpenPopup}
+                                        disabled={!authUrl}
+                                        className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 bg-foreground text-background hover:opacity-90 px-3 py-2 text-xs font-semibold transition-all shrink-0 disabled:opacity-50 cursor-pointer"
+                                    >
+                                        <ExternalLink className="size-3.5" />
+                                        <span>Open</span>
+                                    </button>
                                     <button
                                         type="button"
                                         onClick={() => void handleCopy()}
