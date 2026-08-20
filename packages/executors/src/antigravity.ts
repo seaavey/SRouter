@@ -45,15 +45,20 @@ export interface AntigravityExecutorOptions {
 }
 
 /**
- * Antigravity Executor — Google Antigravity IDE backend (daily-cloudcode-pa).
- * Ported from 9router / OmniRoute open-sse/executors/antigravity.
- * Features:
+ * ============================================================================
+ * SRouter Antigravity Executor
+ *
+ * Inspired by & ported from OmniRoute (open-sse/executors/antigravity)
+ * Upstream Reference: https://github.com/diegosouzapw/OmniRoute
+ *
+ * Features & Mitigations:
  * - Pro fallback cascade chain on HTTP 400 Bad Request
  * - Google One AI paid credits fallback / mode on quota exhaustion (429)
  * - Trailing assistant turn stripper & competing agent prompt sanitizer
  * - Output token cap clamping (prevents 400 on oversized max_tokens)
  * - Zero-width character stripping and textual tool call parsing
- * - Falls back to OpenAI-compatible endpoint for local proxy / AIzaSy API keys.
+ * - Falls back to OpenAI-compatible endpoint for local proxy / AIzaSy API keys
+ * ============================================================================
  */
 export class AntigravityExecutor implements AIProvider {
     id: string;

@@ -128,7 +128,14 @@ export function geminiToOpenAIResponse(
     };
 }
 
-// ─── Antigravity IDE envelope helpers (port of 9router executors/antigravity.js) ───
+/**
+ * ============================================================================
+ * Antigravity IDE Envelope & Content Helpers
+ *
+ * Inspired by & ported from OmniRoute (open-sse/services/antigravity*.ts)
+ * Upstream Reference: https://github.com/diegosouzapw/OmniRoute
+ * ============================================================================
+ */
 
 // Official Antigravity IDE Desktop 2.1.1 fingerprint (macOS arm64)
 export const ANTIGRAVITY_IDE_VERSION = "2.1.1";
