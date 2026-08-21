@@ -1,13 +1,14 @@
 import { DatabaseSync } from "node:sqlite";
 import path from "node:path";
 import fs from "node:fs";
+import os from "node:os";
 
 function getDatabasePath(): string {
     // Allow explicit override via DATABASE_PATH environment variable
     if (process.env.DATABASE_PATH) return process.env.DATABASE_PATH;
     
     // Default to ~/.srouter/srouter.db in user's home directory
-    const homedir = require('os').homedir();
+    const homedir = os.homedir();
     const srouterDir = path.join(homedir, '.srouter');
     const defaultDbPath = path.join(srouterDir, 'srouter.db');
     
