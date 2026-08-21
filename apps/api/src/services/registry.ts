@@ -21,6 +21,7 @@ import {
     CommandCodeExecutor,
     GoRouterExecutor,
     KiroExecutor,
+    OpenCodeZenExecutor,
     OpenAIExecutor,
     QoderExecutor,
     SeekAIExecutor,
@@ -223,6 +224,19 @@ export function loadSavedProvidersFromDB(): void {
                     })
                 );
                 break;
+            case isProviderBaseId(p.id, "opencode_zen") ||
+                isProviderBaseId(p.id, "zen") ||
+                providerType === "opencode_zen":
+                registry.registerProvider(
+                    new OpenCodeZenExecutor({
+                        id: p.id || p.providerId,
+                        name: p.name,
+                        baseUrl: baseUrl || OPENCODE_ZEN_BASE_URL,
+                        apiKey: p.apiKey,
+                        accessToken: p.accessToken
+                    })
+                );
+                break;
             case isProviderBaseId(p.id, "qoder"):
                 registry.registerProvider(
                     new QoderExecutor({
@@ -279,6 +293,25 @@ export function loadSavedProvidersFromDB(): void {
                 break;
             default:
                 break;
+        }
+    }
+
+    // Auto-register built-in free tier providers so users can immediately use them out of the box
+    const freeTierSeeds = DEFAULT_PROVIDERS.filter((s) => s.category === "free_tier");
+    for (const seed of freeTierSeeds) {
+        const hasExplicitConnection = savedProviders.some(
+            (p) => (p.id === seed.id || p.providerId === seed.id) && !isSeedProvider(p)
+        );
+        if (!hasExplicitConnection) {
+            if (seed.id === "opencode_zen") {
+                registry.registerProvider(
+                    new OpenCodeZenExecutor({
+                        id: seed.id,
+                        name: seed.name,
+                        baseUrl: seed.baseUrl || OPENCODE_ZEN_BASE_URL
+                    })
+                );
+            }
         }
     }
 }
