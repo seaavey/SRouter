@@ -354,6 +354,17 @@ export class ProvidersLogic {
                         message: "URL endpoint harus berformat HTTP atau HTTPS."
                     };
                 }
+                const hostname = url.hostname.toLowerCase();
+                const isInternalHost =
+                    hostname === "169.254.169.254" ||
+                    hostname === "metadata.google.internal" ||
+                    hostname === "instance-data";
+                if (isInternalHost) {
+                    return {
+                        success: false,
+                        message: "Target URL tidak diizinkan untuk verifikasi (metadata endpoint diblokir)."
+                    };
+                }
             } catch {
                 return { success: false, message: "Format Endpoint Base URL tidak valid." };
             }

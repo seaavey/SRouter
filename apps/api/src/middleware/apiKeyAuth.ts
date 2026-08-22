@@ -1,5 +1,6 @@
 import type { Context, Next } from "hono";
 import { getCookie } from "hono/cookie";
+import { getConnInfo } from "@hono/node-server/conninfo";
 import {
     adminAuthStore,
     getAPIKeyByKeyDB,
@@ -7,16 +8,50 @@ import {
     type AdminAuthStore
 } from "@srouter/db";
 import { err } from "@/utils/response.js";
-import { ADMIN_SESSION_COOKIE, verifyAdminSession } from "@/services/adminAuth.js";
+import {
+    ADMIN_SESSION_COOKIE,
+    isLoopbackAddress,
+    verifyAdminSession
+} from "@/services/adminAuth.js";
 
 export interface ApiKeyAuthOptions {
     store?: AdminAuthStore;
     now?: () => number;
+    getClientAddress?: (c: Context) => string | undefined;
+}
+
+function getDirectClientAddress(c: Context): string | undefined {
+    try {
+        const info = getConnInfo(c);
+        if (info.remote?.address) return info.remote.address;
+    } catch {
+        // Fallback for tests or environments without node-server conninfo
+    }
+
+    try {
+        const url = new URL(c.req.url);
+        if (url.hostname === "localhost" || url.hostname === "127.0.0.1" || url.hostname === "[::1]") {
+            return "127.0.0.1";
+        }
+    } catch {}
+
+    const host = c.req.header("host") || "";
+    if (
+        !host ||
+        host.startsWith("localhost") ||
+        host.startsWith("127.0.0.1") ||
+        host.startsWith("[::1]")
+    ) {
+        return "127.0.0.1";
+    }
+
+    return undefined;
 }
 
 export function createApiKeyAuth(options: ApiKeyAuthOptions = {}) {
     const store = options.store ?? adminAuthStore;
     const now = options.now ?? (() => Date.now());
+    const getClientAddress = options.getClientAddress ?? getDirectClientAddress;
 
     return async function apiKeyAuth(c: Context, next: Next) {
         if (verifyAdminSession(store, getCookie(c, ADMIN_SESSION_COOKIE), now())) {
@@ -24,7 +59,10 @@ export function createApiKeyAuth(options: ApiKeyAuthOptions = {}) {
             return await next();
         }
 
-        const isRequired = getRequireApiKeyDB();
+        const clientAddress = getClientAddress(c);
+        const isLoopback = isLoopbackAddress(clientAddress);
+        // If requireApiKey is true in DB OR request comes from non-localhost (public network)
+        const isRequired = getRequireApiKeyDB() || !isLoopback;
         const authHeader = c.req.header("Authorization") || c.req.header("authorization");
         const xApiKey =
             c.req.header("x-api-key") || c.req.header("X-Api-Key") || c.req.header("X-API-KEY");
@@ -52,7 +90,7 @@ export function createApiKeyAuth(options: ApiKeyAuthOptions = {}) {
                 return await next();
             }
 
-            // If a key was provided but not found in DB and auth is required
+            // If a key was provided but not found in DB
             if (isRequired) {
                 return err(c, "Invalid SRouter API Key", 401, {
                     type: "invalid_request_error",
@@ -61,10 +99,12 @@ export function createApiKeyAuth(options: ApiKeyAuthOptions = {}) {
             }
         }
 
-        if (isRequired && !bearerKey) {
+        if (isRequired) {
             return err(
                 c,
-                "Missing SRouter API Key. Please provide a valid key via 'Authorization: Bearer <key>' header or disable 'Require API Key' in Settings.",
+                !isLoopback
+                    ? "Remote/public requests require a valid SRouter API Key. Please provide your key via 'Authorization: Bearer <API_KEY>' or 'x-api-key'."
+                    : "Missing SRouter API Key. Please provide a valid key via 'Authorization: Bearer ***' header or disable 'Require API Key' in Settings.",
                 401,
                 {
                     type: "invalid_request_error",
