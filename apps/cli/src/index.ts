@@ -6,6 +6,7 @@ import { syncCommand } from "./commands/sync.js";
 import { statusCommand } from "./commands/status.js";
 import { envCommand } from "./commands/env.js";
 import { runCommand } from "./commands/run.js";
+import { migrateCommand } from "./commands/migrate.js";
 
 export function createCli(): Command {
     const program = new Command();
@@ -138,6 +139,15 @@ export function createCli(): Command {
         .allowUnknownOption()
         .action(async (tool, args, opts) => {
             await runCommand(tool, args, opts);
+        });
+
+    program
+        .command("migrate <target>")
+        .description("Migrate databases (targets: db = legacy location, 9router = 9Router import)")
+        .option("--source <path>", "Explicit path to the source SQLite database")
+        .option("-y, --yes", "Skip confirmation prompts")
+        .action(async (target, opts) => {
+            await migrateCommand(target, opts);
         });
 
     return program;

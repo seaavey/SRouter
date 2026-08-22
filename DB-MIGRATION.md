@@ -34,7 +34,30 @@ srouter.db           # Project root
 
 ## Manual Migration (Optional)
 
-If you want to move your existing database to the new location:
+If you want to move your existing database to the new location, use the built-in CLI command:
+
+```bash
+srouter migrate db
+```
+
+This detects databases at legacy locations (`apps/api/srouter.db` or `srouter.db`), backs them up to `~/.srouter/backups/`, and copies them to `~/.srouter/srouter.db`.
+
+### Migrating from 9Router
+
+To import providers and settings from an existing 9Router database:
+
+```bash
+# Auto-detect common 9Router locations
+srouter migrate 9router
+
+# Or specify the database path explicitly
+srouter migrate 9router --source /path/to/9router.db
+```
+
+The importer backs up both databases before making changes and lets you choose between replacing or merging with existing SRouter data.
+
+<details>
+<summary>Manual steps (alternative to the CLI)</summary>
 
 ### Step 1: Stop SRouter
 
@@ -69,18 +92,9 @@ Create `.env` file in project root:
 echo 'DATABASE_PATH=~/.srouter/srouter.db' >> .env
 ```
 
-### Step 5: Verify Migration
+</details>
 
-```bash
-# Check database is accessible
-node -e '\
-const { DatabaseSync } = require("node:sqlite");\
-const db = new DatabaseSync("~/.srouter/srouter.db");\
-console.log("Tables:", db.prepare("SELECT name FROM sqlite_master WHERE type=\"table\"").all());\
-'
-```
-
-### Step 6: Restart SRouter
+### Restart SRouter
 
 ```bash
 pnpm dev

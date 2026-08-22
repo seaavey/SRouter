@@ -6,5 +6,6 @@ export default defineConfig({
     dts: true,
     clean: true,
     sourcemap: true,
-    target: "node22"
+    target: "node22",
+    removeNodeProtocol: false
 });
