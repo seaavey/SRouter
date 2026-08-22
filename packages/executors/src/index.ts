@@ -16,4 +16,4 @@ export * from "./sse.js";
 export * from "./tabitoken.js";
 export * from "./tokenrouter.js";
 export * from "./search.js";
-export { FastBuffer, StringBuilder, streamFrames } from "./stream-utils.js";
+export { iterEventStreamFrames, streamFrames } from "./stream-utils.js";

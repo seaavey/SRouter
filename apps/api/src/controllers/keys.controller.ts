@@ -1,6 +1,6 @@
 import type { Context } from "hono";
 import { getAllAPIKeysDB, createAPIKeyDB, deleteAPIKeyDB } from "@srouter/db";
-import { ok } from "@/utils/response.js";
+import { err, ok } from "@/utils/response.js";
 
 export class KeysController {
     public static listKeys(c: Context): Response {
@@ -19,7 +19,7 @@ export class KeysController {
         }>();
 
         if (!body.name || typeof body.name !== "string") {
-            return c.json({ error: { message: "Key name is required" } }, 400);
+            return err(c, "Key name is required", 400, { type: "invalid_request_error" });
         }
 
         try {
@@ -31,19 +31,19 @@ export class KeysController {
             return ok(c, created, 201);
         } catch (error) {
             const message = error instanceof Error ? error.message : "Failed to create API key";
-            return c.json({ error: { message } }, 500);
+            return err(c, message, 500);
         }
     }
 
     public static deleteKey(c: Context): Response {
         const id = c.req.param("id");
         if (!id) {
-            return c.json({ error: { message: "Key ID is required" } }, 400);
+            return err(c, "Key ID is required", 400, { type: "invalid_request_error" });
         }
 
         const deleted = deleteAPIKeyDB(id);
         if (!deleted) {
-            return c.json({ error: { message: `Key '${id}' not found` } }, 404);
+            return err(c, `Key '${id}' not found`, 404, { type: "invalid_request_error" });
         }
 
         return ok(c, { message: "API Key revoked and deleted successfully" });

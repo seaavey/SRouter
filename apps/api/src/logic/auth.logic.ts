@@ -201,281 +201,313 @@ function processTokenImportFor(
 
 // --- Public API (thin adapters, names preserved so routes/index.ts stay unchanged) ---
 
-export class AuthLogic {
-    // OpenAI Codex OAuth
-    public static initiateOAuthPKCE(params: OAuthLoginParams): OAuthLoginResult {
-        return initiatePKCEFor(openaiCodexAuthHandler, params);
-    }
+// --- Device-flow providers (CodeBuddy, Qoder): bespoke flows kept explicit ---
 
-    public static async processOAuthCallback(code: string, state: string): Promise<ProviderConfig> {
-        return processOAuthCallbackFor(openaiCodexAuthHandler, code, state);
-    }
+export async function initiateCodeBuddyOAuth(): Promise<{ authorizeUrl: string; state: string }> {
+    cleanupExpiredSessions();
+    const codeBuddyOAuth = new CodeBuddyOAuth();
+    const { state, authUrl } = await codeBuddyOAuth.requestAuthState();
 
-    public static processTokenImport(params: TokenImportParams): ProviderConfig {
-        return processTokenImportFor(openaiCodexAuthHandler, params);
-    }
+    saveOAuthSessionDB({
+        state,
+        codeVerifier: "",
+        clientId: "",
+        redirectUri: "",
+        createdAt: Date.now()
+    });
 
-    // Antigravity OAuth
-    public static initiateAntigravityOAuthPKCE(params: OAuthLoginParams): OAuthLoginResult {
-        return initiatePKCEFor(antigravityAuthHandler, params);
-    }
-
-    public static async processAntigravityOAuthCallback(
-        code: string,
-        state: string
-    ): Promise<ProviderConfig> {
-        return processOAuthCallbackFor(antigravityAuthHandler, code, state);
-    }
-
-    public static processAntigravityTokenImport(params: TokenImportParams): ProviderConfig {
-        return processTokenImportFor(antigravityAuthHandler, params);
-    }
-
-    // CommandCode (API key)
-    public static processCommandCodeTokenImport(params: TokenImportParams): ProviderConfig {
-        return processTokenImportFor(commandCodeAuthHandler, params);
-    }
-
-    // Anthropic (API key)
-    public static processAnthropicTokenImport(params: TokenImportParams): ProviderConfig {
-        return processTokenImportFor(anthropicAuthHandler, params);
-    }
-
-    // Claude Code (OAuth)
-    public static initiateClaudeOAuthPKCE(params: OAuthLoginParams): OAuthLoginResult {
-        return initiatePKCEFor(claudeAuthHandler, params);
-    }
-
-    public static async processClaudeOAuthCallback(
-        code: string,
-        state: string
-    ): Promise<ProviderConfig> {
-        return processOAuthCallbackFor(claudeAuthHandler, code, state);
-    }
-
-    public static processClaudeTokenImport(params: TokenImportParams): ProviderConfig {
-        return processTokenImportFor(claudeAuthHandler, params);
-    }
-
-    // GoRouter (API key)
-    public static processGoRouterTokenImport(params: TokenImportParams): ProviderConfig {
-        return processTokenImportFor(goRouterAuthHandler, params);
-    }
-
-    // BluesMinds (API key)
-    public static processBluesMindsTokenImport(params: TokenImportParams): ProviderConfig {
-        return processTokenImportFor(bluesMindsAuthHandler, params);
-    }
-
-    // SeekAI (API key)
-    public static processSeekAITokenImport(params: TokenImportParams): ProviderConfig {
-        return processTokenImportFor(seekAIAuthHandler, params);
-    }
-
-    // TabiToken (API key)
-    public static processTabiTokenTokenImport(params: TokenImportParams): ProviderConfig {
-        return processTokenImportFor(tabiTokenAuthHandler, params);
-    }
-
-    // TokenRouter (API key)
-    public static processTokenRouterTokenImport(params: TokenImportParams): ProviderConfig {
-        return processTokenImportFor(tokenRouterAuthHandler, params);
-    }
-
-    // CodeBuddy (OAuth & token import)
-    public static async initiateCodeBuddyOAuth(): Promise<{ authorizeUrl: string; state: string }> {
-        cleanupExpiredSessions();
-        const codeBuddyOAuth = new CodeBuddyOAuth();
-        const { state, authUrl } = await codeBuddyOAuth.requestAuthState();
-
-        saveOAuthSessionDB({
-            state,
-            codeVerifier: "",
-            clientId: "",
-            redirectUri: "",
-            createdAt: Date.now()
-        });
-
-        return {
-            authorizeUrl: authUrl,
-            state
-        };
-    }
-
-    public static async pollCodeBuddyDeviceToken(state: string): Promise<{
-        status: "pending" | "ok";
-        provider?: ProviderConfig;
-        error?: string;
-    }> {
-        if (!state) {
-            return { status: "pending", error: "Missing state parameter" };
-        }
-
-        const session = getOAuthSessionDB(state);
-        if (!session) {
-            return { status: "pending", error: "Session expired or not found" };
-        }
-
-        const codeBuddyOAuth = new CodeBuddyOAuth();
-        let poll: {
-            status: "pending" | "ok";
-            accessToken?: string;
-            refreshToken?: string;
-            expiresIn?: number;
-            error?: string;
-        };
-
-        try {
-            poll = await codeBuddyOAuth.pollToken(state);
-        } catch (err) {
-            const msg = err instanceof Error ? err.message : String(err);
-            return { status: "pending", error: msg };
-        }
-
-        if (poll.status !== "ok" || !poll.accessToken) {
-            return { status: "pending", error: poll.error };
-        }
-
-        deleteOAuthSessionDB(state);
-
-        const timestamp = Date.now();
-        const accountId = `codebuddy_${timestamp}`;
-        const accountName = `CodeBuddy (Account #${timestamp.toString().slice(-4)})`;
-
-        const providerConfig = upsertProviderDB({
-            id: accountId,
-            providerId: "codebuddy",
-            name: accountName,
-            category: "oauth",
-            protocol: "openai",
-            baseUrl: CODEBUDDY_BASE_URL,
-            accessToken: poll.accessToken,
-            refreshToken: poll.refreshToken,
-            tokenExpiresAt: poll.expiresIn ? timestamp + poll.expiresIn * 1000 : undefined,
-            lastRefreshedAt: timestamp,
-            enabled: true,
-            createdAt: timestamp
-        });
-
-        const providerInstance = new CodeBuddyExecutor({
-            id: accountId,
-            name: accountName,
-            baseUrl: CODEBUDDY_BASE_URL,
-            accessToken: poll.accessToken
-        });
-        registry.registerProvider(providerInstance);
-
-        return {
-            status: "ok",
-            provider: providerConfig
-        };
-    }
-
-    public static processCodeBuddyTokenImport(params: TokenImportParams): ProviderConfig {
-        return processTokenImportFor(codeBuddyAuthHandler, params);
-    }
-
-    // Qoder OAuth & Token Import
-    public static initiateQoderOAuthPKCE(params: OAuthLoginParams): OAuthLoginResult {
-        return initiatePKCEFor(qoderAuthHandler, params);
-    }
-
-    public static async processQoderOAuthCallback(
-        code: string,
-        state: string
-    ): Promise<ProviderConfig> {
-        return processOAuthCallbackFor(qoderAuthHandler, code, state);
-    }
-
-    public static processQoderTokenImport(params: TokenImportParams): ProviderConfig {
-        return processTokenImportFor(qoderAuthHandler, params);
-    }
-
-    public static async pollQoderDeviceToken(state: string): Promise<{
-        status: "pending" | "ok";
-        provider?: ProviderConfig;
-        error?: string;
-    }> {
-        if (!state) {
-            return { status: "pending", error: "Missing state parameter" };
-        }
-
-        const session = getOAuthSessionDB(state);
-        if (!session) {
-            return { status: "pending", error: "Session expired or not found" };
-        }
-
-        const qoderOAuth = new QoderOAuth();
-        let poll: {
-            status: "pending" | "ok";
-            accessToken?: string;
-            refreshToken?: string;
-            userId?: string;
-            expiresIn?: number;
-        };
-        try {
-            poll = await qoderOAuth.pollDeviceToken({
-                nonce: state,
-                codeVerifier: session.codeVerifier
-            });
-        } catch (err) {
-            const msg = err instanceof Error ? err.message : String(err);
-            return { status: "pending", error: msg };
-        }
-
-        if (poll.status !== "ok" || !poll.accessToken) {
-            return { status: "pending" };
-        }
-
-        deleteOAuthSessionDB(state);
-
-        const userInfo = await qoderOAuth.fetchUserInfo(poll.accessToken);
-        const timestamp = Date.now();
-        const accountId = `qoder_${timestamp}`;
-        const accountName = userInfo.name
-            ? `Qoder (${userInfo.name})`
-            : `Qoder (Account #${timestamp.toString().slice(-4)})`;
-
-        const providerConfig = upsertProviderDB({
-            id: accountId,
-            providerId: "qoder",
-            name: accountName,
-            category: "oauth",
-            protocol: "openai",
-            accessToken: poll.accessToken,
-            refreshToken: poll.refreshToken,
-            accountId: poll.userId || userInfo.id,
-            tokenExpiresAt: poll.expiresIn ? timestamp + poll.expiresIn * 1000 : undefined,
-            lastRefreshedAt: timestamp,
-            providerSpecificData: {
-                authMethod: "device",
-                userId: poll.userId || userInfo.id || "",
-                email: userInfo.email || "",
-                name: userInfo.name || "",
-                organizationId: userInfo.organizationId || ""
-            },
-            enabled: true,
-            createdAt: timestamp
-        });
-
-        const providerInstance = new QoderExecutor({
-            id: accountId,
-            name: accountName,
-            accessToken: poll.accessToken,
-            refreshToken: poll.refreshToken,
-            providerSpecificData: {
-                authMethod: "device",
-                userId: poll.userId || userInfo.id || "",
-                email: userInfo.email || "",
-                name: userInfo.name || "",
-                organizationId: userInfo.organizationId || ""
-            }
-        });
-        registry.registerProvider(providerInstance);
-
-        return {
-            status: "ok",
-            provider: providerConfig
-        };
-    }
+    return {
+        authorizeUrl: authUrl,
+        state
+    };
 }
+
+export async function pollCodeBuddyDeviceToken(state: string): Promise<{
+    status: "pending" | "ok";
+    provider?: ProviderConfig;
+    error?: string;
+}> {
+    if (!state) {
+        return { status: "pending", error: "Missing state parameter" };
+    }
+
+    const session = getOAuthSessionDB(state);
+    if (!session) {
+        return { status: "pending", error: "Session expired or not found" };
+    }
+
+    const codeBuddyOAuth = new CodeBuddyOAuth();
+    let poll: {
+        status: "pending" | "ok";
+        accessToken?: string;
+        refreshToken?: string;
+        expiresIn?: number;
+        error?: string;
+    };
+
+    try {
+        poll = await codeBuddyOAuth.pollToken(state);
+    } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return { status: "pending", error: msg };
+    }
+
+    if (poll.status !== "ok" || !poll.accessToken) {
+        return { status: "pending", error: poll.error };
+    }
+
+    deleteOAuthSessionDB(state);
+
+    const timestamp = Date.now();
+    const accountId = `codebuddy_${timestamp}`;
+    const accountName = `CodeBuddy (Account #${timestamp.toString().slice(-4)})`;
+
+    const providerConfig = upsertProviderDB({
+        id: accountId,
+        providerId: "codebuddy",
+        name: accountName,
+        category: "oauth",
+        protocol: "openai",
+        baseUrl: CODEBUDDY_BASE_URL,
+        accessToken: poll.accessToken,
+        refreshToken: poll.refreshToken,
+        tokenExpiresAt: poll.expiresIn ? timestamp + poll.expiresIn * 1000 : undefined,
+        lastRefreshedAt: timestamp,
+        enabled: true,
+        createdAt: timestamp
+    });
+
+    const providerInstance = new CodeBuddyExecutor({
+        id: accountId,
+        name: accountName,
+        baseUrl: CODEBUDDY_BASE_URL,
+        accessToken: poll.accessToken
+    });
+    registry.registerProvider(providerInstance);
+
+    return {
+        status: "ok",
+        provider: providerConfig
+    };
+}
+
+export async function pollQoderDeviceToken(state: string): Promise<{
+    status: "pending" | "ok";
+    provider?: ProviderConfig;
+    error?: string;
+}> {
+    if (!state) {
+        return { status: "pending", error: "Missing state parameter" };
+    }
+
+    const session = getOAuthSessionDB(state);
+    if (!session) {
+        return { status: "pending", error: "Session expired or not found" };
+    }
+
+    const qoderOAuth = new QoderOAuth();
+    let poll: {
+        status: "pending" | "ok";
+        accessToken?: string;
+        refreshToken?: string;
+        userId?: string;
+        expiresIn?: number;
+    };
+    try {
+        poll = await qoderOAuth.pollDeviceToken({
+            nonce: state,
+            codeVerifier: session.codeVerifier
+        });
+    } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return { status: "pending", error: msg };
+    }
+
+    if (poll.status !== "ok" || !poll.accessToken) {
+        return { status: "pending" };
+    }
+
+    deleteOAuthSessionDB(state);
+
+    const userInfo = await qoderOAuth.fetchUserInfo(poll.accessToken);
+    const timestamp = Date.now();
+    const accountId = `qoder_${timestamp}`;
+    const accountName = userInfo.name
+        ? `Qoder (${userInfo.name})`
+        : `Qoder (Account #${timestamp.toString().slice(-4)})`;
+
+    const providerConfig = upsertProviderDB({
+        id: accountId,
+        providerId: "qoder",
+        name: accountName,
+        category: "oauth",
+        protocol: "openai",
+        accessToken: poll.accessToken,
+        refreshToken: poll.refreshToken,
+        accountId: poll.userId || userInfo.id,
+        tokenExpiresAt: poll.expiresIn ? timestamp + poll.expiresIn * 1000 : undefined,
+        lastRefreshedAt: timestamp,
+        providerSpecificData: {
+            authMethod: "device",
+            userId: poll.userId || userInfo.id || "",
+            email: userInfo.email || "",
+            name: userInfo.name || "",
+            organizationId: userInfo.organizationId || ""
+        },
+        enabled: true,
+        createdAt: timestamp
+    });
+
+    const providerInstance = new QoderExecutor({
+        id: accountId,
+        name: accountName,
+        accessToken: poll.accessToken,
+        refreshToken: poll.refreshToken,
+        providerSpecificData: {
+            authMethod: "device",
+            userId: poll.userId || userInfo.id || "",
+            email: userInfo.email || "",
+            name: userInfo.name || "",
+            organizationId: userInfo.organizationId || ""
+        }
+    });
+    registry.registerProvider(providerInstance);
+
+    return {
+        status: "ok",
+        provider: providerConfig
+    };
+}
+
+// --- Provider handler registry: single source of truth for auth routes ---
+
+interface AuthProviderEntry {
+    initiate?: (params: OAuthLoginParams) => OAuthLoginResult;
+    callback?: (code: string, state: string) => Promise<ProviderConfig>;
+    importToken: (params: TokenImportParams) => ProviderConfig;
+}
+
+const authProviderEntries: Record<string, AuthProviderEntry> = {};
+const registerEntry = (
+    key: string,
+    entry: Omit<AuthProviderEntry, "initiate" | "callback"> &
+        Partial<Pick<AuthProviderEntry, "initiate" | "callback">>
+): void => {
+    authProviderEntries[key] = entry as AuthProviderEntry;
+};
+
+registerEntry("openai", {
+    initiate: (params) => initiatePKCEFor(openaiCodexAuthHandler, params),
+    callback: (code, state) => processOAuthCallbackFor(openaiCodexAuthHandler, code, state),
+    importToken: (params) => processTokenImportFor(openaiCodexAuthHandler, params)
+});
+registerEntry("antigravity", {
+    initiate: (params) => initiatePKCEFor(antigravityAuthHandler, params),
+    callback: (code, state) => processOAuthCallbackFor(antigravityAuthHandler, code, state),
+    importToken: (params) => processTokenImportFor(antigravityAuthHandler, params)
+});
+registerEntry("claude", {
+    initiate: (params) => initiatePKCEFor(claudeAuthHandler, params),
+    callback: (code, state) => processOAuthCallbackFor(claudeAuthHandler, code, state),
+    importToken: (params) => processTokenImportFor(claudeAuthHandler, params)
+});
+registerEntry("qoder", {
+    initiate: (params) => initiatePKCEFor(qoderAuthHandler, params),
+    callback: (code, state) => processOAuthCallbackFor(qoderAuthHandler, code, state),
+    importToken: (params) => processTokenImportFor(qoderAuthHandler, params)
+});
+registerEntry("codebuddy", {
+    importToken: (params) => processTokenImportFor(codeBuddyAuthHandler, params)
+});
+for (const [key, handler] of [
+    ["commandcode", commandCodeAuthHandler],
+    ["anthropic", anthropicAuthHandler],
+    ["gorouter", goRouterAuthHandler],
+    ["bluesminds", bluesMindsAuthHandler],
+    ["seekai", seekAIAuthHandler],
+    ["tabitoken", tabiTokenAuthHandler],
+    ["tokenrouter", tokenRouterAuthHandler]
+] as const) {
+    registerEntry(key, {
+        importToken: (params) => processTokenImportFor(handler, params)
+    });
+}
+
+/**
+ * Public API for controllers. Replaces ~20 one-line static delegators with
+ * three registry lookups; route behavior is unchanged.
+ */
+export const AuthLogic = {
+    initiateOAuthPKCE: (params: OAuthLoginParams): OAuthLoginResult =>
+        authProviderEntries.openai.initiate!(params),
+    processOAuthCallback: async (code: string, state: string): Promise<ProviderConfig> =>
+        authProviderEntries.openai.callback!(code, state),
+    processTokenImport: (params: TokenImportParams): ProviderConfig =>
+        authProviderEntries.openai.importToken(params),
+
+    initiateProviderOAuth(providerKey: string, params: OAuthLoginParams): OAuthLoginResult {
+        const entry = authProviderEntries[providerKey];
+        if (!entry?.initiate) throw new Error(`Unknown OAuth provider: ${providerKey}`);
+        return entry.initiate(params);
+    },
+
+    processProviderOAuthCallback(
+        providerKey: string,
+        code: string,
+        state: string
+    ): Promise<ProviderConfig> {
+        const entry = authProviderEntries[providerKey];
+        if (!entry?.callback) throw new Error(`Unknown OAuth provider: ${providerKey}`);
+        return entry.callback(code, state);
+    },
+
+    processProviderTokenImport(providerKey: string, params: TokenImportParams): ProviderConfig {
+        const entry = authProviderEntries[providerKey];
+        if (!entry) throw new Error(`Unknown auth provider: ${providerKey}`);
+        return entry.importToken(params);
+    },
+
+    initiateCodeBuddyOAuth,
+    pollCodeBuddyDeviceToken,
+    pollQoderDeviceToken
+};
+
+// Per-provider named adapters kept for backwards compatibility (tests + routes),
+// merged onto the AuthLogic facade so existing call sites keep working.
+export const AuthLogicAdapters = {
+    initiateAntigravityOAuthPKCE: (params: OAuthLoginParams) =>
+        AuthLogic.initiateProviderOAuth("antigravity", params),
+    processAntigravityOAuthCallback: (code: string, state: string) =>
+        AuthLogic.processProviderOAuthCallback("antigravity", code, state),
+    processAntigravityTokenImport: (params: TokenImportParams) =>
+        AuthLogic.processProviderTokenImport("antigravity", params),
+    processCommandCodeTokenImport: (params: TokenImportParams) =>
+        AuthLogic.processProviderTokenImport("commandcode", params),
+    processAnthropicTokenImport: (params: TokenImportParams) =>
+        AuthLogic.processProviderTokenImport("anthropic", params),
+    initiateClaudeOAuthPKCE: (params: OAuthLoginParams) =>
+        AuthLogic.initiateProviderOAuth("claude", params),
+    processClaudeOAuthCallback: (code: string, state: string) =>
+        AuthLogic.processProviderOAuthCallback("claude", code, state),
+    processClaudeTokenImport: (params: TokenImportParams) =>
+        AuthLogic.processProviderTokenImport("claude", params),
+    processGoRouterTokenImport: (params: TokenImportParams) =>
+        AuthLogic.processProviderTokenImport("gorouter", params),
+    processBluesMindsTokenImport: (params: TokenImportParams) =>
+        AuthLogic.processProviderTokenImport("bluesminds", params),
+    processSeekAITokenImport: (params: TokenImportParams) =>
+        AuthLogic.processProviderTokenImport("seekai", params),
+    processTabiTokenTokenImport: (params: TokenImportParams) =>
+        AuthLogic.processProviderTokenImport("tabitoken", params),
+    processTokenRouterTokenImport: (params: TokenImportParams) =>
+        AuthLogic.processProviderTokenImport("tokenrouter", params),
+    processCodeBuddyTokenImport: (params: TokenImportParams) =>
+        AuthLogic.processProviderTokenImport("codebuddy", params),
+    initiateQoderOAuthPKCE: (params: OAuthLoginParams) =>
+        AuthLogic.initiateProviderOAuth("qoder", params),
+    processQoderOAuthCallback: (code: string, state: string) =>
+        AuthLogic.processProviderOAuthCallback("qoder", code, state),
+    processQoderTokenImport: (params: TokenImportParams) =>
+        AuthLogic.processProviderTokenImport("qoder", params)
+};
+Object.assign(AuthLogic, AuthLogicAdapters);

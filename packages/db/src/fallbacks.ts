@@ -4,6 +4,7 @@ import type {
     UpdateFallbackRuleInput
 } from "@srouter/types";
 import { db } from "./db.js";
+import { generateId, num } from "./row-utils.js";
 
 interface FallbackRuleRow {
     id: string;
@@ -33,11 +34,11 @@ function rowToFallbackRule(row: FallbackRuleRow): FallbackRule {
         id: row.id,
         sourceModel: row.source_model,
         targetModel: row.target_model,
-        priority: Number(row.priority ?? 1),
+        priority: num(row.priority, 1),
         enabled: Boolean(row.enabled),
         triggerOnStatus,
-        maxRetries: row.max_retries !== null ? Number(row.max_retries) : undefined,
-        createdAt: Number(row.created_at)
+        maxRetries: row.max_retries !== null ? num(row.max_retries) : undefined,
+        createdAt: num(row.created_at)
     };
 }
 
@@ -55,7 +56,7 @@ export function getFallbackRuleByIdDB(id: string): FallbackRule | null {
 }
 
 export function createFallbackRuleDB(input: CreateFallbackRuleInput): FallbackRule {
-    const id = input.id || `fb_${Math.random().toString(36).substring(2, 10)}`;
+    const id = input.id || generateId("fb");
     const createdAt = input.createdAt || Date.now();
     const triggerStatusStr = input.triggerOnStatus ? JSON.stringify(input.triggerOnStatus) : null;
 

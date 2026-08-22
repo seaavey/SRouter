@@ -15,7 +15,7 @@ import {
     createCommandCodeStreamState,
     type CommandCodeEvent
 } from "@srouter/translator";
-import { parseDataLine } from "./base.js";
+import { parseDataLine, streamLines } from "./base.js";
 
 export interface CommandCodeExecutorOptions {
     id?: string;
@@ -125,7 +125,7 @@ export class CommandCodeExecutor implements AIProvider {
 
         const state = createCommandCodeStreamState();
 
-        for await (const line of streamCommandCodeLines(res.body)) {
+        for await (const line of streamLines(res.body)) {
             const jsonStr = parseDataLine(line);
             if (jsonStr === null) continue;
             let event: CommandCodeEvent;
@@ -137,30 +137,6 @@ export class CommandCodeExecutor implements AIProvider {
             for (const chunk of commandCodeEventToOpenAIChunk(event, state)) {
                 yield chunk;
             }
-        }
-    }
-}
-
-// CommandCode upstream emits NDJSON (one JSON object per line, no "data:" prefix),
-// but tolerate "data:" framing if the wrapper inserts it.
-async function* streamCommandCodeLines(
-    body: ReadableStream<Uint8Array>
-): AsyncGenerator<string, void, void> {
-    const reader = body.getReader();
-    const decoder = new TextDecoder("utf-8");
-    let buffer = "";
-
-    while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
-
-        for (const line of lines) {
-            const trimmed = line.trim();
-            if (trimmed) yield trimmed;
         }
     }
 }

@@ -1,20 +1,13 @@
 import type { DBAPIKey } from "@srouter/types";
 import { db } from "./db.js";
+import { randomUUID } from "node:crypto";
+import { generateId, num, str } from "./row-utils.js";
 
 export function getAllAPIKeysDB(): DBAPIKey[] {
     const query = db.prepare("SELECT * FROM api_keys ORDER BY created_at DESC");
     const rows = query.all();
 
-    return rows.map((row) => ({
-        id: String(row.id ?? ""),
-        key: String(row.key ?? ""),
-        name: String(row.name ?? ""),
-        enabled: Boolean(row.enabled),
-        rateLimit: Number(row.rate_limit ?? 0),
-        quotaLimit: Number(row.quota_limit ?? 0),
-        usageTokens: Number(row.usage_tokens ?? 0),
-        createdAt: Number(row.created_at ?? 0)
-    }));
+    return rows.map(mapAPIKeyRow);
 }
 
 export function getAPIKeyByKeyDB(key: string): DBAPIKey | null {
@@ -23,15 +16,19 @@ export function getAPIKeyByKeyDB(key: string): DBAPIKey | null {
 
     if (!row) return null;
 
+    return mapAPIKeyRow(row);
+}
+
+function mapAPIKeyRow(row: Record<string, unknown>): DBAPIKey {
     return {
-        id: String(row.id ?? ""),
-        key: String(row.key ?? ""),
-        name: String(row.name ?? ""),
+        id: str(row.id),
+        key: str(row.key),
+        name: str(row.name),
         enabled: Boolean(row.enabled),
-        rateLimit: Number(row.rate_limit ?? 0),
-        quotaLimit: Number(row.quota_limit ?? 0),
-        usageTokens: Number(row.usage_tokens ?? 0),
-        createdAt: Number(row.created_at ?? 0)
+        rateLimit: num(row.rate_limit),
+        quotaLimit: num(row.quota_limit),
+        usageTokens: num(row.usage_tokens),
+        createdAt: num(row.created_at)
     };
 }
 
@@ -40,10 +37,8 @@ export function createAPIKeyDB(data: {
     rateLimit?: number;
     quotaLimit?: number;
 }): DBAPIKey {
-    const id = `key_${Math.random().toString(36).substring(2, 11)}`;
-    const randomHex = Array.from({ length: 16 }, () =>
-        Math.floor(Math.random() * 16).toString(16)
-    ).join("");
+    const id = generateId("key");
+    const randomHex = randomUUID().replace(/-/g, "").slice(0, 16);
     const key = `sr-live-${randomHex}`;
     const createdAt = Date.now();
 

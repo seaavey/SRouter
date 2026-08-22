@@ -7,6 +7,7 @@ import type {
     ModelObject,
     ToolDefinition
 } from "@srouter/types";
+import { iterEventStreamFrames } from "./stream-utils.js";
 
 const RUNTIME_URL = "https://runtime.us-east-1.kiro.dev/generateAssistantResponse";
 const CODEWHISPERER_URL = "https://codewhisperer.us-east-1.amazonaws.com/generateAssistantResponse";
@@ -198,45 +199,6 @@ function parseFrames(bytes: Uint8Array): KiroEvent[] {
         offset += totalLength;
     }
     return events;
-}
-
-async function* streamFrames(
-    body: ReadableStream<Uint8Array>
-): AsyncGenerator<KiroEvent, void, void> {
-    const reader = body.getReader();
-    let buffer = new Uint8Array(0);
-    try {
-        while (true) {
-            const { done, value } = await reader.read();
-            if (value?.length) {
-                const combined = new Uint8Array(buffer.length + value.length);
-                combined.set(buffer);
-                combined.set(value, buffer.length);
-                buffer = combined;
-            }
-            let offset = 0;
-            while (buffer.length - offset >= 12) {
-                const view = new DataView(
-                    buffer.buffer,
-                    buffer.byteOffset + offset,
-                    buffer.length - offset
-                );
-                const totalLength = view.getUint32(0, false);
-                if (totalLength < 16 || totalLength > MAX_FRAME_BYTES)
-                    throw new Error("AWS EventStream frame bounds are invalid");
-                if (buffer.length - offset < totalLength) break;
-                yield parseEventFrame(buffer.subarray(offset, offset + totalLength));
-                offset += totalLength;
-            }
-            if (offset > 0) buffer = buffer.slice(offset);
-            if (done) break;
-            if (buffer.length > MAX_FRAME_BYTES)
-                throw new Error("AWS EventStream frame exceeds maximum size");
-        }
-        if (buffer.length !== 0) throw new Error("Kiro EventStream ended with a truncated frame");
-    } finally {
-        reader.releaseLock();
-    }
 }
 
 function chunk(
@@ -469,7 +431,8 @@ export class KiroExecutor implements AIProvider {
         let hadTool = false;
         const tools = new Map<string, { name: string; input: string }>();
         let stop: "end_turn" | "tool_use" | "max_tokens" | null = null;
-        for await (const event of streamFrames(response.body)) {
+        for await (const frame of iterEventStreamFrames(response.body, MAX_FRAME_BYTES)) {
+            const event = parseEventFrame(frame);
             const type = String(event.headers[":event-type"] ?? "");
             const payload = asObject(event.payload);
             if (type === "assistantResponseEvent" || type === "codeEvent") {

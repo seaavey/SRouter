@@ -1,31 +1,12 @@
 import type { ProviderCategory, ProviderConfig, ProviderProtocol } from "@srouter/types";
 import { db } from "./db.js";
+import { num, optStr, str } from "./row-utils.js";
 
 export function getAllProvidersDB(): ProviderConfig[] {
     const query = db.prepare("SELECT * FROM providers ORDER BY created_at DESC");
     const rows = query.all();
 
-    return rows.map((row) => ({
-        id: String(row.id ?? ""),
-        providerId: String(row.provider_id ?? ""),
-        name: String(row.name ?? ""),
-        category: row.category ? (String(row.category) as ProviderCategory) : undefined,
-        protocol: row.protocol ? (String(row.protocol) as ProviderProtocol) : undefined,
-        baseUrl: row.base_url ? String(row.base_url) : undefined,
-        apiKey: row.api_key ? String(row.api_key) : undefined,
-        accessToken: row.access_token ? String(row.access_token) : undefined,
-        refreshToken: row.refresh_token ? String(row.refresh_token) : undefined,
-        accountId: row.account_id ? String(row.account_id) : undefined,
-        organizationId: row.organization_id ? String(row.organization_id) : undefined,
-        tokenExpiresAt: row.token_expires_at ? Number(row.token_expires_at) : undefined,
-        lastRefreshedAt: row.last_refreshed_at ? Number(row.last_refreshed_at) : undefined,
-        customHeaders: row.custom_headers ? JSON.parse(String(row.custom_headers)) : undefined,
-        providerSpecificData: row.provider_specific_data
-            ? JSON.parse(String(row.provider_specific_data))
-            : undefined,
-        enabled: Boolean(row.enabled),
-        createdAt: Number(row.created_at ?? 0)
-    }));
+    return rows.map(mapProviderRow);
 }
 
 export function getProviderByIdDB(id: string): ProviderConfig | null {
@@ -34,27 +15,7 @@ export function getProviderByIdDB(id: string): ProviderConfig | null {
 
     if (!row) return null;
 
-    return {
-        id: String(row.id ?? ""),
-        providerId: String(row.provider_id ?? ""),
-        name: String(row.name ?? ""),
-        category: row.category ? (String(row.category) as ProviderCategory) : undefined,
-        protocol: row.protocol ? (String(row.protocol) as ProviderProtocol) : undefined,
-        baseUrl: row.base_url ? String(row.base_url) : undefined,
-        apiKey: row.api_key ? String(row.api_key) : undefined,
-        accessToken: row.access_token ? String(row.access_token) : undefined,
-        refreshToken: row.refresh_token ? String(row.refresh_token) : undefined,
-        accountId: row.account_id ? String(row.account_id) : undefined,
-        organizationId: row.organization_id ? String(row.organization_id) : undefined,
-        tokenExpiresAt: row.token_expires_at ? Number(row.token_expires_at) : undefined,
-        lastRefreshedAt: row.last_refreshed_at ? Number(row.last_refreshed_at) : undefined,
-        customHeaders: row.custom_headers ? JSON.parse(String(row.custom_headers)) : undefined,
-        providerSpecificData: row.provider_specific_data
-            ? JSON.parse(String(row.provider_specific_data))
-            : undefined,
-        enabled: Boolean(row.enabled),
-        createdAt: Number(row.created_at ?? 0)
-    };
+    return mapProviderRow(row);
 }
 
 export function upsertProviderDB(
@@ -157,25 +118,29 @@ export function getConnectionsByProviderIdDB(providerId: string): ProviderConfig
     );
     const rows = query.all(pId, pId);
 
-    return rows.map((row) => ({
-        id: String(row.id ?? ""),
-        providerId: String(row.provider_id ?? ""),
-        name: String(row.name ?? ""),
-        category: row.category ? (String(row.category) as ProviderCategory) : undefined,
-        protocol: row.protocol ? (String(row.protocol) as ProviderProtocol) : undefined,
-        baseUrl: row.base_url ? String(row.base_url) : undefined,
-        apiKey: row.api_key ? String(row.api_key) : undefined,
-        accessToken: row.access_token ? String(row.access_token) : undefined,
-        refreshToken: row.refresh_token ? String(row.refresh_token) : undefined,
-        accountId: row.account_id ? String(row.account_id) : undefined,
-        organizationId: row.organization_id ? String(row.organization_id) : undefined,
-        tokenExpiresAt: row.token_expires_at ? Number(row.token_expires_at) : undefined,
-        lastRefreshedAt: row.last_refreshed_at ? Number(row.last_refreshed_at) : undefined,
+    return rows.map(mapProviderRow);
+}
+
+function mapProviderRow(row: Record<string, unknown>): ProviderConfig {
+    return {
+        id: str(row.id),
+        providerId: str(row.provider_id),
+        name: str(row.name),
+        category: optStr(row.category) as ProviderCategory | undefined,
+        protocol: optStr(row.protocol) as ProviderProtocol | undefined,
+        baseUrl: optStr(row.base_url),
+        apiKey: optStr(row.api_key),
+        accessToken: optStr(row.access_token),
+        refreshToken: optStr(row.refresh_token),
+        accountId: optStr(row.account_id),
+        organizationId: optStr(row.organization_id),
+        tokenExpiresAt: row.token_expires_at ? num(row.token_expires_at) : undefined,
+        lastRefreshedAt: row.last_refreshed_at ? num(row.last_refreshed_at) : undefined,
         customHeaders: row.custom_headers ? JSON.parse(String(row.custom_headers)) : undefined,
         providerSpecificData: row.provider_specific_data
             ? JSON.parse(String(row.provider_specific_data))
             : undefined,
         enabled: Boolean(row.enabled),
-        createdAt: Number(row.created_at ?? 0)
-    }));
+        createdAt: num(row.created_at)
+    };
 }

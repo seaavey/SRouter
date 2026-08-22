@@ -5,9 +5,10 @@ import type {
     UsageSummary
 } from "@srouter/types";
 import { db } from "./db.js";
+import { generateId, num, optStr, str } from "./row-utils.js";
 
 export function logRequestDB(entry: Omit<RequestLogEntry, "id" | "createdAt">): RequestLogEntry {
-    const id = `log_${Math.random().toString(36).substring(2, 11)}`;
+    const id = generateId("log");
     const createdAt = Date.now();
 
     const query = db.prepare(`
@@ -47,26 +48,7 @@ export function getRecentLogsDB(limit = 50): RequestLogEntry[] {
     const query = db.prepare("SELECT * FROM request_logs ORDER BY created_at DESC LIMIT ?");
     const rows = query.all(limit);
 
-    return rows.map((row) => ({
-        id: String(row.id ?? ""),
-        apiKeyId: row.api_key_id ? String(row.api_key_id) : undefined,
-        providerId: String(row.provider_id ?? ""),
-        model: String(row.model ?? ""),
-        promptTokens: Number(row.prompt_tokens ?? 0),
-        completionTokens: Number(row.completion_tokens ?? 0),
-        totalTokens: Number(row.total_tokens ?? 0),
-        statusCode: Number(row.status_code ?? 0),
-        latencyMs: Number(row.latency_ms ?? 0),
-        cachedTokens: Number(row.cached_tokens ?? 0),
-        cacheCreationTokens: Number(row.cache_creation_tokens ?? 0),
-        reasoningTokens: Number(row.reasoning_tokens ?? 0),
-        estimatedCost: Number(row.estimated_cost ?? 0),
-        fallbackOccurred: Boolean(row.fallback_occurred),
-        fallbackPath: row.fallback_path ? String(row.fallback_path) : undefined,
-        fallbackReason: row.fallback_reason ? String(row.fallback_reason) : undefined,
-        resolvedModel: row.resolved_model ? String(row.resolved_model) : undefined,
-        createdAt: Number(row.created_at ?? 0)
-    }));
+    return rows.map(mapLogRow);
 }
 
 export function getUsageSummaryDB(): UsageSummary {
@@ -86,16 +68,16 @@ export function getUsageSummaryDB(): UsageSummary {
     const result = query.get();
 
     return {
-        totalRequests: Number(result?.totalRequests ?? 0),
-        totalTokens: Number(result?.totalTokens ?? 0),
-        totalPromptTokens: Number(result?.totalPromptTokens ?? 0),
-        totalCompletionTokens: Number(result?.totalCompletionTokens ?? 0),
-        totalCachedTokens: Number(result?.totalCachedTokens ?? 0),
-        totalCacheCreationTokens: Number(result?.totalCacheCreationTokens ?? 0),
-        totalReasoningTokens: Number(result?.totalReasoningTokens ?? 0),
-        totalEstimatedCost: Number(result?.totalEstimatedCost ?? 0),
-        totalInputTokens: Number(result?.totalPromptTokens ?? 0),
-        totalOutputTokens: Number(result?.totalCompletionTokens ?? 0)
+        totalRequests: num(result?.totalRequests),
+        totalTokens: num(result?.totalTokens),
+        totalPromptTokens: num(result?.totalPromptTokens),
+        totalCompletionTokens: num(result?.totalCompletionTokens),
+        totalCachedTokens: num(result?.totalCachedTokens),
+        totalCacheCreationTokens: num(result?.totalCacheCreationTokens),
+        totalReasoningTokens: num(result?.totalReasoningTokens),
+        totalEstimatedCost: num(result?.totalEstimatedCost),
+        totalInputTokens: num(result?.totalPromptTokens),
+        totalOutputTokens: num(result?.totalCompletionTokens)
     };
 }
 
@@ -117,16 +99,16 @@ export function getProviderUsageSummaryDB(providerId: string): UsageSummary {
     const result = query.get(providerId);
 
     return {
-        totalRequests: Number(result?.totalRequests ?? 0),
-        totalTokens: Number(result?.totalTokens ?? 0),
-        totalPromptTokens: Number(result?.totalPromptTokens ?? 0),
-        totalCompletionTokens: Number(result?.totalCompletionTokens ?? 0),
-        totalCachedTokens: Number(result?.totalCachedTokens ?? 0),
-        totalCacheCreationTokens: Number(result?.totalCacheCreationTokens ?? 0),
-        totalReasoningTokens: Number(result?.totalReasoningTokens ?? 0),
-        totalEstimatedCost: Number(result?.totalEstimatedCost ?? 0),
-        totalInputTokens: Number(result?.totalPromptTokens ?? 0),
-        totalOutputTokens: Number(result?.totalCompletionTokens ?? 0)
+        totalRequests: num(result?.totalRequests),
+        totalTokens: num(result?.totalTokens),
+        totalPromptTokens: num(result?.totalPromptTokens),
+        totalCompletionTokens: num(result?.totalCompletionTokens),
+        totalCachedTokens: num(result?.totalCachedTokens),
+        totalCacheCreationTokens: num(result?.totalCacheCreationTokens),
+        totalReasoningTokens: num(result?.totalReasoningTokens),
+        totalEstimatedCost: num(result?.totalEstimatedCost),
+        totalInputTokens: num(result?.totalPromptTokens),
+        totalOutputTokens: num(result?.totalCompletionTokens)
     };
 }
 
@@ -195,4 +177,27 @@ export function deleteLogsByModelDB(model: string): void {
 export function deleteLogsByProviderDB(providerId: string): void {
     const query = db.prepare("DELETE FROM request_logs WHERE provider_id = ?");
     query.run(providerId);
+}
+
+function mapLogRow(row: Record<string, unknown>): RequestLogEntry {
+    return {
+        id: str(row.id),
+        apiKeyId: optStr(row.api_key_id),
+        providerId: str(row.provider_id),
+        model: str(row.model),
+        promptTokens: num(row.prompt_tokens),
+        completionTokens: num(row.completion_tokens),
+        totalTokens: num(row.total_tokens),
+        statusCode: num(row.status_code),
+        latencyMs: num(row.latency_ms),
+        cachedTokens: num(row.cached_tokens),
+        cacheCreationTokens: num(row.cache_creation_tokens),
+        reasoningTokens: num(row.reasoning_tokens),
+        estimatedCost: num(row.estimated_cost),
+        fallbackOccurred: Boolean(row.fallback_occurred),
+        fallbackPath: optStr(row.fallback_path),
+        fallbackReason: optStr(row.fallback_reason),
+        resolvedModel: optStr(row.resolved_model),
+        createdAt: num(row.created_at)
+    };
 }

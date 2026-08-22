@@ -1,4 +1,5 @@
 import { db } from "./db.js";
+import { num, str } from "./row-utils.js";
 
 export interface OAuthSession {
     state: string;
@@ -34,11 +35,11 @@ export function getOAuthSessionDB(state: string): OAuthSession | null {
     if (!row) return null;
 
     return {
-        state: String(row.state),
-        codeVerifier: String(row.code_verifier),
-        clientId: String(row.client_id),
-        redirectUri: String(row.redirect_uri),
-        createdAt: Number(row.created_at ?? 0)
+        state: str(row.state),
+        codeVerifier: str(row.code_verifier),
+        clientId: str(row.client_id),
+        redirectUri: str(row.redirect_uri),
+        createdAt: num(row.created_at)
     };
 }
 
