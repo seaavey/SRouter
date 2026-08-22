@@ -275,6 +275,9 @@ importers:
       '@srouter/constants':
         specifier: workspace:*
         version: link:../../packages/constants
+      '@srouter/db':
+        specifier: workspace:*
+        version: link:../../packages/db
       '@srouter/types':
         specifier: workspace:*
         version: link:../../packages/types

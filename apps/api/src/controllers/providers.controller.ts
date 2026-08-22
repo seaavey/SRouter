@@ -3,7 +3,7 @@ import type { CreateProviderPayload } from "@/logic/providers.logic.js";
 import { ProvidersLogic } from "@/logic/providers.logic.js";
 import { deleteProviderDB } from "@srouter/db";
 import { loadSavedProvidersFromDB, registry } from "@/services/registry.js";
-import { ok } from "@/utils/response.js";
+import { err, ok } from "@/utils/response.js";
 
 export class ProvidersController {
     public static listProviders(c: Context): Response {
@@ -21,10 +21,10 @@ export class ProvidersController {
 
     public static async getProvider(c: Context): Promise<Response> {
         const providerId = c.req.param("providerId");
-        if (!providerId) return c.json({ error: { message: "Provider ID is required" } }, 400);
+        if (!providerId) return err(c, "Provider ID is required", 400);
         const provider = await ProvidersLogic.getProviderById(providerId);
         if (!provider) {
-            return c.json({ error: { message: `Provider '${providerId}' not found` } }, 404);
+            return err(c, `Provider '${providerId}' not found`, 404);
         }
         return ok(c, provider);
     }
@@ -32,23 +32,23 @@ export class ProvidersController {
     public static async addProvider(c: Context): Promise<Response> {
         const body = await c.req.json<CreateProviderPayload>();
         if (!body.name || !body.category || !body.protocol) {
-            return c.json({ error: { message: "Name, category, and protocol are required" } }, 400);
+            return err(c, "Name, category, and protocol are required", 400);
         }
         try {
             const created = ProvidersLogic.addProvider(body);
             return ok(c, created);
         } catch (error) {
             const message = error instanceof Error ? error.message : "Invalid provider payload";
-            return c.json({ error: { message } }, 400);
+            return err(c, message, 400);
         }
     }
 
     public static deleteProvider(c: Context): Response {
         const id = c.req.param("id");
-        if (!id) return c.json({ error: { message: "Connection ID is required" } }, 400);
+        if (!id) return err(c, "Connection ID is required", 400);
         const deleted = deleteProviderDB(id);
         if (!deleted) {
-            return c.json({ error: { message: `Connection '${id}' not found` } }, 404);
+            return err(c, `Connection '${id}' not found`, 404);
         }
         registry.unregisterProvider(id);
         loadSavedProvidersFromDB();
@@ -68,7 +68,7 @@ export class ProvidersController {
 
     public static async addCustomModel(c: Context): Promise<Response> {
         const providerId = c.req.param("providerId");
-        if (!providerId) return c.json({ error: { message: "Provider ID is required" } }, 400);
+        if (!providerId) return err(c, "Provider ID is required", 400);
 
         const body = await c.req.json<{ modelId?: string }>();
         try {
@@ -76,22 +76,21 @@ export class ProvidersController {
             return ok(c, model, 201);
         } catch (error) {
             const message = error instanceof Error ? error.message : "Invalid model payload";
-            return c.json({ error: { message } }, 400);
+            return err(c, message, 400);
         }
     }
 
     public static deleteCustomModel(c: Context): Response {
         const providerId = c.req.param("providerId");
         const modelId = c.req.param("modelId");
-        if (!providerId || !modelId)
-            return c.json({ error: { message: "Provider ID and model ID are required" } }, 400);
+        if (!providerId || !modelId) return err(c, "Provider ID and model ID are required", 400);
 
         try {
             ProvidersLogic.deleteCustomModel(providerId, decodeURIComponent(modelId));
             return ok(c, { message: "Custom model deleted" });
         } catch (error) {
             const message = error instanceof Error ? error.message : "Failed to delete model";
-            return c.json({ error: { message } }, 404);
+            return err(c, message, 404);
         }
     }
 }

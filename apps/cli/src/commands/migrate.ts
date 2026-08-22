@@ -1,8 +1,8 @@
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import * as p from "@clack/prompts";
 import { DatabaseSync } from "node:sqlite";
+import { DEFAULT_DB_PATH, LEGACY_DB_LOCATIONS, SROUTER_DIR } from "@srouter/db";
 import { formatError, formatInfo, formatSuccess, formatWarning, pc } from "../lib/ui.js";
 
 type SqliteValue = string | number | bigint | Uint8Array | null;
@@ -12,20 +12,13 @@ export interface MigrateCommandOptions {
     yes?: boolean;
 }
 
-const SRouterDir = path.join(os.homedir(), ".srouter");
-const TargetDbPath = path.join(SRouterDir, "srouter.db");
-const BackupDir = path.join(SRouterDir, "backups");
-
-const LegacyDbLocations = [
-    path.join(process.cwd(), "apps", "api", "srouter.db"),
-    path.join(process.cwd(), "srouter.db")
-];
+const TargetDbPath = DEFAULT_DB_PATH;
+const BackupDir = path.join(SROUTER_DIR, "backups");
 
 const NineRouterDbLocations = [
     "/root/9router/srouter.db",
     "/root/project/9router/db/srouter.db",
-    path.join(process.cwd(), "srouter.db"),
-    path.join(process.cwd(), "apps", "api", "srouter.db")
+    ...LEGACY_DB_LOCATIONS
 ];
 
 function fileKb(filePath: string): string {
@@ -33,7 +26,7 @@ function fileKb(filePath: string): string {
 }
 
 function ensureDirs(): void {
-    fs.mkdirSync(SRouterDir, { recursive: true, mode: 0o700 });
+    fs.mkdirSync(SROUTER_DIR, { recursive: true, mode: 0o700 });
     fs.mkdirSync(BackupDir, { recursive: true, mode: 0o755 });
 }
 
@@ -68,7 +61,7 @@ async function migrateDb(options: MigrateCommandOptions): Promise<void> {
     const source =
         options.source && fs.existsSync(options.source)
             ? path.resolve(options.source)
-            : findDatabase(LegacyDbLocations, "legacy");
+            : findDatabase(LEGACY_DB_LOCATIONS, "legacy");
 
     if (!source) {
         p.log.error("No existing database found.");

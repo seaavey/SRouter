@@ -3,24 +3,29 @@ import path from "node:path";
 import fs from "node:fs";
 import os from "node:os";
 
+/** Directory holding the SRouter database (and backups) in the user's home directory. */
+export const SROUTER_DIR = path.join(os.homedir(), ".srouter");
+
+/** Default database location: ~/.srouter/srouter.db */
+export const DEFAULT_DB_PATH = path.join(SROUTER_DIR, "srouter.db");
+
+/** Legacy database locations checked for backward compatibility (relative to cwd). */
+export const LEGACY_DB_LOCATIONS = [
+    path.resolve(process.cwd(), "apps/api/srouter.db"),
+    path.resolve(process.cwd(), "srouter.db")
+];
+
 function getDatabasePath(): string {
     // Allow explicit override via DATABASE_PATH environment variable
     if (process.env.DATABASE_PATH) return process.env.DATABASE_PATH;
 
-    // Default to ~/.srouter/srouter.db in user's home directory
-    const homedir = os.homedir();
-    const srouterDir = path.join(homedir, ".srouter");
-    const defaultDbPath = path.join(srouterDir, "srouter.db");
-
     // Fallback for legacy installations (keep existing for backward compatibility)
-    const apiDb = path.resolve(process.cwd(), "apps/api/srouter.db");
-    if (fs.existsSync(apiDb)) return apiDb;
-
-    const projectDb = path.resolve(process.cwd(), "srouter.db");
-    if (fs.existsSync(projectDb)) return projectDb;
+    for (const legacyPath of LEGACY_DB_LOCATIONS) {
+        if (fs.existsSync(legacyPath)) return legacyPath;
+    }
 
     // Return new default path and create directory if needed
-    return defaultDbPath;
+    return DEFAULT_DB_PATH;
 }
 
 const dbPath = getDatabasePath();
@@ -36,6 +41,22 @@ export const db = new DatabaseSync(dbPath);
 // Enable WAL mode for high performance concurrency
 db.exec("PRAGMA journal_mode = WAL;");
 db.exec("PRAGMA foreign_keys = ON;");
+
+/**
+ * Adds columns to a table if they do not already exist.
+ * Declarative replacement for repeated try/catch ALTER TABLE blocks.
+ */
+function ensureColumns(table: string, columns: Array<{ name: string; definition: string }>): void {
+    const existing = new Set(
+        (db.prepare(`PRAGMA table_info("${table}")`).all() as Array<{ name: string }>).map(
+            (col) => col.name
+        )
+    );
+    for (const col of columns) {
+        if (existing.has(col.name)) continue;
+        db.exec(`ALTER TABLE ${table} ADD COLUMN ${col.definition};`);
+    }
+}
 
 /**
  * Initialize database schema tables if they do not exist
@@ -59,45 +80,18 @@ export function initDatabase(): void {
         );
     `);
 
-    // Ensure refresh_token column exists if table was created previously
-    try {
-        db.exec("ALTER TABLE providers ADD COLUMN refresh_token TEXT;");
-    } catch {
-        // column already exists
-    }
-
-    // Ensure account_id column exists for multi-account OAuth binding (e.g. Codex ChatGPT-Account-ID)
-    try {
-        db.exec("ALTER TABLE providers ADD COLUMN account_id TEXT;");
-    } catch {
-        // column already exists
-    }
-
-    // Provider-specific metadata (for example Kiro auth method/region/profile ARN)
-    try {
-        db.exec("ALTER TABLE providers ADD COLUMN provider_specific_data TEXT;");
-    } catch {
-        // column already exists
-    }
-
-    // Ensure token expiry tracking columns exist
-    try {
-        db.exec("ALTER TABLE providers ADD COLUMN token_expires_at INTEGER;");
-    } catch {
-        // column already exists
-    }
-    try {
-        db.exec("ALTER TABLE providers ADD COLUMN last_refreshed_at INTEGER;");
-    } catch {
-        // column already exists
-    }
-
-    // Ensure organization_id column exists (e.g. Claude OAuth organization binding)
-    try {
-        db.exec("ALTER TABLE providers ADD COLUMN organization_id TEXT;");
-    } catch {
-        // column already exists
-    }
+    ensureColumns("providers", [
+        { name: "refresh_token", definition: "refresh_token TEXT" },
+        // Multi-account OAuth binding (e.g. Codex ChatGPT-Account-ID)
+        { name: "account_id", definition: "account_id TEXT" },
+        // Provider-specific metadata (for example Kiro auth method/region/profile ARN)
+        { name: "provider_specific_data", definition: "provider_specific_data TEXT" },
+        // Token expiry tracking
+        { name: "token_expires_at", definition: "token_expires_at INTEGER" },
+        { name: "last_refreshed_at", definition: "last_refreshed_at INTEGER" },
+        // Claude OAuth organization binding
+        { name: "organization_id", definition: "organization_id TEXT" }
+    ]);
 
     // 2. Table for Client API Keys / Endpoint Keys
     db.exec(`
@@ -141,7 +135,7 @@ export function initDatabase(): void {
     `);
 
     // Ensure analytics columns and fallback audit columns exist if table was created previously
-    const logColumns: Array<{ name: string; definition: string }> = [
+    ensureColumns("request_logs", [
         { name: "cached_tokens", definition: "cached_tokens INTEGER NOT NULL DEFAULT 0" },
         {
             name: "cache_creation_tokens",
@@ -153,14 +147,7 @@ export function initDatabase(): void {
         { name: "fallback_path", definition: "fallback_path TEXT" },
         { name: "fallback_reason", definition: "fallback_reason TEXT" },
         { name: "resolved_model", definition: "resolved_model TEXT" }
-    ];
-    for (const col of logColumns) {
-        try {
-            db.exec(`ALTER TABLE request_logs ADD COLUMN ${col.definition};`);
-        } catch {
-            // column already exists
-        }
-    }
+    ]);
 
     // 5. Table for Fallback Rules
     db.exec(`
