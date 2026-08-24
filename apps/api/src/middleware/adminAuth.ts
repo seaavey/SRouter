@@ -29,5 +29,6 @@ export function createAdminAuthMiddleware(
     };
 }
 
-export const requireAdmin = createAdminAuthMiddleware();
-export const adminAuth = requireAdmin;
+export const RequireAdmin = createAdminAuthMiddleware();
+export const requireAdmin = RequireAdmin;
+export const adminAuth = RequireAdmin;
