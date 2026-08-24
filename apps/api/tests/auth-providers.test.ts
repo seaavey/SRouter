@@ -4,11 +4,8 @@ import { deleteProviderDB, getProviderByIdDB } from "@srouter/db";
 import type { AIProvider, ProviderConfig } from "@srouter/types";
 import { registry } from "../src/services/registry.js";
 import { AuthLogic } from "../src/logic/auth.logic.js";
-import {
-    commandCodeAuthHandler,
-    openaiCodexAuthHandler,
-    type AuthProviderHandler
-} from "../src/services/authHandlers.js";
+import { AuthHandlers } from "../src/services/authHandlers.js";
+import type { AuthProviderHandler } from "@srouter/types";
 
 const createdIds: string[] = [];
 
@@ -70,15 +67,15 @@ test("generic logic (initiatePKCEFor) produces an authorizeUrl with expected sta
 });
 
 test("auth provider handlers carry preserved per-provider messages", () => {
-    assert.equal(openaiCodexAuthHandler.oauthSuccessMessage, "Login OpenAI Codex Berhasil!");
+    assert.equal(AuthHandlers.OpenAI.oauthSuccessMessage, "Login OpenAI Codex Berhasil!");
     assert.equal(
-        commandCodeAuthHandler.tokenImportMessage,
+        AuthHandlers.CommandCode.tokenImportMessage,
         "Command Code API Key registered and saved directly to SQLite database!"
     );
 });
 
 test("processTokenImportFor honors provided id and name", () => {
-    const handler: AuthProviderHandler = openaiCodexAuthHandler;
+    const handler: AuthProviderHandler = AuthHandlers.OpenAI;
     // Uses AuthLogic.processTokenImport (Codex handler) with explicit id/name
     const config = AuthLogic.processTokenImport({
         id: "my-custom-id",

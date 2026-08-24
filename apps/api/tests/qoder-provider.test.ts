@@ -3,7 +3,7 @@ import { afterEach, test } from "node:test";
 import { deleteProviderDB, getProviderByIdDB, upsertProviderDB } from "@srouter/db";
 import type { ProviderConfig } from "@srouter/types";
 import { AuthLogic } from "../src/logic/auth.logic.js";
-import { qoderAuthHandler } from "../src/services/authHandlers.js";
+import { AuthHandlers } from "../src/services/authHandlers.js";
 
 const createdIds: string[] = [];
 const originalFetch = globalThis.fetch;
@@ -71,7 +71,7 @@ test("initiateQoderOAuthPKCE generates valid Qoder authorization parameters", ()
     assert.ok(authorizeUrl.includes("challenge_method=S256"));
     assert.ok(authorizeUrl.includes(`nonce=${encodeURIComponent(state)}`));
     assert.ok(codeVerifier.length > 0);
-    assert.equal(qoderAuthHandler.oauthSuccessMessage, "Login Qoder Berhasil!");
+    assert.equal(AuthHandlers.Qoder.oauthSuccessMessage, "Login Qoder Berhasil!");
 });
 
 test("pollQoderDeviceToken polls upstream and creates provider when user authorizes", async () => {

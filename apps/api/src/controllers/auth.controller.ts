@@ -1,25 +1,9 @@
 import type { Context } from "hono";
 import { AuthLogic } from "@/logic/auth.logic.js";
-import {
-    anthropicAuthHandler,
-    antigravityAuthHandler,
-    bluesMindsAuthHandler,
-    claudeAuthHandler,
-    codeBuddyAuthHandler,
-    codeBuddyCNAuthHandler,
-    commandCodeAuthHandler,
-    goRouterAuthHandler,
-    openaiCodexAuthHandler,
-    qoderAuthHandler,
-    seekAIAuthHandler,
-    tabiTokenAuthHandler,
-    tokenRouterAuthHandler
-} from "@/services/authHandlers.js";
+import { AuthHandlers } from "@/services/authHandlers.js";
 import type {
     AuthProviderHandler,
-    OAuthCallbackBody,
     OAuthLoginParams,
-    TokenImportBody,
     TokenImportParams
 } from "@srouter/types";
 import { err, ok } from "@/utils/response.js";
@@ -70,7 +54,7 @@ async function handleOAuthCallbackFor(
 
     if ((!code || !state) && c.req.method === "POST") {
         try {
-            const body = await c.req.json<OAuthCallbackBody>();
+            const body = await c.req.json<{ code?: string; state?: string; callbackUrl?: string }>();
             if (body.callbackUrl) {
                 try {
                     const parsedUrl = new URL(body.callbackUrl);
@@ -110,18 +94,18 @@ async function importTokenFor(
     importLogic: (body: TokenImportParams) => unknown,
     c: Context
 ): Promise<Response> {
-    let body: TokenImportBody;
+    let body: { accessToken?: string; refreshToken?: string; baseUrl?: string; name?: string };
     try {
-        body = await c.req.json<TokenImportBody>();
+        body = await c.req.json();
     } catch {
         return err(c, "Invalid JSON body", 400, { type: "invalid_request_error" });
     }
 
-    if (!body.accessToken) {
+    if (!body?.accessToken) {
         return err(c, "Field 'accessToken' is required", 400, { type: "invalid_request_error" });
     }
 
-    const providerConfig = importLogic(body);
+    const providerConfig = importLogic(body as TokenImportParams);
 
     return ok(
         c,
@@ -136,24 +120,24 @@ async function importTokenFor(
 
 export class AuthController {
     public static loginOpenAI(c: Context): Response {
-        return loginFor(openaiCodexAuthHandler, (p) => AuthLogic.initiateOAuthPKCE(p), c, false);
+        return loginFor(AuthHandlers.OpenAI, (p) => AuthLogic.initiateOAuthPKCE(p), c, false);
     }
 
     public static async handleOAuthCallback(c: Context): Promise<Response> {
         return handleOAuthCallbackFor(
-            openaiCodexAuthHandler,
+            AuthHandlers.OpenAI,
             (code, state) => AuthLogic.processOAuthCallback(code, state),
             c
         );
     }
 
     public static async importToken(c: Context): Promise<Response> {
-        return importTokenFor(openaiCodexAuthHandler, (b) => AuthLogic.processTokenImport(b), c);
+        return importTokenFor(AuthHandlers.OpenAI, (b) => AuthLogic.processTokenImport(b), c);
     }
 
     public static loginAntigravity(c: Context): Response {
         return loginFor(
-            antigravityAuthHandler,
+            AuthHandlers.Antigravity,
             (p) => AuthLogic.initiateProviderOAuth("antigravity", p),
             c,
             true
@@ -162,7 +146,7 @@ export class AuthController {
 
     public static async handleAntigravityOAuthCallback(c: Context): Promise<Response> {
         return handleOAuthCallbackFor(
-            antigravityAuthHandler,
+            AuthHandlers.Antigravity,
             (code, state) => AuthLogic.processProviderOAuthCallback("antigravity", code, state),
             c
         );
@@ -170,7 +154,7 @@ export class AuthController {
 
     public static async importAntigravityToken(c: Context): Promise<Response> {
         return importTokenFor(
-            antigravityAuthHandler,
+            AuthHandlers.Antigravity,
             (b) => AuthLogic.processProviderTokenImport("antigravity", b),
             c
         );
@@ -178,7 +162,7 @@ export class AuthController {
 
     public static async importCommandCodeToken(c: Context): Promise<Response> {
         return importTokenFor(
-            commandCodeAuthHandler,
+            AuthHandlers.CommandCode,
             (b) => AuthLogic.processProviderTokenImport("commandcode", b),
             c
         );
@@ -186,7 +170,7 @@ export class AuthController {
 
     public static async importAnthropicToken(c: Context): Promise<Response> {
         return importTokenFor(
-            anthropicAuthHandler,
+            AuthHandlers.Anthropic,
             (b) => AuthLogic.processProviderTokenImport("anthropic", b),
             c
         );
@@ -194,7 +178,7 @@ export class AuthController {
 
     public static loginClaude(c: Context): Response {
         return loginFor(
-            claudeAuthHandler,
+            AuthHandlers.Claude,
             (p) => AuthLogic.initiateProviderOAuth("claude", p),
             c,
             false
@@ -203,7 +187,7 @@ export class AuthController {
 
     public static async handleClaudeOAuthCallback(c: Context): Promise<Response> {
         return handleOAuthCallbackFor(
-            claudeAuthHandler,
+            AuthHandlers.Claude,
             (code, state) => AuthLogic.processProviderOAuthCallback("claude", code, state),
             c
         );
@@ -211,7 +195,7 @@ export class AuthController {
 
     public static async importClaudeToken(c: Context): Promise<Response> {
         return importTokenFor(
-            claudeAuthHandler,
+            AuthHandlers.Claude,
             (b) => AuthLogic.processProviderTokenImport("claude", b),
             c
         );
@@ -219,7 +203,7 @@ export class AuthController {
 
     public static async importGoRouterToken(c: Context): Promise<Response> {
         return importTokenFor(
-            goRouterAuthHandler,
+            AuthHandlers.GoRouter,
             (b) => AuthLogic.processProviderTokenImport("gorouter", b),
             c
         );
@@ -227,7 +211,7 @@ export class AuthController {
 
     public static async importBluesMindsToken(c: Context): Promise<Response> {
         return importTokenFor(
-            bluesMindsAuthHandler,
+            AuthHandlers.BluesMinds,
             (b) => AuthLogic.processProviderTokenImport("bluesminds", b),
             c
         );
@@ -235,7 +219,7 @@ export class AuthController {
 
     public static async importSeekAIToken(c: Context): Promise<Response> {
         return importTokenFor(
-            seekAIAuthHandler,
+            AuthHandlers.SeekAI,
             (b) => AuthLogic.processProviderTokenImport("seekai", b),
             c
         );
@@ -243,7 +227,7 @@ export class AuthController {
 
     public static async importTabiTokenToken(c: Context): Promise<Response> {
         return importTokenFor(
-            tabiTokenAuthHandler,
+            AuthHandlers.TabiToken,
             (b) => AuthLogic.processProviderTokenImport("tabitoken", b),
             c
         );
@@ -251,7 +235,7 @@ export class AuthController {
 
     public static async importTokenRouterToken(c: Context): Promise<Response> {
         return importTokenFor(
-            tokenRouterAuthHandler,
+            AuthHandlers.TokenRouter,
             (b) => AuthLogic.processProviderTokenImport("tokenrouter", b),
             c
         );
@@ -288,7 +272,7 @@ export class AuthController {
 
     public static async importCodeBuddyToken(c: Context): Promise<Response> {
         return importTokenFor(
-            codeBuddyAuthHandler,
+            AuthHandlers.CodeBuddy,
             (b) => AuthLogic.processProviderTokenImport("codebuddy", b),
             c
         );
@@ -320,7 +304,7 @@ export class AuthController {
 
     public static async importCodeBuddyCNToken(c: Context): Promise<Response> {
         return importTokenFor(
-            codeBuddyCNAuthHandler,
+            AuthHandlers.CodeBuddyCN,
             (b) => AuthLogic.processProviderTokenImport("codebuddy-cn", b),
             c
         );
@@ -328,7 +312,7 @@ export class AuthController {
 
     public static loginQoder(c: Context): Response {
         return loginFor(
-            qoderAuthHandler,
+            AuthHandlers.Qoder,
             (p) => AuthLogic.initiateProviderOAuth("qoder", p),
             c,
             true
@@ -337,7 +321,7 @@ export class AuthController {
 
     public static async handleQoderOAuthCallback(c: Context): Promise<Response> {
         return handleOAuthCallbackFor(
-            qoderAuthHandler,
+            AuthHandlers.Qoder,
             (code, state) => AuthLogic.processProviderOAuthCallback("qoder", code, state),
             c
         );
@@ -345,7 +329,7 @@ export class AuthController {
 
     public static async importQoderToken(c: Context): Promise<Response> {
         return importTokenFor(
-            qoderAuthHandler,
+            AuthHandlers.Qoder,
             (b) => AuthLogic.processProviderTokenImport("qoder", b),
             c
         );

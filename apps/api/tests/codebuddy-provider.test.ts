@@ -4,7 +4,7 @@ import { deleteProviderDB, fetchCodeBuddyCNLiveQuota, saveOAuthSessionDB, upsert
 import { CODEBUDDY_CN_BASE_URL, providerById } from "@srouter/constants";
 import type { ProviderConfig } from "@srouter/types";
 import { AuthLogic } from "../src/logic/auth.logic.js";
-import { codeBuddyAuthHandler, codeBuddyCNAuthHandler } from "../src/services/authHandlers.js";
+import { AuthHandlers } from "../src/services/authHandlers.js";
 import { CodeBuddyCNOAuth } from "@srouter/providers";
 import { ProvidersLogic } from "../src/logic/providers.logic.js";
 
@@ -61,7 +61,7 @@ test("processCodeBuddyTokenImport creates and registers CodeBuddy provider confi
     assert.equal(config.accessToken, "test-codebuddy-key");
     assert.equal(config.enabled, true);
     assert.equal(
-        codeBuddyAuthHandler.tokenImportMessage,
+        AuthHandlers.CodeBuddy.tokenImportMessage,
         "CodeBuddy Access Token registered and saved directly to SQLite database!"
     );
 });
@@ -90,7 +90,7 @@ test("CodeBuddy CN token import creates a CN provider connection", () => {
     assert.equal(config.baseUrl, CODEBUDDY_CN_BASE_URL);
     assert.equal(config.accessToken, "test-codebuddy-cn-token");
     assert.equal(
-        codeBuddyCNAuthHandler.tokenImportMessage,
+        AuthHandlers.CodeBuddyCN.tokenImportMessage,
         "CodeBuddy CN Access Token registered and saved directly to SQLite database!"
     );
 });

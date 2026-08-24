@@ -39,7 +39,7 @@ import {
 } from "@srouter/providers";
 import type { AuthProviderHandler } from "@srouter/types";
 
-export const openaiCodexAuthHandler: AuthProviderHandler = {
+const openaiCodex: AuthProviderHandler = {
     providerId: "openai_codex",
     displayName: "OpenAI Codex",
     category: "oauth",
@@ -66,7 +66,7 @@ export const openaiCodexAuthHandler: AuthProviderHandler = {
         new CodexExecutor({ id, name, accessToken, refreshToken, accountId })
 };
 
-export const antigravityAuthHandler: AuthProviderHandler = {
+const antigravity: AuthProviderHandler = {
     providerId: "antigravity",
     displayName: "Antigravity",
     category: "oauth",
@@ -93,7 +93,7 @@ export const antigravityAuthHandler: AuthProviderHandler = {
         new AntigravityExecutor({ id, name, baseUrl, accessToken, refreshToken })
 };
 
-export const commandCodeAuthHandler: AuthProviderHandler = {
+const commandCode: AuthProviderHandler = {
     providerId: "commandcode",
     displayName: "Command Code",
     category: "api_key",
@@ -111,7 +111,7 @@ export const commandCodeAuthHandler: AuthProviderHandler = {
         new CommandCodeExecutor({ id, name, baseUrl, apiKey })
 };
 
-export const anthropicAuthHandler: AuthProviderHandler = {
+const anthropic: AuthProviderHandler = {
     providerId: "anthropic",
     displayName: "Anthropic",
     category: "api_key",
@@ -129,7 +129,7 @@ export const anthropicAuthHandler: AuthProviderHandler = {
         new AnthropicExecutor({ id, name, baseUrl, apiKey })
 };
 
-export const claudeAuthHandler: AuthProviderHandler = {
+const claude: AuthProviderHandler = {
     providerId: "claude",
     displayName: "Claude Code",
     category: "oauth",
@@ -154,7 +154,7 @@ export const claudeAuthHandler: AuthProviderHandler = {
         new AnthropicExecutor({ id, name, accessToken, refreshToken, organizationId })
 };
 
-export const qoderAuthHandler: AuthProviderHandler = {
+const qoder: AuthProviderHandler = {
     providerId: "qoder",
     displayName: "Qoder",
     category: "oauth",
@@ -180,7 +180,7 @@ export const qoderAuthHandler: AuthProviderHandler = {
         new QoderExecutor({ id, name, baseUrl, apiKey, accessToken, refreshToken })
 };
 
-export const goRouterAuthHandler: AuthProviderHandler = {
+const goRouter: AuthProviderHandler = {
     providerId: "gorouter",
     displayName: "GoRouter",
     category: "api_key",
@@ -198,7 +198,7 @@ export const goRouterAuthHandler: AuthProviderHandler = {
         new GoRouterExecutor({ id, name, baseUrl: baseUrl || GOROUTER_BASE_URL, apiKey })
 };
 
-export const bluesMindsAuthHandler: AuthProviderHandler = {
+const bluesMinds: AuthProviderHandler = {
     providerId: "bluesminds",
     displayName: "BluesMinds",
     category: "api_key",
@@ -216,7 +216,7 @@ export const bluesMindsAuthHandler: AuthProviderHandler = {
         new BluesMindsExecutor({ id, name, baseUrl: baseUrl || BLUESMINDS_BASE_URL, apiKey })
 };
 
-export const seekAIAuthHandler: AuthProviderHandler = {
+const seekAI: AuthProviderHandler = {
     providerId: "seekai",
     displayName: "SeekAI",
     category: "api_key",
@@ -234,7 +234,7 @@ export const seekAIAuthHandler: AuthProviderHandler = {
         new SeekAIExecutor({ id, name, baseUrl: baseUrl || SEEKAI_BASE_URL, apiKey })
 };
 
-export const tabiTokenAuthHandler: AuthProviderHandler = {
+const tabiToken: AuthProviderHandler = {
     providerId: "tabitoken",
     displayName: "TabiToken",
     category: "api_key",
@@ -252,7 +252,7 @@ export const tabiTokenAuthHandler: AuthProviderHandler = {
         new TabiTokenExecutor({ id, name, baseUrl: baseUrl || TABITOKEN_BASE_URL, apiKey })
 };
 
-export const tokenRouterAuthHandler: AuthProviderHandler = {
+const tokenRouter: AuthProviderHandler = {
     providerId: "tokenrouter",
     displayName: "TokenRouter",
     category: "api_key",
@@ -270,7 +270,7 @@ export const tokenRouterAuthHandler: AuthProviderHandler = {
         new TokenRouterExecutor({ id, name, baseUrl: baseUrl || TOKENROUTER_BASE_URL, apiKey })
 };
 
-export const codeBuddyAuthHandler: AuthProviderHandler = {
+const codeBuddy: AuthProviderHandler = {
     providerId: "codebuddy",
     displayName: "CodeBuddy",
     category: "oauth",
@@ -299,7 +299,7 @@ export const codeBuddyAuthHandler: AuthProviderHandler = {
         })
 };
 
-export const codeBuddyCNAuthHandler: AuthProviderHandler = {
+const codeBuddyCN: AuthProviderHandler = {
     providerId: "codebuddy-cn",
     displayName: "CodeBuddy CN",
     category: "oauth",
@@ -310,8 +310,8 @@ export const codeBuddyCNAuthHandler: AuthProviderHandler = {
     tokenImportMessage:
         "CodeBuddy CN Access Token registered and saved directly to SQLite database!",
     oauthClass: CodeBuddyCNOAuth,
-    mapOAuthTokens: codeBuddyAuthHandler.mapOAuthTokens,
-    mapImportTokens: codeBuddyAuthHandler.mapImportTokens,
+    mapOAuthTokens: codeBuddy.mapOAuthTokens,
+    mapImportTokens: codeBuddy.mapImportTokens,
     buildExecutor: ({ id, name, baseUrl, accessToken, apiKey }) =>
         new CodeBuddyExecutor({
             id,
@@ -325,18 +325,34 @@ export const codeBuddyCNAuthHandler: AuthProviderHandler = {
         })
 };
 
+export const AuthHandlers = {
+    OpenAI: openaiCodex,
+    Antigravity: antigravity,
+    CommandCode: commandCode,
+    Anthropic: anthropic,
+    Claude: claude,
+    Qoder: qoder,
+    GoRouter: goRouter,
+    BluesMinds: bluesMinds,
+    SeekAI: seekAI,
+    TabiToken: tabiToken,
+    TokenRouter: tokenRouter,
+    CodeBuddy: codeBuddy,
+    CodeBuddyCN: codeBuddyCN
+} as const;
+
 export const authProviderHandlers: Record<string, AuthProviderHandler> = {
-    openai_codex: openaiCodexAuthHandler,
-    antigravity: antigravityAuthHandler,
-    commandcode: commandCodeAuthHandler,
-    anthropic: anthropicAuthHandler,
-    claude: claudeAuthHandler,
-    qoder: qoderAuthHandler,
-    gorouter: goRouterAuthHandler,
-    bluesminds: bluesMindsAuthHandler,
-    seekai: seekAIAuthHandler,
-    tabitoken: tabiTokenAuthHandler,
-    tokenrouter: tokenRouterAuthHandler,
-    codebuddy: codeBuddyAuthHandler,
-    "codebuddy-cn": codeBuddyCNAuthHandler
+    openai_codex: AuthHandlers.OpenAI,
+    antigravity: AuthHandlers.Antigravity,
+    commandcode: AuthHandlers.CommandCode,
+    anthropic: AuthHandlers.Anthropic,
+    claude: AuthHandlers.Claude,
+    qoder: AuthHandlers.Qoder,
+    gorouter: AuthHandlers.GoRouter,
+    bluesminds: AuthHandlers.BluesMinds,
+    seekai: AuthHandlers.SeekAI,
+    tabitoken: AuthHandlers.TabiToken,
+    tokenrouter: AuthHandlers.TokenRouter,
+    codebuddy: AuthHandlers.CodeBuddy,
+    "codebuddy-cn": AuthHandlers.CodeBuddyCN
 };

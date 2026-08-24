@@ -3,7 +3,7 @@ import { afterEach, test } from "node:test";
 import { deleteProviderDB, upsertProviderDB } from "@srouter/db";
 import type { ProviderConfig } from "@srouter/types";
 import { AuthLogic } from "../src/logic/auth.logic.js";
-import { seekAIAuthHandler } from "../src/services/authHandlers.js";
+import { AuthHandlers } from "../src/services/authHandlers.js";
 
 const createdIds: string[] = [];
 const originalFetch = globalThis.fetch;
@@ -67,7 +67,7 @@ test("processSeekAITokenImport creates and registers SeekAI provider config", ()
     assert.equal(config.apiKey, "test-seekai-key");
     assert.equal(config.enabled, true);
     assert.equal(
-        seekAIAuthHandler.tokenImportMessage,
+        AuthHandlers.SeekAI.tokenImportMessage,
         "SeekAI API Key registered and saved directly to SQLite database!"
     );
 });

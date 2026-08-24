@@ -3,7 +3,7 @@ import { afterEach, test } from "node:test";
 import { deleteProviderDB, upsertProviderDB } from "@srouter/db";
 import type { ProviderConfig } from "@srouter/types";
 import { AuthLogic } from "../src/logic/auth.logic.js";
-import { goRouterAuthHandler } from "../src/services/authHandlers.js";
+import { AuthHandlers } from "../src/services/authHandlers.js";
 
 const createdIds: string[] = [];
 const originalFetch = globalThis.fetch;
@@ -67,7 +67,7 @@ test("processGoRouterTokenImport creates and registers GoRouter provider config"
     assert.equal(config.apiKey, "test-gorouter-key");
     assert.equal(config.enabled, true);
     assert.equal(
-        goRouterAuthHandler.tokenImportMessage,
+        AuthHandlers.GoRouter.tokenImportMessage,
         "GoRouter API Key registered and saved directly to SQLite database!"
     );
 });

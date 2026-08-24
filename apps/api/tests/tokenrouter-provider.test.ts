@@ -3,7 +3,7 @@ import { afterEach, test } from "node:test";
 import { deleteProviderDB, upsertProviderDB } from "@srouter/db";
 import type { ProviderConfig } from "@srouter/types";
 import { AuthLogic } from "../src/logic/auth.logic.js";
-import { tokenRouterAuthHandler } from "../src/services/authHandlers.js";
+import { AuthHandlers } from "../src/services/authHandlers.js";
 
 const createdIds: string[] = [];
 const originalFetch = globalThis.fetch;
@@ -67,7 +67,7 @@ test("processTokenRouterTokenImport creates and registers TokenRouter provider c
     assert.equal(config.apiKey, "test-tokenrouter-key");
     assert.equal(config.enabled, true);
     assert.equal(
-        tokenRouterAuthHandler.tokenImportMessage,
+        AuthHandlers.TokenRouter.tokenImportMessage,
         "TokenRouter API Key registered and saved directly to SQLite database!"
     );
 });

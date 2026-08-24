@@ -3,7 +3,7 @@ import { afterEach, test } from "node:test";
 import { deleteProviderDB, upsertProviderDB } from "@srouter/db";
 import type { ProviderConfig } from "@srouter/types";
 import { AuthLogic } from "../src/logic/auth.logic.js";
-import { tabiTokenAuthHandler } from "../src/services/authHandlers.js";
+import { AuthHandlers } from "../src/services/authHandlers.js";
 
 const createdIds: string[] = [];
 const originalFetch = globalThis.fetch;
@@ -67,7 +67,7 @@ test("processTabiTokenTokenImport creates and registers TabiToken provider confi
     assert.equal(config.apiKey, "test-tabitoken-key");
     assert.equal(config.enabled, true);
     assert.equal(
-        tabiTokenAuthHandler.tokenImportMessage,
+        AuthHandlers.TabiToken.tokenImportMessage,
         "TabiToken API Key registered and saved directly to SQLite database!"
     );
 });
