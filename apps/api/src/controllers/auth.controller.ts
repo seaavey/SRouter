@@ -3,7 +3,9 @@ import { AuthLogic } from "@/logic/auth.logic.js";
 import { AuthHandlers } from "@/services/authHandlers.js";
 import type {
     AuthProviderHandler,
+    OAuthCallbackBody,
     OAuthLoginParams,
+    TokenImportBody,
     TokenImportParams
 } from "@srouter/types";
 import { err, ok } from "@/utils/response.js";
@@ -54,7 +56,7 @@ async function handleOAuthCallbackFor(
 
     if ((!code || !state) && c.req.method === "POST") {
         try {
-            const body = await c.req.json<{ code?: string; state?: string; callbackUrl?: string }>();
+            const body = await c.req.json<OAuthCallbackBody>();
             if (body.callbackUrl) {
                 try {
                     const parsedUrl = new URL(body.callbackUrl);
@@ -94,9 +96,9 @@ async function importTokenFor(
     importLogic: (body: TokenImportParams) => unknown,
     c: Context
 ): Promise<Response> {
-    let body: { accessToken?: string; refreshToken?: string; baseUrl?: string; name?: string };
+    let body: TokenImportBody;
     try {
-        body = await c.req.json();
+        body = await c.req.json<TokenImportBody>();
     } catch {
         return err(c, "Invalid JSON body", 400, { type: "invalid_request_error" });
     }

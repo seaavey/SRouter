@@ -112,7 +112,7 @@ export interface OAuthCallbackBody {
 }
 
 export interface TokenImportBody {
-    accessToken: string;
+    accessToken?: string;
     refreshToken?: string;
     baseUrl?: string;
     name?: string;
