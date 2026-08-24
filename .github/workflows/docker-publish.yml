@@ -15,33 +15,10 @@ concurrency:
     cancel-in-progress: true
 
 jobs:
-    check-version:
-        name: Check Release Version
-        runs-on: ubuntu-latest
-        outputs:
-            should_build: ${{ steps.check.outputs.should_build }}
-        steps:
-            - name: Checkout repository
-              uses: actions/checkout@v4
-
-            - name: Evaluate version
-              id: check
-              run: |
-                VERSION=$(node -p "require('./package.json').version")
-                echo "Current package version: $VERSION"
-                if [[ "$VERSION" =~ -rc ]] && [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
-                  echo "Detected release candidate version ($VERSION). Skipping GHCR build on main push."
-                  echo "should_build=false" >> "$GITHUB_OUTPUT"
-                else
-                  echo "should_build=true" >> "$GITHUB_OUTPUT"
-                fi
-
     # Build each architecture on a matching native runner. No QEMU emulation:
     # pnpm install / turbo build run at native speed on both platforms.
     build:
         name: Build (${{ matrix.arch }})
-        needs: check-version
-        if: needs.check-version.outputs.should_build == 'true'
         runs-on: ${{ matrix.runner }}
         # Hard ceiling so a wedged build fails loudly instead of hanging for hours.
         timeout-minutes: 30
@@ -106,8 +83,7 @@ jobs:
     # Combine the per-arch digests into one multi-arch manifest list and tag it.
     merge:
         name: Merge & Tag Manifest
-        needs: [check-version, build]
-        if: needs.check-version.outputs.should_build == 'true'
+        needs: build
         runs-on: ubuntu-latest
         timeout-minutes: 10
         permissions:
