@@ -33,7 +33,7 @@ Layered architecture:
 ## Security & Auth Rules
 
 1. **Loopback Detection**: Local requests (`127.0.0.1`, `::1`) bypass API key if `require_api_key` is off in settings. Remote requests **must** provide a valid virtual key (`sr-live-*`).
-2. **Admin Auth Middleware**: Guard named `RequireAdmin` (PascalCase). Use in routes: `authRoute.get(..., RequireAdmin, ...)`. Scrypt password hashing with session cookie `srouter_admin_session`. Remote setup requires `SROUTER_SETUP_TOKEN`.
+2. **Admin Auth Middleware**: Guard named `RequireAdmin` (PascalCase). Use in routes: `AuthRouter.get(..., RequireAdmin, ...)`. Scrypt password hashing with session cookie `srouter_admin_session`. Remote setup requires `SROUTER_SETUP_TOKEN`.
 3. **SSRF Guard**: Target URLs in provider verification block `169.254.*`, `127.*`, `localhost`, and internal metadata hostnames.
 
 ## Code Standards & Conventions
@@ -44,8 +44,11 @@ Layered architecture:
     - `AuthController.<Provider>.Callback`
     - `AuthController.<Provider>.Poll`
     - `AuthController.<Provider>.ImportToken`
+- **Routers**: Use PascalCase for Hono route instances (e.g. `AuthRouter`).
+- **OAuth Callback Handlers**: Export callback handlers using canonical naming `<Provider>OAuthCallback` (e.g. `CodexOAuthCallback`, `AntigravityOAuthCallback`, `ClaudeOAuthCallback`, `QoderOAuthCallback`).
 - **Interfaces & Types**: Shared contracts live in `@srouter/types` (e.g. `@srouter/types/src/auth.ts`). No `any` in client options; use strict typing like `OAuthClientOptions`.
 - **Pure JSON Responses**: Endpoints render JSON only (no HTML server-side rendering in API layer).
+- **Clean Code**: No dangling comments or speculative dead code (strict YAGNI). Return types like `Promise<ProviderConfig>` must be explicit without `unknown` or unsafe casts.
 
 ## Testing & Validation
 
