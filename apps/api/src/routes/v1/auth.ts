@@ -5,10 +5,11 @@ import { RequireAdmin } from "@/middleware/adminAuth.js";
 export const AuthRouter = new Hono();
 export const authRoute = AuthRouter;
 
-export const handleOAuthCallback = AuthController.OpenAI.Callback;
-export const handleAntigravityOAuthCallback = AuthController.Antigravity.Callback;
-export const handleClaudeOAuthCallback = AuthController.Claude.Callback;
-export const handleQoderOAuthCallback = AuthController.Qoder.Callback;
+export const CodexOAuthCallback = AuthController.OpenAI.Callback;
+export const OpenAIAuthCallback = CodexOAuthCallback;
+export const AntigravityOAuthCallback = AuthController.Antigravity.Callback;
+export const ClaudeOAuthCallback = AuthController.Claude.Callback;
+export const QoderOAuthCallback = AuthController.Qoder.Callback;
 
 AuthRouter.get("/auth/openai/login", RequireAdmin, AuthController.OpenAI.OAuth);
 AuthRouter.get("/auth/openai/callback", AuthController.OpenAI.Callback);

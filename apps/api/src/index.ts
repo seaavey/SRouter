@@ -6,10 +6,10 @@ import { Hono, type Context } from "hono";
 import { cors } from "hono/cors";
 import {
     AuthRouter,
-    handleAntigravityOAuthCallback,
-    handleClaudeOAuthCallback,
-    handleOAuthCallback,
-    handleQoderOAuthCallback
+    AntigravityOAuthCallback,
+    ClaudeOAuthCallback,
+    CodexOAuthCallback,
+    QoderOAuthCallback
 } from "@/routes/v1/auth.js";
 import { adminRoute } from "@/routes/v1/admin.js";
 import { chatRoute } from "@/routes/v1/chat.js";
@@ -196,14 +196,14 @@ serve(
 // Secondary listener on Port 1455 for OAuth callbacks and local Anthropic proxy
 const oauthApp = new Hono();
 oauthApp.onError(errorHandler("OAuth API Route"));
-oauthApp.get("/auth/callback", (c) => handleOAuthCallback(c));
-oauthApp.post("/auth/callback", (c) => handleOAuthCallback(c));
-oauthApp.get("/auth/antigravity/callback", (c) => handleAntigravityOAuthCallback(c));
-oauthApp.post("/auth/antigravity/callback", (c) => handleAntigravityOAuthCallback(c));
-oauthApp.get("/auth/claude/callback", (c) => handleClaudeOAuthCallback(c));
-oauthApp.post("/auth/claude/callback", (c) => handleClaudeOAuthCallback(c));
-oauthApp.get("/auth/qoder/callback", (c) => handleQoderOAuthCallback(c));
-oauthApp.post("/auth/qoder/callback", (c) => handleQoderOAuthCallback(c));
+oauthApp.get("/auth/callback", (c) => CodexOAuthCallback(c));
+oauthApp.post("/auth/callback", (c) => CodexOAuthCallback(c));
+oauthApp.get("/auth/antigravity/callback", (c) => AntigravityOAuthCallback(c));
+oauthApp.post("/auth/antigravity/callback", (c) => AntigravityOAuthCallback(c));
+oauthApp.get("/auth/claude/callback", (c) => ClaudeOAuthCallback(c));
+oauthApp.post("/auth/claude/callback", (c) => ClaudeOAuthCallback(c));
+oauthApp.get("/auth/qoder/callback", (c) => QoderOAuthCallback(c));
+oauthApp.post("/auth/qoder/callback", (c) => QoderOAuthCallback(c));
 oauthApp.route("/v1", messagesRoute);
 oauthApp.route("/v1", chatRoute);
 oauthApp.route("/v1", modelsRoute);
