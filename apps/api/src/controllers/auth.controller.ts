@@ -14,7 +14,7 @@ import {
     seekAIAuthHandler,
     tabiTokenAuthHandler,
     tokenRouterAuthHandler
-} from "@/logic/auth.providers.js";
+} from "@/services/authHandlers.js";
 import type {
     AuthProviderHandler,
     OAuthCallbackBody,

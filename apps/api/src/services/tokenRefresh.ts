@@ -1,7 +1,7 @@
 import { providerTypeForAlias } from "@srouter/constants";
 import { getAllProvidersDB, updateProviderTokensDB, getProviderByIdDB } from "@srouter/db";
 import type { AIProvider, ProviderConfig } from "@srouter/types";
-import { authProviderHandlers } from "@/logic/auth.providers.js";
+import { authProviderHandlers } from "@/services/authHandlers.js";
 import { registry } from "./registry.js";
 
 // Refresh tokens before they expire — lead time in ms

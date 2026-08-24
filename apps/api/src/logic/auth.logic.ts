@@ -35,9 +35,9 @@ import {
     seekAIAuthHandler,
     tabiTokenAuthHandler,
     tokenRouterAuthHandler
-} from "./auth.providers.js";
+} from "@/services/authHandlers.js";
 
-export type { OAuthLoginParams, OAuthLoginResult, TokenImportParams } from "./auth.providers.js";
+export type { OAuthLoginParams, OAuthLoginResult, TokenImportParams } from "@srouter/types";
 
 const PKCE_SESSION_MAX_AGE_MS = 15 * 60 * 1000;
 

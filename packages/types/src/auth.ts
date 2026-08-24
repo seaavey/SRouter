@@ -42,10 +42,11 @@ export type ExecutorFactory = (args: {
 }) => AIProvider;
 
 export interface OAuthClientClass {
-    new (options?: { clientId?: string; redirectUri?: string; prompt?: string }): {
-        getAuthorizationUrl(pkce: { codeChallenge: string; state: string }): string;
-        exchangeCodeForTokens(code: string, codeVerifier: string): Promise<OAuthTokens>;
-        refreshTokens(refreshToken: string): Promise<OAuthTokens>;
+    new (options?: any): {
+        getAuthorizationUrl?(pkce: { codeChallenge: string; state: string }): string;
+        exchangeCodeForTokens?(code: string, codeVerifier: string): Promise<OAuthTokens>;
+        refreshTokens?(refreshToken: string): Promise<OAuthTokens>;
+        [key: string]: any;
     };
 }
 

@@ -4,7 +4,7 @@ import { deleteProviderDB, fetchCodeBuddyCNLiveQuota, saveOAuthSessionDB, upsert
 import { CODEBUDDY_CN_BASE_URL, providerById } from "@srouter/constants";
 import type { ProviderConfig } from "@srouter/types";
 import { AuthLogic } from "../src/logic/auth.logic.js";
-import { codeBuddyAuthHandler, codeBuddyCNAuthHandler } from "../src/logic/auth.providers.js";
+import { codeBuddyAuthHandler, codeBuddyCNAuthHandler } from "../src/services/authHandlers.js";
 import { CodeBuddyCNOAuth } from "@srouter/providers";
 import { ProvidersLogic } from "../src/logic/providers.logic.js";
 

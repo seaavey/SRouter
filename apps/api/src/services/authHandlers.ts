@@ -37,27 +37,7 @@ import {
     OpenAICodexOAuth,
     QoderOAuth
 } from "@srouter/providers";
-import type {
-    AuthProviderHandler,
-    ExecutorFactory,
-    ImportTokenMapping,
-    OAuthClientClass,
-    OAuthLoginParams,
-    OAuthLoginResult,
-    OAuthTokens,
-    TokenImportParams
-} from "@srouter/types";
-
-export type {
-    AuthProviderHandler,
-    ExecutorFactory,
-    ImportTokenMapping,
-    OAuthClientClass,
-    OAuthLoginParams,
-    OAuthLoginResult,
-    OAuthTokens,
-    TokenImportParams
-};
+import type { AuthProviderHandler } from "@srouter/types";
 
 export const openaiCodexAuthHandler: AuthProviderHandler = {
     providerId: "openai_codex",
@@ -65,7 +45,6 @@ export const openaiCodexAuthHandler: AuthProviderHandler = {
     category: "oauth",
     protocol: "openai",
     idPrefix: "openai_codex",
-    // Matches the original logic: Codex client id is hardcoded (the env var is only read by the OAuth class itself).
     clientId: () => CODEX_OAUTH_CLIENT_ID,
     defaultRedirectUri: CODEX_OAUTH_REDIRECT_URI,
     oauthSuccessMessage: "Login OpenAI Codex Berhasil!",

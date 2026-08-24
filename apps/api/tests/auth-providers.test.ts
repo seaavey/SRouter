@@ -8,7 +8,7 @@ import {
     commandCodeAuthHandler,
     openaiCodexAuthHandler,
     type AuthProviderHandler
-} from "../src/logic/auth.providers.js";
+} from "../src/services/authHandlers.js";
 
 const createdIds: string[] = [];
 
