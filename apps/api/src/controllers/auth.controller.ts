@@ -5,6 +5,7 @@ import type {
     AuthProviderHandler,
     OAuthCallbackBody,
     OAuthLoginParams,
+    ProviderConfig,
     TokenImportBody,
     TokenImportParams
 } from "@srouter/types";
@@ -48,7 +49,7 @@ function loginFor(
 
 async function handleOAuthCallbackFor(
     handler: AuthProviderHandler,
-    processCallback: (code: string, state: string) => Promise<unknown>,
+    processCallback: (code: string, state: string) => Promise<ProviderConfig>,
     c: Context
 ): Promise<Response> {
     let code = c.req.query("code") || undefined;
@@ -76,9 +77,7 @@ async function handleOAuthCallbackFor(
     }
 
     try {
-        const providerConfig = (await processCallback(code, state)) as {
-            name: string;
-        };
+        const providerConfig = await processCallback(code, state);
 
         return ok(c, {
             success: true,
@@ -93,7 +92,7 @@ async function handleOAuthCallbackFor(
 
 async function importTokenFor(
     handler: AuthProviderHandler,
-    importLogic: (body: TokenImportParams) => unknown,
+    importLogic: (body: TokenImportParams) => ProviderConfig,
     c: Context
 ): Promise<Response> {
     let body: TokenImportBody;
