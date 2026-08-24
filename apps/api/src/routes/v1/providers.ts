@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { ProvidersController } from "@/controllers/providers.controller.js";
-import { adminAuth } from "@/middleware/adminAuth.js";
+import { requireAdmin } from "@/middleware/adminAuth.js";
 import { apiKeyAuth } from "@/middleware/apiKeyAuth.js";
 
 export const providersRoute = new Hono();
@@ -15,14 +15,14 @@ providersRoute.get("/providers/catalog", apiKeyAuth, ProvidersController.getCata
 providersRoute.get("/providers/:providerId", apiKeyAuth, ProvidersController.getProvider);
 
 // Mutation endpoints require Admin Auth
-providersRoute.post("/providers/verify", adminAuth, ProvidersController.verifyProvider);
-providersRoute.post("/providers", adminAuth, ProvidersController.addProvider);
-providersRoute.delete("/providers/:id", adminAuth, ProvidersController.deleteProvider);
+providersRoute.post("/providers/verify", requireAdmin, ProvidersController.verifyProvider);
+providersRoute.post("/providers", requireAdmin, ProvidersController.addProvider);
+providersRoute.delete("/providers/:id", requireAdmin, ProvidersController.deleteProvider);
 
 // Custom (user-added) models per provider driver
-providersRoute.post("/providers/:providerId/models", adminAuth, ProvidersController.addCustomModel);
+providersRoute.post("/providers/:providerId/models", requireAdmin, ProvidersController.addCustomModel);
 providersRoute.delete(
     "/providers/:providerId/models/:modelId{.+}",
-    adminAuth,
+    requireAdmin,
     ProvidersController.deleteCustomModel
 );
