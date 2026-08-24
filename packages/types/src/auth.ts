@@ -41,13 +41,35 @@ export type ExecutorFactory = (args: {
     refreshToken?: string;
 }) => AIProvider;
 
+export interface OAuthClientOptions {
+    clientId?: string;
+    clientSecret?: string;
+    redirectUri?: string;
+    scope?: string;
+    authorizeUrl?: string;
+    tokenUrl?: string;
+    prompt?: string;
+    stateUrl?: string;
+    refreshUrl?: string;
+    loginUrl?: string;
+    deviceTokenUrl?: string;
+    userInfoUrl?: string;
+    platform?: string;
+    userAgent?: string;
+    origin?: string;
+    domain?: string;
+    ioa?: boolean;
+    refreshBearer?: boolean;
+}
+
+export interface OAuthClientInstance {
+    getAuthorizationUrl?(pkce: { codeChallenge: string; state: string }): string;
+    exchangeCodeForTokens?(code: string, codeVerifier: string): Promise<OAuthTokens>;
+    refreshTokens?(refreshToken: string): Promise<OAuthTokens>;
+}
+
 export interface OAuthClientClass {
-    new (options?: any): {
-        getAuthorizationUrl?(pkce: { codeChallenge: string; state: string }): string;
-        exchangeCodeForTokens?(code: string, codeVerifier: string): Promise<OAuthTokens>;
-        refreshTokens?(refreshToken: string): Promise<OAuthTokens>;
-        [key: string]: any;
-    };
+    new (options?: OAuthClientOptions): OAuthClientInstance;
 }
 
 export interface ImportTokenMapping {
