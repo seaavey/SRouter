@@ -55,7 +55,7 @@ function initiatePKCEFor(handler: AuthProviderHandler, params: OAuthLoginParams)
     const redirectUri = resolveRedirectUri(handler, params);
     const prompt = params.prompt;
 
-    const oauthInstance = new handler.oauthClass!({ clientId, redirectUri, prompt });
+    const oAuthInstance = new handler.oauthClass!({ clientId, redirectUri, prompt });
 
     const pkce = generatePKCE();
     saveOAuthSessionDB({
@@ -66,7 +66,7 @@ function initiatePKCEFor(handler: AuthProviderHandler, params: OAuthLoginParams)
         createdAt: Date.now()
     });
 
-    const authorizeUrl = oauthInstance.getAuthorizationUrl!(pkce);
+    const authorizeUrl = oAuthInstance.getAuthorizationUrl!(pkce);
 
     return {
         authorizeUrl,
@@ -90,12 +90,12 @@ async function processOAuthCallbackFor(
 
     deleteOAuthSessionDB(state);
 
-    const oauthInstance = new handler.oauthClass!({
+    const oAuthInstance = new handler.oauthClass!({
         clientId: session.clientId,
         redirectUri: session.redirectUri
     });
 
-    const rawTokens = await oauthInstance.exchangeCodeForTokens!(
+    const rawTokens = await oAuthInstance.exchangeCodeForTokens!(
         code,
         session.codeVerifier || ""
     );
