@@ -7,3 +7,4 @@ export * from "./logs.js";
 export * from "./apiKeys.js";
 export * from "./fallbacks.js";
 export * from "./tokenSaver.js";
+export * from "./auth.js";

@@ -13,25 +13,16 @@ import {
     qoderAuthHandler,
     seekAIAuthHandler,
     tabiTokenAuthHandler,
-    tokenRouterAuthHandler,
-    type AuthProviderHandler,
-    type OAuthLoginParams,
-    type TokenImportParams
+    tokenRouterAuthHandler
 } from "@/logic/auth.providers.js";
+import type {
+    AuthProviderHandler,
+    OAuthCallbackBody,
+    OAuthLoginParams,
+    TokenImportBody,
+    TokenImportParams
+} from "@srouter/types";
 import { err, ok } from "@/utils/response.js";
-
-export interface OAuthCallbackBody {
-    code?: string;
-    state?: string;
-    callbackUrl?: string;
-}
-
-export interface TokenImportBody {
-    accessToken: string;
-    refreshToken?: string;
-    baseUrl?: string;
-    name?: string;
-}
 
 async function extractState(c: Context): Promise<string | undefined> {
     let state = c.req.query("state");

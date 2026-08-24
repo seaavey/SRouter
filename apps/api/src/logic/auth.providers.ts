@@ -37,113 +37,27 @@ import {
     OpenAICodexOAuth,
     QoderOAuth
 } from "@srouter/providers";
-import type { AIProvider, ProviderCategory, ProviderProtocol } from "@srouter/types";
+import type {
+    AuthProviderHandler,
+    ExecutorFactory,
+    ImportTokenMapping,
+    OAuthClientClass,
+    OAuthLoginParams,
+    OAuthLoginResult,
+    OAuthTokens,
+    TokenImportParams
+} from "@srouter/types";
 
-export interface OAuthLoginParams {
-    clientId?: string;
-    redirectUri?: string;
-    prompt?: string;
-}
-
-export interface OAuthLoginResult {
-    authorizeUrl: string;
-    state: string;
-    codeVerifier: string;
-    redirectUri: string;
-}
-
-export interface TokenImportParams {
-    id?: string;
-    accessToken: string;
-    refreshToken?: string;
-    accountId?: string;
-    baseUrl?: string;
-    name?: string;
-}
-
-/**
- * A raw OAuth token response as returned by a provider's `exchangeCodeForTokens`.
- * Kept structurally compatible with @srouter/providers' OAuthTokenResponse.
- */
-export interface OAuthTokens {
-    accessToken: string;
-    refreshToken?: string;
-    accountId?: string;
-    organizationId?: string;
-    expiresIn?: number;
-}
-
-/**
- * Builds a concrete executor from normalized token data.
- * Each provider's constructor differs (Codex needs accountId, api-key providers need apiKey + baseUrl), so
- * the factory lives per handler.
- */
-export type ExecutorFactory = (args: {
-    id: string;
-    name: string;
-    accountId?: string;
-    organizationId?: string;
-    baseUrl?: string;
-    apiKey?: string;
-    accessToken?: string;
-    refreshToken?: string;
-}) => AIProvider;
-
-/**
- * An OAuth (PKCE) client class usable for login/callback/token-refresh.
- */
-export interface OAuthClientClass {
-    new (options?: { clientId?: string; redirectUri?: string; prompt?: string }): {
-        getAuthorizationUrl(pkce: { codeChallenge: string; state: string }): string;
-        exchangeCodeForTokens(code: string, codeVerifier: string): Promise<OAuthTokens>;
-        refreshTokens(refreshToken: string): Promise<OAuthTokens>;
-    };
-}
-
-/**
- * Normalizes a raw token import payload into the DB/executor field placements for a provider.
- * api-key providers place the token in `apiKey`; OAuth providers place it in `accessToken`.
- */
-export interface ImportTokenMapping {
-    accessToken?: string;
-    refreshToken?: string;
-    accountId?: string;
-    organizationId?: string;
-    baseUrl?: string;
-    apiKey?: string;
-}
-
-export interface AuthProviderHandler {
-    providerId: string;
-    displayName: string;
-    category: ProviderCategory;
-    protocol: ProviderProtocol;
-    /** Prefix for generated account ids (`${idPrefix}_${Date.now()}`). */
-    idPrefix: string;
-    /** Resolve the OAuth client id at call time (env-first, matching today's behavior). */
-    clientId?: () => string | undefined;
-    defaultRedirectUri?: string;
-    /** Resolve the base URL at call time (env-first). OAuth callback uses this for saved providers. */
-    baseUrl?: () => string | undefined;
-    /** Message returned on successful OAuth login (preserved verbatim). */
-    oauthSuccessMessage: string;
-    /** Message returned on successful token import (preserved verbatim). */
-    tokenImportMessage: string;
-    /** Maps raw OAuth tokens to the fields a provider stores/executes with. */
-    mapOAuthTokens?: (tokens: OAuthTokens) => {
-        accessToken: string;
-        refreshToken?: string;
-        accountId?: string;
-        organizationId?: string;
-        expiresIn?: number;
-        baseUrl?: string;
-    };
-    /** Maps a token-import payload to DB/executor field placements. */
-    mapImportTokens?: (params: TokenImportParams) => ImportTokenMapping;
-    buildExecutor: ExecutorFactory;
-    /** Present only for OAuth-backed providers. */
-    oauthClass?: OAuthClientClass;
-}
+export type {
+    AuthProviderHandler,
+    ExecutorFactory,
+    ImportTokenMapping,
+    OAuthClientClass,
+    OAuthLoginParams,
+    OAuthLoginResult,
+    OAuthTokens,
+    TokenImportParams
+};
 
 export const openaiCodexAuthHandler: AuthProviderHandler = {
     providerId: "openai_codex",

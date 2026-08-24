@@ -15,6 +15,12 @@ import { CodeBuddyCNOAuth, CodeBuddyOAuth, generatePKCE, QoderOAuth } from "@sro
 import { CodeBuddyExecutor, QoderExecutor } from "@srouter/executors";
 import type { ProviderConfig } from "@srouter/types";
 import { registry } from "@/services/registry.js";
+import type {
+    AuthProviderHandler,
+    OAuthLoginParams,
+    OAuthLoginResult,
+    TokenImportParams
+} from "@srouter/types";
 import {
     anthropicAuthHandler,
     antigravityAuthHandler,
@@ -28,11 +34,7 @@ import {
     qoderAuthHandler,
     seekAIAuthHandler,
     tabiTokenAuthHandler,
-    tokenRouterAuthHandler,
-    type AuthProviderHandler,
-    type OAuthLoginParams,
-    type OAuthLoginResult,
-    type TokenImportParams
+    tokenRouterAuthHandler
 } from "./auth.providers.js";
 
 export type { OAuthLoginParams, OAuthLoginResult, TokenImportParams } from "./auth.providers.js";
