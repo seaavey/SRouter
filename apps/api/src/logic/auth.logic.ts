@@ -95,10 +95,7 @@ async function processOAuthCallbackFor(
         redirectUri: session.redirectUri
     });
 
-    const rawTokens = await oAuthInstance.exchangeCodeForTokens!(
-        code,
-        session.codeVerifier || ""
-    );
+    const rawTokens = await oAuthInstance.exchangeCodeForTokens!(code, session.codeVerifier || "");
     const tokens = handler.mapOAuthTokens?.(rawTokens) ?? {
         accessToken: rawTokens.accessToken,
         refreshToken: rawTokens.refreshToken,

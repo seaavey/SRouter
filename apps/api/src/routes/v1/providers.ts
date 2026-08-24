@@ -20,7 +20,11 @@ providersRoute.post("/providers", RequireAdmin, ProvidersController.addProvider)
 providersRoute.delete("/providers/:id", RequireAdmin, ProvidersController.deleteProvider);
 
 // Custom (user-added) models per provider driver
-providersRoute.post("/providers/:providerId/models", RequireAdmin, ProvidersController.addCustomModel);
+providersRoute.post(
+    "/providers/:providerId/models",
+    RequireAdmin,
+    ProvidersController.addCustomModel
+);
 providersRoute.delete(
     "/providers/:providerId/models/:modelId{.+}",
     RequireAdmin,

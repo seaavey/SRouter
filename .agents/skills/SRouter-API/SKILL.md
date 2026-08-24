@@ -14,6 +14,7 @@ Layered architecture:
 `Routes (Hono) → Controllers → Logic → Services / Database / Executors`
 
 ### Key Paths & Packages:
+
 - `apps/api/src/index.ts`: Dual-server entrypoint (Port 3000 for API/Dashboard, Port 1455 for OAuth callbacks).
 - `apps/api/src/routes/v1/`: Endpoint definitions (`chat.ts`, `messages.ts`, `models.ts`, `providers.ts`, `keys.ts`, `admin.ts`, `settings.ts`, `tunnel.ts`, `quota.ts`, `logs.ts`).
 - `apps/api/src/middleware/`: Security headers (`X-Version`, `X-Powered-By`), CORS, `apiKeyAuth` (loopback/virtual key), `adminAuth` (session cookie).
@@ -24,15 +25,29 @@ Layered architecture:
 - `packages/constants/`: Version definitions (`version.ts`), provider catalogs, seed data.
 
 ## Server Ports & Lifecycle
+
 - **Port 3000**: API routes (`/v1/*`), health (`/health`), and static dashboard serving.
 - **Port 1455**: Secondary server for OAuth callbacks (`/auth/*/callback`) & CLI fallback listener.
 - **Startup**: Database migrations/seeding → Token refresh sweeper daemon (`startTokenRefreshSweeper()`) → Model registry cache warming → Tunnel autostart.
 
 ## Security & Auth Rules
+
 1. **Loopback Detection**: Local requests (`127.0.0.1`, `::1`) bypass API key if `require_api_key` is off in settings. Remote requests **must** provide a valid virtual key (`sr-live-*`).
-2. **Admin Auth**: Scrypt password hashing with session cookie `srouter_admin_session`. Remote setup requires `SROUTER_SETUP_TOKEN`.
+2. **Admin Auth Middleware**: Guard named `RequireAdmin` (PascalCase). Use in routes: `authRoute.get(..., RequireAdmin, ...)`. Scrypt password hashing with session cookie `srouter_admin_session`. Remote setup requires `SROUTER_SETUP_TOKEN`.
 3. **SSRF Guard**: Target URLs in provider verification block `169.254.*`, `127.*`, `localhost`, and internal metadata hostnames.
 
+## Code Standards & Conventions
+
+- **Auth Handlers**: Individual handlers grouped under `AuthHandlers.<Provider>` (e.g. `AuthHandlers.Antigravity`, `AuthHandlers.OpenAI`) in `apps/api/src/services/authHandlers.ts`.
+- **Controllers Pattern**: Actions organized by namespace objects rather than flat methods:
+    - `AuthController.<Provider>.OAuth`
+    - `AuthController.<Provider>.Callback`
+    - `AuthController.<Provider>.Poll`
+    - `AuthController.<Provider>.ImportToken`
+- **Interfaces & Types**: Shared contracts live in `@srouter/types` (e.g. `@srouter/types/src/auth.ts`). No `any` in client options; use strict typing like `OAuthClientOptions`.
+- **Pure JSON Responses**: Endpoints render JSON only (no HTML server-side rendering in API layer).
+
 ## Testing & Validation
+
 - **Targeted Test Execution**: Always run `cd apps/api && pnpm test` or `pnpm test tests/<filename>.test.ts`. Never run full monorepo tests at once.
 - **Build**: `cd apps/api && pnpm run build` (tsup node20 ESM).
