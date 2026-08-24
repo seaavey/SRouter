@@ -5,7 +5,7 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono, type Context } from "hono";
 import { cors } from "hono/cors";
 import {
-    authRoute,
+    AuthRouter,
     handleAntigravityOAuthCallback,
     handleClaudeOAuthCallback,
     handleOAuthCallback,
@@ -141,7 +141,7 @@ app.route("/v1", messagesRoute);
 app.route("/v1", providersRoute);
 app.route("/v1", keysRoute);
 app.route("/v1", logsRoute);
-app.route("/v1", authRoute);
+app.route("/v1", AuthRouter);
 app.route("/v1", quotaRoute);
 app.route("/v1", settingsRoute);
 
