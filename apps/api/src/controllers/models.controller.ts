@@ -7,40 +7,40 @@ const MODEL_CACHE_CONTROL = "public, max-age=60, stale-while-revalidate=300";
 
 export class ModelsController {
     public static async ListModels(c: Context): Promise<Response> {
-        const refreshParam = c.req.query("refresh") || c.req.query("force");
-        const cacheControlReq = c.req.header("cache-control");
-        const explicitRefresh = refreshParam === "true" || refreshParam === "1";
-        const revalidate =
-            cacheControlReq?.includes("no-cache") || cacheControlReq?.includes("no-store");
+        const RefreshParam = c.req.query("refresh") || c.req.query("force");
+        const CacheControlReq = c.req.header("cache-control");
+        const ExplicitRefresh = RefreshParam === "true" || RefreshParam === "1";
+        const Revalidate =
+            CacheControlReq?.includes("no-cache") || CacheControlReq?.includes("no-store");
 
-        if (revalidate && !explicitRefresh) {
+        if (Revalidate && !ExplicitRefresh) {
             void ModelsLogic.refreshModels(true).catch(() => undefined);
         }
 
-        const models = await ModelsLogic.getAllModels(undefined, explicitRefresh);
-        const response: ModelListResponse = {
+        const Models = await ModelsLogic.getAllModels(undefined, ExplicitRefresh);
+        const ResponseData: ModelListResponse = {
             object: "list",
-            data: models
+            data: Models
         };
         c.header("Cache-Control", MODEL_CACHE_CONTROL);
-        return Ok(c, response);
+        return Ok(c, ResponseData);
     }
 
     public static async GetModelById(c: Context): Promise<Response> {
-        const rawModelId = c.req.param("model") || c.req.param("*");
-        const modelId = rawModelId ? decodeURIComponent(rawModelId) : undefined;
-        if (!modelId) return Err(c, "Model ID parameter is required", 400);
+        const RawModelId = c.req.param("model") || c.req.param("*");
+        const ModelId = RawModelId ? decodeURIComponent(RawModelId) : undefined;
+        if (!ModelId) return Err(c, "Model ID parameter is required", 400);
 
-        const refreshParam = c.req.query("refresh") || c.req.query("force");
-        const forceRefresh = refreshParam === "true" || refreshParam === "1";
+        const RefreshParam = c.req.query("refresh") || c.req.query("force");
+        const ForceRefresh = RefreshParam === "true" || RefreshParam === "1";
 
-        const model = await ModelsLogic.getModelById(modelId, forceRefresh);
-        if (model) {
+        const Model = await ModelsLogic.getModelById(ModelId, ForceRefresh);
+        if (Model) {
             c.header("Cache-Control", MODEL_CACHE_CONTROL);
-            return Ok(c, model);
+            return Ok(c, Model);
         }
 
-        return Err(c, `Model '${modelId}' not found`, 404, {
+        return Err(c, `Model '${ModelId}' not found`, 404, {
             code: "model_not_found"
         });
     }
