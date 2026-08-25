@@ -15,11 +15,13 @@ import { CodeBuddyCNOAuth, CodeBuddyOAuth, generatePKCE, QoderOAuth } from "@sro
 import { CodeBuddyExecutor, QoderExecutor } from "@srouter/executors";
 import type { ProviderConfig } from "@srouter/types";
 import { registry } from "@/services/registry.js";
-import type {
-    AuthProviderHandler,
-    OAuthLoginParams,
-    OAuthLoginResult,
-    TokenImportParams
+import {
+    AuthPollStatus,
+    type AuthPollResult,
+    type AuthProviderHandler,
+    type OAuthLoginParams,
+    type OAuthLoginResult,
+    type TokenImportParams
 } from "@srouter/types";
 import { AuthHandlers } from "@/services/authHandlers.js";
 
@@ -215,11 +217,7 @@ async function InitiateCodeBuddyOAuthFor(
     };
 }
 
-export async function PollCodeBuddyDeviceToken(state: string): Promise<{
-    status: "pending" | "ok";
-    provider?: ProviderConfig;
-    error?: string;
-}> {
+export async function PollCodeBuddyDeviceToken(state: string): Promise<AuthPollResult> {
     return PollCodeBuddyDeviceTokenFor(state, {
         oauth: new CodeBuddyOAuth(),
         providerId: "codebuddy",
@@ -228,11 +226,7 @@ export async function PollCodeBuddyDeviceToken(state: string): Promise<{
     });
 }
 
-export async function PollCodeBuddyCNDeviceToken(state: string): Promise<{
-    status: "pending" | "ok";
-    provider?: ProviderConfig;
-    error?: string;
-}> {
+export async function PollCodeBuddyCNDeviceToken(state: string): Promise<AuthPollResult> {
     return PollCodeBuddyDeviceTokenFor(state, {
         oauth: new CodeBuddyCNOAuth(),
         providerId: "codebuddy-cn",
@@ -249,18 +243,18 @@ async function PollCodeBuddyDeviceTokenFor(
         displayName: string;
         baseUrl: string;
     }
-): Promise<{ status: "pending" | "ok"; provider?: ProviderConfig; error?: string }> {
+): Promise<AuthPollResult> {
     if (!state) {
-        return { status: "pending", error: "Missing state parameter" };
+        return { status: AuthPollStatus.PENDING, error: "Missing state parameter" };
     }
 
     const session = getOAuthSessionDB(state);
     if (!session) {
-        return { status: "pending", error: "Session expired or not found" };
+        return { status: AuthPollStatus.PENDING, error: "Session expired or not found" };
     }
 
     let poll: {
-        status: "pending" | "ok";
+        status: AuthPollStatus;
         accessToken?: string;
         refreshToken?: string;
         expiresIn?: number;
@@ -271,11 +265,11 @@ async function PollCodeBuddyDeviceTokenFor(
         poll = await options.oauth.pollToken(state);
     } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        return { status: "pending", error: msg };
+        return { status: AuthPollStatus.PENDING, error: msg };
     }
 
-    if (poll.status !== "ok" || !poll.accessToken) {
-        return { status: "pending", error: poll.error };
+    if (poll.status !== AuthPollStatus.OK || !poll.accessToken) {
+        return { status: AuthPollStatus.PENDING, error: poll.error };
     }
 
     deleteOAuthSessionDB(state);
@@ -316,28 +310,24 @@ async function PollCodeBuddyDeviceTokenFor(
     registry.registerProvider(providerInstance);
 
     return {
-        status: "ok",
+        status: AuthPollStatus.OK,
         provider: providerConfig
     };
 }
 
-export async function PollQoderDeviceToken(state: string): Promise<{
-    status: "pending" | "ok";
-    provider?: ProviderConfig;
-    error?: string;
-}> {
+export async function PollQoderDeviceToken(state: string): Promise<AuthPollResult> {
     if (!state) {
-        return { status: "pending", error: "Missing state parameter" };
+        return { status: AuthPollStatus.PENDING, error: "Missing state parameter" };
     }
 
     const session = getOAuthSessionDB(state);
     if (!session) {
-        return { status: "pending", error: "Session expired or not found" };
+        return { status: AuthPollStatus.PENDING, error: "Session expired or not found" };
     }
 
     const qoderOAuth = new QoderOAuth();
     let poll: {
-        status: "pending" | "ok";
+        status: AuthPollStatus;
         accessToken?: string;
         refreshToken?: string;
         userId?: string;
@@ -350,11 +340,11 @@ export async function PollQoderDeviceToken(state: string): Promise<{
         });
     } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        return { status: "pending", error: msg };
+        return { status: AuthPollStatus.PENDING, error: msg };
     }
 
-    if (poll.status !== "ok" || !poll.accessToken) {
-        return { status: "pending" };
+    if (poll.status !== AuthPollStatus.OK || !poll.accessToken) {
+        return { status: AuthPollStatus.PENDING };
     }
 
     deleteOAuthSessionDB(state);
@@ -404,7 +394,7 @@ export async function PollQoderDeviceToken(state: string): Promise<{
     registry.registerProvider(providerInstance);
 
     return {
-        status: "ok",
+        status: AuthPollStatus.OK,
         provider: providerConfig
     };
 }
