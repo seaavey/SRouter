@@ -72,5 +72,38 @@ export function Err(
     return c.json(FormatErrorPayload(message, status, options), status);
 }
 
+export interface AnthropicErrorPayload {
+    type: "error";
+    error: {
+        type: string;
+        message: string;
+    };
+}
+
+export function FormatAnthropicErrorPayload(
+    message: string,
+    status: number = 500,
+    type?: string
+): AnthropicErrorPayload {
+    return {
+        type: "error",
+        error: {
+            type: type ?? GetErrorTypeFromStatus(status),
+            message
+        }
+    };
+}
+
 export const err = Err;
+
+export function AnthropicErr(
+    c: Context,
+    message: string,
+    status: ContentfulStatusCode = 500,
+    type?: string
+): Response {
+    return c.json(FormatAnthropicErrorPayload(message, status, type), status);
+}
+
+
 

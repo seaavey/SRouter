@@ -7,31 +7,19 @@ import {
 } from "@srouter/translator";
 import { AnthropicMessageRequestSchema, type AnthropicMessageRequest } from "@srouter/types";
 import { ChatLogic } from "@/logic/chat.logic.js";
-
-function FormatAnthropicError(message: string, type = "api_error") {
-    return {
-        type: "error",
-        error: {
-            type,
-            message
-        }
-    };
-}
+import { AnthropicErr, FormatAnthropicErrorPayload, Ok } from "@/utils/response.js";
 
 export class MessagesController {
     public static async CreateMessage(c: Context): Promise<Response> {
         const startTime = Date.now();
         const rawBody = await c.req.json().catch(() => null);
         if (!rawBody || typeof rawBody !== "object") {
-            return c.json(FormatAnthropicError("Invalid JSON request body", "invalid_request_error"), 400);
+            return AnthropicErr(c, "Invalid JSON request body", 400);
         }
 
         const parsed = AnthropicMessageRequestSchema.safeParse(rawBody);
         if (!parsed.success) {
-            return c.json(
-                FormatAnthropicError(parsed.error.issues[0]?.message || "Validation failed", "invalid_request_error"),
-                400
-            );
+            return AnthropicErr(c, parsed.error.issues[0]?.message || "Validation failed", 400);
         }
 
         const body = parsed.data as AnthropicMessageRequest;
@@ -60,7 +48,7 @@ export class MessagesController {
                     const errorMessage = error instanceof Error ? error.message : "Error occurred during streaming";
                     await stream.writeSSE({
                         event: "error",
-                        data: JSON.stringify(FormatAnthropicError(errorMessage))
+                        data: JSON.stringify(FormatAnthropicErrorPayload(errorMessage, 500))
                     });
                 }
             });
@@ -71,10 +59,10 @@ export class MessagesController {
             const anthropicRes = openAIToAnthropicResponse(openAIRes, body.model, {
                 allowThinking: isThinkingEnabled
             });
-            return c.json(anthropicRes);
+            return Ok(c, anthropicRes);
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "Internal server error";
-            return c.json(FormatAnthropicError(errorMessage), 500);
+            return AnthropicErr(c, errorMessage, 500);
         }
     }
 
