@@ -5,46 +5,38 @@ import {
     openAIToAnthropicResponse,
     openAIToAnthropicStream
 } from "@srouter/translator";
-import type { AnthropicMessageRequest } from "@srouter/types";
+import { AnthropicMessageRequestSchema, type AnthropicMessageRequest } from "@srouter/types";
 import { ChatLogic } from "@/logic/chat.logic.js";
+
+function FormatAnthropicError(message: string, type = "api_error") {
+    return {
+        type: "error",
+        error: {
+            type,
+            message
+        }
+    };
+}
 
 export class MessagesController {
     public static async CreateMessage(c: Context): Promise<Response> {
         const startTime = Date.now();
-        let body: AnthropicMessageRequest;
-        try {
-            body = await c.req.json<AnthropicMessageRequest>();
-        } catch {
+        const rawBody = await c.req.json().catch(() => null);
+        if (!rawBody || typeof rawBody !== "object") {
+            return c.json(FormatAnthropicError("Invalid JSON request body", "invalid_request_error"), 400);
+        }
+
+        const parsed = AnthropicMessageRequestSchema.safeParse(rawBody);
+        if (!parsed.success) {
             return c.json(
-                {
-                    type: "error",
-                    error: {
-                        type: "invalid_request_error",
-                        message: "Invalid JSON request body"
-                    }
-                },
+                FormatAnthropicError(parsed.error.issues[0]?.message || "Validation failed", "invalid_request_error"),
                 400
             );
         }
 
-        if (!body.model) {
-            return c.json(
-                {
-                    type: "error",
-                    error: {
-                        type: "invalid_request_error",
-                        message: "Missing required field 'model'"
-                    }
-                },
-                400
-            );
-        }
-
+        const body = parsed.data as AnthropicMessageRequest;
         const openAIReq = anthropicToOpenAIRequest(body);
-
-        const isThinkingEnabled = Boolean(
-            body.thinking && (body.thinking as { type?: string }).type === "enabled"
-        );
+        const isThinkingEnabled = Boolean(body.thinking?.type === "enabled");
 
         if (body.stream) {
             c.header("Content-Type", "text/event-stream");
@@ -53,10 +45,7 @@ export class MessagesController {
 
             return streamSSE(c, async (stream) => {
                 try {
-                    const chunkGenerator = ChatLogic.processStreamingCompletion(
-                        openAIReq,
-                        startTime
-                    );
+                    const chunkGenerator = ChatLogic.processStreamingCompletion(openAIReq, startTime);
                     const anthropicStream = openAIToAnthropicStream(chunkGenerator, body.model, {
                         allowThinking: isThinkingEnabled
                     });
@@ -71,13 +60,7 @@ export class MessagesController {
                     const errorMessage = error instanceof Error ? error.message : "Error occurred during streaming";
                     await stream.writeSSE({
                         event: "error",
-                        data: JSON.stringify({
-                            type: "error",
-                            error: {
-                                type: "api_error",
-                                message: errorMessage
-                            }
-                        })
+                        data: JSON.stringify(FormatAnthropicError(errorMessage))
                     });
                 }
             });
@@ -91,16 +74,7 @@ export class MessagesController {
             return c.json(anthropicRes);
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "Internal server error";
-            return c.json(
-                {
-                    type: "error",
-                    error: {
-                        type: "api_error",
-                        message: errorMessage
-                    }
-                },
-                500
-            );
+            return c.json(FormatAnthropicError(errorMessage), 500);
         }
     }
 
