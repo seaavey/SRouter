@@ -14,10 +14,10 @@ export class ModelsController {
             CacheControlReq?.includes("no-cache") || CacheControlReq?.includes("no-store");
 
         if (Revalidate && !ExplicitRefresh) {
-            void ModelsLogic.refreshModels(true).catch(() => undefined);
+            void ModelsLogic.RefreshModels(true).catch(() => undefined);
         }
 
-        const Models = await ModelsLogic.getAllModels(undefined, ExplicitRefresh);
+        const Models = await ModelsLogic.GetAllModels(undefined, ExplicitRefresh);
         const ResponseData: ModelListResponse = {
             object: "list",
             data: Models
@@ -34,7 +34,7 @@ export class ModelsController {
         const RefreshParam = c.req.query("refresh") || c.req.query("force");
         const ForceRefresh = RefreshParam === "true" || RefreshParam === "1";
 
-        const Model = await ModelsLogic.getModelById(ModelId, ForceRefresh);
+        const Model = await ModelsLogic.GetModelById(ModelId, ForceRefresh);
         if (Model) {
             c.header("Cache-Control", MODEL_CACHE_CONTROL);
             return Ok(c, Model);

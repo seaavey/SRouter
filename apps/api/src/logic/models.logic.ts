@@ -4,66 +4,57 @@ import { providerAlias, providerBaseId } from "@srouter/constants";
 import { registry } from "@/services/registry.js";
 
 export class ModelsLogic {
-    public static async getAllModels(
-        provider?: string,
-        forceRefresh = false
+    public static async GetAllModels(
+        Provider?: string,
+        ForceRefresh = false
     ): Promise<ModelObject[]> {
-        const models = await registry.listAllModels(provider, forceRefresh);
-        return this.mergeCustomModels(models, provider);
+        const Models = await registry.listAllModels(Provider, ForceRefresh);
+        return this.MergeCustomModels(Models, Provider);
     }
 
-    /**
-     * Merge user-added custom models into the live model list. Custom entries
-     * are keyed by their provider alias prefix and win over duplicates.
-     */
-    private static mergeCustomModels(
-        models: ModelObject[],
-        providerFilter?: string
+    private static MergeCustomModels(
+        Models: ModelObject[],
+        ProviderFilter?: string
     ): ModelObject[] {
-        const rows = getAllCustomModelsDB();
-        if (rows.length === 0) return models;
+        const Rows = getAllCustomModelsDB();
+        if (Rows.length === 0) return Models;
 
-        const merged = new Map<string, ModelObject>();
-        for (const m of models) {
-            merged.set(m.id.toLowerCase(), m);
+        const Merged = new Map<string, ModelObject>();
+        for (const M of Models) {
+            Merged.set(M.id.toLowerCase(), M);
         }
-        for (const row of rows) {
-            const alias = providerAlias(providerBaseId(row.providerId));
-            const id = `${alias}/${row.modelId}`;
-            if (providerFilter && !alias.toLowerCase().startsWith(providerFilter.toLowerCase())) {
+        for (const Row of Rows) {
+            const Alias = providerAlias(providerBaseId(Row.providerId));
+            const Id = `${Alias}/${Row.modelId}`;
+            if (ProviderFilter && !Alias.toLowerCase().startsWith(ProviderFilter.toLowerCase())) {
                 continue;
             }
-            merged.set(id.toLowerCase(), { id, object: "model", owned_by: alias, custom: true });
+            Merged.set(Id.toLowerCase(), { id: Id, object: "model", owned_by: Alias, custom: true });
         }
-        return Array.from(merged.values());
+        return Array.from(Merged.values());
     }
 
-    public static async getModelById(
-        modelId: string,
-        forceRefresh = false
+    public static async GetModelById(
+        ModelId: string,
+        ForceRefresh = false
     ): Promise<ModelObject | undefined> {
-        if (!modelId) return undefined;
-        const models = await registry.listAllModels(undefined, forceRefresh);
+        if (!ModelId) return undefined;
+        const Models = await registry.listAllModels(undefined, ForceRefresh);
+        const CleanId = ModelId.replace(/^srouter\//, "");
 
-        const cleanId = modelId.replace(/^srouter\//, "");
-
-        // Direct match or clean / prefix match
-        const match = models.find(
-            (m) =>
-                m.id === modelId ||
-                m.id === cleanId ||
-                m.id.replace(/^srouter\//, "") === cleanId ||
-                m.id.endsWith(`/${cleanId}`) ||
-                cleanId.endsWith(`/${m.id}`)
+        return Models.find(
+            (M) =>
+                M.id.replace(/^srouter\//, "") === CleanId ||
+                M.id.endsWith(`/${CleanId}`) ||
+                CleanId.endsWith(`/${M.id}`)
         );
-        return match;
     }
 
-    public static refreshModels(forceRefresh = false): Promise<ModelObject[]> {
-        return registry.refreshModels(forceRefresh);
+    public static RefreshModels(ForceRefresh = false): Promise<ModelObject[]> {
+        return registry.refreshModels(ForceRefresh);
     }
 
-    public static clearCache(providerId?: string): void {
-        registry.clearModelsCache(providerId);
+    public static ClearCache(ProviderId?: string): void {
+        registry.clearModelsCache(ProviderId);
     }
 }

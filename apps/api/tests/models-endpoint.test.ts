@@ -46,12 +46,12 @@ beforeEach(() => {
         }
     }
     registry.registerProvider(mockProvider);
-    ModelsLogic.clearCache();
+    ModelsLogic.ClearCache();
 });
 
 afterEach(() => {
     registry.unregisterProvider(mockProviderId);
-    ModelsLogic.clearCache();
+    ModelsLogic.ClearCache();
 });
 
 test("GET /v1/models returns cached models and Cache-Control header", async () => {
