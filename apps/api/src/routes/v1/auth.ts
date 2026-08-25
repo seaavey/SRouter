@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { AuthController } from "@/controllers/auth.controller.js";
-import { RequireAdmin } from "@/middleware/adminAuth.js";
+import { RequireAdmin } from "@/middleware/AdminAuth.js";
 
 export const AuthRouter = new Hono();
 export const authRoute = AuthRouter;

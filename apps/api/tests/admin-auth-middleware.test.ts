@@ -5,7 +5,7 @@ import { Hono } from "hono";
 import { AdminAuthStore } from "../../../packages/db/src/adminAuth.js";
 import { setRequireApiKeyDB } from "@srouter/db";
 import { ADMIN_SESSION_COOKIE, createAdminSession } from "../src/services/adminAuth.js";
-import { CreateAdminAuthMiddleware } from "../src/middleware/adminAuth.js";
+import { CreateAdminAuthMiddleware } from "../src/middleware/AdminAuth.js";
 import { createApiKeyAuth } from "../src/middleware/apiKeyAuth.js";
 
 afterEach(() => {

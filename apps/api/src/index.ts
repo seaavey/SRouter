@@ -21,7 +21,7 @@ import { providersRoute } from "@/routes/v1/providers.js";
 import { quotaRoute } from "@/routes/v1/quota.js";
 import { settingsRoute } from "@/routes/v1/settings.js";
 import { tunnelRoute } from "@/routes/v1/tunnel.js";
-import { RequireAdmin } from "@/middleware/adminAuth.js";
+import { RequireAdmin } from "@/middleware/AdminAuth.js";
 import { startTokenRefreshSweeper } from "@/services/tokenRefresh.js";
 import { resolveWebDistPath } from "@/services/webDist.js";
 import { warmModelRegistry } from "@/services/registry.js";

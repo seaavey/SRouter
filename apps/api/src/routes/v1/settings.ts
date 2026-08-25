@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { SettingsController } from "@/controllers/settings.controller.js";
 import { TokenSaverController } from "@/controllers/tokenSaver.controller.js";
 import { FallbacksController } from "@/controllers/fallbacks.controller.js";
-import { RequireAdmin } from "@/middleware/adminAuth.js";
+import { RequireAdmin } from "@/middleware/AdminAuth.js";
 import { apiKeyAuth } from "@/middleware/apiKeyAuth.js";
 
 export const settingsRoute = new Hono();

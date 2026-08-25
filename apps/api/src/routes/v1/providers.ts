@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { ProvidersController } from "@/controllers/providers.controller.js";
-import { RequireAdmin } from "@/middleware/adminAuth.js";
+import { RequireAdmin } from "@/middleware/AdminAuth.js";
 import { apiKeyAuth } from "@/middleware/apiKeyAuth.js";
 
 export const providersRoute = new Hono();
