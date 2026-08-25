@@ -5,43 +5,43 @@ import {
     setRequireApiKeyDB,
     setSettingDB
 } from "@srouter/db";
+import { UpdateSettingsSchema } from "@srouter/types";
 import { Err, Ok } from "@/utils/response.js";
 
 export class SettingsController {
     public static GetSettings(c: Context): Response {
-        const requireApiKey = getRequireApiKeyDB();
-        const all = getAllSettingsDB();
         return Ok(c, {
-            requireApiKey,
-            settings: all
+            requireApiKey: getRequireApiKeyDB(),
+            settings: getAllSettingsDB()
         });
     }
 
     public static async UpdateSettings(c: Context): Promise<Response> {
+        const RawBody = await c.req.json().catch(() => null);
+        const Parsed = UpdateSettingsSchema.safeParse(RawBody);
+        if (!Parsed.success) {
+            return Err(c, Parsed.error.issues[0]?.message || "Invalid settings payload", 400);
+        }
+
         try {
-            const body = await c.req.json();
-            if (typeof body.requireApiKey === "boolean") {
-                setRequireApiKeyDB(body.requireApiKey);
+            if (typeof Parsed.data.requireApiKey === "boolean") {
+                setRequireApiKeyDB(Parsed.data.requireApiKey);
             }
-            if (body.settings && typeof body.settings === "object") {
-                for (const [key, value] of Object.entries(body.settings)) {
+            if (Parsed.data.settings) {
+                for (const [key, value] of Object.entries(Parsed.data.settings)) {
                     if (typeof value === "string") {
                         setSettingDB(key, value);
                     }
                 }
             }
-            const requireApiKey = getRequireApiKeyDB();
-            const all = getAllSettingsDB();
+
             return Ok(c, {
                 message: "Settings updated successfully",
-                requireApiKey,
-                settings: all
+                requireApiKey: getRequireApiKeyDB(),
+                settings: getAllSettingsDB()
             });
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            return Err(c, errorMessage, 400);
+            return Err(c, error instanceof Error ? error.message : "Failed to update settings", 500);
         }
     }
-
-
 }

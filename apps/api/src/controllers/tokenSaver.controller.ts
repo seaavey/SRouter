@@ -2,6 +2,7 @@ import type { Context } from "hono";
 import { getTokenSaverSettingsDB, setTokenSaverSettingsDB } from "@srouter/db";
 import { previewTokenSaver } from "@srouter/translator";
 import {
+    TokenSaverPreviewRequestSchema,
     TokenSaverSettingsSchema,
     type TokenSaverPreviewRequest,
     type TokenSaverSettings
@@ -10,47 +11,48 @@ import { Err, Ok } from "@/utils/response.js";
 
 export class TokenSaverController {
     public static GetSettings(c: Context): Response {
-        const settings = getTokenSaverSettingsDB();
-        return Ok(c, { settings });
+        return Ok(c, { settings: getTokenSaverSettingsDB() });
     }
 
     public static async UpdateSettings(c: Context): Promise<Response> {
-        try {
-            const rawBody = await c.req.json().catch(() => null);
-            const parsed = TokenSaverSettingsSchema.partial().safeParse(rawBody);
-            if (!parsed.success) {
-                return Err(c, parsed.error.issues[0]?.message || "Invalid settings payload", 400);
-            }
+        const RawBody = await c.req.json().catch(() => null);
+        const Parsed = TokenSaverSettingsSchema.partial().safeParse(RawBody);
+        if (!Parsed.success) {
+            return Err(c, Parsed.error.issues[0]?.message || "Invalid settings payload", 400);
+        }
 
-            const updated = setTokenSaverSettingsDB(parsed.data as Partial<TokenSaverSettings>);
+        try {
+            const Updated = setTokenSaverSettingsDB(Parsed.data as Partial<TokenSaverSettings>);
             return Ok(c, {
                 message: "Token Saver settings updated successfully",
-                settings: updated
+                settings: Updated
             });
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            return Err(c, errorMessage, 400);
+            return Err(c, error instanceof Error ? error.message : "Failed to update Token Saver settings", 500);
         }
     }
 
     public static async Preview(c: Context): Promise<Response> {
-        try {
-            const body = await c.req.json<TokenSaverPreviewRequest>().catch(() => null);
-            if (!body?.text || typeof body.text !== "string") {
-                return Err(c, "Field 'text' is required and must be a string", 400);
-            }
-            const type = body.type === "prompt" ? "prompt" : "tool_output";
-            const settings = body.settings
-                ? { ...getTokenSaverSettingsDB(), ...body.settings }
-                : getTokenSaverSettingsDB();
+        const RawBody = await c.req.json().catch(() => null);
+        const Parsed = TokenSaverPreviewRequestSchema.safeParse(RawBody);
+        if (!Parsed.success) {
+            return Err(c, Parsed.error.issues[0]?.message || "Invalid preview payload", 400);
+        }
 
-            const preview = previewTokenSaver(type, body.text, settings);
-            return Ok(c, preview);
+        try {
+            const CurrentSettings = getTokenSaverSettingsDB();
+            const MergedSettings = Parsed.data.settings
+                ? { ...CurrentSettings, ...Parsed.data.settings }
+                : CurrentSettings;
+
+            const PreviewResult = previewTokenSaver(
+                Parsed.data.type,
+                Parsed.data.text,
+                MergedSettings as TokenSaverSettings
+            );
+            return Ok(c, PreviewResult);
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            return Err(c, errorMessage, 400);
+            return Err(c, error instanceof Error ? error.message : "Failed to generate preview", 500);
         }
     }
-
-
 }
