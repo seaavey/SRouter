@@ -1,8 +1,32 @@
 import type { Context } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 
+export const ErrorType = {
+    INVALID_REQUEST: "invalid_request_error",
+    AUTHENTICATION: "authentication_error",
+    PERMISSION: "permission_error",
+    RATE_LIMIT: "rate_limit_error",
+    API_ERROR: "api_error"
+} as const;
+
+export type ErrorType = (typeof ErrorType)[keyof typeof ErrorType];
+
+const STATUS_TO_ERROR_TYPE: Record<number, ErrorType> = {
+    400: ErrorType.INVALID_REQUEST,
+    404: ErrorType.INVALID_REQUEST,
+    409: ErrorType.INVALID_REQUEST,
+    422: ErrorType.INVALID_REQUEST,
+    401: ErrorType.AUTHENTICATION,
+    403: ErrorType.PERMISSION,
+    429: ErrorType.RATE_LIMIT
+};
+
+export function GetErrorTypeFromStatus(status: number): ErrorType {
+    return STATUS_TO_ERROR_TYPE[status] ?? ErrorType.API_ERROR;
+}
+
 export interface ErrorResponseOptions {
-    type?: string;
+    type?: ErrorType | string;
     code?: string;
     param?: string;
 }
@@ -16,38 +40,37 @@ export interface OpenAIErrorPayload {
     };
 }
 
-/**
- * Formats an OpenAI-compliant error payload object.
- */
-export function formatErrorPayload(
+export function FormatErrorPayload(
     message: string,
+    status: number = 500,
     options: ErrorResponseOptions = {}
 ): OpenAIErrorPayload {
     return {
         error: {
             message,
-            type: options.type ?? "api_error",
+            type: options.type ?? GetErrorTypeFromStatus(status),
             ...(options.code ? { code: options.code } : {}),
             ...(options.param ? { param: options.param } : {})
         }
     };
 }
 
-/**
- * Returns a Hono JSON Response for successful operations.
- */
-export function ok<T>(c: Context, data: T, status: ContentfulStatusCode = 200): Response {
+export const formatErrorPayload = FormatErrorPayload;
+
+export function Ok<T>(c: Context, data: T, status: ContentfulStatusCode = 200): Response {
     return c.json(data, status);
 }
 
-/**
- * Returns a Hono JSON Response in OpenAI-compliant error format.
- */
-export function err(
+export const ok = Ok;
+
+export function Err(
     c: Context,
     message: string,
     status: ContentfulStatusCode = 500,
     options: ErrorResponseOptions = {}
 ): Response {
-    return c.json(formatErrorPayload(message, options), status);
+    return c.json(FormatErrorPayload(message, status, options), status);
 }
+
+export const err = Err;
+

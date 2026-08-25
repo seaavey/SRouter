@@ -105,11 +105,9 @@ export interface AuthProviderHandler {
     oauthClass?: OAuthClientClass;
 }
 
-export interface OAuthCallbackBody {
-    code?: string;
-    state?: string;
-    callbackUrl?: string;
-}
+export * from "./schemas/auth.js";
+
+
 
 export interface TokenImportBody {
     accessToken?: string;

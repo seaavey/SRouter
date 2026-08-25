@@ -1,6 +1,6 @@
 {
     "name": "@srouter/pricing",
-    "version": "0.1.2",
+    "version": "0.1.2-rc.1",
     "type": "module",
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",

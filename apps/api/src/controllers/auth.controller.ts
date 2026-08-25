@@ -1,25 +1,32 @@
 import type { Context } from "hono";
 import { AuthLogic } from "@/logic/auth.logic.js";
 import { AuthHandlers } from "@/services/authHandlers.js";
-import type {
-    AuthProviderHandler,
-    OAuthCallbackBody,
-    OAuthLoginParams,
-    ProviderConfig,
-    TokenImportBody,
-    TokenImportParams
+import {
+    StatePayloadSchema,
+    OAuthCallbackBodySchema,
+    type AuthProviderHandler,
+    type OAuthCallbackBody,
+    type OAuthLoginParams,
+    type ProviderConfig,
+    type TokenImportBody,
+    type TokenImportParams
 } from "@srouter/types";
-import { err, ok } from "@/utils/response.js";
+import { Err, Ok } from "@/utils/response.js";
 
 async function extractState(c: Context): Promise<string | undefined> {
-    let state = c.req.query("state");
-    if (!state && c.req.method === "POST") {
+    const queryState = c.req.query("state");
+    if (queryState) return queryState;
+
+    if (c.req.method === "POST") {
         try {
-            const body = await c.req.json<{ state?: string }>();
-            state = body?.state;
+            const rawBody = await c.req.json();
+            const parsed = StatePayloadSchema.safeParse(rawBody);
+            if (parsed.success) {
+                return parsed.data.state;
+            }
         } catch {}
     }
-    return state || undefined;
+    return undefined;
 }
 
 function loginFor(
@@ -43,7 +50,7 @@ function loginFor(
     } catch (error) {
         if (!handleErrors) throw error;
         const errorMessage = error instanceof Error ? error.message : String(error);
-        return err(c, errorMessage, 400, { type: "invalid_request_error" });
+        return Err(c, errorMessage, 400);
     }
 }
 
@@ -57,36 +64,38 @@ async function handleOAuthCallbackFor(
 
     if ((!code || !state) && c.req.method === "POST") {
         try {
-            const body = await c.req.json<OAuthCallbackBody>();
-            if (body.callbackUrl) {
-                try {
-                    const parsedUrl = new URL(body.callbackUrl);
-                    code = code || parsedUrl.searchParams.get("code") || undefined;
-                    state = state || parsedUrl.searchParams.get("state") || undefined;
-                } catch {}
+            const rawBody = await c.req.json();
+            const parsed = OAuthCallbackBodySchema.safeParse(rawBody);
+            if (parsed.success) {
+                const body = parsed.data;
+                if (body.callbackUrl) {
+                    try {
+                        const parsedUrl = new URL(body.callbackUrl);
+                        code = code || parsedUrl.searchParams.get("code") || undefined;
+                        state = state || parsedUrl.searchParams.get("state") || undefined;
+                    } catch {}
+                }
+                code = code || body.code;
+                state = state || body.state;
             }
-            code = code || body.code;
-            state = state || body.state;
         } catch {}
     }
 
     if (!code || !state) {
-        return err(c, "Missing required 'code' or 'state' parameters in OAuth callback", 400, {
-            type: "invalid_request_error"
-        });
+        return Err(c, "Missing required 'code' or 'state' parameters in OAuth callback", 400);
     }
 
     try {
         const providerConfig = await processCallback(code, state);
 
-        return ok(c, {
+        return Ok(c, {
             success: true,
             message: handler.oauthSuccessMessage,
             provider: providerConfig
         });
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
-        return err(c, errorMessage, 500);
+        return Err(c, errorMessage, 500);
     }
 }
 
@@ -99,16 +108,16 @@ async function importTokenFor(
     try {
         body = await c.req.json<TokenImportBody>();
     } catch {
-        return err(c, "Invalid JSON body", 400, { type: "invalid_request_error" });
+        return Err(c, "Invalid JSON body", 400);
     }
 
     if (!body?.accessToken) {
-        return err(c, "Field 'accessToken' is required", 400, { type: "invalid_request_error" });
+        return Err(c, "Field 'accessToken' is required", 400);
     }
 
     const providerConfig = importLogic(body as TokenImportParams);
 
-    return ok(
+    return Ok(
         c,
         {
             success: true,
@@ -246,7 +255,7 @@ export const AuthController = {
                 const result = await AuthLogic.initiateCodeBuddyOAuth();
                 const format = c.req.query("format");
                 if (format === "json") {
-                    return ok(c, {
+                    return Ok(c, {
                         authorizeUrl: result.authorizeUrl,
                         state: result.state
                     });
@@ -254,19 +263,17 @@ export const AuthController = {
                 return c.redirect(result.authorizeUrl);
             } catch (error) {
                 const message = error instanceof Error ? error.message : "Internal Server Error";
-                return err(c, `Failed to initiate CodeBuddy login: ${message}`, 500, {
-                    type: "api_error"
-                });
+                return Err(c, `Failed to initiate CodeBuddy login: ${message}`, 500);
             }
         },
         Poll: async (c: Context): Promise<Response> => {
             const state = await extractState(c);
             if (!state) {
-                return err(c, "Missing state parameter", 400, { type: "invalid_request_error" });
+                return Err(c, "Missing state parameter", 400);
             }
 
             const result = await AuthLogic.pollCodeBuddyDeviceToken(state);
-            return ok(c, result);
+            return Ok(c, result);
         },
         ImportToken: (c: Context): Promise<Response> =>
             importTokenFor(
@@ -281,23 +288,21 @@ export const AuthController = {
             try {
                 const result = await AuthLogic.initiateCodeBuddyCNOAuth();
                 if (c.req.query("format") === "json") {
-                    return ok(c, { authorizeUrl: result.authorizeUrl, state: result.state });
+                    return Ok(c, { authorizeUrl: result.authorizeUrl, state: result.state });
                 }
                 return c.redirect(result.authorizeUrl);
             } catch (error) {
                 const message = error instanceof Error ? error.message : "Internal Server Error";
-                return err(c, `Failed to initiate CodeBuddy CN login: ${message}`, 500, {
-                    type: "api_error"
-                });
+                return Err(c, `Failed to initiate CodeBuddy CN login: ${message}`, 500);
             }
         },
         Poll: async (c: Context): Promise<Response> => {
             const state = await extractState(c);
             if (!state) {
-                return err(c, "Missing state parameter", 400, { type: "invalid_request_error" });
+                return Err(c, "Missing state parameter", 400);
             }
 
-            return ok(c, await AuthLogic.pollCodeBuddyCNDeviceToken(state));
+            return Ok(c, await AuthLogic.pollCodeBuddyCNDeviceToken(state));
         },
         ImportToken: (c: Context): Promise<Response> =>
             importTokenFor(
@@ -324,11 +329,11 @@ export const AuthController = {
         Poll: async (c: Context): Promise<Response> => {
             const state = await extractState(c);
             if (!state) {
-                return err(c, "Missing state parameter", 400, { type: "invalid_request_error" });
+                return Err(c, "Missing state parameter", 400);
             }
 
             const result = await AuthLogic.pollQoderDeviceToken(state);
-            return ok(c, result);
+            return Ok(c, result);
         },
         ImportToken: (c: Context): Promise<Response> =>
             importTokenFor(

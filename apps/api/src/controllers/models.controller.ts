@@ -1,7 +1,7 @@
 import type { Context } from "hono";
 import type { ModelListResponse } from "@srouter/types";
 import { ModelsLogic } from "@/logic/models.logic.js";
-import { err, ok } from "@/utils/response.js";
+import { Err, Ok } from "@/utils/response.js";
 
 export class ModelsController {
     public static async listModels(c: Context): Promise<Response> {
@@ -21,16 +21,14 @@ export class ModelsController {
             data: models
         };
         c.header("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
-        return ok(c, response);
+        return Ok(c, response);
     }
 
     public static async getModelById(c: Context): Promise<Response> {
         const rawModelId = c.req.param("model") || c.req.param("*");
         const modelId = rawModelId ? decodeURIComponent(rawModelId) : undefined;
         if (!modelId) {
-            return err(c, "Model ID parameter is required", 400, {
-                type: "invalid_request_error"
-            });
+            return Err(c, "Model ID parameter is required", 400);
         }
 
         const refreshParam = c.req.query("refresh") || c.req.query("force");
@@ -39,11 +37,10 @@ export class ModelsController {
         const model = await ModelsLogic.getModelById(modelId, forceRefresh);
         if (model) {
             c.header("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
-            return ok(c, model);
+            return Ok(c, model);
         }
 
-        return err(c, `Model '${modelId}' not found`, 404, {
-            type: "invalid_request_error",
+        return Err(c, `Model '${modelId}' not found`, 404, {
             code: "model_not_found"
         });
     }

@@ -1,11 +1,11 @@
 import type { Context } from "hono";
 import { getAllAPIKeysDB, createAPIKeyDB, deleteAPIKeyDB } from "@srouter/db";
-import { err, ok } from "@/utils/response.js";
+import { Err, Ok } from "@/utils/response.js";
 
 export class KeysController {
     public static listKeys(c: Context): Response {
         const keys = getAllAPIKeysDB();
-        return ok(c, {
+        return Ok(c, {
             object: "list",
             data: keys
         });
@@ -19,7 +19,7 @@ export class KeysController {
         }>();
 
         if (!body.name || typeof body.name !== "string") {
-            return err(c, "Key name is required", 400, { type: "invalid_request_error" });
+            return Err(c, "Key name is required", 400);
         }
 
         try {
@@ -28,24 +28,24 @@ export class KeysController {
                 rateLimit: body.rateLimit ? Number(body.rateLimit) : 0,
                 quotaLimit: body.quotaLimit ? Number(body.quotaLimit) : 0
             });
-            return ok(c, created, 201);
+            return Ok(c, created, 201);
         } catch (error) {
             const message = error instanceof Error ? error.message : "Failed to create API key";
-            return err(c, message, 500);
+            return Err(c, message, 500);
         }
     }
 
     public static deleteKey(c: Context): Response {
         const id = c.req.param("id");
         if (!id) {
-            return err(c, "Key ID is required", 400, { type: "invalid_request_error" });
+            return Err(c, "Key ID is required", 400);
         }
 
         const deleted = deleteAPIKeyDB(id);
         if (!deleted) {
-            return err(c, `Key '${id}' not found`, 404, { type: "invalid_request_error" });
+            return Err(c, `Key '${id}' not found`, 404);
         }
 
-        return ok(c, { message: "API Key revoked and deleted successfully" });
+        return Ok(c, { message: "API Key revoked and deleted successfully" });
     }
 }
