@@ -2,14 +2,13 @@ import type { Context } from "hono";
 import { streamSSE } from "hono/streaming";
 import type { ChatCompletionRequest } from "@srouter/types";
 import { ChatLogic } from "@/logic/chat.logic.js";
-import { err, formatErrorPayload, ok } from "@/utils/response.js";
+import { Err, FormatErrorPayload, Ok } from "@/utils/response.js";
 
 export class ChatController {
-    public static async createCompletion(c: Context): Promise<Response> {
+    public static async CreateCompletion(c: Context): Promise<Response> {
         const startTime = Date.now();
         const body = c.req.valid("json" as never) as ChatCompletionRequest;
 
-        // 1. Streaming response (SSE)
         if (body.stream) {
             return streamSSE(c, async (stream) => {
                 try {
@@ -23,23 +22,23 @@ export class ChatController {
                         data: "[DONE]"
                     });
                 } catch (error) {
-                    const errorMessage = error instanceof Error ? error.message : String(error);
+                    const errorMessage =
+                        error instanceof Error ? error.message : "Error occurred during streaming";
                     await stream.writeSSE({
-                        data: JSON.stringify(
-                            formatErrorPayload(errorMessage || "Error occurred during streaming")
-                        )
+                        data: JSON.stringify(FormatErrorPayload(errorMessage, 500))
                     });
                 }
             });
         }
 
-        // 2. Non-streaming response (JSON)
         try {
             const response = await ChatLogic.processNonStreamingCompletion(body, startTime);
-            return ok(c, response);
+            return Ok(c, response);
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            return err(c, errorMessage || "Internal server error", 500);
+            const errorMessage = error instanceof Error ? error.message : "Internal server error";
+            return Err(c, errorMessage, 500);
         }
     }
+
+    public static createCompletion = ChatController.CreateCompletion;
 }

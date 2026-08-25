@@ -6,7 +6,8 @@ import type {
     ChatCompletionResponse,
     ChatMessage,
     FallbackRule,
-    ToolCall
+    ToolCall,
+    UsageInfo
 } from "@srouter/types";
 import { registry } from "@/services/registry.js";
 import { ensureFreshToken } from "@/services/tokenRefresh.js";
@@ -20,31 +21,39 @@ interface AssembledStreamingToolCall {
     arguments: string;
 }
 
-function extractStatusCode(err: unknown): number | undefined {
+interface CandidateModel {
+    model: string;
+    rule?: FallbackRule;
+}
+
+interface ErrorWithStatus {
+    status?: number;
+    statusCode?: number;
+    message?: string;
+}
+
+function ExtractStatusCode(err: Error | ErrorWithStatus | string | null | undefined): number | undefined {
     if (!err) return undefined;
     if (typeof err === "object") {
-        if ("status" in err && typeof (err as { status?: unknown }).status === "number") {
-            return (err as { status: number }).status;
+        if ("status" in err && typeof err.status === "number") {
+            return err.status;
         }
-        if (
-            "statusCode" in err &&
-            typeof (err as { statusCode?: unknown }).statusCode === "number"
-        ) {
-            return (err as { statusCode: number }).statusCode;
+        if ("statusCode" in err && typeof err.statusCode === "number") {
+            return err.statusCode;
         }
     }
-    const msg = err instanceof Error ? err.message : String(err);
+    const msg = typeof err === "string" ? err : err.message || String(err);
     const match = msg.match(/\b(429|403|500|502|503|504|400|401|402|422)\b/);
     if (match) return parseInt(match[1]!, 10);
     return undefined;
 }
 
-function shouldTriggerFallback(rule: FallbackRule, err: unknown): boolean {
+function ShouldTriggerFallback(rule: FallbackRule, err: Error | ErrorWithStatus | string | null | undefined): boolean {
     if (!rule.enabled) return false;
     if (!rule.triggerOnStatus || rule.triggerOnStatus.length === 0) return true;
-    const status = extractStatusCode(err);
+    const status = ExtractStatusCode(err);
     if (status && rule.triggerOnStatus.includes(status)) return true;
-    const msg = err instanceof Error ? err.message : String(err);
+    const msg = typeof err === "string" ? err : err ? err.message || String(err) : "";
     if (
         /rate\s*limit|too\s+many\s+requests|quota|exhausted|capacity|high\s+traffic|overloaded|no active provider connection|not found|unknown model|invalid model|no provider found|insufficient tokens|insufficient_quota|billing_error/i.test(
             msg
@@ -52,14 +61,64 @@ function shouldTriggerFallback(rule: FallbackRule, err: unknown): boolean {
     ) {
         return true;
     }
-    if (status === undefined) {
-        return true;
+    return status === undefined;
+}
+
+function ResolveCandidates(originalModel: string): CandidateModel[] {
+    const matchingRules = findMatchingFallbackRulesDB(originalModel);
+    const candidates: CandidateModel[] = [{ model: originalModel }];
+    const visitedModels = new Set<string>([originalModel]);
+
+    for (const rule of matchingRules) {
+        if (!visitedModels.has(rule.targetModel)) {
+            visitedModels.add(rule.targetModel);
+            candidates.push({ model: rule.targetModel, rule });
+        }
     }
-    return false;
+    return candidates;
+}
+
+function LogCompletion(
+    providerId: string,
+    model: string,
+    startTime: number,
+    options: {
+        statusCode: number;
+        usage?: UsageInfo;
+        fallbackOccurred?: boolean;
+        fallbackPath?: string[];
+        fallbackReason?: string;
+    }
+): void {
+    const breakdown = extractUsageBreakdown(providerId, options.usage);
+    const effectiveModel = model;
+    const effectiveProvider = effectiveModel.includes("/")
+        ? effectiveModel.split("/")[0]!
+        : providerId;
+
+    logRequestDB({
+        providerId,
+        model,
+        promptTokens: options.statusCode === 200 ? breakdown.promptTokens : 0,
+        completionTokens: options.statusCode === 200 ? breakdown.completionTokens : 0,
+        totalTokens: options.statusCode === 200 ? breakdown.totalTokens : 0,
+        cachedTokens: options.statusCode === 200 ? breakdown.cachedTokens : undefined,
+        cacheCreationTokens: options.statusCode === 200 ? breakdown.cacheCreationTokens : undefined,
+        reasoningTokens: options.statusCode === 200 ? breakdown.reasoningTokens : undefined,
+        estimatedCost:
+            options.statusCode === 200
+                ? estimateCostForUsage(effectiveProvider, effectiveModel, breakdown)
+                : undefined,
+        fallbackOccurred: options.fallbackOccurred,
+        fallbackPath: options.fallbackOccurred ? options.fallbackPath?.join(" -> ") : undefined,
+        fallbackReason: options.fallbackReason,
+        statusCode: options.statusCode,
+        latencyMs: Date.now() - startTime
+    });
 }
 
 export class ChatLogic {
-    public static async processNonStreamingCompletion(
+    public static async ProcessNonStreamingCompletion(
         body: ChatCompletionRequest,
         startTime: number,
         depth = 0
@@ -67,21 +126,9 @@ export class ChatLogic {
         const effectiveBody =
             depth === 0 ? applyTokenSaver(body, getTokenSaverSettingsDB()).request : body;
         const originalModel = effectiveBody.model;
-        const matchingRules = findMatchingFallbackRulesDB(originalModel);
+        const candidates = ResolveCandidates(originalModel);
 
-        const candidates: Array<{ model: string; rule?: FallbackRule }> = [
-            { model: originalModel }
-        ];
-        const visitedModels = new Set<string>([originalModel]);
-
-        for (const rule of matchingRules) {
-            if (!visitedModels.has(rule.targetModel)) {
-                visitedModels.add(rule.targetModel);
-                candidates.push({ model: rule.targetModel, rule });
-            }
-        }
-
-        let lastError: unknown = null;
+        let lastError: Error | ErrorWithStatus | string | null = null;
         const fallbackPath: string[] = [originalModel];
         let fallbackOccurred = false;
         let fallbackReason: string | undefined;
@@ -91,7 +138,7 @@ export class ChatLogic {
             const isFallbackAttempt = i > 0;
 
             if (isFallbackAttempt && candidate.rule && lastError) {
-                if (!shouldTriggerFallback(candidate.rule, lastError)) {
+                if (!ShouldTriggerFallback(candidate.rule, lastError)) {
                     continue;
                 }
             }
@@ -112,7 +159,6 @@ export class ChatLogic {
                 const choice = response.choices?.[0];
                 const toolCalls = choice?.message?.tool_calls;
 
-                // Check if model returned tool calls that should be intercepted server-side
                 if (
                     depth < MAX_INTERCEPT_DEPTH &&
                     Array.isArray(toolCalls) &&
@@ -141,49 +187,28 @@ export class ChatLogic {
                         ...currentReq,
                         messages: updatedMessages
                     };
-                    return await this.processNonStreamingCompletion(
+                    return await this.ProcessNonStreamingCompletion(
                         followUpRequest,
                         startTime,
                         depth + 1
                     );
                 }
 
-                const latencyMs = Date.now() - startTime;
-                const breakdown = extractUsageBreakdown(providerId, response.usage);
-                const effectiveModel = currentModel;
-                const effectiveProvider = effectiveModel.includes("/")
-                    ? effectiveModel.split("/")[0]!
-                    : providerId;
-
-                logRequestDB({
-                    providerId,
-                    model: currentModel,
-                    promptTokens: breakdown.promptTokens,
-                    completionTokens: breakdown.completionTokens,
-                    totalTokens: breakdown.totalTokens,
-                    cachedTokens: breakdown.cachedTokens,
-                    cacheCreationTokens: breakdown.cacheCreationTokens,
-                    reasoningTokens: breakdown.reasoningTokens,
-                    estimatedCost: estimateCostForUsage(
-                        effectiveProvider,
-                        effectiveModel,
-                        breakdown
-                    ),
-                    fallbackOccurred,
-                    fallbackPath: fallbackOccurred ? fallbackPath.join(" -> ") : undefined,
-                    fallbackReason,
+                LogCompletion(providerId, currentModel, startTime, {
                     statusCode: 200,
-                    latencyMs
+                    usage: response.usage,
+                    fallbackOccurred,
+                    fallbackPath,
+                    fallbackReason
                 });
 
                 return response;
             } catch (err) {
-                lastError = err;
+                lastError = err instanceof Error ? err : (err as ErrorWithStatus);
                 if (!fallbackReason) {
                     fallbackReason = err instanceof Error ? err.message : String(err);
                 }
 
-                // If this wasn't the last candidate, try next fallback
                 if (i < candidates.length - 1) {
                     continue;
                 }
@@ -191,23 +216,19 @@ export class ChatLogic {
         }
 
         const provider = originalModel.split("/")[0] || "default";
-        logRequestDB({
-            providerId: provider,
-            model: originalModel,
-            promptTokens: 0,
-            completionTokens: 0,
-            totalTokens: 0,
-            fallbackOccurred,
-            fallbackPath: fallbackOccurred ? fallbackPath.join(" -> ") : undefined,
-            fallbackReason,
+        LogCompletion(provider, originalModel, startTime, {
             statusCode: 500,
-            latencyMs: Date.now() - startTime
+            fallbackOccurred,
+            fallbackPath,
+            fallbackReason
         });
 
         throw lastError;
     }
 
-    public static async *processStreamingCompletion(
+    public static processNonStreamingCompletion = ChatLogic.ProcessNonStreamingCompletion;
+
+    public static async *ProcessStreamingCompletion(
         body: ChatCompletionRequest,
         startTime: number,
         depth = 0
@@ -215,21 +236,9 @@ export class ChatLogic {
         const effectiveBody =
             depth === 0 ? applyTokenSaver(body, getTokenSaverSettingsDB()).request : body;
         const originalModel = effectiveBody.model;
-        const matchingRules = findMatchingFallbackRulesDB(originalModel);
+        const candidates = ResolveCandidates(originalModel);
 
-        const candidates: Array<{ model: string; rule?: FallbackRule }> = [
-            { model: originalModel }
-        ];
-        const visitedModels = new Set<string>([originalModel]);
-
-        for (const rule of matchingRules) {
-            if (!visitedModels.has(rule.targetModel)) {
-                visitedModels.add(rule.targetModel);
-                candidates.push({ model: rule.targetModel, rule });
-            }
-        }
-
-        let lastError: unknown = null;
+        let lastError: Error | ErrorWithStatus | string | null = null;
         const fallbackPath: string[] = [originalModel];
         let fallbackOccurred = false;
         let fallbackReason: string | undefined;
@@ -239,7 +248,7 @@ export class ChatLogic {
             const isFallbackAttempt = i > 0;
 
             if (isFallbackAttempt && candidate.rule && lastError) {
-                if (!shouldTriggerFallback(candidate.rule, lastError)) {
+                if (!ShouldTriggerFallback(candidate.rule, lastError)) {
                     continue;
                 }
             }
@@ -249,7 +258,7 @@ export class ChatLogic {
             const providerId = currentModel.split("/")[0] || "default";
 
             let yieldedAny = false;
-            let usage: unknown = null;
+            let usage: UsageInfo | undefined = undefined;
 
             try {
                 await ensureFreshToken(providerId);
@@ -349,67 +358,39 @@ export class ChatLogic {
                         ...currentReq,
                         messages: updatedMessages
                     };
-                    yield* this.processStreamingCompletion(followUpRequest, startTime, depth + 1);
+                    yield* this.ProcessStreamingCompletion(followUpRequest, startTime, depth + 1);
                     return;
                 }
 
-                // If not intercepted, flush all buffered tool call chunks to client
                 for (const chunk of bufferedChunks) {
                     yield chunk;
                 }
 
-                const breakdown = extractUsageBreakdown(providerId, usage);
-                const effectiveModel = currentModel;
-                const effectiveProvider = effectiveModel.includes("/")
-                    ? effectiveModel.split("/")[0]!
-                    : providerId;
-
-                logRequestDB({
-                    providerId,
-                    model: currentModel,
-                    promptTokens: breakdown.promptTokens,
-                    completionTokens: breakdown.completionTokens,
-                    totalTokens: breakdown.totalTokens,
-                    cachedTokens: breakdown.cachedTokens,
-                    cacheCreationTokens: breakdown.cacheCreationTokens,
-                    reasoningTokens: breakdown.reasoningTokens,
-                    estimatedCost: estimateCostForUsage(
-                        effectiveProvider,
-                        effectiveModel,
-                        breakdown
-                    ),
-                    fallbackOccurred,
-                    fallbackPath: fallbackOccurred ? fallbackPath.join(" -> ") : undefined,
-                    fallbackReason,
+                LogCompletion(providerId, currentModel, startTime, {
                     statusCode: 200,
-                    latencyMs: Date.now() - startTime
+                    usage,
+                    fallbackOccurred,
+                    fallbackPath,
+                    fallbackReason
                 });
 
                 return;
             } catch (err) {
-                lastError = err;
+                lastError = err instanceof Error ? err : (err as ErrorWithStatus);
                 if (!fallbackReason) {
                     fallbackReason = err instanceof Error ? err.message : String(err);
                 }
 
-                // If we haven't yielded anything yet, we can safely try the next candidate
                 if (!yieldedAny && i < candidates.length - 1) {
                     continue;
                 }
 
-                // If already yielded or no more candidates, log failure and throw
                 const provider = currentModel.split("/")[0] || "default";
-                logRequestDB({
-                    providerId: provider,
-                    model: currentModel,
-                    promptTokens: 0,
-                    completionTokens: 0,
-                    totalTokens: 0,
-                    fallbackOccurred,
-                    fallbackPath: fallbackOccurred ? fallbackPath.join(" -> ") : undefined,
-                    fallbackReason,
+                LogCompletion(provider, currentModel, startTime, {
                     statusCode: 500,
-                    latencyMs: Date.now() - startTime
+                    fallbackOccurred,
+                    fallbackPath,
+                    fallbackReason
                 });
                 throw err;
             }
@@ -417,4 +398,6 @@ export class ChatLogic {
 
         if (lastError) throw lastError;
     }
+
+    public static processStreamingCompletion = ChatLogic.ProcessStreamingCompletion;
 }
