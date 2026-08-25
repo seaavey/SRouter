@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Loader2, Copy, Check, X, Key, Globe, ExternalLink } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import type { ProviderConfig, ProviderDefinition } from "@srouter/types";
+import { AuthPollStatus, type ProviderConfig, type ProviderDefinition } from "@srouter/types";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 interface ConnectOAuthModalProps {
@@ -126,8 +126,8 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                     baseId === "codebuddy"
                         ? `/v1/auth/${authProviderId}/poll?state=${encodeURIComponent(oauthState)}`
                         : `/v1/auth/qoder/poll?state=${encodeURIComponent(oauthState)}`;
-                const res = await api.get<{ status: string; provider?: ProviderConfig }>(pollUrl);
-                if (res && res.status === "ok") {
+                const res = await api.get<{ status: AuthPollStatus; provider?: ProviderConfig }>(pollUrl);
+                if (res && res.status === AuthPollStatus.OK) {
                     if (popupRef.current && !popupRef.current.closed) {
                         popupRef.current.close();
                     }

@@ -145,15 +145,15 @@ export class CodeBuddyOAuth {
         }
 
         if (data.code === 11217) {
-            return { status: "pending" };
+            return { status: AuthPollStatus.PENDING };
         }
 
-        return { status: "pending", error: data.msg || "unknown_error" };
+        return { status: AuthPollStatus.PENDING, error: data.msg || "unknown_error" };
     }
 
     async exchangeCodeForTokens(code: string, _codeVerifier?: string): Promise<OAuthTokenResponse> {
         const poll = await this.pollToken(code);
-        if (poll.status !== "ok" || !poll.accessToken) {
+        if (poll.status !== AuthPollStatus.OK || !poll.accessToken) {
             throw new Error(poll.error || "CodeBuddy authorization is still pending or was denied");
         }
 

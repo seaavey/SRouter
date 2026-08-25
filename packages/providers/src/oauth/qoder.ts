@@ -127,7 +127,7 @@ export class QoderOAuth {
      */
     async exchangeCodeForTokens(code: string, codeVerifier: string): Promise<OAuthTokenResponse> {
         const poll = await this.pollDeviceToken({ nonce: code, codeVerifier });
-        if (poll.status !== "ok" || !poll.accessToken) {
+        if (poll.status !== AuthPollStatus.OK || !poll.accessToken) {
             throw new Error("Qoder authorization is still pending or was denied");
         }
 
