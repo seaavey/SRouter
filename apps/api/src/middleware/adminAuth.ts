@@ -9,15 +9,15 @@ export interface AdminAuthMiddlewareOptions {
     now?: () => number;
 }
 
-export function createAdminAuthMiddleware(
-    options: AdminAuthMiddlewareOptions = {}
+export function CreateAdminAuthMiddleware(
+    Options: AdminAuthMiddlewareOptions = {}
 ): MiddlewareHandler {
-    const store = options.store ?? adminAuthStore;
-    const now = options.now ?? (() => Date.now());
+    const Store = Options.store ?? adminAuthStore;
+    const Now = Options.now ?? (() => Date.now());
 
     return async (c: Context, next: Next) => {
-        const sessionToken = getCookie(c, ADMIN_SESSION_COOKIE);
-        if (!verifyAdminSession(store, sessionToken, now())) {
+        const SessionToken = getCookie(c, ADMIN_SESSION_COOKIE);
+        if (!verifyAdminSession(Store, SessionToken, Now())) {
             return Err(c, "Admin authentication is required", 401, {
                 code: "authentication_required"
             });
@@ -28,6 +28,4 @@ export function createAdminAuthMiddleware(
     };
 }
 
-export const RequireAdmin = createAdminAuthMiddleware();
-export const requireAdmin = RequireAdmin;
-export const adminAuth = RequireAdmin;
+export const RequireAdmin = CreateAdminAuthMiddleware();

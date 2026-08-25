@@ -5,7 +5,7 @@ import { Hono } from "hono";
 import { AdminAuthStore } from "../../../packages/db/src/adminAuth.js";
 import { setRequireApiKeyDB } from "@srouter/db";
 import { ADMIN_SESSION_COOKIE, createAdminSession } from "../src/services/adminAuth.js";
-import { createAdminAuthMiddleware } from "../src/middleware/adminAuth.js";
+import { CreateAdminAuthMiddleware } from "../src/middleware/adminAuth.js";
 import { createApiKeyAuth } from "../src/middleware/apiKeyAuth.js";
 
 afterEach(() => {
@@ -16,7 +16,7 @@ test("admin middleware requires a valid session cookie", async () => {
     const store = new AdminAuthStore(new DatabaseSync(":memory:"));
     store.createAdminAccount("hash");
     const app = new Hono();
-    app.use("/*", createAdminAuthMiddleware({ store }));
+    app.use("/*", CreateAdminAuthMiddleware({ store }));
     app.get("/providers", (c) => c.json({ ok: true }));
 
     const rejected = await app.request("/providers");
