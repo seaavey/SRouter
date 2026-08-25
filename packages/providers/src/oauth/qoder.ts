@@ -1,4 +1,5 @@
 import { QODER_DEVICE_TOKEN_URL, QODER_LOGIN_URL, QODER_USERINFO_URL } from "@srouter/constants";
+import { AuthPollStatus } from "@srouter/types";
 import type { OAuthTokenResponse, PKCEPair } from "./base.js";
 
 export interface QoderOAuthOptions {
@@ -29,7 +30,7 @@ export class QoderOAuth {
     }
 
     async pollDeviceToken(params: { nonce: string; codeVerifier: string }): Promise<{
-        status: "pending" | "ok";
+        status: AuthPollStatus;
         accessToken?: string;
         refreshToken?: string;
         userId?: string;
@@ -45,7 +46,7 @@ export class QoderOAuth {
         });
 
         if (response.status === 202 || response.status === 404) {
-            return { status: "pending" };
+            return { status: AuthPollStatus.PENDING };
         }
 
         if (!response.ok) {
@@ -77,10 +78,10 @@ export class QoderOAuth {
         }
 
         return {
-            status: "ok",
+            status: AuthPollStatus.OK,
             accessToken: body.token,
-            refreshToken: body.refresh_token || "",
-            userId: body.user_id || "",
+            refreshToken: body.refresh_token,
+            userId: body.user_id,
             expiresIn
         };
     }

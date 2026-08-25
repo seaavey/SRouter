@@ -11,6 +11,7 @@ import {
     CODEBUDDY_CN_ORIGIN,
     CODEBUDDY_CN_USER_AGENT
 } from "@srouter/constants";
+import { AuthPollStatus } from "@srouter/types";
 import type { OAuthTokenResponse } from "./base.js";
 
 export interface CodeBuddyOAuthOptions {
@@ -91,7 +92,7 @@ export class CodeBuddyOAuth {
     }
 
     async pollToken(state: string): Promise<{
-        status: "pending" | "ok";
+        status: AuthPollStatus;
         accessToken?: string;
         refreshToken?: string;
         expiresIn?: number;
@@ -116,11 +117,11 @@ export class CodeBuddyOAuth {
         });
 
         if (response.status === 202 || response.status === 404) {
-            return { status: "pending" };
+            return { status: AuthPollStatus.PENDING };
         }
 
         if (!response.ok) {
-            return { status: "pending", error: `Request failed (${response.status})` };
+            return { status: AuthPollStatus.PENDING, error: `Request failed (${response.status})` };
         }
 
         const data = (await response.json()) as {
@@ -136,7 +137,7 @@ export class CodeBuddyOAuth {
 
         if (data.code === 0 && data.data?.accessToken) {
             return {
-                status: "ok",
+                status: AuthPollStatus.OK,
                 accessToken: data.data.accessToken,
                 refreshToken: data.data.refreshToken || "",
                 expiresIn: data.data.expiresIn || 86400
