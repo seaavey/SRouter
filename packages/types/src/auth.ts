@@ -106,12 +106,3 @@ export interface AuthProviderHandler {
 }
 
 export * from "./schemas/auth.js";
-
-
-
-export interface TokenImportBody {
-    accessToken?: string;
-    refreshToken?: string;
-    baseUrl?: string;
-    name?: string;
-}

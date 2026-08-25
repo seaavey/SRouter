@@ -4,6 +4,7 @@ import { AuthHandlers } from "@/services/authHandlers.js";
 import {
     StatePayloadSchema,
     OAuthCallbackBodySchema,
+    TokenImportBodySchema,
     type AuthProviderHandler,
     type OAuthCallbackBody,
     type OAuthLoginParams,
@@ -26,22 +27,17 @@ function loginFor(
     c: Context,
     handleErrors: boolean
 ): Response {
-    const clientId = c.req.query("client_id") || undefined;
-    const redirectUri = c.req.query("redirect_uri") || undefined;
-    const prompt = c.req.query("prompt") || undefined;
-
     try {
-        const result = initiate({ clientId, redirectUri, prompt });
+        const result = initiate({
+            clientId: c.req.query("client_id"),
+            redirectUri: c.req.query("redirect_uri"),
+            prompt: c.req.query("prompt")
+        });
 
-        if (c.req.query("format") === "json") {
-            return ok(c, result);
-        }
-
-        return c.redirect(result.authorizeUrl);
+        return c.req.query("format") === "json" ? Ok(c, result) : c.redirect(result.authorizeUrl);
     } catch (error) {
         if (!handleErrors) throw error;
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        return Err(c, errorMessage, 400);
+        return Err(c, error instanceof Error ? error.message : String(error), 400);
     }
 }
 
@@ -50,25 +46,17 @@ async function handleOAuthCallbackFor(
     processCallback: (code: string, state: string) => Promise<ProviderConfig>,
     c: Context
 ): Promise<Response> {
-    let code = c.req.query("code") || undefined;
-    let state = c.req.query("state") || undefined;
+    const rawBody = c.req.method === "POST" ? await c.req.json().catch(() => null) : null;
+    const body = OAuthCallbackBodySchema.safeParse(rawBody).data;
 
-    if ((!code || !state) && c.req.method === "POST") {
+    let code = c.req.query("code") ?? body?.code;
+    let state = c.req.query("state") ?? body?.state;
+
+    if (body?.callbackUrl) {
         try {
-            const rawBody = await c.req.json();
-            const parsed = OAuthCallbackBodySchema.safeParse(rawBody);
-            if (parsed.success) {
-                const body = parsed.data;
-                if (body.callbackUrl) {
-                    try {
-                        const parsedUrl = new URL(body.callbackUrl);
-                        code = code || parsedUrl.searchParams.get("code") || undefined;
-                        state = state || parsedUrl.searchParams.get("state") || undefined;
-                    } catch {}
-                }
-                code = code || body.code;
-                state = state || body.state;
-            }
+            const url = new URL(body.callbackUrl);
+            code = code ?? url.searchParams.get("code") ?? undefined;
+            state = state ?? url.searchParams.get("state") ?? undefined;
         } catch {}
     }
 
@@ -77,16 +65,10 @@ async function handleOAuthCallbackFor(
     }
 
     try {
-        const providerConfig = await processCallback(code, state);
-
-        return Ok(c, {
-            success: true,
-            message: handler.oauthSuccessMessage,
-            provider: providerConfig
-        });
+        const provider = await processCallback(code, state);
+        return Ok(c, { success: true, message: handler.oauthSuccessMessage, provider });
     } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        return Err(c, errorMessage, 500);
+        return Err(c, error instanceof Error ? error.message : String(error), 500);
     }
 }
 
@@ -95,28 +77,18 @@ async function importTokenFor(
     importLogic: (body: TokenImportParams) => ProviderConfig,
     c: Context
 ): Promise<Response> {
-    let body: TokenImportBody;
-    try {
-        body = await c.req.json<TokenImportBody>();
-    } catch {
+    const rawBody = await c.req.json().catch(() => null);
+    if (!rawBody || typeof rawBody !== "object") {
         return Err(c, "Invalid JSON body", 400);
     }
 
-    if (!body?.accessToken) {
-        return Err(c, "Field 'accessToken' is required", 400);
+    const parsed = TokenImportBodySchema.safeParse(rawBody);
+    if (!parsed.success) {
+        return Err(c, parsed.error.issues[0]?.message ?? "Invalid request body", 400);
     }
 
-    const providerConfig = importLogic(body as TokenImportParams);
-
-    return Ok(
-        c,
-        {
-            success: true,
-            message: handler.tokenImportMessage,
-            provider: providerConfig
-        },
-        201
-    );
+    const provider = importLogic(parsed.data as TokenImportParams);
+    return Ok(c, { success: true, message: handler.tokenImportMessage, provider }, 201);
 }
 
 export const AuthController = {

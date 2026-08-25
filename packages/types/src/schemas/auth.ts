@@ -13,3 +13,12 @@ export const OAuthCallbackBodySchema = z.object({
 });
 
 export type OAuthCallbackBody = z.infer<typeof OAuthCallbackBodySchema>;
+
+export const TokenImportBodySchema = z.object({
+    accessToken: z.string({ required_error: "Field 'accessToken' is required" }).min(1, "Field 'accessToken' is required"),
+    refreshToken: z.string().optional(),
+    baseUrl: z.string().url().optional(),
+    name: z.string().optional()
+}).passthrough();
+
+export type TokenImportBody = z.infer<typeof TokenImportBodySchema>;
