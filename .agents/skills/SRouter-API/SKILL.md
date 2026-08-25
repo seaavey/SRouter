@@ -38,6 +38,21 @@ Layered architecture:
 
 ## Code Standards & Conventions
 
+- **PascalCase Enforcement**:
+    - **Controllers**: Controller methods must strictly use PascalCase (e.g. `KeysController.CreateKey`, `ProvidersController.ListProviders`, `FallbacksController.GetFallbacks`, `ChatController.CreateCompletion`). Provide lowercase alias if needed for backward compatibility.
+    - **Logic & Services**: Internal helper functions and logic methods use PascalCase (e.g. `ExtractState`, `OAuthFor`, `CallbackFor`, `ImportTokenFor`, `ResolveCandidates`, `LogCompletion`).
+    - **Guards & Middleware**: Middleware instances use PascalCase (e.g. `RequireAdmin`).
+    - **Routers**: Hono router instances use PascalCase (e.g. `AuthRouter`, `ChatRouter`).
+- **Response Helpers**:
+    - Always use PascalCase response helpers from `@/utils/response.js` (`Err`, `Ok`, `FormatErrorPayload`, `GetErrorTypeFromStatus`).
+    - Error types auto-resolve from HTTP status codes (`400/404/409/422` -> `invalid_request_error`, `401` -> `authentication_error`, `403` -> `permission_error`, `429` -> `rate_limit_error`, default `api_error`). Avoid passing `{ type: "invalid_request_error" }` manually.
+- **Zod Schema Validation**:
+    - Validate request bodies at controller/route edge using Zod schemas (`safeParse`).
+    - Derive types strictly with `z.infer<typeof Schema>`. Avoid manual JSON type assertions (`as never`, manual `typeof` checks).
+    - Modularize domain schemas under `packages/types/src/schemas/` (`chat.ts`, `auth.ts`, `apiKeys.ts`, `providers.ts`).
+- **No Inline Comments & Strict Typing**:
+    - Never leave inline comments inside code touched during refactors.
+    - Enforce strict typing — never use `any` or loose `unknown` where a concrete type/union exists.
 - **Auth Handlers**: Individual handlers grouped under `AuthHandlers.<Provider>` (e.g. `AuthHandlers.Antigravity`, `AuthHandlers.OpenAI`) in `apps/api/src/services/authHandlers.ts`.
 - **Controllers Pattern**: Actions organized by namespace objects rather than flat methods:
     - `AuthController.<Provider>.OAuth`

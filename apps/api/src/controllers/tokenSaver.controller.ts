@@ -1,7 +1,11 @@
 import type { Context } from "hono";
 import { getTokenSaverSettingsDB, setTokenSaverSettingsDB } from "@srouter/db";
 import { previewTokenSaver } from "@srouter/translator";
-import type { TokenSaverPreviewRequest } from "@srouter/types";
+import {
+    TokenSaverSettingsSchema,
+    type TokenSaverPreviewRequest,
+    type TokenSaverSettings
+} from "@srouter/types";
 import { Err, Ok } from "@/utils/response.js";
 
 export class TokenSaverController {
@@ -12,8 +16,13 @@ export class TokenSaverController {
 
     public static async UpdateSettings(c: Context): Promise<Response> {
         try {
-            const body = await c.req.json();
-            const updated = setTokenSaverSettingsDB(body);
+            const rawBody = await c.req.json().catch(() => null);
+            const parsed = TokenSaverSettingsSchema.partial().safeParse(rawBody);
+            if (!parsed.success) {
+                return Err(c, parsed.error.issues[0]?.message || "Invalid settings payload", 400);
+            }
+
+            const updated = setTokenSaverSettingsDB(parsed.data as Partial<TokenSaverSettings>);
             return Ok(c, {
                 message: "Token Saver settings updated successfully",
                 settings: updated
@@ -26,8 +35,8 @@ export class TokenSaverController {
 
     public static async Preview(c: Context): Promise<Response> {
         try {
-            const body = await c.req.json<TokenSaverPreviewRequest>();
-            if (!body.text || typeof body.text !== "string") {
+            const body = await c.req.json<TokenSaverPreviewRequest>().catch(() => null);
+            if (!body?.text || typeof body.text !== "string") {
                 return Err(c, "Field 'text' is required and must be a string", 400);
             }
             const type = body.type === "prompt" ? "prompt" : "tool_output";

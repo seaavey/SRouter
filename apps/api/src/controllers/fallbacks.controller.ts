@@ -11,69 +11,55 @@ import { Err, Ok } from "@/utils/response.js";
 
 export class FallbacksController {
     public static GetFallbacks(c: Context): Response {
-        const fallbacks = getAllFallbackRulesDB();
-        return Ok(c, { fallbacks });
+        return Ok(c, { fallbacks: getAllFallbackRulesDB() });
     }
 
     public static async CreateFallback(c: Context): Promise<Response> {
-        try {
-            const body = await c.req.json();
-            const parseResult = FallbackRuleSchema.safeParse(body);
-            if (!parseResult.success) {
-                return Err(c, parseResult.error.errors[0]?.message || "Validation failed", 400);
-            }
+        const rawBody = await c.req.json().catch(() => null);
+        const parsed = FallbackRuleSchema.safeParse(rawBody);
+        if (!parsed.success) {
+            return Err(c, parsed.error.issues[0]?.message || "Validation failed", 400);
+        }
 
-            const rule = createFallbackRuleDB(parseResult.data);
-            return Ok(c, { fallback: rule }, 201);
+        try {
+            return Ok(c, { fallback: createFallbackRuleDB(parsed.data) }, 201);
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            return Err(c, errorMessage, 500);
+            return Err(c, error instanceof Error ? error.message : String(error), 500);
         }
     }
 
     public static async UpdateFallback(c: Context): Promise<Response> {
+        const id = c.req.param("id");
+        if (!id) return Err(c, "Missing rule ID parameter", 400);
+        if (!getFallbackRuleByIdDB(id)) {
+            return Err(c, `Fallback rule with ID "${id}" not found`, 404);
+        }
+
+        const rawBody = await c.req.json().catch(() => null);
+        const parsed = UpdateFallbackRuleSchema.safeParse(rawBody);
+        if (!parsed.success) {
+            return Err(c, parsed.error.issues[0]?.message || "Validation failed", 400);
+        }
+
         try {
-            const id = c.req.param("id");
-            if (!id) {
-                return Err(c, "Missing rule ID parameter", 400);
-            }
-
-            const existing = getFallbackRuleByIdDB(id);
-            if (!existing) {
-                return Err(c, `Fallback rule with ID "${id}" not found`, 404);
-            }
-
-            const body = await c.req.json();
-            const parseResult = UpdateFallbackRuleSchema.safeParse(body);
-            if (!parseResult.success) {
-                return Err(c, parseResult.error.errors[0]?.message || "Validation failed", 400);
-            }
-
-            const updated = updateFallbackRuleDB(id, parseResult.data);
-            return Ok(c, { fallback: updated });
+            return Ok(c, { fallback: updateFallbackRuleDB(id, parsed.data) });
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            return Err(c, errorMessage, 500);
+            return Err(c, error instanceof Error ? error.message : String(error), 500);
         }
     }
 
     public static DeleteFallback(c: Context): Response {
+        const id = c.req.param("id");
+        if (!id) return Err(c, "Missing rule ID parameter", 400);
+        if (!getFallbackRuleByIdDB(id)) {
+            return Err(c, `Fallback rule with ID "${id}" not found`, 404);
+        }
+
         try {
-            const id = c.req.param("id");
-            if (!id) {
-                return Err(c, "Missing rule ID parameter", 400);
-            }
-
-            const existing = getFallbackRuleByIdDB(id);
-            if (!existing) {
-                return Err(c, `Fallback rule with ID "${id}" not found`, 404);
-            }
-
             deleteFallbackRuleDB(id);
             return Ok(c, { message: `Fallback rule "${id}" deleted successfully` });
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            return Err(c, errorMessage, 500);
+            return Err(c, error instanceof Error ? error.message : String(error), 500);
         }
     }
 

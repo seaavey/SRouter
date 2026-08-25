@@ -2,6 +2,7 @@ import type { Context } from "hono";
 import type { CreateProviderPayload } from "@/logic/providers.logic.js";
 import { ProvidersLogic } from "@/logic/providers.logic.js";
 import { deleteProviderDB } from "@srouter/db";
+import { CreateProviderSchema } from "@srouter/types";
 import { loadSavedProvidersFromDB, registry } from "@/services/registry.js";
 import { Err, Ok } from "@/utils/response.js";
 
@@ -30,12 +31,15 @@ export class ProvidersController {
     }
 
     public static async AddProvider(c: Context): Promise<Response> {
-        const body = await c.req.json<CreateProviderPayload>();
-        if (!body.name || !body.category || !body.protocol) {
-            return Err(c, "Name, category, and protocol are required", 400);
+        const rawBody = await c.req.json().catch(() => null);
+        const parsed = CreateProviderSchema.safeParse(rawBody);
+
+        if (!parsed.success) {
+            return Err(c, parsed.error.issues[0]?.message || "Invalid provider payload", 400);
         }
+
         try {
-            const created = ProvidersLogic.addProvider(body);
+            const created = ProvidersLogic.addProvider(parsed.data as CreateProviderPayload);
             return Ok(c, created);
         } catch (error) {
             const message = error instanceof Error ? error.message : "Invalid provider payload";
