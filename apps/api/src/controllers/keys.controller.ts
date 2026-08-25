@@ -5,17 +5,15 @@ import { Err, Ok } from "@/utils/response.js";
 
 export class KeysController {
     public static ListKeys(c: Context): Response {
-        const keys = getAllAPIKeysDB();
         return Ok(c, {
             object: "list",
-            data: keys
+            data: getAllAPIKeysDB()
         });
     }
 
     public static async CreateKey(c: Context): Promise<Response> {
         const rawBody = await c.req.json().catch(() => null);
         const parsed = CreateAPIKeySchema.safeParse(rawBody);
-
         if (!parsed.success) {
             return Err(c, parsed.error.issues[0]?.message || "Invalid API key payload", 400);
         }
@@ -28,19 +26,14 @@ export class KeysController {
             });
             return Ok(c, created, 201);
         } catch (error) {
-            const message = error instanceof Error ? error.message : "Failed to create API key";
-            return Err(c, message, 500);
+            return Err(c, error instanceof Error ? error.message : "Failed to create API key", 500);
         }
     }
 
     public static DeleteKey(c: Context): Response {
         const id = c.req.param("id");
-        if (!id) {
-            return Err(c, "Key ID is required", 400);
-        }
-
-        const deleted = deleteAPIKeyDB(id);
-        if (!deleted) {
+        if (!id) return Err(c, "Key ID is required", 400);
+        if (!deleteAPIKeyDB(id)) {
             return Err(c, `Key '${id}' not found`, 404);
         }
 
