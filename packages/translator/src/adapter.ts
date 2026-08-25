@@ -11,7 +11,7 @@ import type {
 /**
  * Converts OpenAI ChatCompletionRequest into Anthropic MessageRequest format
  */
-export function openAIToAnthropicRequest(req: ChatCompletionRequest): AnthropicMessageRequest {
+export function OpenAIToAnthropicRequest(req: ChatCompletionRequest): AnthropicMessageRequest {
     let systemPrompt: string | undefined = undefined;
     const anthropicMessages: AnthropicMessage[] = [];
 
@@ -44,7 +44,7 @@ export function openAIToAnthropicRequest(req: ChatCompletionRequest): AnthropicM
 /**
  * Converts Anthropic MessageResponse into OpenAI ChatCompletionResponse format
  */
-export function anthropicToOpenAIResponse(
+export function AnthropicToOpenAIResponse(
     res: AnthropicMessageResponse,
     requestedModel: string
 ): ChatCompletionResponse {
@@ -128,3 +128,7 @@ export function anthropicEventToOpenAIChunk(
 
     return null;
 }
+
+export const openAIToAnthropicRequest = OpenAIToAnthropicRequest;
+export const anthropicToOpenAIResponse = AnthropicToOpenAIResponse;
+

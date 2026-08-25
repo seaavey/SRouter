@@ -19,7 +19,7 @@ import type {
 /**
  * Converts Anthropic format Messages API request to OpenAI format ChatCompletionRequest.
  */
-export function anthropicToOpenAIRequest(req: AnthropicMessageRequest): ChatCompletionRequest {
+export function AnthropicToOpenAIRequest(req: AnthropicMessageRequest): ChatCompletionRequest {
     const messages: ChatMessage[] = [];
 
     // 1. Process system prompt
@@ -204,7 +204,7 @@ function mapFinishReason(
 /**
  * Converts standard OpenAI ChatCompletionResponse to Anthropic MessageResponse.
  */
-export function openAIToAnthropicResponse(
+export function OpenAIToAnthropicResponse(
     res: ChatCompletionResponse,
     originalModel: string,
     options: { allowThinking?: boolean } = {}
@@ -280,7 +280,7 @@ export function openAIToAnthropicResponse(
 /**
  * Converts OpenAI streaming chunks to Anthropic SSE event stream.
  */
-export async function* openAIToAnthropicStream(
+export async function* OpenAIToAnthropicStream(
     stream: AsyncGenerator<ChatCompletionChunk>,
     originalModel: string,
     options: { allowThinking?: boolean } = {}
@@ -449,3 +449,8 @@ export async function* openAIToAnthropicStream(
         type: "message_stop"
     };
 }
+
+export const anthropicToOpenAIRequest = AnthropicToOpenAIRequest;
+export const openAIToAnthropicResponse = OpenAIToAnthropicResponse;
+export const openAIToAnthropicStream = OpenAIToAnthropicStream;
+

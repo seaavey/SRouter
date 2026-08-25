@@ -1,9 +1,9 @@
 import type { Context } from "hono";
 import { streamSSE } from "hono/streaming";
 import {
-    anthropicToOpenAIRequest,
-    openAIToAnthropicResponse,
-    openAIToAnthropicStream
+    AnthropicToOpenAIRequest,
+    OpenAIToAnthropicResponse,
+    OpenAIToAnthropicStream
 } from "@srouter/translator";
 import { AnthropicMessageRequestSchema, type AnthropicMessageRequest } from "@srouter/types";
 import { ChatLogic } from "@/logic/chat.logic.js";
@@ -23,7 +23,7 @@ export class MessagesController {
         }
 
         const body = parsed.data as AnthropicMessageRequest;
-        const openAIReq = anthropicToOpenAIRequest(body);
+        const OpenAIReq = AnthropicToOpenAIRequest(body);
         const isThinkingEnabled = Boolean(body.thinking?.type === "enabled");
 
         if (body.stream) {
@@ -33,12 +33,12 @@ export class MessagesController {
 
             return streamSSE(c, async (stream) => {
                 try {
-                    const chunkGenerator = ChatLogic.processStreamingCompletion(openAIReq, startTime);
-                    const anthropicStream = openAIToAnthropicStream(chunkGenerator, body.model, {
+                    const chunkGenerator = ChatLogic.ProcessStreamingCompletion(OpenAIReq, startTime);
+                    const AnthropicStream = OpenAIToAnthropicStream(chunkGenerator, body.model, {
                         allowThinking: isThinkingEnabled
                     });
 
-                    for await (const event of anthropicStream) {
+                    for await (const event of AnthropicStream) {
                         await stream.writeSSE({
                             event: event.type,
                             data: JSON.stringify(event)
@@ -55,11 +55,11 @@ export class MessagesController {
         }
 
         try {
-            const openAIRes = await ChatLogic.processNonStreamingCompletion(openAIReq, startTime);
-            const anthropicRes = openAIToAnthropicResponse(openAIRes, body.model, {
+            const OpenAIRes = await ChatLogic.ProcessNonStreamingCompletion(OpenAIReq, startTime);
+            const AnthropicRes = OpenAIToAnthropicResponse(OpenAIRes, body.model, {
                 allowThinking: isThinkingEnabled
             });
-            return Ok(c, anthropicRes);
+            return Ok(c, AnthropicRes);
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "Internal server error";
             return AnthropicErr(c, errorMessage, 500);
