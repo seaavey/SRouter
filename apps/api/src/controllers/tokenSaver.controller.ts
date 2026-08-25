@@ -52,7 +52,5 @@ export class TokenSaverController {
         }
     }
 
-    public static getSettings = TokenSaverController.GetSettings;
-    public static updateSettings = TokenSaverController.UpdateSettings;
-    public static preview = TokenSaverController.Preview;
+
 }

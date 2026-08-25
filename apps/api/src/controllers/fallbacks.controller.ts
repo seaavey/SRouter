@@ -63,8 +63,5 @@ export class FallbacksController {
         }
     }
 
-    public static getFallbacks = FallbacksController.GetFallbacks;
-    public static createFallback = FallbacksController.CreateFallback;
-    public static updateFallback = FallbacksController.UpdateFallback;
-    public static deleteFallback = FallbacksController.DeleteFallback;
+
 }

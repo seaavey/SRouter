@@ -8,17 +8,17 @@ import { apiKeyAuth } from "@/middleware/apiKeyAuth.js";
 export const settingsRoute = new Hono();
 
 // GET routes accept either an API key or an active admin session
-settingsRoute.get("/settings", apiKeyAuth, SettingsController.getSettings);
-settingsRoute.get("/settings/token-saver", apiKeyAuth, TokenSaverController.getSettings);
-settingsRoute.get("/settings/fallbacks", apiKeyAuth, FallbacksController.getFallbacks);
+settingsRoute.get("/settings", apiKeyAuth, SettingsController.GetSettings);
+settingsRoute.get("/settings/token-saver", apiKeyAuth, TokenSaverController.GetSettings);
+settingsRoute.get("/settings/fallbacks", apiKeyAuth, FallbacksController.GetFallbacks);
 
 // Mutations require an authenticated admin session
-settingsRoute.patch("/settings", RequireAdmin, SettingsController.updateSettings);
-settingsRoute.post("/settings", RequireAdmin, SettingsController.updateSettings);
-settingsRoute.patch("/settings/token-saver", RequireAdmin, TokenSaverController.updateSettings);
-settingsRoute.put("/settings/token-saver", RequireAdmin, TokenSaverController.updateSettings);
-settingsRoute.post("/settings/token-saver/test", RequireAdmin, TokenSaverController.preview);
-settingsRoute.post("/settings/fallbacks", RequireAdmin, FallbacksController.createFallback);
-settingsRoute.put("/settings/fallbacks/:id", RequireAdmin, FallbacksController.updateFallback);
-settingsRoute.patch("/settings/fallbacks/:id", RequireAdmin, FallbacksController.updateFallback);
-settingsRoute.delete("/settings/fallbacks/:id", RequireAdmin, FallbacksController.deleteFallback);
+settingsRoute.patch("/settings", RequireAdmin, SettingsController.UpdateSettings);
+settingsRoute.post("/settings", RequireAdmin, SettingsController.UpdateSettings);
+settingsRoute.patch("/settings/token-saver", RequireAdmin, TokenSaverController.UpdateSettings);
+settingsRoute.put("/settings/token-saver", RequireAdmin, TokenSaverController.UpdateSettings);
+settingsRoute.post("/settings/token-saver/test", RequireAdmin, TokenSaverController.Preview);
+settingsRoute.post("/settings/fallbacks", RequireAdmin, FallbacksController.CreateFallback);
+settingsRoute.put("/settings/fallbacks/:id", RequireAdmin, FallbacksController.UpdateFallback);
+settingsRoute.patch("/settings/fallbacks/:id", RequireAdmin, FallbacksController.UpdateFallback);
+settingsRoute.delete("/settings/fallbacks/:id", RequireAdmin, FallbacksController.DeleteFallback);

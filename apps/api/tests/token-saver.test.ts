@@ -44,8 +44,8 @@ test("TokenSaver DB gets defaults and updates settings cleanly", () => {
 
 test("TokenSaverController getSettings and updateSettings endpoints", async () => {
     const testApp = new Hono();
-    testApp.get("/settings/token-saver", TokenSaverController.getSettings);
-    testApp.patch("/settings/token-saver", TokenSaverController.updateSettings);
+    testApp.get("/settings/token-saver", TokenSaverController.GetSettings);
+    testApp.patch("/settings/token-saver", TokenSaverController.UpdateSettings);
 
     const getRes = await testApp.request("/settings/token-saver");
     assert.equal(getRes.status, 200);
@@ -71,7 +71,7 @@ test("TokenSaverController getSettings and updateSettings endpoints", async () =
 
 test("TokenSaverController preview endpoint simulates tool output and prompt savings", async () => {
     const testApp = new Hono();
-    testApp.post("/settings/token-saver/test", TokenSaverController.preview);
+    testApp.post("/settings/token-saver/test", TokenSaverController.Preview);
 
     const diffSample = `diff --git a/test.ts b/test.ts
 index abcdef1..1234567 100644

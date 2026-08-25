@@ -43,6 +43,5 @@ export class SettingsController {
         }
     }
 
-    public static getSettings = SettingsController.GetSettings;
-    public static updateSettings = SettingsController.UpdateSettings;
+
 }

@@ -99,12 +99,5 @@ export class ProvidersController {
         }
     }
 
-    public static listProviders = ProvidersController.ListProviders;
-    public static getCatalog = ProvidersController.GetCatalog;
-    public static getProvider = ProvidersController.GetProvider;
-    public static addProvider = ProvidersController.AddProvider;
-    public static deleteProvider = ProvidersController.DeleteProvider;
-    public static verifyProvider = ProvidersController.VerifyProvider;
-    public static addCustomModel = ProvidersController.AddCustomModel;
-    public static deleteCustomModel = ProvidersController.DeleteCustomModel;
+
 }

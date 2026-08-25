@@ -15,6 +15,5 @@ export class LogsController {
         return Ok(c, LogsLogic.getUsageStats());
     }
 
-    public static listLogs = LogsController.ListLogs;
-    public static getStats = LogsController.GetStats;
+
 }

@@ -5,7 +5,7 @@ import { apiKeyAuth } from "@/middleware/apiKeyAuth.js";
 export const logsRoute = new Hono();
 
 // GET /v1/logs - Get recent request logs
-logsRoute.get("/logs", apiKeyAuth, LogsController.listLogs);
+logsRoute.get("/logs", apiKeyAuth, LogsController.ListLogs);
 
 // GET /v1/logs/stats - Get token usage summary & request count
-logsRoute.get("/logs/stats", apiKeyAuth, LogsController.getStats);
+logsRoute.get("/logs/stats", apiKeyAuth, LogsController.GetStats);

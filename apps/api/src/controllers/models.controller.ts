@@ -44,7 +44,4 @@ export class ModelsController {
             code: "model_not_found"
         });
     }
-
-    public static listModels = ModelsController.ListModels;
-    public static getModelById = ModelsController.GetModelById;
 }

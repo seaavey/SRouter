@@ -66,5 +66,5 @@ export class MessagesController {
         }
     }
 
-    public static createMessage = MessagesController.CreateMessage;
+
 }

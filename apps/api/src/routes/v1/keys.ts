@@ -6,8 +6,8 @@ import { apiKeyAuth } from "@/middleware/apiKeyAuth.js";
 export const keysRoute = new Hono();
 
 // List API keys
-keysRoute.get("/keys", apiKeyAuth, KeysController.listKeys);
+keysRoute.get("/keys", apiKeyAuth, KeysController.ListKeys);
 
 // Mutation endpoints require Admin Auth
-keysRoute.post("/keys", RequireAdmin, KeysController.createKey);
-keysRoute.delete("/keys/:id", RequireAdmin, KeysController.deleteKey);
+keysRoute.post("/keys", RequireAdmin, KeysController.CreateKey);
+keysRoute.delete("/keys/:id", RequireAdmin, KeysController.DeleteKey);

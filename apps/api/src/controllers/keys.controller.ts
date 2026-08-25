@@ -40,7 +40,5 @@ export class KeysController {
         return Ok(c, { message: "API Key revoked and deleted successfully" });
     }
 
-    public static listKeys = KeysController.ListKeys;
-    public static createKey = KeysController.CreateKey;
-    public static deleteKey = KeysController.DeleteKey;
+
 }
