@@ -14,19 +14,19 @@ export class ProvidersController {
     public static ListProviders(c: Context): Response {
         return Ok(c, {
             object: "list",
-            data: ProvidersLogic.listProviders()
+            data: ProvidersLogic.ListProviders()
         });
     }
 
     public static GetCatalog(c: Context): Response {
-        return Ok(c, ProvidersLogic.getCatalog());
+        return Ok(c, ProvidersLogic.GetCatalog());
     }
 
     public static async GetProvider(c: Context): Promise<Response> {
         const ProviderId = c.req.param("providerId");
         if (!ProviderId) return Err(c, "Provider ID is required", 400);
 
-        const Provider = await ProvidersLogic.getProviderById(ProviderId);
+        const Provider = await ProvidersLogic.GetProviderById(ProviderId);
         if (!Provider) {
             return Err(c, `Provider '${ProviderId}' not found`, 404);
         }
@@ -41,7 +41,7 @@ export class ProvidersController {
         }
 
         try {
-            const Created = ProvidersLogic.addProvider(Parsed.data as CreateProviderPayload);
+            const Created = ProvidersLogic.AddProvider(Parsed.data as CreateProviderPayload);
             return Ok(c, Created);
         } catch (error) {
             return Err(c, error instanceof Error ? error.message : "Invalid provider payload", 400);
@@ -67,7 +67,7 @@ export class ProvidersController {
             return Err(c, Parsed.error.issues[0]?.message || "Invalid verification payload", 400);
         }
 
-        const Result = await ProvidersLogic.verifyConnection(Parsed.data);
+        const Result = await ProvidersLogic.VerifyConnection(Parsed.data);
         return Ok(c, Result);
     }
 
@@ -82,7 +82,7 @@ export class ProvidersController {
         }
 
         try {
-            const Model = ProvidersLogic.addCustomModel(ProviderId, Parsed.data.modelId);
+            const Model = ProvidersLogic.AddCustomModel(ProviderId, Parsed.data.modelId);
             return Ok(c, Model, 201);
         } catch (error) {
             return Err(c, error instanceof Error ? error.message : "Invalid model payload", 400);
@@ -97,7 +97,7 @@ export class ProvidersController {
         }
 
         try {
-            ProvidersLogic.deleteCustomModel(ProviderId, decodeURIComponent(ModelId));
+            ProvidersLogic.DeleteCustomModel(ProviderId, decodeURIComponent(ModelId));
             return Ok(c, { message: "Custom model deleted" });
         } catch (error) {
             return Err(c, error instanceof Error ? error.message : "Failed to delete model", 404);

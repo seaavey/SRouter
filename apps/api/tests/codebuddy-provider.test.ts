@@ -96,7 +96,7 @@ test("CodeBuddy CN token import creates a CN provider connection", () => {
 });
 
 test("CodeBuddy CN connections stay grouped under the CN catalog entry", () => {
-    const before = ProvidersLogic.listProviders();
+    const before = ProvidersLogic.ListProviders();
     const cnBefore =
         before.find((provider) => provider.id === "codebuddy-cn")?.status.connectedCount ?? 0;
     const globalBefore =
@@ -107,7 +107,7 @@ test("CodeBuddy CN connections stay grouped under the CN catalog entry", () => {
     });
     createdIds.push(config.id);
 
-    const catalog = ProvidersLogic.listProviders();
+    const catalog = ProvidersLogic.ListProviders();
     const global = catalog.find((provider) => provider.id === "codebuddy");
     const cn = catalog.find((provider) => provider.id === "codebuddy-cn");
 

@@ -1,20 +1,26 @@
 import { z } from "zod";
 
+export const ProviderCategorySchema = z.enum(["custom", "oauth", "free_tier", "api_key"]);
+export const ProviderProtocolSchema = z.enum(["openai", "anthropic", "gemini", "custom"]);
+
 export const CreateProviderSchema = z.object({
-    providerId: z.string({ required_error: "Field 'providerId' is required" }),
-    name: z.string({ required_error: "Field 'name' is required" }),
-    category: z.enum(["custom", "oauth", "free_tier", "api_key"]),
-    protocol: z.enum(["openai", "anthropic", "gemini", "custom"]),
+    id: z.string().optional(),
+    providerId: z.string().optional(),
+    name: z.string({ required_error: "Field 'name' is required" }).min(1, "Field 'name' is required"),
+    category: ProviderCategorySchema,
+    protocol: ProviderProtocolSchema,
     baseUrl: z.string().url().optional(),
     apiKey: z.string().optional(),
     accessToken: z.string().optional(),
+    refreshToken: z.string().optional(),
+    providerSpecificData: z.record(z.string()).optional(),
     customHeaders: z.record(z.string()).optional()
 });
 
 export type CreateProviderZod = z.infer<typeof CreateProviderSchema>;
 
 export const VerifyProviderSchema = z.object({
-    protocol: z.enum(["openai", "anthropic", "gemini", "custom"]),
+    protocol: ProviderProtocolSchema.optional().default("openai"),
     baseUrl: z.string().url().optional(),
     apiKey: z.string().optional()
 });

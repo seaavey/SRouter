@@ -5,11 +5,13 @@ import {
     providerAlias
 } from "@srouter/constants";
 import type {
+    CreateProviderZod,
     ModelObject,
     ProviderCategory,
     ProviderConfig,
     ProviderDefinition,
-    ProviderProtocol
+    ProviderProtocol,
+    VerifyProviderZod
 } from "@srouter/types";
 import {
     addCustomModelDB,
@@ -32,343 +34,312 @@ export interface CatalogSummary {
     categories: GroupedCatalog;
 }
 
-export interface CreateProviderPayload {
-    id?: string;
-    name: string;
-    category: ProviderCategory;
-    protocol: ProviderProtocol;
-    baseUrl?: string;
-    apiKey?: string;
-    accessToken?: string;
-    refreshToken?: string;
-    providerSpecificData?: Record<string, string>;
+export type CreateProviderPayload = CreateProviderZod;
+
+function isProviderProtocol(Value: string): Value is ProviderProtocol {
+    return ["openai", "anthropic", "gemini", "custom"].includes(Value);
 }
 
-function isProviderProtocol(value: string): value is ProviderProtocol {
-    return ["openai", "anthropic", "gemini", "custom"].includes(value);
-}
-
-/**
- * Resolves a provider/connection id to its base driver id. Known drivers are
- * matched by id or `id_<suffix>` / `id-<suffix>` prefixes so multi-account
- * connections collapse under one driver (e.g. openai_codex_1700000000 →
- * openai_codex). Custom ids that match no known driver keep their full id.
- */
 const PROVIDER_IDS_BY_LENGTH = Object.keys(DEFAULT_PROVIDER_MAP).sort(
-    (left, right) => right.length - left.length
+    (Left, Right) => Right.length - Left.length
 );
 
-function baseIdOf(providerId: string): string {
-    for (const id of PROVIDER_IDS_BY_LENGTH) {
+function BaseIdOf(ProviderId: string): string {
+    for (const Id of PROVIDER_IDS_BY_LENGTH) {
         if (
-            providerId === id ||
-            providerId.startsWith(`${id}_`) ||
-            providerId.startsWith(`${id}-`)
+            ProviderId === Id ||
+            ProviderId.startsWith(`${Id}_`) ||
+            ProviderId.startsWith(`${Id}-`)
         ) {
-            return id;
+            return Id;
         }
     }
-    return providerId;
+    return ProviderId;
 }
 
-function providerDefinitionFromConfig(connection: ProviderConfig): ProviderDefinition {
+function ProviderDefinitionFromConfig(Connection: ProviderConfig): ProviderDefinition {
     return {
-        id: connection.id,
-        name: connection.name,
+        id: Connection.id,
+        name: Connection.name,
         category:
-            connection.category && isProviderCategory(connection.category)
-                ? connection.category
+            Connection.category && isProviderCategory(Connection.category)
+                ? Connection.category
                 : "custom",
         protocol:
-            connection.protocol && isProviderProtocol(connection.protocol)
-                ? connection.protocol
+            Connection.protocol && isProviderProtocol(Connection.protocol)
+                ? Connection.protocol
                 : "openai",
-        defaultBaseUrl: connection.baseUrl,
-        requiresApiKey: Boolean(connection.apiKey),
+        defaultBaseUrl: Connection.baseUrl,
+        requiresApiKey: Boolean(Connection.apiKey),
         supportsCustomUrl: true,
         status: { state: "connected", connectedCount: 1 },
         models: []
     };
 }
 
-/**
- * Builds the dashboard catalog purely from the SQLite providers table. Built-in
- * drivers appear through their seeded rows; connections are grouped under their
- * base driver id. Seed rows describe a driver but carry no credentials, so they
- * are excluded from connection/status counts.
- */
-function catalogWithSavedCustomProviders(): ProviderDefinition[] {
-    const rows = getAllProvidersDB();
-    const catalog: ProviderDefinition[] = [];
-    const seen = new Set<string>();
+function CatalogWithSavedCustomProviders(): ProviderDefinition[] {
+    const Rows = getAllProvidersDB();
+    const Catalog: ProviderDefinition[] = [];
+    const Seen = new Set<string>();
 
-    for (const connection of rows) {
-        const baseId = baseIdOf(connection.providerId || connection.id);
-        if (seen.has(baseId)) continue;
-        seen.add(baseId);
+    for (const Connection of Rows) {
+        const BaseId = BaseIdOf(Connection.providerId || Connection.id);
+        if (Seen.has(BaseId)) continue;
+        Seen.add(BaseId);
 
-        const seed = DEFAULT_PROVIDER_MAP[baseId];
-        const category: ProviderCategory =
-            connection.category && isProviderCategory(connection.category)
-                ? connection.category
+        const Seed = DEFAULT_PROVIDER_MAP[BaseId];
+        const Category: ProviderCategory =
+            Connection.category && isProviderCategory(Connection.category)
+                ? Connection.category
                 : "custom";
-        const protocol: ProviderProtocol =
-            connection.protocol && isProviderProtocol(connection.protocol)
-                ? connection.protocol
+        const Protocol: ProviderProtocol =
+            Connection.protocol && isProviderProtocol(Connection.protocol)
+                ? Connection.protocol
                 : "openai";
 
-        const connectedCount = rows.filter(
-            (c) => !isSeedProvider(c) && c.enabled && baseIdOf(c.providerId || c.id) === baseId
+        const ConnectedCount = Rows.filter(
+            (C) => !isSeedProvider(C) && C.enabled && BaseIdOf(C.providerId || C.id) === BaseId
         ).length;
 
-        catalog.push({
-            id: baseId,
-            name: seed?.name ?? connection.name,
-            category: seed?.category ?? category,
-            protocol: seed?.protocol ?? protocol,
-            defaultBaseUrl: seed?.baseUrl ?? connection.baseUrl,
-            requiresApiKey: seed ? seed.requiresApiKey : Boolean(connection.apiKey),
-            requiresOAuth: seed?.requiresOAuth,
-            supportsCustomUrl: seed ? (seed.supportsCustomUrl ?? true) : true,
+        Catalog.push({
+            id: BaseId,
+            name: Seed?.name ?? Connection.name,
+            category: Seed?.category ?? Category,
+            protocol: Seed?.protocol ?? Protocol,
+            defaultBaseUrl: Seed?.baseUrl ?? Connection.baseUrl,
+            requiresApiKey: Seed ? Seed.requiresApiKey : Boolean(Connection.apiKey),
+            requiresOAuth: Seed?.requiresOAuth,
+            supportsCustomUrl: Seed ? (Seed.supportsCustomUrl ?? true) : true,
             status: {
-                state: connectedCount > 0 ? "connected" : "no_connections",
-                message: seed?.statusMessage,
-                connectedCount
+                state: ConnectedCount > 0 ? "connected" : "no_connections",
+                message: Seed?.statusMessage,
+                connectedCount: ConnectedCount
             },
             models: []
         });
     }
 
-    // Ensure all built-in drivers appear in the catalog
-    for (const seed of Object.values(DEFAULT_PROVIDER_MAP)) {
-        if (seen.has(seed.id)) continue;
-        seen.add(seed.id);
+    for (const Seed of Object.values(DEFAULT_PROVIDER_MAP)) {
+        if (Seen.has(Seed.id)) continue;
+        Seen.add(Seed.id);
 
-        catalog.push({
-            id: seed.id,
-            name: seed.name,
-            category: seed.category,
-            protocol: seed.protocol,
-            defaultBaseUrl: seed.baseUrl,
-            requiresApiKey: seed.requiresApiKey,
-            requiresOAuth: seed.requiresOAuth,
-            supportsCustomUrl: seed.supportsCustomUrl ?? true,
+        Catalog.push({
+            id: Seed.id,
+            name: Seed.name,
+            category: Seed.category,
+            protocol: Seed.protocol,
+            defaultBaseUrl: Seed.baseUrl,
+            requiresApiKey: Seed.requiresApiKey,
+            requiresOAuth: Seed.requiresOAuth,
+            supportsCustomUrl: Seed.supportsCustomUrl ?? true,
             status: {
                 state: "no_connections",
-                message: seed.statusMessage,
+                message: Seed.statusMessage,
                 connectedCount: 0
             },
             models: []
         });
     }
 
-    return catalog;
+    return Catalog;
 }
 
 export class ProvidersLogic {
-    public static listProviders(): ProviderDefinition[] {
-        return catalogWithSavedCustomProviders();
+    public static ListProviders(): ProviderDefinition[] {
+        return CatalogWithSavedCustomProviders();
     }
 
-    public static getCatalog(): CatalogSummary {
-        const catalog = catalogWithSavedCustomProviders();
+    public static GetCatalog(): CatalogSummary {
+        const Catalog = CatalogWithSavedCustomProviders();
 
-        const categories: GroupedCatalog = {
-            custom: catalog.filter((p) => p.category === "custom"),
-            oauth: catalog.filter((p) => p.category === "oauth"),
-            free_tier: catalog.filter((p) => p.category === "free_tier"),
-            api_key: catalog.filter((p) => p.category === "api_key")
+        const Categories: GroupedCatalog = {
+            custom: Catalog.filter((P) => P.category === "custom"),
+            oauth: Catalog.filter((P) => P.category === "oauth"),
+            free_tier: Catalog.filter((P) => P.category === "free_tier"),
+            api_key: Catalog.filter((P) => P.category === "api_key")
         };
 
         return {
-            total: catalog.length,
-            categories
+            total: Catalog.length,
+            categories: Categories
         };
     }
 
-    public static async getProviderById(providerId: string): Promise<ProviderDefinition | null> {
-        const catalog = catalogWithSavedCustomProviders();
-        const provider = catalog.find((p) => p.id.toLowerCase() === providerId.toLowerCase());
-        if (!provider) return null;
+    public static async GetProviderById(ProviderId: string): Promise<ProviderDefinition | null> {
+        const Catalog = CatalogWithSavedCustomProviders();
+        const Provider = Catalog.find((P) => P.id.toLowerCase() === ProviderId.toLowerCase());
+        if (!Provider) return null;
 
-        // Resolve connections by base driver id so multi-account rows (e.g.
-        // neosantara-1786…) show up on their driver's page (e.g. /providers/neosantara).
-        const connections = getAllProvidersDB().filter(
-            (c) => !isSeedProvider(c) && baseIdOf(c.providerId || c.id) === providerId
+        const Connections = getAllProvidersDB().filter(
+            (C) => !isSeedProvider(C) && BaseIdOf(C.providerId || C.id) === ProviderId
         );
-        const connectedCount = connections.filter((c) => c.enabled).length;
+        const ConnectedCount = Connections.filter((C) => C.enabled).length;
 
-        let liveModels = provider.models;
-        const matchingProviders = Array.from(registry.getAllProviders().values()).filter(
-            (p) =>
-                p.id === providerId ||
-                p.id.startsWith(`${providerId}_`) ||
-                p.id.startsWith(`${providerId}-`)
+        let LiveModels = Provider.models;
+        const MatchingProviders = Array.from(registry.getAllProviders().values()).filter(
+            (P) =>
+                P.id === ProviderId ||
+                P.id.startsWith(`${ProviderId}_`) ||
+                P.id.startsWith(`${ProviderId}-`)
         );
 
-        if (matchingProviders.length > 0) {
-            const modelMap = new Map<string, ModelObject>();
-            for (const m of provider.models) {
-                modelMap.set(m.id, m);
+        if (MatchingProviders.length > 0) {
+            const ModelMap = new Map<string, ModelObject>();
+            for (const M of Provider.models) {
+                ModelMap.set(M.id, M);
             }
-            for (const p of matchingProviders) {
+            for (const P of MatchingProviders) {
                 try {
-                    const fetched = await registry.getProviderModels(p);
-                    for (const m of fetched) {
-                        modelMap.set(m.id, m);
+                    const Fetched = await registry.getProviderModels(P);
+                    for (const M of Fetched) {
+                        ModelMap.set(M.id, M);
                     }
                 } catch {
-                    // ignore individual provider model fetch failure
                 }
             }
-            if (modelMap.size > 0) {
-                liveModels = Array.from(modelMap.values());
+            if (ModelMap.size > 0) {
+                LiveModels = Array.from(ModelMap.values());
             }
         }
 
-        // Merge user-added custom models (custom entries win over duplicates)
-        const customModels = ProvidersLogic.listCustomModels(providerId);
-        if (customModels.length > 0) {
-            const merged = new Map<string, ModelObject>();
-            for (const m of liveModels) {
-                merged.set(m.id.toLowerCase(), m);
+        const CustomModels = ProvidersLogic.ListCustomModels(ProviderId);
+        if (CustomModels.length > 0) {
+            const Merged = new Map<string, ModelObject>();
+            for (const M of LiveModels) {
+                Merged.set(M.id.toLowerCase(), M);
             }
-            for (const m of customModels) {
-                merged.set(m.id.toLowerCase(), m);
+            for (const M of CustomModels) {
+                Merged.set(M.id.toLowerCase(), M);
             }
-            liveModels = Array.from(merged.values());
+            LiveModels = Array.from(Merged.values());
         }
 
         return {
-            ...provider,
-            connections,
-            models: liveModels,
+            ...Provider,
+            connections: Connections,
+            models: LiveModels,
             status: {
-                ...provider.status,
-                connectedCount,
-                state: connectedCount > 0 ? "connected" : "no_connections"
+                ...Provider.status,
+                connectedCount: ConnectedCount,
+                state: ConnectedCount > 0 ? "connected" : "no_connections"
             }
         };
     }
 
-    public static addProvider(payload: CreateProviderPayload): ProviderDefinition {
-        const name = payload.name?.trim();
-        if (!name) throw new Error("Provider name is required");
-        if (!isProviderCategory(payload.category)) throw new Error("Invalid provider category");
-        if (!isProviderProtocol(payload.protocol)) throw new Error("Invalid provider protocol");
-        const rawId = payload.id?.trim();
-        const id = rawId ? rawId.toLowerCase().replace(/[^a-z0-9_-]/g, "") : `custom-${Date.now()}`;
-        if (!id)
+    public static AddProvider(Payload: CreateProviderPayload): ProviderDefinition {
+        const Name = Payload.name?.trim();
+        if (!Name) throw new Error("Provider name is required");
+        if (!isProviderCategory(Payload.category)) throw new Error("Invalid provider category");
+        if (!isProviderProtocol(Payload.protocol)) throw new Error("Invalid provider protocol");
+        const RawId = Payload.id?.trim();
+        const Id = RawId ? RawId.toLowerCase().replace(/[^a-z0-9_-]/g, "") : `custom-${Date.now()}`;
+        if (!Id)
             throw new Error("Provider ID must contain letters, numbers, underscores, or hyphens");
-        if (getAllProvidersDB().some((provider) => provider.id === id))
-            throw new Error(`Provider ID '${id}' already exists`);
-        const category = payload.category;
-        const protocol = payload.protocol;
-        const baseUrl = payload.baseUrl?.trim();
-        if (baseUrl) {
+        if (getAllProvidersDB().some((Provider) => Provider.id === Id))
+            throw new Error(`Provider ID '${Id}' already exists`);
+        const Category = Payload.category;
+        const Protocol = Payload.protocol;
+        const BaseUrl = Payload.baseUrl?.trim();
+        if (BaseUrl) {
             try {
-                const url = new URL(baseUrl);
-                if (!["http:", "https:"].includes(url.protocol))
+                const Url = new URL(BaseUrl);
+                if (!["http:", "https:"].includes(Url.protocol))
                     throw new Error("unsupported protocol");
             } catch {
                 throw new Error("Base URL must be a valid HTTP or HTTPS URL");
             }
         }
-        const apiKey = payload.apiKey?.trim();
-        if (category === "api_key" && !apiKey)
+        const ApiKey = Payload.apiKey?.trim();
+        if (Category === "api_key" && !ApiKey)
             throw new Error("API key is required for API key providers");
 
-        const config = {
-            id,
-            providerId: id,
-            name,
-            category,
-            protocol,
-            baseUrl,
-            apiKey,
-            accessToken: payload.accessToken,
-            refreshToken: payload.refreshToken,
-            providerSpecificData: payload.providerSpecificData,
+        const Config = {
+            id: Id,
+            providerId: Id,
+            name: Name,
+            category: Category,
+            protocol: Protocol,
+            baseUrl: BaseUrl,
+            apiKey: ApiKey,
+            accessToken: Payload.accessToken,
+            refreshToken: Payload.refreshToken,
+            providerSpecificData: Payload.providerSpecificData,
             enabled: true,
             createdAt: Date.now()
         };
 
-        upsertProviderDB(config);
+        upsertProviderDB(Config);
         loadSavedProvidersFromDB();
 
-        return providerDefinitionFromConfig(config);
+        return ProviderDefinitionFromConfig(Config);
     }
 
-    /**
-     * Add a user-defined model to a provider driver. Stored in SQLite and
-     * merged into the model listing; routing works via alias prefix matching.
-     */
-    public static addCustomModel(providerId: string, modelId: string): ModelObject {
-        const id = providerId.toLowerCase();
+    public static AddCustomModel(ProviderId: string, ModelId: string): ModelObject {
+        const Id = ProviderId.toLowerCase();
         if (
-            !DEFAULT_PROVIDER_MAP[id] &&
-            !getAllProvidersDB().some((p) => baseIdOf(p.providerId || p.id) === id)
+            !DEFAULT_PROVIDER_MAP[Id] &&
+            !getAllProvidersDB().some((P) => BaseIdOf(P.providerId || P.id) === Id)
         ) {
-            throw new Error(`Provider '${providerId}' not found`);
+            throw new Error(`Provider '${ProviderId}' not found`);
         }
-        const trimmed = modelId.trim();
-        if (!trimmed) throw new Error("Model ID is required");
-        if (trimmed.length > 200 || !/^[A-Za-z0-9._\-/: ]+$/.test(trimmed))
+        const Trimmed = ModelId.trim();
+        if (!Trimmed) throw new Error("Model ID is required");
+        if (Trimmed.length > 200 || !/^[A-Za-z0-9._\-/: ]+$/.test(Trimmed))
             throw new Error(
                 "Model ID may only contain letters, numbers, dots, dashes, underscores, slashes, colons, and spaces"
             );
 
-        addCustomModelDB(id, trimmed);
-        const fullId = `${providerAlias(id)}/${trimmed}`;
+        addCustomModelDB(Id, Trimmed);
+        const FullId = `${providerAlias(Id)}/${Trimmed}`;
         registry.clearModelsCache();
-        return { id: fullId, object: "model", owned_by: providerAlias(id) };
+        return { id: FullId, object: "model", owned_by: providerAlias(Id) };
     }
 
-    public static deleteCustomModel(providerId: string, modelId: string): void {
-        const deleted = deleteCustomModelDB(providerId.toLowerCase(), modelId);
-        if (!deleted) throw new Error(`Custom model '${modelId}' not found for '${providerId}'`);
+    public static DeleteCustomModel(ProviderId: string, ModelId: string): void {
+        const Deleted = deleteCustomModelDB(ProviderId.toLowerCase(), ModelId);
+        if (!Deleted) throw new Error(`Custom model '${ModelId}' not found for '${ProviderId}'`);
         registry.clearModelsCache();
     }
 
-    public static listCustomModels(providerId: string): ModelObject[] {
-        const alias = providerAlias(providerId.toLowerCase());
-        return getCustomModelsByProviderDB(providerId.toLowerCase()).map((row) => ({
-            id: `${alias}/${row.modelId}`,
+    public static ListCustomModels(ProviderId: string): ModelObject[] {
+        const Alias = providerAlias(ProviderId.toLowerCase());
+        return getCustomModelsByProviderDB(ProviderId.toLowerCase()).map((Row) => ({
+            id: `${Alias}/${Row.modelId}`,
             object: "model" as const,
-            owned_by: alias,
+            owned_by: Alias,
             custom: true
         }));
     }
 
-    public static async verifyConnection(payload: {
-        protocol: ProviderProtocol;
-        baseUrl?: string;
-        apiKey?: string;
-    }): Promise<{ success: boolean; message: string; modelsCount?: number }> {
-        const protocol = payload.protocol || "openai";
-        const baseUrl = (payload.baseUrl?.trim() || "").replace(/\/+$/, "");
-        const apiKey = payload.apiKey?.trim();
+    public static async VerifyConnection(Payload: VerifyProviderZod): Promise<{
+        success: boolean;
+        message: string;
+        modelsCount?: number;
+    }> {
+        const Protocol = Payload.protocol || "openai";
+        const BaseUrl = (Payload.baseUrl?.trim() || "").replace(/\/+$/, "");
+        const ApiKey = Payload.apiKey?.trim();
 
-        if (baseUrl) {
+        if (BaseUrl) {
             try {
-                const url = new URL(baseUrl);
-                if (!["http:", "https:"].includes(url.protocol)) {
+                const Url = new URL(BaseUrl);
+                if (!["http:", "https:"].includes(Url.protocol)) {
                     return {
                         success: false,
                         message: "URL endpoint harus berformat HTTP atau HTTPS."
                     };
                 }
-                const hostname = url.hostname.toLowerCase();
-                const isInternalHost =
-                    hostname === "169.254.169.254" ||
-                    hostname === "metadata.google.internal" ||
-                    hostname === "instance-data" ||
-                    hostname === "localhost" ||
-                    hostname === "127.0.0.1" ||
-                    hostname === "::1" ||
-                    hostname.startsWith("127.") ||
-                    hostname.startsWith("169.254.");
-                if (isInternalHost) {
+                const Hostname = Url.hostname.toLowerCase();
+                const IsInternalHost =
+                    Hostname === "169.254.169.254" ||
+                    Hostname === "metadata.google.internal" ||
+                    Hostname === "instance-data" ||
+                    Hostname === "localhost" ||
+                    Hostname === "127.0.0.1" ||
+                    Hostname === "::1" ||
+                    Hostname.startsWith("127.") ||
+                    Hostname.startsWith("169.254.");
+                if (IsInternalHost) {
                     return {
                         success: false,
                         message:
@@ -381,101 +352,100 @@ export class ProvidersLogic {
         }
 
         try {
-            if (protocol === "anthropic") {
-                const targetUrl = baseUrl
-                    ? `${baseUrl}/v1/models`
+            if (Protocol === "anthropic") {
+                const TargetUrl = BaseUrl
+                    ? `${BaseUrl}/v1/models`
                     : "https://api.anthropic.com/v1/models";
-                const headers: Record<string, string> = {
+                const Headers: Record<string, string> = {
                     "User-Agent": "SRouter/1.0.0 (Node.js)",
                     Accept: "application/json",
                     "anthropic-version": "2023-06-01"
                 };
-                if (apiKey) {
-                    headers["x-api-key"] = apiKey;
+                if (ApiKey) {
+                    Headers["x-api-key"] = ApiKey;
                 }
 
-                const res = await fetch(targetUrl, {
+                const Res = await fetch(TargetUrl, {
                     method: "GET",
-                    headers,
+                    headers: Headers,
                     signal: AbortSignal.timeout(8000)
                 });
 
-                if (res.ok) {
-                    const data = (await res.json().catch(() => ({}))) as {
+                if (Res.ok) {
+                    const Data = (await Res.json().catch(() => ({}))) as {
                         data?: unknown[];
                     };
-                    const count = Array.isArray(data?.data) ? data.data.length : undefined;
+                    const Count = Array.isArray(Data?.data) ? Data.data.length : undefined;
                     return {
                         success: true,
                         message:
-                            count !== undefined
-                                ? `Koneksi Anthropic valid! (${count} model ditemukan)`
+                            Count !== undefined
+                                ? `Koneksi Anthropic valid! (${Count} model ditemukan)`
                                 : "Koneksi Anthropic berhasil diverifikasi.",
-                        modelsCount: count
+                        modelsCount: Count
                     };
                 }
 
-                if (res.status === 401) {
+                if (Res.status === 401) {
                     return {
                         success: false,
                         message: "Autentikasi gagal: API key Anthropic tidak valid (HTTP 401)."
                     };
                 }
 
-                const errBody = await res.text().catch(() => "");
+                const ErrBody = await Res.text().catch(() => "");
                 return {
                     success: false,
-                    message: `Upstream error (HTTP ${res.status}): ${res.statusText || errBody.slice(0, 100)}`
+                    message: `Upstream error (HTTP ${Res.status}): ${Res.statusText || ErrBody.slice(0, 100)}`
                 };
             }
 
-            // OpenAI / Custom OpenAI compatible
-            const targetUrl = baseUrl ? `${baseUrl}/models` : "https://api.openai.com/v1/models";
-            const headers: Record<string, string> = {
+            const TargetUrl = BaseUrl ? `${BaseUrl}/models` : "https://api.openai.com/v1/models";
+            const Headers: Record<string, string> = {
                 "User-Agent": "SRouter/1.0.0 (Node.js)",
                 "Accept-Encoding": "identity",
                 Accept: "application/json"
             };
-            if (apiKey) {
-                headers["Authorization"] = `Bearer ${apiKey}`;
+            if (ApiKey) {
+                Headers["Authorization"] = `Bearer ${ApiKey}`;
             }
 
-            const res = await fetch(targetUrl, {
+            const Res = await fetch(TargetUrl, {
                 method: "GET",
-                headers,
+                headers: Headers,
                 signal: AbortSignal.timeout(8000)
             });
 
-            if (res.ok) {
-                const data = (await res.json().catch(() => ({}))) as {
+            if (Res.ok) {
+                const Data = (await Res.json().catch(() => ({}))) as {
                     data?: unknown[];
                 };
-                const count = Array.isArray(data?.data) ? data.data.length : undefined;
+                const Count = Array.isArray(Data?.data) ? Data.data.length : undefined;
                 return {
                     success: true,
                     message:
-                        count !== undefined
-                            ? `Koneksi OpenAI valid! (${count} model ditemukan)`
+                        Count !== undefined
+                            ? `Koneksi OpenAI valid! (${Count} model ditemukan)`
                             : "Koneksi OpenAI berhasil diverifikasi.",
-                    modelsCount: count
+                    modelsCount: Count
                 };
             }
 
-            if (res.status === 401) {
+            if (Res.status === 401) {
                 return {
                     success: false,
                     message: "Autentikasi gagal: API key salah atau kedaluwarsa (HTTP 401)."
                 };
             }
 
-            const errBody = await res.text().catch(() => "");
+            const ErrBody = await Res.text().catch(() => "");
             return {
                 success: false,
-                message: `Upstream error (HTTP ${res.status}): ${res.statusText || errBody.slice(0, 100)}`
+                message: `Upstream error (HTTP ${Res.status}): ${Res.statusText || ErrBody.slice(0, 100)}`
             };
-        } catch (err) {
-            const msg = err instanceof Error ? err.message : "Tidak dapat terhubung ke endpoint.";
-            return { success: false, message: `Gagal terhubung ke host: ${msg}` };
+        } catch (Err) {
+            const Msg = Err instanceof Error ? Err.message : "Tidak dapat terhubung ke endpoint.";
+            return { success: false, message: `Gagal terhubung ke host: ${Msg}` };
         }
     }
 }
