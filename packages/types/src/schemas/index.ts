@@ -5,3 +5,4 @@ export * from "./providers.js";
 export * from "./anthropic.js";
 export * from "./settings.js";
 export * from "./models.js";
+export * from "./admin.js";

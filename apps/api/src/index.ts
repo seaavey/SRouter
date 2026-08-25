@@ -4,13 +4,8 @@ import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono, type Context } from "hono";
 import { cors } from "hono/cors";
-import {
-    AuthRouter,
-    AntigravityOAuthCallback,
-    ClaudeOAuthCallback,
-    CodexOAuthCallback,
-    QoderOAuthCallback
-} from "@/routes/v1/auth.js";
+import { AuthRouter } from "@/routes/v1/auth.js";
+import { AuthController } from "@/controllers/auth.controller.js";
 import { adminRoute } from "@/routes/v1/admin.js";
 import { chatRoute } from "@/routes/v1/chat.js";
 import { keysRoute } from "@/routes/v1/keys.js";
@@ -196,14 +191,14 @@ serve(
 // Secondary listener on Port 1455 for OAuth callbacks and local Anthropic proxy
 const oauthApp = new Hono();
 oauthApp.onError(errorHandler("OAuth API Route"));
-oauthApp.get("/auth/callback", (c) => CodexOAuthCallback(c));
-oauthApp.post("/auth/callback", (c) => CodexOAuthCallback(c));
-oauthApp.get("/auth/antigravity/callback", (c) => AntigravityOAuthCallback(c));
-oauthApp.post("/auth/antigravity/callback", (c) => AntigravityOAuthCallback(c));
-oauthApp.get("/auth/claude/callback", (c) => ClaudeOAuthCallback(c));
-oauthApp.post("/auth/claude/callback", (c) => ClaudeOAuthCallback(c));
-oauthApp.get("/auth/qoder/callback", (c) => QoderOAuthCallback(c));
-oauthApp.post("/auth/qoder/callback", (c) => QoderOAuthCallback(c));
+oauthApp.get("/auth/callback", (c) => AuthController.OpenAI.Callback(c));
+oauthApp.post("/auth/callback", (c) => AuthController.OpenAI.Callback(c));
+oauthApp.get("/auth/antigravity/callback", (c) => AuthController.Antigravity.Callback(c));
+oauthApp.post("/auth/antigravity/callback", (c) => AuthController.Antigravity.Callback(c));
+oauthApp.get("/auth/claude/callback", (c) => AuthController.Claude.Callback(c));
+oauthApp.post("/auth/claude/callback", (c) => AuthController.Claude.Callback(c));
+oauthApp.get("/auth/qoder/callback", (c) => AuthController.Qoder.Callback(c));
+oauthApp.post("/auth/qoder/callback", (c) => AuthController.Qoder.Callback(c));
 oauthApp.route("/v1", messagesRoute);
 oauthApp.route("/v1", chatRoute);
 oauthApp.route("/v1", modelsRoute);
