@@ -1,6 +1,6 @@
 import type { Context } from "hono";
 import { getTokenSaverSettingsDB, setTokenSaverSettingsDB } from "@srouter/db";
-import { previewTokenSaver } from "@srouter/translator";
+import { PreviewTokenSaver } from "@srouter/translator";
 import {
     TokenSaverPreviewRequestSchema,
     TokenSaverSettingsSchema,
@@ -45,7 +45,7 @@ export class TokenSaverController {
                 ? { ...CurrentSettings, ...Parsed.data.settings }
                 : CurrentSettings;
 
-            const PreviewResult = previewTokenSaver(
+            const PreviewResult = PreviewTokenSaver(
                 Parsed.data.type,
                 Parsed.data.text,
                 MergedSettings as TokenSaverSettings

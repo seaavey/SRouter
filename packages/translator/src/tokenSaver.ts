@@ -480,7 +480,7 @@ export function applyTokenSaver(
 /**
  * Preview / Simulator utility for UI and test endpoints.
  */
-export function previewTokenSaver(
+export function PreviewTokenSaver(
     type: "tool_output" | "prompt",
     text: string,
     settings: TokenSaverSettings
@@ -511,3 +511,6 @@ export function previewTokenSaver(
         percentageSaved
     };
 }
+
+export const previewTokenSaver = PreviewTokenSaver;
+
