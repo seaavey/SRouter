@@ -39,7 +39,7 @@ Layered architecture:
 ## Code Standards & Conventions
 
 - **PascalCase Enforcement**:
-    - **Controllers**: Controller methods must strictly use PascalCase (e.g. `KeysController.CreateKey`, `ProvidersController.ListProviders`, `FallbacksController.GetFallbacks`, `ChatController.CreateCompletion`, `ModelsController.ListModels`, `ModelsController.GetModelById`). Provide lowercase alias if needed for backward compatibility.
+    - **Controllers**: Controller methods must strictly use PascalCase (e.g. `KeysController.CreateKey`, `ProvidersController.ListProviders`, `FallbacksController.GetFallbacks`, `ChatController.CreateCompletion`, `ModelsController.ListModels`, `ModelsController.GetModelById`). Do not create lowercase alias methods.
     - **Logic & Services**: Internal helper functions, logic methods, and transformers use PascalCase (e.g. `ExtractState`, `OAuthFor`, `CallbackFor`, `ImportTokenFor`, `ResolveCandidates`, `LogCompletion`, `AnthropicToOpenAIRequest`, `OpenAIToAnthropicResponse`, `OpenAIToAnthropicStream`).
     - **Variables & Constants**: Domain objects, request/response models, and variables created in controllers/logic must follow PascalCase (e.g. `const OpenAIReq = ...`, `const AnthropicStream = ...`, `const OpenAIRes = ...`, `const AnthropicRes = ...`, `const Model = ...`, `const Response = ...`).
     - **Guards & Middleware**: Middleware instances use PascalCase (e.g. `RequireAdmin`).
