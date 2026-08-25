@@ -1,9 +1,8 @@
 import { Hono } from "hono";
 import { QuotaController } from "@/controllers/quota.controller.js";
-import { apiKeyAuth } from "@/middleware/apiKeyAuth.js";
+import { ApiKeyAuth } from "@/middleware/ApiKeyAuth.js";
 
 export const quotaRoute = new Hono();
 
-// GET /v1/quota and /v1/qouta - Fetch key quota & usage stats
-quotaRoute.get("/quota", apiKeyAuth, QuotaController.GetQuota);
-quotaRoute.get("/qouta", apiKeyAuth, QuotaController.GetQuota);
+quotaRoute.get("/quota", ApiKeyAuth, QuotaController.GetQuota);
+quotaRoute.get("/qouta", ApiKeyAuth, QuotaController.GetQuota);

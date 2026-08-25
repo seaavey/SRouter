@@ -6,7 +6,7 @@ import { AdminAuthStore } from "../../../packages/db/src/adminAuth.js";
 import { setRequireApiKeyDB } from "@srouter/db";
 import { ADMIN_SESSION_COOKIE, createAdminSession } from "../src/services/adminAuth.js";
 import { CreateAdminAuthMiddleware } from "../src/middleware/AdminAuth.js";
-import { createApiKeyAuth } from "../src/middleware/apiKeyAuth.js";
+import { CreateApiKeyAuth } from "../src/middleware/ApiKeyAuth.js";
 
 afterEach(() => {
     setRequireApiKeyDB(false);
@@ -34,7 +34,7 @@ test("client-identifying headers do not bypass API-key auth", async () => {
     const store = new AdminAuthStore(new DatabaseSync(":memory:"));
     store.createAdminAccount("hash");
     const app = new Hono();
-    app.use("/*", createApiKeyAuth({ store }));
+    app.use("/*", CreateApiKeyAuth({ store }));
     app.post("/chat/completions", (c) => c.json({ ok: true }));
 
     const spoofed = await app.request("/chat/completions", {

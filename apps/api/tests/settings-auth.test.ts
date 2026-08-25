@@ -7,7 +7,7 @@ import {
     getRequireApiKeyDB,
     setRequireApiKeyDB
 } from "@srouter/db";
-import { apiKeyAuth, createApiKeyAuth } from "../src/middleware/apiKeyAuth.js";
+import { ApiKeyAuth, CreateApiKeyAuth } from "../src/middleware/ApiKeyAuth.js";
 
 const createdKeyIds: string[] = [];
 
@@ -34,7 +34,7 @@ test("apiKeyAuth middleware rejects requests with 401 when require_api_key is tr
     setRequireApiKeyDB(true);
 
     const testApp = new Hono();
-    testApp.use("/*", apiKeyAuth);
+    testApp.use("/*", ApiKeyAuth);
     testApp.post("/chat/completions", (c) => c.json({ ok: true }));
 
     const res = await testApp.request("/chat/completions", {
@@ -55,7 +55,7 @@ test("apiKeyAuth middleware allows request when valid Bearer key is provided", a
     createdKeyIds.push(created.id);
 
     const testApp = new Hono();
-    testApp.use("/*", apiKeyAuth);
+    testApp.use("/*", ApiKeyAuth);
     testApp.post("/chat/completions", (c) => c.json({ ok: true }));
 
     const res = await testApp.request("/chat/completions", {
@@ -74,7 +74,7 @@ test("apiKeyAuth middleware allows unauthenticated requests when require_api_key
     setRequireApiKeyDB(false);
 
     const testApp = new Hono();
-    testApp.use("/*", createApiKeyAuth({ getClientAddress: () => "127.0.0.1" }));
+    testApp.use("/*", CreateApiKeyAuth({ getClientAddress: () => "127.0.0.1" }));
     testApp.post("/chat/completions", (c) => c.json({ ok: true }));
 
     const res = await testApp.request("/chat/completions", {
@@ -90,7 +90,7 @@ test("apiKeyAuth middleware rejects non-loopback requests when require_api_key i
     setRequireApiKeyDB(false);
 
     const testApp = new Hono();
-    testApp.use("/*", createApiKeyAuth({ getClientAddress: () => "192.168.1.50" }));
+    testApp.use("/*", CreateApiKeyAuth({ getClientAddress: () => "192.168.1.50" }));
     testApp.post("/chat/completions", (c) => c.json({ ok: true }));
 
     const res = await testApp.request("/chat/completions", {
@@ -111,7 +111,7 @@ test("apiKeyAuth middleware accepts non-loopback requests with valid API key", a
     createdKeyIds.push(created.id);
 
     const testApp = new Hono();
-    testApp.use("/*", createApiKeyAuth({ getClientAddress: () => "192.168.1.50" }));
+    testApp.use("/*", CreateApiKeyAuth({ getClientAddress: () => "192.168.1.50" }));
     testApp.post("/chat/completions", (c) => c.json({ ok: true }));
 
     const res = await testApp.request("/chat/completions", {

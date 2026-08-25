@@ -3,14 +3,13 @@ import { SettingsController } from "@/controllers/settings.controller.js";
 import { TokenSaverController } from "@/controllers/tokenSaver.controller.js";
 import { FallbacksController } from "@/controllers/fallbacks.controller.js";
 import { RequireAdmin } from "@/middleware/AdminAuth.js";
-import { apiKeyAuth } from "@/middleware/apiKeyAuth.js";
+import { ApiKeyAuth } from "@/middleware/ApiKeyAuth.js";
 
 export const settingsRoute = new Hono();
 
-// GET routes accept either an API key or an active admin session
-settingsRoute.get("/settings", apiKeyAuth, SettingsController.GetSettings);
-settingsRoute.get("/settings/token-saver", apiKeyAuth, TokenSaverController.GetSettings);
-settingsRoute.get("/settings/fallbacks", apiKeyAuth, FallbacksController.GetFallbacks);
+settingsRoute.get("/settings", ApiKeyAuth, SettingsController.GetSettings);
+settingsRoute.get("/settings/token-saver", ApiKeyAuth, TokenSaverController.GetSettings);
+settingsRoute.get("/settings/fallbacks", ApiKeyAuth, FallbacksController.GetFallbacks);
 
 // Mutations require an authenticated admin session
 settingsRoute.patch("/settings", RequireAdmin, SettingsController.UpdateSettings);

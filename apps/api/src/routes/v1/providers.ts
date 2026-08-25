@@ -1,18 +1,13 @@
 import { Hono } from "hono";
 import { ProvidersController } from "@/controllers/providers.controller.js";
 import { RequireAdmin } from "@/middleware/AdminAuth.js";
-import { apiKeyAuth } from "@/middleware/apiKeyAuth.js";
+import { ApiKeyAuth } from "@/middleware/ApiKeyAuth.js";
 
 export const providersRoute = new Hono();
 
-// GET /v1/providers - Flat list of all provider definitions
-providersRoute.get("/providers", apiKeyAuth, ProvidersController.ListProviders);
-
-// GET /v1/providers/catalog - Grouped by categories
-providersRoute.get("/providers/catalog", apiKeyAuth, ProvidersController.GetCatalog);
-
-// GET /v1/providers/:providerId - Get single provider details
-providersRoute.get("/providers/:providerId", apiKeyAuth, ProvidersController.GetProvider);
+providersRoute.get("/providers", ApiKeyAuth, ProvidersController.ListProviders);
+providersRoute.get("/providers/catalog", ApiKeyAuth, ProvidersController.GetCatalog);
+providersRoute.get("/providers/:providerId", ApiKeyAuth, ProvidersController.GetProvider);
 
 // Mutation endpoints require Admin Auth
 providersRoute.post("/providers/verify", RequireAdmin, ProvidersController.VerifyProvider);

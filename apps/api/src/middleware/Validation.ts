@@ -1,16 +1,12 @@
 import type { ZodSchema } from "zod";
 import type { MiddlewareHandler } from "hono";
 
-/**
- * Custom Hono Zod JSON validation middleware
- * Ensures all validation errors and malformed JSON errors return OpenAI-standard error JSON format
- */
-export function validateJson<T extends ZodSchema>(schema: T): MiddlewareHandler {
+export function ValidateJson<T extends ZodSchema>(Schema: T): MiddlewareHandler {
     return async (c, next) => {
-        let body: unknown;
+        let Body: unknown;
         try {
-            const raw = await c.req.text();
-            if (!raw || !raw.trim()) {
+            const Raw = await c.req.text();
+            if (!Raw || !Raw.trim()) {
                 return c.json(
                     {
                         error: {
@@ -22,7 +18,7 @@ export function validateJson<T extends ZodSchema>(schema: T): MiddlewareHandler 
                     400
                 );
             }
-            body = JSON.parse(raw);
+            Body = JSON.parse(Raw);
         } catch {
             return c.json(
                 {
@@ -36,25 +32,25 @@ export function validateJson<T extends ZodSchema>(schema: T): MiddlewareHandler 
             );
         }
 
-        const result = schema.safeParse(body);
-        if (!result.success) {
-            const firstIssue = result.error.issues[0];
-            const param = firstIssue?.path.join(".") || undefined;
+        const Result = Schema.safeParse(Body);
+        if (!Result.success) {
+            const FirstIssue = Result.error.issues[0];
+            const Param = FirstIssue?.path.join(".") || undefined;
 
             return c.json(
                 {
                     error: {
-                        message: firstIssue?.message || "Invalid request body",
+                        message: FirstIssue?.message || "Invalid request body",
                         type: "invalid_request_error",
-                        param,
-                        code: firstIssue?.code
+                        param: Param,
+                        code: FirstIssue?.code
                     }
                 },
                 400
             );
         }
 
-        c.req.addValidatedData("json", result.data);
+        c.req.addValidatedData("json", Result.data);
         await next();
     };
 }

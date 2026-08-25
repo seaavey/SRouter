@@ -1,12 +1,11 @@
 import { Hono } from "hono";
 import { KeysController } from "@/controllers/keys.controller.js";
 import { RequireAdmin } from "@/middleware/AdminAuth.js";
-import { apiKeyAuth } from "@/middleware/apiKeyAuth.js";
+import { ApiKeyAuth } from "@/middleware/ApiKeyAuth.js";
 
 export const keysRoute = new Hono();
 
-// List API keys
-keysRoute.get("/keys", apiKeyAuth, KeysController.ListKeys);
+keysRoute.get("/keys", ApiKeyAuth, KeysController.ListKeys);
 
 // Mutation endpoints require Admin Auth
 keysRoute.post("/keys", RequireAdmin, KeysController.CreateKey);
