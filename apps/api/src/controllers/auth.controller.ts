@@ -14,14 +14,14 @@ import {
 } from "@srouter/types";
 import { Err, Ok } from "@/utils/response.js";
 
-async function extractState(c: Context): Promise<string | undefined> {
+async function ExtractState(c: Context): Promise<string | undefined> {
     if (c.req.method !== "POST") return c.req.query("state");
 
     const body = await c.req.json().catch(() => null);
     return StatePayloadSchema.safeParse(body).data?.state ?? c.req.query("state");
 }
 
-function loginFor(
+function OAuthFor(
     handler: AuthProviderHandler,
     initiate: (params: OAuthLoginParams) => ReturnType<typeof AuthLogic.initiateOAuthPKCE>,
     c: Context,
@@ -41,7 +41,7 @@ function loginFor(
     }
 }
 
-async function handleOAuthCallbackFor(
+async function CallbackFor(
     handler: AuthProviderHandler,
     processCallback: (code: string, state: string) => Promise<ProviderConfig>,
     c: Context
@@ -72,7 +72,7 @@ async function handleOAuthCallbackFor(
     }
 }
 
-async function importTokenFor(
+async function ImportTokenFor(
     handler: AuthProviderHandler,
     importLogic: (body: TokenImportParams) => ProviderConfig,
     c: Context
@@ -94,33 +94,33 @@ async function importTokenFor(
 export const AuthController = {
     OpenAI: {
         OAuth: (c: Context): Response =>
-            loginFor(AuthHandlers.OpenAI, (p) => AuthLogic.initiateOAuthPKCE(p), c, false),
+            OAuthFor(AuthHandlers.OpenAI, (p) => AuthLogic.initiateOAuthPKCE(p), c, false),
         Callback: (c: Context): Promise<Response> =>
-            handleOAuthCallbackFor(
+            CallbackFor(
                 AuthHandlers.OpenAI,
                 (code, state) => AuthLogic.processOAuthCallback(code, state),
                 c
             ),
         ImportToken: (c: Context): Promise<Response> =>
-            importTokenFor(AuthHandlers.OpenAI, (b) => AuthLogic.processTokenImport(b), c)
+            ImportTokenFor(AuthHandlers.OpenAI, (b) => AuthLogic.processTokenImport(b), c)
     },
 
     Antigravity: {
         OAuth: (c: Context): Response =>
-            loginFor(
+            OAuthFor(
                 AuthHandlers.Antigravity,
                 (p) => AuthLogic.initiateProviderOAuth("antigravity", p),
                 c,
                 true
             ),
         Callback: (c: Context): Promise<Response> =>
-            handleOAuthCallbackFor(
+            CallbackFor(
                 AuthHandlers.Antigravity,
                 (code, state) => AuthLogic.processProviderOAuthCallback("antigravity", code, state),
                 c
             ),
         ImportToken: (c: Context): Promise<Response> =>
-            importTokenFor(
+            ImportTokenFor(
                 AuthHandlers.Antigravity,
                 (b) => AuthLogic.processProviderTokenImport("antigravity", b),
                 c
@@ -129,7 +129,7 @@ export const AuthController = {
 
     CommandCode: {
         ImportToken: (c: Context): Promise<Response> =>
-            importTokenFor(
+            ImportTokenFor(
                 AuthHandlers.CommandCode,
                 (b) => AuthLogic.processProviderTokenImport("commandcode", b),
                 c
@@ -138,7 +138,7 @@ export const AuthController = {
 
     Anthropic: {
         ImportToken: (c: Context): Promise<Response> =>
-            importTokenFor(
+            ImportTokenFor(
                 AuthHandlers.Anthropic,
                 (b) => AuthLogic.processProviderTokenImport("anthropic", b),
                 c
@@ -147,20 +147,20 @@ export const AuthController = {
 
     Claude: {
         OAuth: (c: Context): Response =>
-            loginFor(
+            OAuthFor(
                 AuthHandlers.Claude,
                 (p) => AuthLogic.initiateProviderOAuth("claude", p),
                 c,
                 false
             ),
         Callback: (c: Context): Promise<Response> =>
-            handleOAuthCallbackFor(
+            CallbackFor(
                 AuthHandlers.Claude,
                 (code, state) => AuthLogic.processProviderOAuthCallback("claude", code, state),
                 c
             ),
         ImportToken: (c: Context): Promise<Response> =>
-            importTokenFor(
+            ImportTokenFor(
                 AuthHandlers.Claude,
                 (b) => AuthLogic.processProviderTokenImport("claude", b),
                 c
@@ -169,7 +169,7 @@ export const AuthController = {
 
     GoRouter: {
         ImportToken: (c: Context): Promise<Response> =>
-            importTokenFor(
+            ImportTokenFor(
                 AuthHandlers.GoRouter,
                 (b) => AuthLogic.processProviderTokenImport("gorouter", b),
                 c
@@ -178,7 +178,7 @@ export const AuthController = {
 
     BluesMinds: {
         ImportToken: (c: Context): Promise<Response> =>
-            importTokenFor(
+            ImportTokenFor(
                 AuthHandlers.BluesMinds,
                 (b) => AuthLogic.processProviderTokenImport("bluesminds", b),
                 c
@@ -187,7 +187,7 @@ export const AuthController = {
 
     SeekAI: {
         ImportToken: (c: Context): Promise<Response> =>
-            importTokenFor(
+            ImportTokenFor(
                 AuthHandlers.SeekAI,
                 (b) => AuthLogic.processProviderTokenImport("seekai", b),
                 c
@@ -196,7 +196,7 @@ export const AuthController = {
 
     TabiToken: {
         ImportToken: (c: Context): Promise<Response> =>
-            importTokenFor(
+            ImportTokenFor(
                 AuthHandlers.TabiToken,
                 (b) => AuthLogic.processProviderTokenImport("tabitoken", b),
                 c
@@ -205,7 +205,7 @@ export const AuthController = {
 
     TokenRouter: {
         ImportToken: (c: Context): Promise<Response> =>
-            importTokenFor(
+            ImportTokenFor(
                 AuthHandlers.TokenRouter,
                 (b) => AuthLogic.processProviderTokenImport("tokenrouter", b),
                 c
@@ -230,7 +230,7 @@ export const AuthController = {
             }
         },
         Poll: async (c: Context): Promise<Response> => {
-            const state = await extractState(c);
+            const state = await ExtractState(c);
             if (!state) {
                 return Err(c, "Missing state parameter", 400);
             }
@@ -239,7 +239,7 @@ export const AuthController = {
             return Ok(c, result);
         },
         ImportToken: (c: Context): Promise<Response> =>
-            importTokenFor(
+            ImportTokenFor(
                 AuthHandlers.CodeBuddy,
                 (b) => AuthLogic.processProviderTokenImport("codebuddy", b),
                 c
@@ -260,7 +260,7 @@ export const AuthController = {
             }
         },
         Poll: async (c: Context): Promise<Response> => {
-            const state = await extractState(c);
+            const state = await ExtractState(c);
             if (!state) {
                 return Err(c, "Missing state parameter", 400);
             }
@@ -268,7 +268,7 @@ export const AuthController = {
             return Ok(c, await AuthLogic.pollCodeBuddyCNDeviceToken(state));
         },
         ImportToken: (c: Context): Promise<Response> =>
-            importTokenFor(
+            ImportTokenFor(
                 AuthHandlers.CodeBuddyCN,
                 (b) => AuthLogic.processProviderTokenImport("codebuddy-cn", b),
                 c
@@ -277,20 +277,20 @@ export const AuthController = {
 
     Qoder: {
         OAuth: (c: Context): Response =>
-            loginFor(
+            OAuthFor(
                 AuthHandlers.Qoder,
                 (p) => AuthLogic.initiateProviderOAuth("qoder", p),
                 c,
                 true
             ),
         Callback: (c: Context): Promise<Response> =>
-            handleOAuthCallbackFor(
+            CallbackFor(
                 AuthHandlers.Qoder,
                 (code, state) => AuthLogic.processProviderOAuthCallback("qoder", code, state),
                 c
             ),
         Poll: async (c: Context): Promise<Response> => {
-            const state = await extractState(c);
+            const state = await ExtractState(c);
             if (!state) {
                 return Err(c, "Missing state parameter", 400);
             }
@@ -299,7 +299,7 @@ export const AuthController = {
             return Ok(c, result);
         },
         ImportToken: (c: Context): Promise<Response> =>
-            importTokenFor(
+            ImportTokenFor(
                 AuthHandlers.Qoder,
                 (b) => AuthLogic.processProviderTokenImport("qoder", b),
                 c
