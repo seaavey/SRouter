@@ -6,39 +6,37 @@ import { Err, FormatErrorPayload, Ok } from "@/utils/response.js";
 
 export class ChatController {
     public static async CreateCompletion(c: Context): Promise<Response> {
-        const startTime = Date.now();
-        const body = c.req.valid("json" as never) as ChatCompletionRequest;
+        const StartTime = Date.now();
+        const Body = c.req.valid("json" as never) as ChatCompletionRequest;
 
-        if (body.stream) {
+        if (Body.stream) {
             return streamSSE(c, async (stream) => {
                 try {
-                    const generator = ChatLogic.processStreamingCompletion(body, startTime);
-                    for await (const chunk of generator) {
+                    const Generator = ChatLogic.ProcessStreamingCompletion(Body, StartTime);
+                    for await (const Chunk of Generator) {
                         await stream.writeSSE({
-                            data: JSON.stringify(chunk)
+                            data: JSON.stringify(Chunk)
                         });
                     }
                     await stream.writeSSE({
                         data: "[DONE]"
                     });
                 } catch (error) {
-                    const errorMessage =
+                    const ErrorMessage =
                         error instanceof Error ? error.message : "Error occurred during streaming";
                     await stream.writeSSE({
-                        data: JSON.stringify(FormatErrorPayload(errorMessage, 500))
+                        data: JSON.stringify(FormatErrorPayload(ErrorMessage, 500))
                     });
                 }
             });
         }
 
         try {
-            const response = await ChatLogic.processNonStreamingCompletion(body, startTime);
-            return Ok(c, response);
+            const ResponseData = await ChatLogic.ProcessNonStreamingCompletion(Body, StartTime);
+            return Ok(c, ResponseData);
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : "Internal server error";
-            return Err(c, errorMessage, 500);
+            const ErrorMessage = error instanceof Error ? error.message : "Internal server error";
+            return Err(c, ErrorMessage, 500);
         }
     }
-
-    public static createCompletion = ChatController.CreateCompletion;
 }
