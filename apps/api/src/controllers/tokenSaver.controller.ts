@@ -2,33 +2,33 @@ import type { Context } from "hono";
 import { getTokenSaverSettingsDB, setTokenSaverSettingsDB } from "@srouter/db";
 import { previewTokenSaver } from "@srouter/translator";
 import type { TokenSaverPreviewRequest } from "@srouter/types";
-import { ok, err } from "@/utils/response.js";
+import { Err, Ok } from "@/utils/response.js";
 
 export class TokenSaverController {
-    public static getSettings(c: Context): Response {
+    public static GetSettings(c: Context): Response {
         const settings = getTokenSaverSettingsDB();
-        return ok(c, { settings });
+        return Ok(c, { settings });
     }
 
-    public static async updateSettings(c: Context): Promise<Response> {
+    public static async UpdateSettings(c: Context): Promise<Response> {
         try {
             const body = await c.req.json();
             const updated = setTokenSaverSettingsDB(body);
-            return ok(c, {
+            return Ok(c, {
                 message: "Token Saver settings updated successfully",
                 settings: updated
             });
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
-            return err(c, errorMessage, 400);
+            return Err(c, errorMessage, 400);
         }
     }
 
-    public static async preview(c: Context): Promise<Response> {
+    public static async Preview(c: Context): Promise<Response> {
         try {
             const body = await c.req.json<TokenSaverPreviewRequest>();
             if (!body.text || typeof body.text !== "string") {
-                return err(c, "Field 'text' is required and must be a string", 400);
+                return Err(c, "Field 'text' is required and must be a string", 400);
             }
             const type = body.type === "prompt" ? "prompt" : "tool_output";
             const settings = body.settings
@@ -36,10 +36,14 @@ export class TokenSaverController {
                 : getTokenSaverSettingsDB();
 
             const preview = previewTokenSaver(type, body.text, settings);
-            return ok(c, preview);
+            return Ok(c, preview);
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
-            return err(c, errorMessage, 400);
+            return Err(c, errorMessage, 400);
         }
     }
+
+    public static getSettings = TokenSaverController.GetSettings;
+    public static updateSettings = TokenSaverController.UpdateSettings;
+    public static preview = TokenSaverController.Preview;
 }

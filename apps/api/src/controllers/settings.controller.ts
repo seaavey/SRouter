@@ -5,19 +5,19 @@ import {
     setRequireApiKeyDB,
     setSettingDB
 } from "@srouter/db";
-import { ok, err } from "@/utils/response.js";
+import { Err, Ok } from "@/utils/response.js";
 
 export class SettingsController {
-    public static getSettings(c: Context): Response {
+    public static GetSettings(c: Context): Response {
         const requireApiKey = getRequireApiKeyDB();
         const all = getAllSettingsDB();
-        return ok(c, {
+        return Ok(c, {
             requireApiKey,
             settings: all
         });
     }
 
-    public static async updateSettings(c: Context): Promise<Response> {
+    public static async UpdateSettings(c: Context): Promise<Response> {
         try {
             const body = await c.req.json();
             if (typeof body.requireApiKey === "boolean") {
@@ -32,14 +32,17 @@ export class SettingsController {
             }
             const requireApiKey = getRequireApiKeyDB();
             const all = getAllSettingsDB();
-            return ok(c, {
+            return Ok(c, {
                 message: "Settings updated successfully",
                 requireApiKey,
                 settings: all
             });
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
-            return err(c, errorMessage, 400);
+            return Err(c, errorMessage, 400);
         }
     }
+
+    public static getSettings = SettingsController.GetSettings;
+    public static updateSettings = SettingsController.UpdateSettings;
 }

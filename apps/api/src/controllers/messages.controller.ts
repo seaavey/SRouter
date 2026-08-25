@@ -9,7 +9,7 @@ import type { AnthropicMessageRequest } from "@srouter/types";
 import { ChatLogic } from "@/logic/chat.logic.js";
 
 export class MessagesController {
-    public static async createMessage(c: Context): Promise<Response> {
+    public static async CreateMessage(c: Context): Promise<Response> {
         const startTime = Date.now();
         let body: AnthropicMessageRequest;
         try {
@@ -46,7 +46,6 @@ export class MessagesController {
             body.thinking && (body.thinking as { type?: string }).type === "enabled"
         );
 
-        // 1. Streaming response (Anthropic SSE)
         if (body.stream) {
             c.header("Content-Type", "text/event-stream");
             c.header("Cache-Control", "no-cache");
@@ -69,14 +68,14 @@ export class MessagesController {
                         });
                     }
                 } catch (error) {
-                    const errorMessage = error instanceof Error ? error.message : String(error);
+                    const errorMessage = error instanceof Error ? error.message : "Error occurred during streaming";
                     await stream.writeSSE({
                         event: "error",
                         data: JSON.stringify({
                             type: "error",
                             error: {
                                 type: "api_error",
-                                message: errorMessage || "Error occurred during streaming"
+                                message: errorMessage
                             }
                         })
                     });
@@ -84,7 +83,6 @@ export class MessagesController {
             });
         }
 
-        // 2. Non-streaming response (JSON)
         try {
             const openAIRes = await ChatLogic.processNonStreamingCompletion(openAIReq, startTime);
             const anthropicRes = openAIToAnthropicResponse(openAIRes, body.model, {
@@ -92,17 +90,19 @@ export class MessagesController {
             });
             return c.json(anthropicRes);
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : String(error);
+            const errorMessage = error instanceof Error ? error.message : "Internal server error";
             return c.json(
                 {
                     type: "error",
                     error: {
                         type: "api_error",
-                        message: errorMessage || "Internal server error"
+                        message: errorMessage
                     }
                 },
                 500
             );
         }
     }
+
+    public static createMessage = MessagesController.CreateMessage;
 }
