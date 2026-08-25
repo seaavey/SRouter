@@ -14,6 +14,4 @@ export class LogsController {
     public static GetStats(c: Context): Response {
         return Ok(c, LogsLogic.getUsageStats());
     }
-
-
 }

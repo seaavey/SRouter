@@ -34,6 +34,7 @@ apps/cli/
 ```
 
 ## CLI Commands
+
 - `srouter setup` (alias `config`): Interactive prompt to connect tools to SRouter.
 - `srouter status` (alias `doctor`): System, gateway connectivity, and linked tools report.
 - `srouter link <tool>`: Direct non-interactive linking (`-u <url>`, `-k <key>`, `-m <model>`).
@@ -42,8 +43,9 @@ apps/cli/
 - `srouter env <tool>`: Outputs bash/zsh `export` commands.
 
 ## Key Rules & Testing
+
 1. **Version Constant**: Always import `CLI_VERSION` from `@srouter/constants`.
 2. **Backups First**: Any mutating command (`link`, `setup`) must snapshot original configuration files before writing changes.
 3. **Tests**:
-   - Run tests via `cd apps/cli && pnpm test`.
-   - Never run `pnpm test` across the whole monorepo directly.
+    - Run tests via `cd apps/cli && pnpm test`.
+    - Never run `pnpm test` across the whole monorepo directly.

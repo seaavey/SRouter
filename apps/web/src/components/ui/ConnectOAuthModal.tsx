@@ -126,7 +126,9 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                     baseId === "codebuddy"
                         ? `/v1/auth/${authProviderId}/poll?state=${encodeURIComponent(oauthState)}`
                         : `/v1/auth/qoder/poll?state=${encodeURIComponent(oauthState)}`;
-                const res = await api.get<{ status: AuthPollStatus; provider?: ProviderConfig }>(pollUrl);
+                const res = await api.get<{ status: AuthPollStatus; provider?: ProviderConfig }>(
+                    pollUrl
+                );
                 if (res && res.status === AuthPollStatus.OK) {
                     if (popupRef.current && !popupRef.current.closed) {
                         popupRef.current.close();

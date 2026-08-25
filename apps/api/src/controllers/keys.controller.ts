@@ -39,6 +39,4 @@ export class KeysController {
 
         return Ok(c, { message: "API Key revoked and deleted successfully" });
     }
-
-
 }

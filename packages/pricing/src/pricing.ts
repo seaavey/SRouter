@@ -66,7 +66,12 @@ export function getPricingForModel(_provider: string | undefined, model: string)
 
     // Check if the raw model name or normalized name explicitly specifies "free"
     const lower = model.toLowerCase();
-    if (/(?:^|[/:._-])free(?:[/:._-]|$)/i.test(lower) || lower.endsWith(":free") || lower.includes("/free") || lower === "free") {
+    if (
+        /(?:^|[/:._-])free(?:[/:._-]|$)/i.test(lower) ||
+        lower.endsWith(":free") ||
+        lower.includes("/free") ||
+        lower === "free"
+    ) {
         return FREE_PRICING;
     }
 

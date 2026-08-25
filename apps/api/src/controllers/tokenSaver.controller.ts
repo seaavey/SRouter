@@ -28,7 +28,11 @@ export class TokenSaverController {
                 settings: Updated
             });
         } catch (error) {
-            return Err(c, error instanceof Error ? error.message : "Failed to update Token Saver settings", 500);
+            return Err(
+                c,
+                error instanceof Error ? error.message : "Failed to update Token Saver settings",
+                500
+            );
         }
     }
 
@@ -52,7 +56,11 @@ export class TokenSaverController {
             );
             return Ok(c, PreviewResult);
         } catch (error) {
-            return Err(c, error instanceof Error ? error.message : "Failed to generate preview", 500);
+            return Err(
+                c,
+                error instanceof Error ? error.message : "Failed to generate preview",
+                500
+            );
         }
     }
 }

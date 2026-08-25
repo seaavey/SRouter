@@ -32,7 +32,9 @@ interface ErrorWithStatus {
     message?: string;
 }
 
-function ExtractStatusCode(err: Error | ErrorWithStatus | string | null | undefined): number | undefined {
+function ExtractStatusCode(
+    err: Error | ErrorWithStatus | string | null | undefined
+): number | undefined {
     if (!err) return undefined;
     if (typeof err === "object") {
         if ("status" in err && typeof err.status === "number") {
@@ -48,7 +50,10 @@ function ExtractStatusCode(err: Error | ErrorWithStatus | string | null | undefi
     return undefined;
 }
 
-function ShouldTriggerFallback(rule: FallbackRule, err: Error | ErrorWithStatus | string | null | undefined): boolean {
+function ShouldTriggerFallback(
+    rule: FallbackRule,
+    err: Error | ErrorWithStatus | string | null | undefined
+): boolean {
     if (!rule.enabled) return false;
     if (!rule.triggerOnStatus || rule.triggerOnStatus.length === 0) return true;
     const status = ExtractStatusCode(err);

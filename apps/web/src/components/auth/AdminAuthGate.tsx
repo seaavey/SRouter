@@ -67,9 +67,7 @@ function AdminAuthForm({ setupRequired, onAuthenticated }: AdminAuthFormProps) {
                                 autoComplete={setupRequired ? "new-password" : "current-password"}
                                 value={password}
                                 onChange={(event) => setPassword(event.target.value)}
-                                placeholder={
-                                    setupRequired ? "Choose a password" : "Admin password"
-                                }
+                                placeholder={setupRequired ? "Choose a password" : "Admin password"}
                                 required
                             />
                         </label>

@@ -131,4 +131,3 @@ export function anthropicEventToOpenAIChunk(
 
 export const openAIToAnthropicRequest = OpenAIToAnthropicRequest;
 export const anthropicToOpenAIResponse = AnthropicToOpenAIResponse;
-

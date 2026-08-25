@@ -62,6 +62,4 @@ export class FallbacksController {
             return Err(c, error instanceof Error ? error.message : String(error), 500);
         }
     }
-
-
 }

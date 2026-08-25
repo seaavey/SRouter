@@ -177,7 +177,8 @@ export async function fetchCodeBuddyCNLiveQuota(
         const de = Number(acc.DeductionEndTime);
         return Number.isFinite(ce) && Number.isFinite(de) && de - ce > CN_REFILL_GAP_MS;
     };
-    const byExpiry = (a: CodeBuddyCNAccount, b: CodeBuddyCNAccount) => cycleEndMs(a) - cycleEndMs(b);
+    const byExpiry = (a: CodeBuddyCNAccount, b: CodeBuddyCNAccount) =>
+        cycleEndMs(a) - cycleEndMs(b);
 
     const refills = accounts.filter(isRefill).sort(byExpiry);
     const bonuses = accounts.filter((a) => !isRefill(a)).sort(byExpiry);
@@ -197,7 +198,12 @@ export async function fetchCodeBuddyCNLiveQuota(
             percentageValue: total > 0 ? Math.round((used / total) * 100) : 0,
             resetIn: formatResetIn(resetTime),
             resetTime,
-            status: remainingFraction <= 0.05 ? "exhausted" : remainingFraction <= 0.2 ? "warning" : "ok"
+            status:
+                remainingFraction <= 0.05
+                    ? "exhausted"
+                    : remainingFraction <= 0.2
+                      ? "warning"
+                      : "ok"
         };
     };
 
@@ -283,7 +289,12 @@ export async function getProviderQuotaAccount(p: {
     }
 
     if (isCodeBuddyCN) {
-        return await fetchCodeBuddyCNLiveQuota(p.id, p.name || "CodeBuddy CN Account", token, p.enabled);
+        return await fetchCodeBuddyCNLiveQuota(
+            p.id,
+            p.name || "CodeBuddy CN Account",
+            token,
+            p.enabled
+        );
     }
 
     if (isAntigravity) {

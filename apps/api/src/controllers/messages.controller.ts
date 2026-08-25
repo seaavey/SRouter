@@ -33,7 +33,10 @@ export class MessagesController {
 
             return streamSSE(c, async (stream) => {
                 try {
-                    const chunkGenerator = ChatLogic.ProcessStreamingCompletion(OpenAIReq, startTime);
+                    const chunkGenerator = ChatLogic.ProcessStreamingCompletion(
+                        OpenAIReq,
+                        startTime
+                    );
                     const AnthropicStream = OpenAIToAnthropicStream(chunkGenerator, body.model, {
                         allowThinking: isThinkingEnabled
                     });
@@ -45,7 +48,8 @@ export class MessagesController {
                         });
                     }
                 } catch (error) {
-                    const errorMessage = error instanceof Error ? error.message : "Error occurred during streaming";
+                    const errorMessage =
+                        error instanceof Error ? error.message : "Error occurred during streaming";
                     await stream.writeSSE({
                         event: "error",
                         data: JSON.stringify(FormatAnthropicErrorPayload(errorMessage, 500))
@@ -65,6 +69,4 @@ export class MessagesController {
             return AnthropicErr(c, errorMessage, 500);
         }
     }
-
-
 }

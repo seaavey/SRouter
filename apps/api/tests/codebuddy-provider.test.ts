@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
-import { deleteProviderDB, fetchCodeBuddyCNLiveQuota, saveOAuthSessionDB, upsertProviderDB } from "@srouter/db";
+import {
+    deleteProviderDB,
+    fetchCodeBuddyCNLiveQuota,
+    saveOAuthSessionDB,
+    upsertProviderDB
+} from "@srouter/db";
 import { CODEBUDDY_CN_BASE_URL, providerById } from "@srouter/constants";
 import type { ProviderConfig } from "@srouter/types";
 import { AuthLogic } from "../src/logic/auth.logic.js";
@@ -314,11 +319,7 @@ test("CodeBuddy CN live quota splits refill and bonus packs", async () => {
         );
     };
 
-    const account = await fetchCodeBuddyCNLiveQuota(
-        "codebuddy-cn_1",
-        "CN Account",
-        "cn-token"
-    );
+    const account = await fetchCodeBuddyCNLiveQuota("codebuddy-cn_1", "CN Account", "cn-token");
 
     assert.equal(capturedHeaders?.get("authorization"), "Bearer cn-token");
     assert.equal(capturedHeaders?.get("x-ide-type"), "CLI");

@@ -194,8 +194,7 @@ export class ProvidersLogic {
                     for (const M of Fetched) {
                         ModelMap.set(M.id, M);
                     }
-                } catch {
-                }
+                } catch {}
             }
             if (ModelMap.size > 0) {
                 LiveModels = Array.from(ModelMap.values());

@@ -18,6 +18,7 @@ Complete guide for the SRouter Web Dashboard (`apps/web`), a React 19 SPA.
 - **Notifications**: Sonner (`toast.success()`, `toast.error()`)
 
 ## Directory Structure
+
 ```
 apps/web/src/
 ├── main.tsx              # App bootstrap & query client
@@ -40,9 +41,10 @@ apps/web/src/
 ```
 
 ## Conventions & Rules
+
 1. **Version Constant**: Always import version from `@srouter/constants` (`APP_VERSION`), never hardcode version strings.
 2. **API Communication**: The dashboard communicates with the backend via `/v1` endpoints (proxied via Vite dev server on `5173` or served statically by API on port `3000`).
 3. **Responsive & Theme**: Dark/light mode support using theme context and OKLCH color variables.
 4. **Build & Dev**:
-   - Dev: `cd apps/web && pnpm dev` (Vite port 5173)
-   - Build: `cd apps/web && pnpm run build` (Outputs to `apps/web/dist`)
+    - Dev: `cd apps/web && pnpm dev` (Vite port 5173)
+    - Build: `cd apps/web && pnpm run build` (Outputs to `apps/web/dist`)

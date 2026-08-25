@@ -453,4 +453,3 @@ export async function* OpenAIToAnthropicStream(
 export const anthropicToOpenAIRequest = AnthropicToOpenAIRequest;
 export const openAIToAnthropicResponse = OpenAIToAnthropicResponse;
 export const openAIToAnthropicStream = OpenAIToAnthropicStream;
-

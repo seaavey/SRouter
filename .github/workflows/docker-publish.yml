@@ -130,29 +130,29 @@ jobs:
                   TAGS: ${{ steps.meta.outputs.tags }}
                   LABELS: ${{ steps.meta.outputs.labels }}
               run: |
-                # metadata-action emits newline-delimited entries for both tags
-                # and labels. Build bash arrays so label values containing
-                # spaces (e.g. the repo description) stay quoted as a single
-                # argument — unquoted word splitting made buildx parse
-                # "High-performance" from the description as an image source.
-                ARGS=()
-                while IFS= read -r tag; do
-                  ARGS+=( -t "$tag" )
-                done <<< "$TAGS"
-                while IFS= read -r label; do
-                  ARGS+=( --annotation "index:${label}" )
-                done <<< "$LABELS"
-                for digest_file in digest-*; do
-                  ARGS+=( "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@$(cat "$digest_file")" )
-                done
-                docker buildx imagetools create "${ARGS[@]}"
+                  # metadata-action emits newline-delimited entries for both tags
+                  # and labels. Build bash arrays so label values containing
+                  # spaces (e.g. the repo description) stay quoted as a single
+                  # argument — unquoted word splitting made buildx parse
+                  # "High-performance" from the description as an image source.
+                  ARGS=()
+                  while IFS= read -r tag; do
+                    ARGS+=( -t "$tag" )
+                  done <<< "$TAGS"
+                  while IFS= read -r label; do
+                    ARGS+=( --annotation "index:${label}" )
+                  done <<< "$LABELS"
+                  for digest_file in digest-*; do
+                    ARGS+=( "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@$(cat "$digest_file")" )
+                  done
+                  docker buildx imagetools create "${ARGS[@]}"
 
             - name: Inspect final manifest
               env:
                   TAGS: ${{ steps.meta.outputs.tags }}
               run: |
-                # Inspect the first tag metadata-action actually created.
-                # github.ref_name is not a valid image tag on branch refs
-                # (contains "/") and does not match semver tags on releases.
-                FIRST_TAG=$(echo "$TAGS" | head -n 1)
-                docker buildx imagetools inspect "$FIRST_TAG"
+                  # Inspect the first tag metadata-action actually created.
+                  # github.ref_name is not a valid image tag on branch refs
+                  # (contains "/") and does not match semver tags on releases.
+                  FIRST_TAG=$(echo "$TAGS" | head -n 1)
+                  docker buildx imagetools inspect "$FIRST_TAG"

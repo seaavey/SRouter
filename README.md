@@ -351,7 +351,7 @@ Model:    <any discovered SRouter model>
 ### Management & telemetry
 
 | Method   | Endpoint            | Purpose                       |
-| ------ | ------------------- | ----------------------------- |
+| -------- | ------------------- | ----------------------------- |
 | `GET`    | `/health`           | Gateway health                |
 | `GET`    | `/v1/tunnel/status` | Cloudflare tunnel state       |
 | `POST`   | `/v1/tunnel/start`  | Start the tunnel (admin)      |

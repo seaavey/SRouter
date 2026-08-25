@@ -6,7 +6,9 @@ export const ProviderProtocolSchema = z.enum(["openai", "anthropic", "gemini", "
 export const CreateProviderSchema = z.object({
     id: z.string().optional(),
     providerId: z.string().optional(),
-    name: z.string({ required_error: "Field 'name' is required" }).min(1, "Field 'name' is required"),
+    name: z
+        .string({ required_error: "Field 'name' is required" })
+        .min(1, "Field 'name' is required"),
     category: ProviderCategorySchema,
     protocol: ProviderProtocolSchema,
     baseUrl: z.string().url().optional(),
@@ -28,7 +30,9 @@ export const VerifyProviderSchema = z.object({
 export type VerifyProviderZod = z.infer<typeof VerifyProviderSchema>;
 
 export const AddCustomModelSchema = z.object({
-    modelId: z.string({ required_error: "Field 'modelId' is required" }).min(1, "Field 'modelId' cannot be empty")
+    modelId: z
+        .string({ required_error: "Field 'modelId' is required" })
+        .min(1, "Field 'modelId' cannot be empty")
 });
 
 export type AddCustomModelZod = z.infer<typeof AddCustomModelSchema>;

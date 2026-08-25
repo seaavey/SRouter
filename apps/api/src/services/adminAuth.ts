@@ -114,7 +114,10 @@ export function isLoopbackAddress(address: string | undefined): boolean {
  *   dashboard ("create your admin password"), which is first-come-wins until
  *   an account exists.
  */
-export function bootstrapAdminAccountFromEnv(store: AdminAuthStore, now: number = Date.now()): void {
+export function bootstrapAdminAccountFromEnv(
+    store: AdminAuthStore,
+    now: number = Date.now()
+): void {
     const envPassword = process.env.SROUTER_ADMIN_PASSWORD;
     if (envPassword === undefined || envPassword.length === 0) return;
 

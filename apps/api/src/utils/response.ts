@@ -104,6 +104,3 @@ export function AnthropicErr(
 ): Response {
     return c.json(FormatAnthropicErrorPayload(message, status, type), status);
 }
-
-
-

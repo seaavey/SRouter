@@ -41,7 +41,11 @@ export class SettingsController {
                 settings: getAllSettingsDB()
             });
         } catch (error) {
-            return Err(c, error instanceof Error ? error.message : "Failed to update settings", 500);
+            return Err(
+                c,
+                error instanceof Error ? error.message : "Failed to update settings",
+                500
+            );
         }
     }
 }

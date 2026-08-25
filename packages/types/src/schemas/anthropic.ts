@@ -1,7 +1,9 @@
 import { z } from "zod";
 
 export const AnthropicMessageRequestSchema = z.object({
-    model: z.string({ required_error: "Missing required field 'model'" }).min(1, "Missing required field 'model'"),
+    model: z
+        .string({ required_error: "Missing required field 'model'" })
+        .min(1, "Missing required field 'model'"),
     messages: z.array(z.any(), { required_error: "Missing required field 'messages'" }),
     system: z.union([z.string(), z.array(z.any())]).optional(),
     max_tokens: z.number().int().positive().optional(),

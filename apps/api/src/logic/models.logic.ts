@@ -29,7 +29,12 @@ export class ModelsLogic {
             if (ProviderFilter && !Alias.toLowerCase().startsWith(ProviderFilter.toLowerCase())) {
                 continue;
             }
-            Merged.set(Id.toLowerCase(), { id: Id, object: "model", owned_by: Alias, custom: true });
+            Merged.set(Id.toLowerCase(), {
+                id: Id,
+                object: "model",
+                owned_by: Alias,
+                custom: true
+            });
         }
         return Array.from(Merged.values());
     }

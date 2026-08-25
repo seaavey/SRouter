@@ -4,14 +4,14 @@ How to write, change, and review code in this repository. Applies to every codin
 
 ## Stack
 
-| Area      | Choice                                              |
-| --------- | --------------------------------------------------- |
-| Runtime   | Node.js ≥ 22, ESM only                              |
+| Area      | Choice                                               |
+| --------- | ---------------------------------------------------- |
+| Runtime   | Node.js ≥ 22, ESM only                               |
 | Monorepo  | pnpm workspaces + Turborepo (`apps/*`, `packages/*`) |
 | API       | **Hono 4** on `@hono/node-server`, Zod validation    |
 | Dashboard | React 19, TanStack Router + Query, Tailwind v4, Vite |
 | CLI       | Commander.js + `@clack/prompts`                      |
-| Data      | Native `node:sqlite` (WAL mode), no external DB       |
+| Data      | Native `node:sqlite` (WAL mode), no external DB      |
 | Tests     | `node:test` via tsx, run per app                     |
 
 ## Architecture law
