@@ -14,19 +14,10 @@ import {
 import { Err, Ok } from "@/utils/response.js";
 
 async function extractState(c: Context): Promise<string | undefined> {
-    const queryState = c.req.query("state");
-    if (queryState) return queryState;
+    if (c.req.method !== "POST") return c.req.query("state");
 
-    if (c.req.method === "POST") {
-        try {
-            const rawBody = await c.req.json();
-            const parsed = StatePayloadSchema.safeParse(rawBody);
-            if (parsed.success) {
-                return parsed.data.state;
-            }
-        } catch {}
-    }
-    return undefined;
+    const body = await c.req.json().catch(() => null);
+    return StatePayloadSchema.safeParse(body).data?.state ?? c.req.query("state");
 }
 
 function loginFor(
