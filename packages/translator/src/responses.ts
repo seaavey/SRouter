@@ -62,6 +62,32 @@ export interface ResponsesRequestBody {
     prompt_cache_key?: string;
 }
 
+export interface ResponsesUsageDetails {
+    input_tokens?: number;
+    prompt_tokens?: number;
+    output_tokens?: number;
+    completion_tokens?: number;
+    input_tokens_details?: { cached_tokens?: number };
+    cache_read_input_tokens?: number;
+}
+
+export interface ResponsesResponsePayload {
+    usage?: ResponsesUsageDetails;
+}
+
+export interface ResponsesStreamEventItem {
+    type?: string;
+    call_id?: string;
+    name?: string;
+}
+
+export interface ResponsesStreamEventData {
+    delta?: string;
+    item?: ResponsesStreamEventItem;
+    response?: ResponsesResponsePayload;
+    [key: string]: JSONValue | ResponsesStreamEventItem | ResponsesResponsePayload | undefined;
+}
+
 export interface ResponsesStreamState {
     started: boolean;
     chatId: string;
@@ -250,24 +276,24 @@ export function chatToResponsesBody(req: ChatCompletionRequest): ResponsesReques
 
 export function responsesEventToChunk(
     eventType: string,
-    data: JSONObject,
+    data: ResponsesStreamEventData,
     state: ResponsesStreamState
 ): ChatCompletionChunk | null {
     if (!state.started) {
         state.started = true;
         state.chatId = `chatcmpl-${Date.now()}`;
-        state.created = Math.floor(Date.now() / 1000),
+        state.created = Math.floor(Date.now() / 1000);
         state.toolCallIndex = 0;
         state.currentToolCallId = null;
     }
 
     if (eventType === "response.output_text.delta") {
-        const delta = (data.delta as string) || "";
+        const delta = data.delta || "";
         return delta ? buildChunk(state.model, { content: delta }) : null;
     }
 
     if (eventType === "response.output_item.added") {
-        const item = data.item as { type?: string; call_id?: string; name?: string } | undefined;
+        const item = data.item;
         if (item && (item.type === "function_call" || item.type === "custom_tool_call")) {
             state.currentToolCallId = item.call_id || fallbackToolCallId();
             return buildChunk(state.model, {
@@ -288,7 +314,7 @@ export function responsesEventToChunk(
         eventType === "response.function_call_arguments.delta" ||
         eventType === "response.custom_tool_call_input.delta"
     ) {
-        const argsDelta = (data.delta as string) || "";
+        const argsDelta = data.delta || "";
         return argsDelta
             ? buildChunk(state.model, {
                   tool_calls: [{ index: state.toolCallIndex, function: { arguments: argsDelta } }]
@@ -297,7 +323,7 @@ export function responsesEventToChunk(
     }
 
     if (eventType === "response.output_item.done") {
-        const item = data.item as { type?: string } | undefined;
+        const item = data.item;
         if (item && (item.type === "function_call" || item.type === "custom_tool_call")) {
             state.toolCallIndex++;
         }
@@ -305,20 +331,8 @@ export function responsesEventToChunk(
     }
 
     if (eventType === "response.completed" || eventType === "response.done") {
-        const responseUsage = data.response as
-            | {
-                  usage?: {
-                      input_tokens?: number;
-                      prompt_tokens?: number;
-                      output_tokens?: number;
-                      completion_tokens?: number;
-                      input_tokens_details?: { cached_tokens?: number };
-                      cache_read_input_tokens?: number;
-                  };
-              }
-            | undefined;
-        if (responseUsage?.usage) {
-            const u = responseUsage.usage;
+        const u = data.response?.usage;
+        if (u) {
             const prompt_tokens = u.input_tokens || u.prompt_tokens || 0;
             const completion_tokens = u.output_tokens || u.completion_tokens || 0;
             const cachedTokens =
