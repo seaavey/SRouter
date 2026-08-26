@@ -9,9 +9,9 @@ import { CODEX_BASE_URL, CODEX_MODELS_URL } from "@srouter/constants";
 import {
     accumulateChunks,
     ChatToResponsesBody,
-    createResponsesStreamState,
+    CreateResponsesStreamState,
+    NormalizeReasoningEffort,
     NormalizeResponsesInput,
-    normalizeReasoningEffort,
     ResponsesEventToChunk,
     type ResponsesRequestBody,
     type ResponsesStreamEventData
@@ -274,12 +274,12 @@ export class CodexExecutor implements AIProvider {
         }
 
         // Reasoning effort — priority: explicit reasoning > model suffix > default (low)
-        const reasoningEffort = (req as unknown as { reasoning_effort?: string }).reasoning_effort;
+        const reasoningEffort = req.reasoning_effort || req.reasoning?.effort;
         if (!body.reasoning) {
-            const effort = normalizeReasoningEffort(reasoningEffort || modelEffort || "low");
+            const effort = NormalizeReasoningEffort(reasoningEffort || modelEffort || "low");
             body.reasoning = { effort, summary: "auto" };
         } else {
-            body.reasoning.effort = normalizeReasoningEffort(body.reasoning.effort);
+            body.reasoning.effort = NormalizeReasoningEffort(body.reasoning.effort);
             if (!body.reasoning.summary) body.reasoning.summary = "auto";
         }
 
@@ -482,7 +482,7 @@ export class CodexExecutor implements AIProvider {
         body: ReadableStream<Uint8Array>,
         requestedModel: string
     ): AsyncGenerator<ChatCompletionChunk, void, void> {
-        const state = createResponsesStreamState(requestedModel);
+        const state = CreateResponsesStreamState(requestedModel);
         let pendingEvent = "";
 
         for await (const line of streamLines(body)) {

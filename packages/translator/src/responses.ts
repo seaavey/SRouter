@@ -232,7 +232,7 @@ function mapResponsesTools(tools?: ToolDefinition[]): Array<ResponsesToolDefinit
     return result.length > 0 ? result : undefined;
 }
 
-export function normalizeReasoningEffort(value?: string): string {
+export function NormalizeReasoningEffort(value?: string): string {
     const supported = ["none", "minimal", "low", "medium", "high", "xhigh"];
     if (value && supported.includes(value)) return value;
     return "low";
@@ -268,7 +268,7 @@ export function ChatToResponsesBody(req: ChatCompletionRequest): ResponsesReques
     const reasoningEffort = req.reasoning_effort || req.reasoning?.effort;
     if (reasoningEffort) {
         body.reasoning = {
-            effort: normalizeReasoningEffort(reasoningEffort),
+            effort: NormalizeReasoningEffort(reasoningEffort),
             summary: "auto"
         };
     }
@@ -359,7 +359,7 @@ export function ResponsesEventToChunk(
     return null;
 }
 
-export function createResponsesStreamState(model: string): ResponsesStreamState {
+export function CreateResponsesStreamState(model: string): ResponsesStreamState {
     return {
         started: false,
         chatId: "",
@@ -401,7 +401,7 @@ export function ConvertResponsesAPIFormat(body: ResponsesRequestBody): ChatCompl
         };
     }
 
-    let currentAssistantMsg: ChatMessage | null = null;
+    let current_assistant_message: ChatMessage | null = null;
     const pendingToolResults: ChatMessage[] = [];
 
     const inputItems = NormalizeResponsesInput(body.input);
@@ -418,9 +418,9 @@ export function ConvertResponsesAPIFormat(body: ResponsesRequestBody): ChatCompl
         const item_type = item.type || (item.role ? "message" : null);
 
         if (item_type === "message") {
-            if (currentAssistantMsg) {
-                messages.push(currentAssistantMsg);
-                currentAssistantMsg = null;
+            if (current_assistant_message) {
+                messages.push(current_assistant_message);
+                current_assistant_message = null;
             }
             messages.push(...pendingToolResults);
             pendingToolResults.length = 0;
@@ -447,11 +447,11 @@ export function ConvertResponsesAPIFormat(body: ResponsesRequestBody): ChatCompl
                 content: content as ChatMessage["content"]
             });
         } else if (item_type === "function_call") {
-            if (!currentAssistantMsg) {
-                currentAssistantMsg = { role: "assistant", content: null, tool_calls: [] };
+            if (!current_assistant_message) {
+                current_assistant_message = { role: "assistant", content: null, tool_calls: [] };
             }
             if (!item.name || typeof item.name !== "string" || item.name.trim() === "") continue;
-            currentAssistantMsg.tool_calls?.push({
+            current_assistant_message.tool_calls?.push({
                 id: item.call_id || "",
                 type: "function",
                 function: {
@@ -463,9 +463,9 @@ export function ConvertResponsesAPIFormat(body: ResponsesRequestBody): ChatCompl
                 }
             });
         } else if (item_type === "function_call_output") {
-            if (currentAssistantMsg) {
-                messages.push(currentAssistantMsg);
-                currentAssistantMsg = null;
+            if (current_assistant_message) {
+                messages.push(current_assistant_message);
+                current_assistant_message = null;
             }
             pendingToolResults.push({
                 role: "tool",
@@ -478,7 +478,7 @@ export function ConvertResponsesAPIFormat(body: ResponsesRequestBody): ChatCompl
         }
     }
 
-    if (currentAssistantMsg) messages.push(currentAssistantMsg);
+    if (current_assistant_message) messages.push(current_assistant_message);
     messages.push(...pendingToolResults);
 
     return {
