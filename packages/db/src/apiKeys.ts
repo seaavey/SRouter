@@ -4,26 +4,26 @@ import { randomUUID } from "node:crypto";
 import { generateId, num, str } from "./row-utils.js";
 
 interface APIKeyRow {
-    id?: unknown;
-    key?: unknown;
-    name?: unknown;
-    enabled?: unknown;
-    rate_limit?: unknown;
-    quota_limit?: unknown;
-    usage_tokens?: unknown;
-    created_at?: unknown;
+    id: string;
+    key: string;
+    name: string;
+    enabled: number;
+    rate_limit: number;
+    quota_limit: number;
+    usage_tokens: number;
+    created_at: number;
 }
 
 export function getAllAPIKeysDB(): DBAPIKey[] {
     const Query = db.prepare("SELECT * FROM api_keys ORDER BY created_at DESC");
-    const Rows = Query.all() as APIKeyRow[];
+    const Rows = Query.all() as unknown as APIKeyRow[];
 
     return Rows.map(mapAPIKeyRow);
 }
 
 export function getAPIKeyByKeyDB(key: string): DBAPIKey | null {
     const Query = db.prepare("SELECT * FROM api_keys WHERE key = ? AND enabled = 1");
-    const Row = Query.get(key) as APIKeyRow | undefined;
+    const Row = Query.get(key) as unknown as APIKeyRow | undefined;
 
     if (!Row) return null;
 
@@ -32,14 +32,14 @@ export function getAPIKeyByKeyDB(key: string): DBAPIKey | null {
 
 function mapAPIKeyRow(row: APIKeyRow): DBAPIKey {
     return {
-        id: str(row.id),
-        key: str(row.key),
-        name: str(row.name),
+        id: row.id,
+        key: row.key,
+        name: row.name,
         enabled: Boolean(row.enabled),
-        rateLimit: num(row.rate_limit),
-        quotaLimit: num(row.quota_limit),
-        usageTokens: num(row.usage_tokens),
-        createdAt: num(row.created_at)
+        rateLimit: row.rate_limit,
+        quotaLimit: row.quota_limit,
+        usageTokens: row.usage_tokens,
+        createdAt: row.created_at
     };
 }
 

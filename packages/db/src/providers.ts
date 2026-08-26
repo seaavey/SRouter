@@ -3,35 +3,35 @@ import { db } from "./db.js";
 import { num, optStr, str } from "./row-utils.js";
 
 interface ProviderRow {
-    id?: unknown;
-    provider_id?: unknown;
-    name?: unknown;
-    category?: unknown;
-    protocol?: unknown;
-    base_url?: unknown;
-    api_key?: unknown;
-    access_token?: unknown;
-    refresh_token?: unknown;
-    account_id?: unknown;
-    organization_id?: unknown;
-    token_expires_at?: unknown;
-    last_refreshed_at?: unknown;
-    custom_headers?: unknown;
-    provider_specific_data?: unknown;
-    enabled?: unknown;
-    created_at?: unknown;
+    id: string;
+    provider_id: string;
+    name: string;
+    category: string | null;
+    protocol: string | null;
+    base_url: string | null;
+    api_key: string | null;
+    access_token: string | null;
+    refresh_token: string | null;
+    account_id: string | null;
+    organization_id: string | null;
+    token_expires_at: number | null;
+    last_refreshed_at: number | null;
+    custom_headers: string | null;
+    provider_specific_data: string | null;
+    enabled: number;
+    created_at: number;
 }
 
 export function getAllProvidersDB(): ProviderConfig[] {
     const Query = db.prepare("SELECT * FROM providers ORDER BY created_at DESC");
-    const Rows = Query.all() as ProviderRow[];
+    const Rows = Query.all() as unknown as ProviderRow[];
 
     return Rows.map(mapProviderRow);
 }
 
 export function getProviderByIdDB(id: string): ProviderConfig | null {
     const Query = db.prepare("SELECT * FROM providers WHERE id = ?");
-    const Row = Query.get(id) as ProviderRow | undefined;
+    const Row = Query.get(id) as unknown as ProviderRow | undefined;
 
     if (!Row) return null;
 
@@ -133,7 +133,7 @@ export function getConnectionsByProviderIdDB(providerId: string): ProviderConfig
     const Query = db.prepare(
         "SELECT * FROM providers WHERE LOWER(provider_id) = ? OR LOWER(id) = ? ORDER BY created_at DESC"
     );
-    const Rows = Query.all(PId, PId) as ProviderRow[];
+    const Rows = Query.all(PId, PId) as unknown as ProviderRow[];
 
     return Rows.map(mapProviderRow);
 }

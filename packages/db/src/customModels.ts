@@ -8,13 +8,13 @@ export interface CustomModelRow {
 }
 
 interface CustomModelDBShape {
-    provider_id?: unknown;
-    model_id?: unknown;
-    created_at?: unknown;
+    provider_id: string;
+    model_id: string;
+    created_at: number;
 }
 
 export function getAllCustomModelsDB(): CustomModelRow[] {
-    const Rows = db.prepare("SELECT * FROM custom_models ORDER BY created_at ASC").all() as CustomModelDBShape[];
+    const Rows = db.prepare("SELECT * FROM custom_models ORDER BY created_at ASC").all() as unknown as CustomModelDBShape[];
 
     return Rows.map(mapCustomModelRow);
 }
@@ -22,7 +22,7 @@ export function getAllCustomModelsDB(): CustomModelRow[] {
 export function getCustomModelsByProviderDB(providerId: string): CustomModelRow[] {
     const Rows = db
         .prepare("SELECT * FROM custom_models WHERE provider_id = ? ORDER BY created_at ASC")
-        .all(providerId) as CustomModelDBShape[];
+        .all(providerId) as unknown as CustomModelDBShape[];
 
     return Rows.map(mapCustomModelRow);
 }

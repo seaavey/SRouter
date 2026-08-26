@@ -2,14 +2,14 @@ import { db } from "./db.js";
 import { str } from "./row-utils.js";
 
 interface SettingRow {
-    key?: unknown;
-    value?: unknown;
+    key: string;
+    value: string;
 }
 
 export function getSettingDB(key: string, defaultValue = ""): string {
     const Stmt = db.prepare("SELECT value FROM system_settings WHERE key = ?");
-    const Row = Stmt.get(key) as SettingRow | undefined;
-    return Row?.value ? str(Row.value) : defaultValue;
+    const Row = Stmt.get(key) as unknown as SettingRow | undefined;
+    return Row ? Row.value : defaultValue;
 }
 
 export function setSettingDB(key: string, value: string): void {
@@ -23,12 +23,10 @@ export function setSettingDB(key: string, value: string): void {
 
 export function getAllSettingsDB(): Record<string, string> {
     const Stmt = db.prepare("SELECT key, value FROM system_settings");
-    const Rows = Stmt.all() as SettingRow[];
+    const Rows = Stmt.all() as unknown as SettingRow[];
     const Result: Record<string, string> = {};
     for (const r of Rows) {
-        if (r.key) {
-            Result[str(r.key)] = str(r.value);
-        }
+        Result[r.key] = r.value;
     }
     return Result;
 }

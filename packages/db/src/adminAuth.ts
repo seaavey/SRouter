@@ -9,13 +9,13 @@ export interface AdminSession {
 }
 
 interface AdminAccountRow {
-    password_hash?: unknown;
+    password_hash: string;
 }
 
 interface AdminSessionRow {
-    token_hash?: unknown;
-    created_at?: unknown;
-    expires_at?: unknown;
+    token_hash: string;
+    created_at: number;
+    expires_at: number;
 }
 
 export class AdminAuthStore {

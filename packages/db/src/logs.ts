@@ -8,55 +8,55 @@ import { db } from "./db.js";
 import { generateId, num, optStr, str } from "./row-utils.js";
 
 interface RequestLogRow {
-    id?: unknown;
-    api_key_id?: unknown;
-    provider_id?: unknown;
-    model?: unknown;
-    prompt_tokens?: unknown;
-    completion_tokens?: unknown;
-    total_tokens?: unknown;
-    status_code?: unknown;
-    latency_ms?: unknown;
-    cached_tokens?: unknown;
-    cache_creation_tokens?: unknown;
-    reasoning_tokens?: unknown;
-    estimated_cost?: unknown;
-    fallback_occurred?: unknown;
-    fallback_path?: unknown;
-    fallback_reason?: unknown;
-    resolved_model?: unknown;
-    created_at?: unknown;
+    id: string;
+    api_key_id: string | null;
+    provider_id: string;
+    model: string;
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+    status_code: number;
+    latency_ms: number;
+    cached_tokens: number;
+    cache_creation_tokens: number;
+    reasoning_tokens: number;
+    estimated_cost: number;
+    fallback_occurred: number;
+    fallback_path: string | null;
+    fallback_reason: string | null;
+    resolved_model: string | null;
+    created_at: number;
 }
 
 interface UsageSummaryRow {
-    totalRequests?: unknown;
-    totalTokens?: unknown;
-    totalPromptTokens?: unknown;
-    totalCompletionTokens?: unknown;
-    totalCachedTokens?: unknown;
-    totalCacheCreationTokens?: unknown;
-    totalReasoningTokens?: unknown;
-    totalEstimatedCost?: unknown;
+    totalRequests: number;
+    totalTokens: number;
+    totalPromptTokens: number;
+    totalCompletionTokens: number;
+    totalCachedTokens: number;
+    totalCacheCreationTokens: number;
+    totalReasoningTokens: number;
+    totalEstimatedCost: number;
 }
 
 interface ModelUsageDBShape {
-    model?: unknown;
-    totalRequests?: unknown;
-    totalTokens?: unknown;
-    promptTokens?: unknown;
-    completionTokens?: unknown;
-    cachedTokens?: unknown;
-    estimatedCost?: unknown;
-    lastUsedAt?: unknown;
+    model: string;
+    totalRequests: number;
+    totalTokens: number;
+    promptTokens: number;
+    completionTokens: number;
+    cachedTokens: number;
+    estimatedCost: number;
+    lastUsedAt: number | null;
 }
 
 interface UsageByModelDBShape {
-    model?: unknown;
-    totalRequests?: unknown;
-    totalInputTokens?: unknown;
-    totalOutputTokens?: unknown;
-    totalCachedTokens?: unknown;
-    estCost?: unknown;
+    model: string;
+    totalRequests: number;
+    totalInputTokens: number;
+    totalOutputTokens: number;
+    totalCachedTokens: number;
+    estCost: number;
 }
 
 export function logRequestDB(entry: Omit<RequestLogEntry, "id" | "createdAt">): RequestLogEntry {
@@ -98,7 +98,7 @@ export function logRequestDB(entry: Omit<RequestLogEntry, "id" | "createdAt">): 
 
 export function getRecentLogsDB(limit = 50): RequestLogEntry[] {
     const Query = db.prepare("SELECT * FROM request_logs ORDER BY created_at DESC LIMIT ?");
-    const Rows = Query.all(limit) as RequestLogRow[];
+    const Rows = Query.all(limit) as unknown as RequestLogRow[];
 
     return Rows.map(mapLogRow);
 }
@@ -117,7 +117,7 @@ export function getUsageSummaryDB(): UsageSummary {
         FROM request_logs
     `);
 
-    const Result = Query.get() as UsageSummaryRow | undefined;
+    const Result = Query.get() as unknown as UsageSummaryRow | undefined;
 
     return {
         totalRequests: num(Result?.totalRequests),
@@ -148,7 +148,7 @@ export function getProviderUsageSummaryDB(providerId: string): UsageSummary {
         WHERE provider_id = ?
     `);
 
-    const Result = Query.get(providerId) as UsageSummaryRow | undefined;
+    const Result = Query.get(providerId) as unknown as UsageSummaryRow | undefined;
 
     return {
         totalRequests: num(Result?.totalRequests),
@@ -181,17 +181,17 @@ export function getProviderModelUsageDB(providerId: string): ModelUsageSummaryRo
         ORDER BY lastUsedAt DESC
     `);
 
-    const Rows = Query.all(providerId) as ModelUsageDBShape[];
+    const Rows = Query.all(providerId) as unknown as ModelUsageDBShape[];
 
     return Rows.map((row) => ({
-        model: str(row.model),
-        totalRequests: num(row.totalRequests),
-        totalTokens: num(row.totalTokens),
-        promptTokens: num(row.promptTokens),
-        completionTokens: num(row.completionTokens),
-        cachedTokens: num(row.cachedTokens),
-        estimatedCost: num(row.estimatedCost),
-        lastUsedAt: row.lastUsedAt ? num(row.lastUsedAt) : null
+        model: row.model,
+        totalRequests: row.totalRequests,
+        totalTokens: row.totalTokens,
+        promptTokens: row.promptTokens,
+        completionTokens: row.completionTokens,
+        cachedTokens: row.cachedTokens,
+        estimatedCost: row.estimatedCost,
+        lastUsedAt: row.lastUsedAt
     }));
 }
 
@@ -209,15 +209,15 @@ export function getUsageByModelDB(): UsageByModelRow[] {
         ORDER BY totalRequests DESC
     `);
 
-    const Rows = Query.all() as UsageByModelDBShape[];
+    const Rows = Query.all() as unknown as UsageByModelDBShape[];
 
     return Rows.map((row) => ({
-        model: str(row.model),
-        totalRequests: num(row.totalRequests),
-        totalInputTokens: num(row.totalInputTokens),
-        totalOutputTokens: num(row.totalOutputTokens),
-        totalCachedTokens: num(row.totalCachedTokens),
-        estCost: num(row.estCost)
+        model: row.model,
+        totalRequests: row.totalRequests,
+        totalInputTokens: row.totalInputTokens,
+        totalOutputTokens: row.totalOutputTokens,
+        totalCachedTokens: row.totalCachedTokens,
+        estCost: row.estCost
     }));
 }
 

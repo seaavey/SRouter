@@ -10,11 +10,11 @@ export interface OAuthSession {
 }
 
 interface OAuthSessionRow {
-    state?: unknown;
-    code_verifier?: unknown;
-    client_id?: unknown;
-    redirect_uri?: unknown;
-    created_at?: unknown;
+    state: string;
+    code_verifier: string;
+    client_id: string;
+    redirect_uri: string;
+    created_at: number;
 }
 
 export function saveOAuthSessionDB(session: OAuthSession): OAuthSession {

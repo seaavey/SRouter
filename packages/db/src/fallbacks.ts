@@ -7,21 +7,21 @@ import { db } from "./db.js";
 import { generateId, num, optStr, str } from "./row-utils.js";
 
 interface FallbackRuleRow {
-    id?: unknown;
-    source_model?: unknown;
-    target_model?: unknown;
-    priority?: unknown;
-    enabled?: unknown;
-    trigger_on_status?: unknown;
-    max_retries?: unknown;
-    created_at?: unknown;
+    id: string;
+    source_model: string;
+    target_model: string;
+    priority: number;
+    enabled: number;
+    trigger_on_status: string | null;
+    max_retries: number | null;
+    created_at: number;
 }
 
 function rowToFallbackRule(row: FallbackRuleRow): FallbackRule {
     let triggerOnStatus: number[] | undefined;
     if (row.trigger_on_status) {
         try {
-            const parsed = JSON.parse(str(row.trigger_on_status));
+            const parsed = JSON.parse(row.trigger_on_status);
             if (Array.isArray(parsed)) {
                 triggerOnStatus = parsed.map((s) => num(s));
             }
@@ -31,26 +31,26 @@ function rowToFallbackRule(row: FallbackRuleRow): FallbackRule {
     }
 
     return {
-        id: str(row.id),
-        sourceModel: str(row.source_model),
-        targetModel: str(row.target_model),
+        id: row.id,
+        sourceModel: row.source_model,
+        targetModel: row.target_model,
         priority: num(row.priority, 1),
         enabled: Boolean(row.enabled),
         triggerOnStatus,
-        maxRetries: row.max_retries !== null && row.max_retries !== undefined ? num(row.max_retries) : undefined,
+        maxRetries: row.max_retries !== null ? num(row.max_retries) : undefined,
         createdAt: num(row.created_at)
     };
 }
 
 export function getAllFallbackRulesDB(): FallbackRule[] {
     const Stmt = db.prepare("SELECT * FROM fallback_rules ORDER BY priority ASC, created_at ASC");
-    const Rows = Stmt.all() as FallbackRuleRow[];
+    const Rows = Stmt.all() as unknown as FallbackRuleRow[];
     return Rows.map(rowToFallbackRule);
 }
 
 export function getFallbackRuleByIdDB(id: string): FallbackRule | null {
     const Stmt = db.prepare("SELECT * FROM fallback_rules WHERE id = ?");
-    const Row = Stmt.get(id) as FallbackRuleRow | undefined;
+    const Row = Stmt.get(id) as unknown as FallbackRuleRow | undefined;
     if (!Row) return null;
     return rowToFallbackRule(Row);
 }
