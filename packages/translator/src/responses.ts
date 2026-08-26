@@ -60,6 +60,8 @@ export interface ResponsesRequestBody {
     reasoning?: { effort?: string; summary?: string };
     include?: string[];
     prompt_cache_key?: string;
+    service_tier?: string;
+    [key: string]: JSONValue | unknown;
 }
 
 export interface ResponsesUsageDetails {
@@ -127,7 +129,7 @@ function computeFinishReason(state: ResponsesStreamState): FinishReason {
     return state.toolCallIndex > 0 ? "tool_calls" : "stop";
 }
 
-function buildUsage(
+function BuildUsage(
     prompt_tokens: number,
     completion_tokens: number,
     total_tokens: number,
@@ -236,7 +238,7 @@ export function normalizeReasoningEffort(value?: string): string {
     return "low";
 }
 
-export function chatToResponsesBody(req: ChatCompletionRequest): ResponsesRequestBody {
+export function ChatToResponsesBody(req: ChatCompletionRequest): ResponsesRequestBody {
     const input: ResponsesInputItem[] = [];
     for (const msg of req.messages) {
         if (msg) input.push(...mapMessageToInputItems(msg));
@@ -258,8 +260,8 @@ export function chatToResponsesBody(req: ChatCompletionRequest): ResponsesReques
         store: false
     };
 
-    const sysMsg = req.messages.find((m) => m.role === "system");
-    if (sysMsg) body.instructions = flattenText(sysMsg.content);
+    const system_message = req.messages.find((m) => m.role === "system");
+    if (system_message) body.instructions = flattenText(system_message.content);
 
     if (tools) body.tools = tools;
 
@@ -274,8 +276,8 @@ export function chatToResponsesBody(req: ChatCompletionRequest): ResponsesReques
     return body;
 }
 
-export function responsesEventToChunk(
-    eventType: string,
+export function ResponsesEventToChunk(
+    event_type: string,
     data: ResponsesStreamEventData,
     state: ResponsesStreamState
 ): ChatCompletionChunk | null {
@@ -287,12 +289,12 @@ export function responsesEventToChunk(
         state.currentToolCallId = null;
     }
 
-    if (eventType === "response.output_text.delta") {
+    if (event_type === "response.output_text.delta") {
         const delta = data.delta || "";
         return delta ? buildChunk(state.model, { content: delta }) : null;
     }
 
-    if (eventType === "response.output_item.added") {
+    if (event_type === "response.output_item.added") {
         const item = data.item;
         if (item && (item.type === "function_call" || item.type === "custom_tool_call")) {
             state.currentToolCallId = item.call_id || fallbackToolCallId();
@@ -311,8 +313,8 @@ export function responsesEventToChunk(
     }
 
     if (
-        eventType === "response.function_call_arguments.delta" ||
-        eventType === "response.custom_tool_call_input.delta"
+        event_type === "response.function_call_arguments.delta" ||
+        event_type === "response.custom_tool_call_input.delta"
     ) {
         const argsDelta = data.delta || "";
         return argsDelta
@@ -322,7 +324,7 @@ export function responsesEventToChunk(
             : null;
     }
 
-    if (eventType === "response.output_item.done") {
+    if (event_type === "response.output_item.done") {
         const item = data.item;
         if (item && (item.type === "function_call" || item.type === "custom_tool_call")) {
             state.toolCallIndex++;
@@ -330,14 +332,14 @@ export function responsesEventToChunk(
         return null;
     }
 
-    if (eventType === "response.completed" || eventType === "response.done") {
+    if (event_type === "response.completed" || event_type === "response.done") {
         const u = data.response?.usage;
         if (u) {
             const prompt_tokens = u.input_tokens || u.prompt_tokens || 0;
             const completion_tokens = u.output_tokens || u.completion_tokens || 0;
             const cachedTokens =
                 u.input_tokens_details?.cached_tokens || u.cache_read_input_tokens || 0;
-            state.usage = buildUsage(
+            state.usage = BuildUsage(
                 prompt_tokens,
                 completion_tokens,
                 prompt_tokens + completion_tokens,
@@ -369,7 +371,7 @@ export function createResponsesStreamState(model: string): ResponsesStreamState 
     };
 }
 
-export function normalizeResponsesInput(
+export function NormalizeResponsesInput(
     input: string | ResponsesInputItem[] | undefined
 ): ResponsesInputItem[] | null {
     if (typeof input === "string") {
@@ -384,7 +386,7 @@ export function normalizeResponsesInput(
     return null;
 }
 
-export function convertResponsesApiFormat(body: ResponsesRequestBody): ChatCompletionRequest {
+export function ConvertResponsesAPIFormat(body: ResponsesRequestBody): ChatCompletionRequest {
     const messages: ChatMessage[] = [];
     if (body.instructions) {
         messages.push({ role: "system", content: body.instructions });
@@ -402,7 +404,7 @@ export function convertResponsesApiFormat(body: ResponsesRequestBody): ChatCompl
     let currentAssistantMsg: ChatMessage | null = null;
     const pendingToolResults: ChatMessage[] = [];
 
-    const inputItems = normalizeResponsesInput(body.input);
+    const inputItems = NormalizeResponsesInput(body.input);
     if (!inputItems) {
         return {
             model: body.model,
@@ -413,9 +415,9 @@ export function convertResponsesApiFormat(body: ResponsesRequestBody): ChatCompl
     }
 
     for (const item of inputItems) {
-        const itemType = item.type || (item.role ? "message" : null);
+        const item_type = item.type || (item.role ? "message" : null);
 
-        if (itemType === "message") {
+        if (item_type === "message") {
             if (currentAssistantMsg) {
                 messages.push(currentAssistantMsg);
                 currentAssistantMsg = null;
@@ -424,7 +426,7 @@ export function convertResponsesApiFormat(body: ResponsesRequestBody): ChatCompl
             pendingToolResults.length = 0;
 
             const content = Array.isArray(item.content)
-                ? item.content.map((c) => {
+                ? item.content.map((c: ResponsesContentPart) => {
                       if (c.type === "input_text" || c.type === "output_text")
                           return { type: "text", text: c.text ?? "" };
                       if (c.type === "input_image") {
@@ -444,7 +446,7 @@ export function convertResponsesApiFormat(body: ResponsesRequestBody): ChatCompl
                 role: (item.role as ChatRole) || "user",
                 content: content as ChatMessage["content"]
             });
-        } else if (itemType === "function_call") {
+        } else if (item_type === "function_call") {
             if (!currentAssistantMsg) {
                 currentAssistantMsg = { role: "assistant", content: null, tool_calls: [] };
             }
@@ -460,7 +462,7 @@ export function convertResponsesApiFormat(body: ResponsesRequestBody): ChatCompl
                             : JSON.stringify(item.arguments ?? "")
                 }
             });
-        } else if (itemType === "function_call_output") {
+        } else if (item_type === "function_call_output") {
             if (currentAssistantMsg) {
                 messages.push(currentAssistantMsg);
                 currentAssistantMsg = null;
@@ -486,3 +488,6 @@ export function convertResponsesApiFormat(body: ResponsesRequestBody): ChatCompl
         tools: body.tools as ToolDefinition[] | undefined
     };
 }
+
+export const ConvertResponse = ConvertResponsesAPIFormat;
+export const ConvertResponsesApiFormat = ConvertResponsesAPIFormat;

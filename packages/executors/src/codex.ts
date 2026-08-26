@@ -8,12 +8,13 @@ import type {
 import { CODEX_BASE_URL, CODEX_MODELS_URL } from "@srouter/constants";
 import {
     accumulateChunks,
-    chatToResponsesBody,
+    ChatToResponsesBody,
     createResponsesStreamState,
+    NormalizeResponsesInput,
     normalizeReasoningEffort,
-    normalizeResponsesInput,
-    responsesEventToChunk,
-    type ResponsesRequestBody
+    ResponsesEventToChunk,
+    type ResponsesRequestBody,
+    type ResponsesStreamEventData
 } from "@srouter/translator";
 import { parseDataLine, streamLines } from "./base.js";
 import { extractSseErrorMessage, MODEL_CAPACITY_MESSAGE } from "./sse.js";
@@ -242,7 +243,7 @@ export class CodexExecutor implements AIProvider {
      * Transform ChatCompletionRequest → Responses API body (port of 9router transformRequest).
      */
     private transformRequest(req: ChatCompletionRequest): ResponsesRequestBody {
-        let body = chatToResponsesBody(req);
+        let body = ChatToResponsesBody(req);
         const targetModel = req.model.includes("/")
             ? (req.model.split("/")[1] ?? req.model)
             : req.model;
@@ -264,7 +265,7 @@ export class CodexExecutor implements AIProvider {
         body.store = false;
 
         // Ensure input present (Codex rejects empty)
-        const normalized = normalizeResponsesInput(body.input);
+        const normalized = NormalizeResponsesInput(body.input);
         if (normalized) body.input = normalized;
 
         // Inject default instructions
@@ -490,10 +491,10 @@ export class CodexExecutor implements AIProvider {
                 const jsonStr = parseDataLine(line);
                 if (jsonStr === null) continue;
                 try {
-                    const parsed = JSON.parse(jsonStr) as Record<string, unknown>;
+                    const parsed = JSON.parse(jsonStr) as ResponsesStreamEventData;
                     const eventType =
                         (parsed.type as string) || pendingEvent || "response.output_text.delta";
-                    const chunk = responsesEventToChunk(eventType, parsed, state);
+                    const chunk = ResponsesEventToChunk(eventType, parsed, state);
                     if (chunk) yield chunk;
                 } catch {
                     // ignore malformed JSON
@@ -503,10 +504,10 @@ export class CodexExecutor implements AIProvider {
             } else {
                 // Raw JSON line (no data: prefix)
                 try {
-                    const parsed = JSON.parse(line) as Record<string, unknown>;
+                    const parsed = JSON.parse(line) as ResponsesStreamEventData;
                     const eventType =
                         (parsed.type as string) || pendingEvent || "response.output_text.delta";
-                    const chunk = responsesEventToChunk(eventType, parsed, state);
+                    const chunk = ResponsesEventToChunk(eventType, parsed, state);
                     if (chunk) yield chunk;
                 } catch {
                     // ignore
