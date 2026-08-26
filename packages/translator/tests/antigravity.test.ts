@@ -16,7 +16,7 @@ import {
     stripCompetitiveAgentPrompts,
     stripTrailingAssistantTurn,
     stripZeroWidth
-} from "../src/gemini.js";
+} from "../src/antigravity.js";
 import type { ChatCompletionRequest } from "@srouter/types";
 
 test("buildAntigravityContents produces valid parts without empty text in oneof functionCall / functionResponse", () => {
