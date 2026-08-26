@@ -325,8 +325,8 @@ export class ProviderRegistry {
                 name: provider.name,
                 category: provider.category ?? "custom",
                 protocol: provider.protocol ?? "openai",
-                requiresApiKey: false,
-                supportsCustomUrl: true,
+                requires_api_key: true,
+                supports_custom_url: true,
                 status: { state: "connected", connectedCount },
                 models: []
             });

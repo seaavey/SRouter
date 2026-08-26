@@ -8,9 +8,9 @@ export const COMMANDCODE_PROVIDER: KnownProvider = {
     name: "Command Code",
     category: "api_key",
     protocol: "openai",
-    baseUrl: COMMANDCODE_BASE_URL,
-    websiteUrl: "https://commandcode.ai",
-    requiresApiKey: true,
-    supportsCustomUrl: true,
-    statusMessage: "Command Code API key missing"
+    base_url: COMMANDCODE_BASE_URL,
+    web_url: "https://commandcode.ai",
+    requires_api_key: true,
+    supports_custom_url: true,
+    status_message: "Command Code API key missing"
 };

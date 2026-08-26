@@ -12,8 +12,8 @@ const protocolLabels: Record<string, string> = {
 };
 
 function authLabel(provider: ProviderDefinition): string {
-    if (provider.requiresOAuth) return "OAuth 2.0";
-    if (provider.requiresApiKey) return "API Key";
+    if (provider.requires_oauth) return "OAuth 2.0";
+    if (provider.requires_api_key) return "API Key";
     return "Public";
 }
 

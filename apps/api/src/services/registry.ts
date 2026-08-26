@@ -9,6 +9,7 @@ import {
     isProviderBaseId,
     isSeedProvider,
     NEOSANTARA_BASE_URL,
+    OPENCODE_ZEN_BASE_URL,
     SEED_MARKER,
     SEEKAI_BASE_URL,
     TABITOKEN_BASE_URL,
@@ -63,7 +64,7 @@ export function seedDefaultProviders(): void {
                 name: seed.name,
                 category: seed.category,
                 protocol: seed.protocol,
-                baseUrl: seed.baseUrl,
+                base_url: seed.base_url,
                 enabled: true,
                 providerSpecificData: { [SEED_MARKER]: "true" },
                 createdAt: now
@@ -73,14 +74,14 @@ export function seedDefaultProviders(): void {
                 existingRow.category !== seed.category ||
                 existingRow.protocol !== seed.protocol ||
                 existingRow.name !== seed.name ||
-                existingRow.baseUrl !== seed.baseUrl
+                existingRow.base_url !== seed.base_url
             ) {
                 upsertProviderDB({
                     ...existingRow,
                     name: seed.name,
                     category: seed.category,
                     protocol: seed.protocol,
-                    baseUrl: seed.baseUrl
+                    base_url: seed.base_url
                 });
             }
         }
@@ -98,7 +99,7 @@ export function loadSavedProvidersFromDB(): void {
         if (isSeedProvider(p)) continue;
 
         const providerType = p.providerId || p.id;
-        const baseUrl = p.baseUrl;
+        const baseUrl = p.base_url;
 
         switch (true) {
             case isProviderBaseId(p.id, "kiro"):
@@ -323,7 +324,7 @@ export function loadSavedProvidersFromDB(): void {
                     new OpenCodeZenExecutor({
                         id: seed.id,
                         name: seed.name,
-                        baseUrl: seed.baseUrl || OPENCODE_ZEN_BASE_URL
+                        baseUrl: seed.base_url || OPENCODE_ZEN_BASE_URL
                     })
                 );
             }

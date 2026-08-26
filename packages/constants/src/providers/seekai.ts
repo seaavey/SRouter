@@ -7,9 +7,9 @@ export const SEEKAI_PROVIDER: KnownProvider = {
     name: "SeekAI",
     category: "api_key",
     protocol: "openai",
-    baseUrl: SEEKAI_BASE_URL,
-    websiteUrl: "https://seekai.cc/sign-up?aff=UU0C",
-    requiresApiKey: true,
-    supportsCustomUrl: true,
-    statusMessage: "SeekAI API key missing"
+    base_url: SEEKAI_BASE_URL,
+    web_url: "https://seekai.cc/sign-up?aff=UU0C",
+    requires_api_key: true,
+    supports_custom_url: true,
+    status_message: "SeekAI API key missing"
 };

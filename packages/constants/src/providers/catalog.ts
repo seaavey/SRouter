@@ -78,7 +78,7 @@ export function getProviderWebsiteUrl(
 ): string | undefined {
     const BaseId = providerBaseId(ProviderId);
     const Known = KNOWN_PROVIDER_MAP[ProviderId] ?? KNOWN_PROVIDER_MAP[BaseId];
-    if (Known?.websiteUrl) return Known.websiteUrl;
+    if (Known?.web_url) return Known.web_url;
 
     if (DefaultBaseUrl) {
         try {

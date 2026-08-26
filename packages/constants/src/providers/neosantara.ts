@@ -7,9 +7,9 @@ export const NEOSANTARA_PROVIDER: KnownProvider = {
     name: "Neosantara",
     category: "api_key",
     protocol: "openai",
-    baseUrl: NEOSANTARA_BASE_URL,
-    websiteUrl: "https://neosantara.xyz",
-    requiresApiKey: true,
-    supportsCustomUrl: true,
-    statusMessage: "Neosantara API key missing"
+    base_url: NEOSANTARA_BASE_URL,
+    web_url: "https://neosantara.xyz",
+    requires_api_key: true,
+    supports_custom_url: true,
+    status_message: "Neosantara API key missing"
 };

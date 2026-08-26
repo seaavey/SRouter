@@ -76,9 +76,9 @@ test("CodeBuddy CN is registered as a connectable OAuth provider", () => {
 
     assert.ok(provider);
     assert.equal(provider.name, "CodeBuddy CN");
-    assert.equal(provider.baseUrl, CODEBUDDY_CN_BASE_URL);
-    assert.equal(provider.websiteUrl, "https://www.codebuddy.cn");
-    assert.equal(provider.requiresOAuth, true);
+    assert.equal(provider.base_url, CODEBUDDY_CN_BASE_URL);
+    assert.equal(provider?.web_url, "https://www.codebuddy.cn");
+    assert.equal(provider?.requires_oauth, true);
 });
 
 test("CodeBuddy CN token import creates a CN provider connection", () => {

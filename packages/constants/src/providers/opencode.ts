@@ -24,10 +24,10 @@ export const OPENCODE_ZEN_PROVIDER: KnownProvider = {
     category: "free_tier",
     protocol: "openai",
     alias: "zen",
-    baseUrl: OPENCODE_ZEN_BASE_URL,
-    websiteUrl: "https://opencode.ai/zen",
-    requiresApiKey: false,
-    requiresOAuth: false,
-    supportsCustomUrl: true,
-    statusMessage: "Free Tier Ready (Unlimited)"
+    base_url: OPENCODE_ZEN_BASE_URL,
+    web_url: "https://opencode.ai/zen",
+    requires_api_key: false,
+    requires_oauth: false,
+    supports_custom_url: true,
+    status_message: "Free Tier Ready (Unlimited)"
 };

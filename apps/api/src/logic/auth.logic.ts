@@ -153,7 +153,7 @@ function ProcessTokenImportFor(
         refreshToken: params.refreshToken,
         accountId: params.accountId
     };
-    const baseUrl = params.baseUrl || handler.baseUrl?.();
+    const baseUrl = params.base_url || params.baseUrl || handler.baseUrl?.();
 
     const providerConfig = upsertProviderDB({
         id: accountId,

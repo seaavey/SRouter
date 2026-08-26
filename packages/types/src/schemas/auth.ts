@@ -28,7 +28,7 @@ export const TokenImportBodySchema = z
             .string({ required_error: "Field 'accessToken' is required" })
             .min(1, "Field 'accessToken' is required"),
         refreshToken: z.string().optional(),
-        baseUrl: z.string().url().optional(),
+        base_url: z.string().url().optional(),
         name: z.string().optional()
     })
     .passthrough();

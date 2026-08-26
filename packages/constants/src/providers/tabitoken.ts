@@ -7,9 +7,9 @@ export const TABITOKEN_PROVIDER: KnownProvider = {
     name: "TabiToken",
     category: "api_key",
     protocol: "openai",
-    baseUrl: TABITOKEN_BASE_URL,
-    websiteUrl: "https://tabitoken.com/sign-up?aff=h5iN",
-    requiresApiKey: true,
-    supportsCustomUrl: true,
-    statusMessage: "TabiToken API key missing"
+    base_url: TABITOKEN_BASE_URL,
+    web_url: "https://tabitoken.com/sign-up?aff=h5iN",
+    requires_api_key: true,
+    supports_custom_url: true,
+    status_message: "TabiToken API key missing"
 };

@@ -72,9 +72,9 @@ export function ProviderCard({ provider }: { provider: ProviderDefinition }) {
                         {protocolLabels[provider.protocol] ?? provider.protocol}
                     </span>
                     <span className="rounded-md border border-border/60 bg-secondary/40 px-2 py-0.5 text-muted-foreground">
-                        {provider.requiresOAuth
+                        {provider.requires_oauth
                             ? "OAuth 2.0"
-                            : provider.requiresApiKey
+                            : provider.requires_api_key
                               ? "API Key"
                               : "Public Access"}
                     </span>

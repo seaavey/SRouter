@@ -10,8 +10,8 @@ export const OPENAI_CODEX_PROVIDER: KnownProvider = {
     category: "oauth",
     protocol: "openai",
     alias: "openai",
-    websiteUrl: "https://chatgpt.com",
-    requiresApiKey: false,
-    requiresOAuth: true,
-    statusMessage: "OAuth token missing"
+    web_url: "https://chatgpt.com",
+    requires_api_key: false,
+    requires_oauth: true,
+    status_message: "OAuth token missing"
 };

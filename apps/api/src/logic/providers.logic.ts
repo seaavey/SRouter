@@ -69,9 +69,9 @@ function ProviderDefinitionFromConfig(Connection: ProviderConfig): ProviderDefin
             Connection.protocol && isProviderProtocol(Connection.protocol)
                 ? Connection.protocol
                 : "openai",
-        defaultBaseUrl: Connection.baseUrl,
-        requiresApiKey: Boolean(Connection.apiKey),
-        supportsCustomUrl: true,
+        default_base_url: Connection.base_url,
+        requires_api_key: Boolean(Connection.apiKey),
+        supports_custom_url: true,
         status: { state: "connected", connectedCount: 1 },
         models: []
     };
@@ -106,13 +106,13 @@ function CatalogWithSavedCustomProviders(): ProviderDefinition[] {
             name: Seed?.name ?? Connection.name,
             category: Seed?.category ?? Category,
             protocol: Seed?.protocol ?? Protocol,
-            defaultBaseUrl: Seed?.baseUrl ?? Connection.baseUrl,
-            requiresApiKey: Seed ? Seed.requiresApiKey : Boolean(Connection.apiKey),
-            requiresOAuth: Seed?.requiresOAuth,
-            supportsCustomUrl: Seed ? (Seed.supportsCustomUrl ?? true) : true,
+            default_base_url: Seed?.base_url ?? Connection.base_url,
+            requires_api_key: Seed ? Seed.requires_api_key : Boolean(Connection.apiKey),
+            requires_oauth: Seed?.requires_oauth,
+            supports_custom_url: Seed ? (Seed.supports_custom_url ?? true) : true,
             status: {
                 state: ConnectedCount > 0 ? "connected" : "no_connections",
-                message: Seed?.statusMessage,
+                message: Seed?.status_message,
                 connectedCount: ConnectedCount
             },
             models: []
@@ -128,13 +128,13 @@ function CatalogWithSavedCustomProviders(): ProviderDefinition[] {
             name: Seed.name,
             category: Seed.category,
             protocol: Seed.protocol,
-            defaultBaseUrl: Seed.baseUrl,
-            requiresApiKey: Seed.requiresApiKey,
-            requiresOAuth: Seed.requiresOAuth,
-            supportsCustomUrl: Seed.supportsCustomUrl ?? true,
+            default_base_url: Seed.base_url,
+            requires_api_key: Seed.requires_api_key,
+            requires_oauth: Seed.requires_oauth,
+            supports_custom_url: Seed.supports_custom_url ?? true,
             status: {
                 state: "no_connections",
-                message: Seed.statusMessage,
+                message: Seed.status_message,
                 connectedCount: 0
             },
             models: []
@@ -238,7 +238,7 @@ export class ProvidersLogic {
             throw new Error(`Provider ID '${Id}' already exists`);
         const Category = Payload.category;
         const Protocol = Payload.protocol;
-        const BaseUrl = Payload.baseUrl?.trim();
+        const BaseUrl = Payload.base_url?.trim();
         if (BaseUrl) {
             try {
                 const Url = new URL(BaseUrl);
@@ -258,7 +258,7 @@ export class ProvidersLogic {
             name: Name,
             category: Category,
             protocol: Protocol,
-            baseUrl: BaseUrl,
+            base_url: BaseUrl,
             apiKey: ApiKey,
             accessToken: Payload.accessToken,
             refreshToken: Payload.refreshToken,

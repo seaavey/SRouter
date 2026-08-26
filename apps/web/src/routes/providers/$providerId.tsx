@@ -131,7 +131,7 @@ function ProviderDetailPage() {
     };
 
     const handleAddConnection = () => {
-        if (provider?.requiresOAuth) {
+        if (provider?.requires_oauth) {
             setIsOAuthModalOpen(true);
         } else {
             setIsAddOpen(true);
@@ -146,7 +146,7 @@ function ProviderDetailPage() {
             name: input.name?.trim() || `${provider.name} Key`,
             category: provider.category,
             protocol: provider.protocol,
-            baseUrl: input.baseUrl || provider.defaultBaseUrl || undefined,
+            baseUrl: input.baseUrl || provider.default_base_url || undefined,
             apiKey: input.apiKey
         };
 
@@ -225,7 +225,7 @@ function ProviderDetailPage() {
 
     const connections = provider.connections ?? [];
     const activeConnectionsCount = connections.filter((c) => c.enabled).length;
-    const websiteUrl = getProviderWebsiteUrl(provider.id, provider.defaultBaseUrl);
+    const websiteUrl = getProviderWebsiteUrl(provider.id, provider.default_base_url);
 
     return (
         <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 font-mono">
@@ -321,13 +321,13 @@ function ProviderDetailPage() {
                         className="h-8 text-xs font-semibold cursor-pointer shadow-xs gap-1.5"
                     >
                         <Plus className="size-3.5" />
-                        <span>{provider.requiresOAuth ? "Connect Account" : "Add Key"}</span>
+                        <span>{provider.requires_oauth ? "Connect Account" : "Add Key"}</span>
                     </Button>
                 </div>
             </div>
 
             {/* Risk Notice Alert Banner if OAuth */}
-            {provider.requiresOAuth && (
+            {provider.requires_oauth && (
                 <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3.5 text-xs leading-relaxed text-amber-600 dark:text-amber-400">
                     <AlertTriangle className="size-4 shrink-0 mt-0.5 text-amber-500" />
                     <div>
@@ -480,7 +480,7 @@ function ProviderDetailPage() {
                 onOpenChange={setIsAddOpen}
                 providerName={provider.name}
                 protocol={provider.protocol}
-                defaultBaseUrl={provider.defaultBaseUrl}
+                defaultBaseUrl={provider.default_base_url}
                 isSaving={addMutation.isPending}
                 error={formError}
                 onSubmit={handleAddSubmit}

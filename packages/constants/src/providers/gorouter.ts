@@ -7,9 +7,9 @@ export const GOROUTER_PROVIDER: KnownProvider = {
     name: "GoRouter",
     category: "api_key",
     protocol: "openai",
-    baseUrl: GOROUTER_BASE_URL,
-    websiteUrl: "https://gorouter.app/sign-up?aff=cJJn",
-    requiresApiKey: true,
-    supportsCustomUrl: true,
-    statusMessage: "GoRouter API key missing"
+    base_url: GOROUTER_BASE_URL,
+    web_url: "https://gorouter.app/sign-up?aff=cJJn",
+    requires_api_key: true,
+    supports_custom_url: true,
+    status_message: "GoRouter API key missing"
 };

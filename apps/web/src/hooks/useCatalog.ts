@@ -17,13 +17,13 @@ const STATIC_DEFAULT_PROVIDERS: ProviderDefinition[] = KNOWN_PROVIDERS.map((kp) 
     name: kp.name,
     category: kp.category,
     protocol: kp.protocol,
-    defaultBaseUrl: kp.baseUrl,
-    requiresApiKey: kp.requiresApiKey,
-    requiresOAuth: kp.requiresOAuth,
-    supportsCustomUrl: kp.supportsCustomUrl ?? true,
+    default_base_url: kp.base_url,
+    requires_api_key: kp.requires_api_key,
+    requires_oauth: kp.requires_oauth,
+    supports_custom_url: kp.supports_custom_url ?? true,
     status: {
         state: "no_connections",
-        message: kp.statusMessage,
+        message: kp.status_message,
         connectedCount: 0
     },
     models: [],

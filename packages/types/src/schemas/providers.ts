@@ -11,7 +11,7 @@ export const CreateProviderSchema = z.object({
         .min(1, "Field 'name' is required"),
     category: ProviderCategorySchema,
     protocol: ProviderProtocolSchema,
-    baseUrl: z.string().url().optional(),
+    base_url: z.string().url().optional(),
     apiKey: z.string().optional(),
     accessToken: z.string().optional(),
     refreshToken: z.string().optional(),
@@ -23,7 +23,7 @@ export type CreateProviderZod = z.infer<typeof CreateProviderSchema>;
 
 export const VerifyProviderSchema = z.object({
     protocol: ProviderProtocolSchema.optional().default("openai"),
-    baseUrl: z.string().url().optional(),
+    base_url: z.string().url().optional(),
     apiKey: z.string().optional()
 });
 

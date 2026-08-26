@@ -64,12 +64,12 @@ export const CODEBUDDY_PROVIDER: KnownProvider = {
     category: "oauth",
     protocol: "openai",
     alias: "codebuddy",
-    baseUrl: CODEBUDDY_BASE_URL,
-    websiteUrl: "https://www.codebuddy.ai",
-    requiresApiKey: false,
-    requiresOAuth: true,
-    supportsCustomUrl: true,
-    statusMessage: "CodeBuddy OAuth token missing"
+    base_url: CODEBUDDY_BASE_URL,
+    web_url: "https://www.codebuddy.ai",
+    requires_api_key: false,
+    requires_oauth: true,
+    supports_custom_url: true,
+    status_message: "CodeBuddy OAuth token missing"
 };
 
 export const CODEBUDDY_CN_PROVIDER: KnownProvider = {
@@ -78,10 +78,10 @@ export const CODEBUDDY_CN_PROVIDER: KnownProvider = {
     category: "oauth",
     protocol: "openai",
     alias: "codebuddy-cn",
-    baseUrl: CODEBUDDY_CN_BASE_URL,
-    websiteUrl: "https://www.codebuddy.cn",
-    requiresApiKey: false,
-    requiresOAuth: true,
-    supportsCustomUrl: true,
-    statusMessage: "CodeBuddy CN OAuth token missing"
+    base_url: CODEBUDDY_CN_BASE_URL,
+    web_url: "https://www.codebuddy.cn",
+    requires_api_key: false,
+    requires_oauth: true,
+    supports_custom_url: true,
+    status_message: "CodeBuddy CN OAuth token missing"
 };

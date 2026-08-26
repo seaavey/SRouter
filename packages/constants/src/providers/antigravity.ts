@@ -32,9 +32,9 @@ export const ANTIGRAVITY_PROVIDER: KnownProvider = {
     name: "Google Antigravity",
     category: "oauth",
     protocol: "openai",
-    baseUrl: ANTIGRAVITY_IDE_BASE_URL,
-    websiteUrl: "https://ai.google.dev",
-    requiresApiKey: false,
-    requiresOAuth: true,
-    statusMessage: "Antigravity OAuth token missing"
+    base_url: ANTIGRAVITY_IDE_BASE_URL,
+    web_url: "https://ai.google.dev",
+    requires_api_key: false,
+    requires_oauth: true,
+    status_message: "Antigravity OAuth token missing"
 };

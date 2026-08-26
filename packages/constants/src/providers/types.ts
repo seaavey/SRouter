@@ -5,11 +5,11 @@ export interface KnownProvider {
     name: string;
     category: ProviderCategory;
     protocol: ProviderProtocol;
-    baseUrl?: string;
-    websiteUrl?: string;
+    base_url?: string;
+    web_url?: string;
     alias?: string;
-    requiresApiKey: boolean;
-    requiresOAuth?: boolean;
-    supportsCustomUrl?: boolean;
-    statusMessage: string;
+    requires_api_key: boolean;
+    requires_oauth?: boolean;
+    supports_custom_url?: boolean;
+    status_message: string;
 }

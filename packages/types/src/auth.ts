@@ -18,6 +18,7 @@ export interface TokenImportParams {
     accessToken: string;
     refreshToken?: string;
     accountId?: string;
+    base_url?: string;
     baseUrl?: string;
     name?: string;
 }

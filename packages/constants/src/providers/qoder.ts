@@ -93,10 +93,10 @@ export const QODER_PROVIDER: KnownProvider = {
     category: "oauth",
     protocol: "openai",
     alias: "qd",
-    baseUrl: QODER_CHAT_URL_ENCODED,
-    websiteUrl: "https://qoder.com",
-    requiresApiKey: false,
-    requiresOAuth: true,
-    supportsCustomUrl: true,
-    statusMessage: "Qoder token or session missing"
+    base_url: QODER_CHAT_URL_ENCODED,
+    web_url: "https://qoder.com",
+    requires_api_key: false,
+    requires_oauth: true,
+    supports_custom_url: true,
+    status_message: "Qoder token or session missing"
 };

@@ -8,8 +8,8 @@ export const ANTHROPIC_PROVIDER: KnownProvider = {
     category: "oauth",
     protocol: "anthropic",
     alias: "claude",
-    websiteUrl: "https://claude.ai",
-    requiresApiKey: false,
-    requiresOAuth: true,
-    statusMessage: "OAuth token missing"
+    web_url: "https://claude.ai",
+    requires_api_key: false,
+    requires_oauth: true,
+    status_message: "OAuth token missing"
 };

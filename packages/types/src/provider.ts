@@ -26,11 +26,11 @@ export interface ProviderDefinition {
     protocol: ProviderProtocol;
     description?: string;
     icon?: string;
-    defaultBaseUrl?: string;
-    baseUrl?: string;
-    requiresApiKey: boolean;
-    requiresOAuth?: boolean;
-    supportsCustomUrl?: boolean;
+    default_base_url?: string;
+    base_url?: string;
+    requires_api_key: boolean;
+    requires_oauth?: boolean;
+    supports_custom_url?: boolean;
     status: ProviderStatus;
     models: ModelObject[];
     connections?: ProviderConfig[];
@@ -42,7 +42,7 @@ export interface ProviderConfig {
     name: string;
     category?: ProviderCategory;
     protocol?: ProviderProtocol;
-    baseUrl?: string;
+    base_url?: string;
     apiKey?: string;
     accessToken?: string;
     refreshToken?: string;

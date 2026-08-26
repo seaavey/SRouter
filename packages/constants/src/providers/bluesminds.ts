@@ -7,9 +7,9 @@ export const BLUESMINDS_PROVIDER: KnownProvider = {
     name: "BluesMinds",
     category: "api_key",
     protocol: "openai",
-    baseUrl: BLUESMINDS_BASE_URL,
-    websiteUrl: "https://api.bluesminds.com/sign-up?aff=nCAw",
-    requiresApiKey: true,
-    supportsCustomUrl: true,
-    statusMessage: "BluesMinds API key missing"
+    base_url: BLUESMINDS_BASE_URL,
+    web_url: "https://api.bluesminds.com/sign-up?aff=nCAw",
+    requires_api_key: true,
+    supports_custom_url: true,
+    status_message: "BluesMinds API key missing"
 };

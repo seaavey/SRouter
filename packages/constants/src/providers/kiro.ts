@@ -5,8 +5,8 @@ export const KIRO_PROVIDER: KnownProvider = {
     name: "Kiro",
     category: "api_key",
     protocol: "custom",
-    websiteUrl: "https://aws.amazon.com/q/",
-    requiresApiKey: true,
-    supportsCustomUrl: true,
-    statusMessage: "Kiro credential missing"
+    web_url: "https://aws.amazon.com/q/",
+    requires_api_key: true,
+    supports_custom_url: true,
+    status_message: "Kiro credential missing"
 };
