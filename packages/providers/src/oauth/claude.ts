@@ -1,3 +1,10 @@
+import {
+    CLAUDE_OAUTH_AUTHORIZE_URL,
+    CLAUDE_OAUTH_CLIENT_ID,
+    CLAUDE_OAUTH_REDIRECT_URI,
+    CLAUDE_OAUTH_SCOPE,
+    CLAUDE_OAUTH_TOKEN_URL
+} from "@srouter/constants";
 import type { OAuthTokenResponse, PKCEPair } from "./base.js";
 
 export interface ClaudeOAuthOptions {
@@ -25,25 +32,18 @@ export class ClaudeOAuth {
     constructor(options: ClaudeOAuthOptions = {}) {
         // Official Claude Code OAuth public client ID (mirrors claude-code CLI)
         this.clientId =
-            options.clientId ??
-            process.env.CLAUDE_OAUTH_CLIENT_ID ??
-            "9d1c250a-e61b-44d9-88ed-5944d1962f5e";
+            options.clientId ?? process.env.CLAUDE_OAUTH_CLIENT_ID ?? CLAUDE_OAUTH_CLIENT_ID;
         this.redirectUri =
             options.redirectUri ??
             process.env.CLAUDE_OAUTH_REDIRECT_URI ??
-            "http://localhost:1455/auth/claude/callback";
-        this.scope =
-            options.scope ??
-            process.env.CLAUDE_OAUTH_SCOPE ??
-            "org:create_api_key user:profile user:inference";
+            CLAUDE_OAUTH_REDIRECT_URI;
+        this.scope = options.scope ?? process.env.CLAUDE_OAUTH_SCOPE ?? CLAUDE_OAUTH_SCOPE;
         this.authorizeUrl =
             options.authorizeUrl ??
             process.env.CLAUDE_OAUTH_AUTHORIZE_URL ??
-            "https://claude.ai/oauth/authorize";
+            CLAUDE_OAUTH_AUTHORIZE_URL;
         this.tokenUrl =
-            options.tokenUrl ??
-            process.env.CLAUDE_OAUTH_TOKEN_URL ??
-            "https://api.anthropic.com/v1/oauth/token";
+            options.tokenUrl ?? process.env.CLAUDE_OAUTH_TOKEN_URL ?? CLAUDE_OAUTH_TOKEN_URL;
         this.prompt = options.prompt ?? process.env.CLAUDE_OAUTH_PROMPT;
     }
 
