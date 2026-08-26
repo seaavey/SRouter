@@ -5,6 +5,7 @@ import type {
     ChatCompletionRequest,
     ChatCompletionResponse,
     ChatMessage,
+    CommandCodeRole,
     FinishReason,
     ToolCall,
     ToolFunctionParameters,
@@ -73,7 +74,7 @@ function parseJsonArguments(args?: string): Record<string, JSONValue> | JSONValu
 }
 
 export interface CommandCodeMessage {
-    role: "user" | "assistant" | "tool";
+    role: CommandCodeRole;
     content: CommandCodeContentBlock[];
 }
 

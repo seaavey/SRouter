@@ -1,4 +1,5 @@
-import type { ChatMessageRole, ToolDefinition } from "./openai.js";
+import type { AnthropicRole } from "./chat.js";
+import type { ToolDefinition } from "./openai.js";
 
 export interface AnthropicContentBlock {
     type: "text" | "image" | "tool_use" | "tool_result" | "thinking" | "redacted_thinking";
@@ -21,7 +22,7 @@ export interface AnthropicContentBlock {
 }
 
 export interface AnthropicMessage {
-    role: Extract<ChatMessageRole, "user" | "assistant">;
+    role: AnthropicRole;
     content: string | AnthropicContentBlock[];
 }
 
