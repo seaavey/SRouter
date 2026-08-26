@@ -488,6 +488,3 @@ export function ConvertResponsesAPIFormat(body: ResponsesRequestBody): ChatCompl
         tools: body.tools as ToolDefinition[] | undefined
     };
 }
-
-export const ConvertResponse = ConvertResponsesAPIFormat;
-export const ConvertResponsesApiFormat = ConvertResponsesAPIFormat;
