@@ -1,3 +1,5 @@
+import type { KnownProvider } from "./types.js";
+
 export interface QoderModelDefinition {
     id: string;
     name: string;
@@ -84,3 +86,17 @@ MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDA8iMH5c02LilrsERw9t6Pv5Nc
 6HRkPJ7S236FZz73In/KVuLnwI8JJ2CbuJap8kvheCCZpmAWpb/cPx/3Vr/J6I17
 XcW+ML9FoCI6AOvOzwIDAQAB
 -----END PUBLIC KEY-----`;
+
+export const QODER_PROVIDER: KnownProvider = {
+    id: "qoder",
+    name: "Qoder",
+    category: "oauth",
+    protocol: "openai",
+    alias: "qd",
+    baseUrl: QODER_CHAT_URL_ENCODED,
+    websiteUrl: "https://qoder.com",
+    requiresApiKey: false,
+    requiresOAuth: true,
+    supportsCustomUrl: true,
+    statusMessage: "Qoder token or session missing"
+};

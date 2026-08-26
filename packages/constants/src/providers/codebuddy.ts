@@ -1,3 +1,5 @@
+import type { KnownProvider } from "./types.js";
+
 export const CODEBUDDY_BASE_URL = "https://www.codebuddy.ai/v2/chat/completions";
 export const CODEBUDDY_AUTH_BASE = "https://www.codebuddy.ai";
 export const CODEBUDDY_AUTH_STATE_URL = "https://www.codebuddy.ai/v2/plugin/auth/state";
@@ -55,3 +57,31 @@ export const CODEBUDDY_MODELS: CodeBuddyModelDefinition[] = [
 ];
 
 export const CODEBUDDY_MODEL_IDS: string[] = CODEBUDDY_MODELS.map((m) => m.id);
+
+export const CODEBUDDY_PROVIDER: KnownProvider = {
+    id: "codebuddy",
+    name: "CodeBuddy",
+    category: "oauth",
+    protocol: "openai",
+    alias: "codebuddy",
+    baseUrl: CODEBUDDY_BASE_URL,
+    websiteUrl: "https://www.codebuddy.ai",
+    requiresApiKey: false,
+    requiresOAuth: true,
+    supportsCustomUrl: true,
+    statusMessage: "CodeBuddy OAuth token missing"
+};
+
+export const CODEBUDDY_CN_PROVIDER: KnownProvider = {
+    id: "codebuddy-cn",
+    name: "CodeBuddy CN",
+    category: "oauth",
+    protocol: "openai",
+    alias: "codebuddy-cn",
+    baseUrl: CODEBUDDY_CN_BASE_URL,
+    websiteUrl: "https://www.codebuddy.cn",
+    requiresApiKey: false,
+    requiresOAuth: true,
+    supportsCustomUrl: true,
+    statusMessage: "CodeBuddy CN OAuth token missing"
+};

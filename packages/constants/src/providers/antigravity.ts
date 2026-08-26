@@ -1,3 +1,5 @@
+import type { KnownProvider } from "./types.js";
+
 export const ANTIGRAVITY_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai";
 export const ANTIGRAVITY_IDE_BASE_URL = "https://daily-cloudcode-pa.googleapis.com";
 
@@ -24,3 +26,15 @@ export const ANTIGRAVITY_MODELS: AntigravityModelDefinition[] = [
 ];
 
 export const ANTIGRAVITY_MODEL_IDS: string[] = ANTIGRAVITY_MODELS.map((m) => m.id);
+
+export const ANTIGRAVITY_PROVIDER: KnownProvider = {
+    id: "antigravity",
+    name: "Google Antigravity",
+    category: "oauth",
+    protocol: "openai",
+    baseUrl: ANTIGRAVITY_IDE_BASE_URL,
+    websiteUrl: "https://ai.google.dev",
+    requiresApiKey: false,
+    requiresOAuth: true,
+    statusMessage: "Antigravity OAuth token missing"
+};

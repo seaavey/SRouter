@@ -1,3 +1,5 @@
+import type { KnownProvider } from "./types.js";
+
 export const OPENCODE_ZEN_BASE_URL = "https://opencode.ai/zen/v1";
 
 export interface OpenCodeZenModelDefinition {
@@ -15,3 +17,17 @@ export const OPENCODE_ZEN_MODELS: OpenCodeZenModelDefinition[] = [
 ];
 
 export const OPENCODE_ZEN_MODEL_IDS: string[] = OPENCODE_ZEN_MODELS.map((m) => m.id);
+
+export const OPENCODE_ZEN_PROVIDER: KnownProvider = {
+    id: "opencode_zen",
+    name: "OpenCode Zen",
+    category: "free_tier",
+    protocol: "openai",
+    alias: "zen",
+    baseUrl: OPENCODE_ZEN_BASE_URL,
+    websiteUrl: "https://opencode.ai/zen",
+    requiresApiKey: false,
+    requiresOAuth: false,
+    supportsCustomUrl: true,
+    statusMessage: "Free Tier Ready (Unlimited)"
+};
