@@ -133,9 +133,7 @@ export function geminiToOpenAIResponse(
             prompt_tokens: promptTokens,
             completion_tokens: completionTokens,
             total_tokens: total,
-            ...(cachedTokens > 0
-                ? { prompt_tokens_details: { cached_tokens: cachedTokens } }
-                : {})
+            ...(cachedTokens > 0 ? { prompt_tokens_details: { cached_tokens: cachedTokens } } : {})
         };
     }
 
@@ -768,9 +766,7 @@ export function geminiStreamToOpenAIChunks(
             prompt_tokens: promptTokens,
             completion_tokens: completionTokens,
             total_tokens: total,
-            ...(cachedTokens > 0
-                ? { prompt_tokens_details: { cached_tokens: cachedTokens } }
-                : {})
+            ...(cachedTokens > 0 ? { prompt_tokens_details: { cached_tokens: cachedTokens } } : {})
         };
     }
 

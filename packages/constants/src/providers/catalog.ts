@@ -14,7 +14,6 @@ import { CODEBUDDY_BASE_URL, CODEBUDDY_CN_BASE_URL } from "./codebuddy.js";
 import { OPENCODE_ZEN_BASE_URL } from "./opencode.js";
 import { QODER_CHAT_URL_ENCODED } from "./qoder.js";
 
-
 /**
  * Built-in providers known to the gateway. This is the single source of truth
  * for provider ids and metadata; `seed.ts` derives its seed rows from here and
