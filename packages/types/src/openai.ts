@@ -78,6 +78,8 @@ export interface ChatCompletionRequest {
     tools?: ToolDefinition[];
     tool_choice?: ToolChoiceOption;
     response_format?: { type: string };
+    reasoning_effort?: "none" | "low" | "medium" | "high" | (string & {});
+    reasoning?: { effort?: string; summary?: string };
 }
 
 export interface UsageInfo {

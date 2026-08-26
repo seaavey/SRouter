@@ -236,8 +236,7 @@ export function chatToResponsesBody(req: ChatCompletionRequest): ResponsesReques
 
     if (tools) body.tools = tools;
 
-    const reqAny = req as unknown as { reasoning_effort?: string; reasoning?: { effort?: string } };
-    const reasoningEffort = reqAny.reasoning_effort || reqAny.reasoning?.effort;
+    const reasoningEffort = req.reasoning_effort || req.reasoning?.effort;
     if (reasoningEffort) {
         body.reasoning = {
             effort: normalizeReasoningEffort(reasoningEffort),
