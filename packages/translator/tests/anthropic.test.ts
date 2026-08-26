@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
-    anthropicToOpenAIRequest,
-    openAIToAnthropicResponse,
-    openAIToAnthropicStream
+    AnthropicToOpenAIRequest,
+    OpenAIToAnthropicResponse,
+    OpenAIToAnthropicStream
 } from "../src/anthropic.js";
 import type {
     AnthropicMessageRequest,
@@ -56,7 +56,7 @@ test("anthropicToOpenAIRequest maps system string, messages, and tools", () => {
         ]
     };
 
-    const openAIReq = anthropicToOpenAIRequest(req);
+    const openAIReq = AnthropicToOpenAIRequest(req);
     assert.equal(openAIReq.model, "claude-3-7-sonnet-20250219");
     assert.equal(openAIReq.max_tokens, 4096);
     assert.equal(openAIReq.messages.length, 4);
@@ -127,7 +127,7 @@ test("openAIToAnthropicResponse maps OpenAI response to Anthropic message format
         }
     };
 
-    const antRes = openAIToAnthropicResponse(openAIRes, "claude-3-7-sonnet-20250219");
+    const antRes = OpenAIToAnthropicResponse(openAIRes, "claude-3-7-sonnet-20250219");
     assert.equal(antRes.type, "message");
     assert.equal(antRes.role, "assistant");
     assert.equal(antRes.stop_reason, "tool_use");
@@ -190,7 +190,7 @@ test("openAIToAnthropicStream translates streaming chunks into Anthropic SSE eve
     }
 
     const events: unknown[] = [];
-    for await (const event of openAIToAnthropicStream(mockStream(), "claude-3-7-sonnet-20250219")) {
+    for await (const event of OpenAIToAnthropicStream(mockStream(), "claude-3-7-sonnet-20250219")) {
         events.push(event);
     }
 

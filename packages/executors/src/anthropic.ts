@@ -8,9 +8,9 @@ import type {
     ModelObject
 } from "@srouter/types";
 import {
-    anthropicEventToOpenAIChunk,
-    anthropicToOpenAIResponse,
-    openAIToAnthropicRequest
+    AnthropicEventToOpenAIChunk,
+    AnthropicToOpenAIResponse,
+    OpenAIToAnthropicRequest
 } from "@srouter/translator";
 import { parseDataLine, streamLines } from "./base.js";
 
@@ -156,7 +156,7 @@ export class AnthropicExecutor implements AIProvider {
     }
 
     async chatCompletion(req: ChatCompletionRequest): Promise<ChatCompletionResponse> {
-        const anthropicReq = openAIToAnthropicRequest(req);
+        const anthropicReq = OpenAIToAnthropicRequest(req);
         anthropicReq.stream = false;
         const targetModel = req.model.includes("/")
             ? (req.model.split("/")[1] ?? req.model)
@@ -175,13 +175,13 @@ export class AnthropicExecutor implements AIProvider {
         }
 
         const data = (await res.json()) as AnthropicMessageResponse;
-        return anthropicToOpenAIResponse(data, req.model);
+        return AnthropicToOpenAIResponse(data, req.model);
     }
 
     async *chatCompletionStream(
         req: ChatCompletionRequest
     ): AsyncGenerator<ChatCompletionChunk, void, void> {
-        const anthropicReq = openAIToAnthropicRequest(req);
+        const anthropicReq = OpenAIToAnthropicRequest(req);
         anthropicReq.stream = true;
         const targetModel = req.model.includes("/")
             ? (req.model.split("/")[1] ?? req.model)
@@ -215,7 +215,7 @@ export class AnthropicExecutor implements AIProvider {
             if (jsonStr === null) continue;
             try {
                 const parsedJson = JSON.parse(jsonStr);
-                const chunk = anthropicEventToOpenAIChunk(currentEventType, parsedJson, req.model);
+                const chunk = AnthropicEventToOpenAIChunk(currentEventType, parsedJson, req.model);
                 if (chunk) {
                     yield chunk;
                 }

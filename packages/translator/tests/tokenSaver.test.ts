@@ -8,7 +8,7 @@ import {
     compressGitDiff,
     compressGitStatusOrLog,
     compressGrepOutput,
-    previewTokenSaver,
+    PreviewTokenSaver,
     stripAnsiCodes
 } from "../src/tokenSaver.js";
 
@@ -186,7 +186,7 @@ index 1234567..7654321 100644
 +extra line
  end content`;
 
-    const preview = previewTokenSaver("tool_output", rawDiff, DEFAULT_SETTINGS);
+    const preview = PreviewTokenSaver("tool_output", rawDiff, DEFAULT_SETTINGS);
     assert.equal(preview.originalText, rawDiff);
     assert.ok(preview.transformedText.length < preview.originalText.length);
     assert.ok(preview.transformedTokensEstimate < preview.originalTokensEstimate);

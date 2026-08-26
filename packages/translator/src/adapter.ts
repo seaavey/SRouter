@@ -85,7 +85,7 @@ interface AnthropicStreamEventData {
 /**
  * Converts an Anthropic stream SSE line or chunk into an OpenAI ChatCompletionChunk
  */
-export function anthropicEventToOpenAIChunk(
+export function AnthropicEventToOpenAIChunk(
     event: string,
     dataJson: AnthropicStreamEventData,
     requestedModel: string
@@ -129,5 +129,3 @@ export function anthropicEventToOpenAIChunk(
     return null;
 }
 
-export const openAIToAnthropicRequest = OpenAIToAnthropicRequest;
-export const anthropicToOpenAIResponse = AnthropicToOpenAIResponse;

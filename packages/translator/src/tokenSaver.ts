@@ -512,4 +512,3 @@ export function PreviewTokenSaver(
     };
 }
 
-export const previewTokenSaver = PreviewTokenSaver;
