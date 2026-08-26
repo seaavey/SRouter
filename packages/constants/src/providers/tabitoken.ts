@@ -1,8 +1,8 @@
-import type { KnownProvider } from "./types.js";
+import type { ProviderMetadata } from "./types.js";
 
 export const TABITOKEN_BASE_URL = "https://tabitoken.com/v1";
 
-export const TABITOKEN_PROVIDER: KnownProvider = {
+export const TABITOKEN_PROVIDER: ProviderMetadata = {
     id: "tabitoken",
     name: "TabiToken",
     category: "api_key",

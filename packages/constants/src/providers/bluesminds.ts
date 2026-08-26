@@ -1,8 +1,8 @@
-import type { KnownProvider } from "./types.js";
+import type { ProviderMetadata } from "./types.js";
 
 export const BLUESMINDS_BASE_URL = "https://api.bluesminds.com/v1";
 
-export const BLUESMINDS_PROVIDER: KnownProvider = {
+export const BLUESMINDS_PROVIDER: ProviderMetadata = {
     id: "bluesminds",
     name: "BluesMinds",
     category: "api_key",

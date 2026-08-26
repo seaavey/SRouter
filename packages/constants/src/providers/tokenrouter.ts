@@ -1,8 +1,8 @@
-import type { KnownProvider } from "./types.js";
+import type { ProviderMetadata } from "./types.js";
 
 export const TOKENROUTER_BASE_URL = "https://api.tokenrouter.com/v1";
 
-export const TOKENROUTER_PROVIDER: KnownProvider = {
+export const TOKENROUTER_PROVIDER: ProviderMetadata = {
     id: "tokenrouter",
     name: "TokenRouter",
     category: "api_key",

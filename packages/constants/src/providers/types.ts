@@ -1,6 +1,6 @@
 import type { ProviderCategory, ProviderProtocol } from "@srouter/types";
 
-export interface KnownProvider {
+export interface ProviderMetadata {
     id: string;
     name: string;
     category: ProviderCategory;

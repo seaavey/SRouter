@@ -12,9 +12,9 @@ import { QODER_PROVIDER } from "./qoder.js";
 import { SEEKAI_PROVIDER } from "./seekai.js";
 import { TABITOKEN_PROVIDER } from "./tabitoken.js";
 import { TOKENROUTER_PROVIDER } from "./tokenrouter.js";
-import type { KnownProvider } from "./types.js";
+import type { ProviderMetadata } from "./types.js";
 
-export const KNOWN_PROVIDERS: readonly KnownProvider[] = Object.freeze([
+export const KNOWN_PROVIDERS: readonly ProviderMetadata[] = Object.freeze([
     KIRO_PROVIDER,
     NEOSANTARA_PROVIDER,
     GOROUTER_PROVIDER,
@@ -32,7 +32,7 @@ export const KNOWN_PROVIDERS: readonly KnownProvider[] = Object.freeze([
     OPENCODE_ZEN_PROVIDER
 ]);
 
-export const KNOWN_PROVIDER_MAP: Readonly<Record<string, KnownProvider>> = Object.freeze(
+export const KNOWN_PROVIDER_MAP: Readonly<Record<string, ProviderMetadata>> = Object.freeze(
     Object.fromEntries(KNOWN_PROVIDERS.map((P) => [P.id, P]))
 );
 
@@ -40,7 +40,7 @@ const KNOWN_PROVIDER_IDS_BY_LENGTH: readonly string[] = Object.freeze(
     Object.keys(KNOWN_PROVIDER_MAP).sort((A, B) => B.length - A.length)
 );
 
-export function providerById(Id: string): KnownProvider | undefined {
+export function providerById(Id: string): ProviderMetadata | undefined {
     return KNOWN_PROVIDER_MAP[Id];
 }
 

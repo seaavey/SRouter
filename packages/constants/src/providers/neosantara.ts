@@ -1,8 +1,8 @@
-import type { KnownProvider } from "./types.js";
+import type { ProviderMetadata } from "./types.js";
 
 export const NEOSANTARA_BASE_URL = "https://api.neosantara.xyz/v1";
 
-export const NEOSANTARA_PROVIDER: KnownProvider = {
+export const NEOSANTARA_PROVIDER: ProviderMetadata = {
     id: "neosantara",
     name: "Neosantara",
     category: "api_key",

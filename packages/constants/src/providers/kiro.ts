@@ -1,6 +1,6 @@
-import type { KnownProvider } from "./types.js";
+import type { ProviderMetadata } from "./types.js";
 
-export const KIRO_PROVIDER: KnownProvider = {
+export const KIRO_PROVIDER: ProviderMetadata = {
     id: "kiro",
     name: "Kiro",
     category: "api_key",

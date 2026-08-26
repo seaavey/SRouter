@@ -1,4 +1,4 @@
-import type { KnownProvider } from "./types.js";
+import type { ProviderMetadata } from "./types.js";
 
 export interface QoderModelDefinition {
     id: string;
@@ -87,7 +87,7 @@ MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDA8iMH5c02LilrsERw9t6Pv5Nc
 XcW+ML9FoCI6AOvOzwIDAQAB
 -----END PUBLIC KEY-----`;
 
-export const QODER_PROVIDER: KnownProvider = {
+export const QODER_PROVIDER: ProviderMetadata = {
     id: "qoder",
     name: "Qoder",
     category: "oauth",

@@ -1,8 +1,8 @@
-import type { KnownProvider } from "./types.js";
+import type { ProviderMetadata } from "./types.js";
 
 export const SEEKAI_BASE_URL = "https://seekai.cc/v1";
 
-export const SEEKAI_PROVIDER: KnownProvider = {
+export const SEEKAI_PROVIDER: ProviderMetadata = {
     id: "seekai",
     name: "SeekAI",
     category: "api_key",

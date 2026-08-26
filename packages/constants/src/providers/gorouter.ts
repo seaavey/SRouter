@@ -1,8 +1,8 @@
-import type { KnownProvider } from "./types.js";
+import type { ProviderMetadata } from "./types.js";
 
 export const GOROUTER_BASE_URL = "https://gorouter.app/v1";
 
-export const GOROUTER_PROVIDER: KnownProvider = {
+export const GOROUTER_PROVIDER: ProviderMetadata = {
     id: "gorouter",
     name: "GoRouter",
     category: "api_key",

@@ -1,8 +1,8 @@
-import type { KnownProvider } from "./types.js";
+import type { ProviderMetadata } from "./types.js";
 
 export const ANTHROPIC_BASE_URL = "https://api.anthropic.com/v1";
 
-export const ANTHROPIC_PROVIDER: KnownProvider = {
+export const ANTHROPIC_PROVIDER: ProviderMetadata = {
     id: "anthropic",
     name: "Anthropic Claude",
     category: "oauth",

@@ -1,4 +1,4 @@
-import type { KnownProvider } from "./types.js";
+import type { ProviderMetadata } from "./types.js";
 
 export const CODEBUDDY_BASE_URL = "https://www.codebuddy.ai/v2/chat/completions";
 export const CODEBUDDY_AUTH_BASE = "https://www.codebuddy.ai";
@@ -58,7 +58,7 @@ export const CODEBUDDY_MODELS: CodeBuddyModelDefinition[] = [
 
 export const CODEBUDDY_MODEL_IDS: string[] = CODEBUDDY_MODELS.map((m) => m.id);
 
-export const CODEBUDDY_PROVIDER: KnownProvider = {
+export const CODEBUDDY_PROVIDER: ProviderMetadata = {
     id: "codebuddy",
     name: "CodeBuddy",
     category: "oauth",
@@ -72,7 +72,7 @@ export const CODEBUDDY_PROVIDER: KnownProvider = {
     status_message: "CodeBuddy OAuth token missing"
 };
 
-export const CODEBUDDY_CN_PROVIDER: KnownProvider = {
+export const CODEBUDDY_CN_PROVIDER: ProviderMetadata = {
     id: "codebuddy-cn",
     name: "CodeBuddy CN",
     category: "oauth",

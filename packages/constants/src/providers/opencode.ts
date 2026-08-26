@@ -1,4 +1,4 @@
-import type { KnownProvider } from "./types.js";
+import type { ProviderMetadata } from "./types.js";
 
 export const OPENCODE_ZEN_BASE_URL = "https://opencode.ai/zen/v1";
 
@@ -18,7 +18,7 @@ export const OPENCODE_ZEN_MODELS: OpenCodeZenModelDefinition[] = [
 
 export const OPENCODE_ZEN_MODEL_IDS: string[] = OPENCODE_ZEN_MODELS.map((m) => m.id);
 
-export const OPENCODE_ZEN_PROVIDER: KnownProvider = {
+export const OPENCODE_ZEN_PROVIDER: ProviderMetadata = {
     id: "opencode_zen",
     name: "OpenCode Zen",
     category: "free_tier",
