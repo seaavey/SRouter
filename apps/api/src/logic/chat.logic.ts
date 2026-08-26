@@ -104,12 +104,13 @@ function LogCompletion(
     logRequestDB({
         providerId,
         model,
-        promptTokens: options.statusCode === 200 ? breakdown.promptTokens : 0,
-        completionTokens: options.statusCode === 200 ? breakdown.completionTokens : 0,
-        totalTokens: options.statusCode === 200 ? breakdown.totalTokens : 0,
-        cachedTokens: options.statusCode === 200 ? breakdown.cachedTokens : undefined,
-        cacheCreationTokens: options.statusCode === 200 ? breakdown.cacheCreationTokens : undefined,
-        reasoningTokens: options.statusCode === 200 ? breakdown.reasoningTokens : undefined,
+        promptTokens: options.statusCode === 200 ? breakdown.prompt_tokens : 0,
+        completionTokens: options.statusCode === 200 ? breakdown.completion_tokens : 0,
+        totalTokens: options.statusCode === 200 ? breakdown.total_tokens : 0,
+        cachedTokens: options.statusCode === 200 ? breakdown.cached_tokens : undefined,
+        cacheCreationTokens:
+            options.statusCode === 200 ? breakdown.cache_creation_tokens : undefined,
+        reasoningTokens: options.statusCode === 200 ? breakdown.reasoning_tokens : undefined,
         estimatedCost:
             options.statusCode === 200
                 ? estimateCostForUsage(effectiveProvider, effectiveModel, breakdown)

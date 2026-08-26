@@ -435,7 +435,10 @@ export function PreviewTokenSaver(
     }
 
     const transformed_tokens_estimate = EstimateTokens(transformed_text);
-    const tokens_saved_estimate = Math.max(0, original_tokens_estimate - transformed_tokens_estimate);
+    const tokens_saved_estimate = Math.max(
+        0,
+        original_tokens_estimate - transformed_tokens_estimate
+    );
     const percentage_saved =
         original_tokens_estimate > 0
             ? Math.round((tokens_saved_estimate / original_tokens_estimate) * 100)
@@ -463,4 +466,3 @@ export const compressSingleToolOutput = CompressSingleToolOutput;
 export const buildSystemPromptEnhancements = BuildSystemPromptEnhancements;
 export const estimateTokens = EstimateTokens;
 export const applyTokenSaver = ApplyTokenSaver;
-

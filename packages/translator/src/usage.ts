@@ -1,79 +1,75 @@
 import { calculateCostFromTokens, getPricingForModel } from "@srouter/pricing";
+import type { JSONValue } from "@srouter/types";
 
 export interface UsageBreakdown {
-    promptTokens: number;
-    completionTokens: number;
-    cachedTokens: number;
-    cacheCreationTokens: number;
-    reasoningTokens: number;
-    totalTokens: number;
+    prompt_tokens: number;
+    completion_tokens: number;
+    cached_tokens: number;
+    cache_creation_tokens: number;
+    reasoning_tokens: number;
+    total_tokens: number;
 }
 
-/**
- * Extract a normalized token breakdown from a provider's usage object.
- * Provider-aware: anthropic uses cache_read_input_tokens, openai-compatible
- * uses prompt_tokens_details.cached_tokens, etc.
- */
-export function extractUsageBreakdown(
+const EMPTY_BREAKDOWN: UsageBreakdown = {
+    prompt_tokens: 0,
+    completion_tokens: 0,
+    cached_tokens: 0,
+    cache_creation_tokens: 0,
+    reasoning_tokens: 0,
+    total_tokens: 0
+};
+
+function ExtractNumber(value: unknown): number {
+    return typeof value === "number" && !Number.isNaN(value) ? value : 0;
+}
+
+export function ExtractUsageBreakdown(
     provider: string | undefined,
-    usage: unknown
+    usage: JSONValue | undefined
 ): UsageBreakdown {
-    const empty: UsageBreakdown = {
-        promptTokens: 0,
-        completionTokens: 0,
-        cachedTokens: 0,
-        cacheCreationTokens: 0,
-        reasoningTokens: 0,
-        totalTokens: 0
-    };
+    if (!usage || typeof usage !== "object" || Array.isArray(usage)) {
+        return EMPTY_BREAKDOWN;
+    }
 
-    if (!usage || typeof usage !== "object") return empty;
+    const raw_usage = usage as Record<string, unknown>;
+    const provider_key = provider?.toLowerCase() ?? "";
 
-    const u = usage as Record<string, unknown>;
-    const n = (v: unknown): number => (typeof v === "number" && !isNaN(v) ? v : 0);
+    if (provider_key.includes("anthropic")) {
+        const input_tokens = ExtractNumber(raw_usage.input_tokens);
+        const output_tokens = ExtractNumber(raw_usage.output_tokens);
+        const cached_tokens = ExtractNumber(raw_usage.cache_read_input_tokens);
+        const cache_creation_tokens = ExtractNumber(raw_usage.cache_creation_input_tokens);
+        const reasoning_obj = raw_usage.reasoning as { reasoning_tokens?: unknown } | undefined;
 
-    const providerKey = provider?.toLowerCase() ?? "";
-
-    // Anthropic native shape
-    if (providerKey.includes("anthropic")) {
-        const input = n(u.input_tokens);
-        const output = n(u.output_tokens);
-        const cached = n(u.cache_read_input_tokens);
-        const cacheCreation = n(u.cache_creation_input_tokens);
         return {
-            promptTokens: input,
-            completionTokens: output,
-            cachedTokens: cached,
-            cacheCreationTokens: cacheCreation,
-            reasoningTokens: n(
-                (u as { reasoning?: { reasoning_tokens?: unknown } }).reasoning?.reasoning_tokens
-            ),
-            totalTokens: input + output
+            prompt_tokens: input_tokens,
+            completion_tokens: output_tokens,
+            cached_tokens,
+            cache_creation_tokens,
+            reasoning_tokens: ExtractNumber(reasoning_obj?.reasoning_tokens),
+            total_tokens: input_tokens + output_tokens
         };
     }
 
-    // OpenAI / compatible shape
-    const promptDetails = (u.prompt_tokens_details ?? {}) as { cached_tokens?: unknown };
-    const completionDetails = (u.completion_tokens_details ?? {}) as { reasoning_tokens?: unknown };
-    const prompt = n(u.prompt_tokens);
-    const completion = n(u.completion_tokens);
-    const total = n(u.total_tokens);
+    const prompt_details = raw_usage.prompt_tokens_details as
+        { cached_tokens?: unknown } | undefined;
+    const completion_details = raw_usage.completion_tokens_details as
+        { reasoning_tokens?: unknown } | undefined;
+    const prompt_tokens = ExtractNumber(raw_usage.prompt_tokens);
+    const completion_tokens = ExtractNumber(raw_usage.completion_tokens);
+    const total_tokens = ExtractNumber(raw_usage.total_tokens);
 
     return {
-        promptTokens: prompt,
-        completionTokens: completion,
-        cachedTokens: n(promptDetails.cached_tokens),
-        cacheCreationTokens: 0,
-        reasoningTokens: n(completionDetails.reasoning_tokens),
-        totalTokens: total || prompt + completion
+        prompt_tokens,
+        completion_tokens,
+        cached_tokens: ExtractNumber(prompt_details?.cached_tokens),
+        cache_creation_tokens: 0,
+        reasoning_tokens: ExtractNumber(completion_details?.reasoning_tokens),
+        total_tokens: total_tokens || prompt_tokens + completion_tokens
     };
 }
 
-/**
- * Estimate the cost (USD) of a usage breakdown for a given model.
- * Estimated only — not actual billing.
- */
-export function estimateCostForUsage(
+export function EstimateCostForUsage(
     provider: string | undefined,
     model: string,
     breakdown: UsageBreakdown
@@ -81,12 +77,15 @@ export function estimateCostForUsage(
     const pricing = getPricingForModel(provider, model);
     return calculateCostFromTokens(
         {
-            prompt_tokens: breakdown.promptTokens,
-            completion_tokens: breakdown.completionTokens,
-            cached_tokens: breakdown.cachedTokens,
-            cache_creation_input_tokens: breakdown.cacheCreationTokens,
-            reasoning_tokens: breakdown.reasoningTokens
+            prompt_tokens: breakdown.prompt_tokens,
+            completion_tokens: breakdown.completion_tokens,
+            cached_tokens: breakdown.cached_tokens,
+            cache_creation_input_tokens: breakdown.cache_creation_tokens,
+            reasoning_tokens: breakdown.reasoning_tokens
         },
         pricing
     );
 }
+
+export const extractUsageBreakdown = ExtractUsageBreakdown;
+export const estimateCostForUsage = EstimateCostForUsage;
