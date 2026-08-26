@@ -12,6 +12,7 @@ import {
     CODEX_OAUTH_REDIRECT_URI,
     COMMANDCODE_BASE_URL,
     GOROUTER_BASE_URL,
+    PERCH_APP_URL,
     SEEKAI_BASE_URL,
     TABITOKEN_BASE_URL,
     TOKENROUTER_BASE_URL
@@ -24,6 +25,7 @@ import {
     CodexExecutor,
     CommandCodeExecutor,
     GoRouterExecutor,
+    PerchExecutor,
     QoderExecutor,
     SeekAIExecutor,
     TabiTokenExecutor,
@@ -35,6 +37,7 @@ import {
     CodeBuddyCNOAuth,
     CodeBuddyOAuth,
     OpenAICodexOAuth,
+    PerchOAuth,
     QoderOAuth
 } from "@srouter/providers";
 import type { AuthProviderHandler } from "@srouter/types";
@@ -178,6 +181,31 @@ const qoder: AuthProviderHandler = {
     }),
     buildExecutor: ({ id, name, baseUrl, apiKey, accessToken, refreshToken }) =>
         new QoderExecutor({ id, name, baseUrl, apiKey, accessToken, refreshToken })
+};
+
+const perch: AuthProviderHandler = {
+    providerId: "perch",
+    displayName: "Perch AI",
+    category: "oauth",
+    protocol: "openai",
+    idPrefix: "perch",
+    baseUrl: () => PERCH_APP_URL,
+    oauthSuccessMessage: "Login Perch AI Berhasil!",
+    tokenImportMessage: "Perch Access Token registered and saved directly to SQLite database!",
+    oauthClass: PerchOAuth,
+    mapOAuthTokens: (tokens) => ({
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        accountId: tokens.accountId,
+        expiresIn: tokens.expiresIn
+    }),
+    mapImportTokens: (params) => ({
+        accessToken: params.accessToken,
+        refreshToken: params.refreshToken,
+        baseUrl: params.baseUrl
+    }),
+    buildExecutor: ({ id, name, baseUrl, accessToken }) =>
+        new PerchExecutor({ id, name, baseUrl: baseUrl || PERCH_APP_URL, accessToken })
 };
 
 const goRouter: AuthProviderHandler = {

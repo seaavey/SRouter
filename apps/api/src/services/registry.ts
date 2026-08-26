@@ -9,6 +9,8 @@ import {
     isProviderBaseId,
     isSeedProvider,
     NEOSANTARA_BASE_URL,
+    OPENCODE_ZEN_BASE_URL,
+    PERCH_APP_URL,
     SEED_MARKER,
     SEEKAI_BASE_URL,
     TABITOKEN_BASE_URL,
@@ -26,6 +28,7 @@ import {
     KiroExecutor,
     OpenCodeZenExecutor,
     OpenAIExecutor,
+    PerchExecutor,
     QoderExecutor,
     SeekAIExecutor,
     TabiTokenExecutor,
@@ -247,6 +250,17 @@ export function loadSavedProvidersFromDB(): void {
                         id: p.id || p.providerId,
                         name: p.name,
                         baseUrl: baseUrl || OPENCODE_ZEN_BASE_URL,
+                        apiKey: p.apiKey,
+                        accessToken: p.accessToken
+                    })
+                );
+                break;
+            case isProviderBaseId(p.id, "perch") || providerType === "perch":
+                registry.registerProvider(
+                    new PerchExecutor({
+                        id: p.id || p.providerId,
+                        name: p.name,
+                        baseUrl: baseUrl || PERCH_APP_URL,
                         apiKey: p.apiKey,
                         accessToken: p.accessToken
                     })

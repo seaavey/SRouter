@@ -34,6 +34,10 @@ export const CODEBUDDY_AUTH_USER_AGENT = "IDE/2.63.2 CodeBuddy/2.63.2";
 export const CODEBUDDY_AUTH_PLATFORM = "ide";
 
 export const OPENCODE_ZEN_BASE_URL = "https://opencode.ai/zen/v1";
+export const PERCH_APP_URL = "https://app.perchai.app";
+export const PERCH_MODEL_CALL_URL = "https://app.perchai.app/api/perch-terminal/model-call";
+export const PERCH_SUPABASE_URL = "https://zlfuvsfjtgsdtqcaykia.supabase.co";
+export const PERCH_SUPABASE_ANON_KEY = "sb_publishable_w4R_pNkUpygBFIljZCoOlA_67ACg0FO";
 
 export interface OpenCodeZenModelDefinition {
     id: string;
@@ -422,6 +426,19 @@ export const KNOWN_PROVIDERS: KnownProvider[] = [
         requiresOAuth: false,
         supportsCustomUrl: true,
         statusMessage: "Free Tier Ready (Unlimited)"
+    },
+    {
+        id: "perch",
+        name: "Perch AI",
+        category: "oauth",
+        protocol: "openai",
+        alias: "perch",
+        baseUrl: PERCH_APP_URL,
+        websiteUrl: "https://perchai.app",
+        requiresApiKey: false,
+        requiresOAuth: true,
+        supportsCustomUrl: true,
+        statusMessage: "Perch session or token missing"
     }
 ];
 
