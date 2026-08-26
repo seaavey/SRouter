@@ -304,5 +304,27 @@ export const AuthController = {
                 (b) => AuthLogic.processProviderTokenImport("qoder", b),
                 c
             )
+    },
+
+    Perch: {
+        OAuth: (c: Context): Response =>
+            OAuthFor(
+                AuthHandlers.Perch,
+                (p) => AuthLogic.initiateProviderOAuth("perch", p),
+                c,
+                true
+            ),
+        Callback: (c: Context): Promise<Response> =>
+            CallbackFor(
+                AuthHandlers.Perch,
+                (code, state) => AuthLogic.processProviderOAuthCallback("perch", code, state),
+                c
+            ),
+        ImportToken: (c: Context): Promise<Response> =>
+            ImportTokenFor(
+                AuthHandlers.Perch,
+                (b) => AuthLogic.processProviderTokenImport("perch", b),
+                c
+            )
     }
 };

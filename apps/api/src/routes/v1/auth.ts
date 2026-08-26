@@ -50,3 +50,8 @@ AuthRouter.post("/auth/qoder/callback", AuthController.Qoder.Callback);
 AuthRouter.get("/auth/qoder/poll", RequireAdmin, AuthController.Qoder.Poll);
 AuthRouter.post("/auth/qoder/poll", RequireAdmin, AuthController.Qoder.Poll);
 AuthRouter.post("/auth/qoder/token", RequireAdmin, AuthController.Qoder.ImportToken);
+
+AuthRouter.get("/auth/perch/login", RequireAdmin, AuthController.Perch.OAuth);
+AuthRouter.get("/auth/perch/callback", AuthController.Perch.Callback);
+AuthRouter.post("/auth/perch/callback", AuthController.Perch.Callback);
+AuthRouter.post("/auth/perch/token", RequireAdmin, AuthController.Perch.ImportToken);

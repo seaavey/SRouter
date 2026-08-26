@@ -199,6 +199,8 @@ oauthApp.get("/auth/claude/callback", (c) => AuthController.Claude.Callback(c));
 oauthApp.post("/auth/claude/callback", (c) => AuthController.Claude.Callback(c));
 oauthApp.get("/auth/qoder/callback", (c) => AuthController.Qoder.Callback(c));
 oauthApp.post("/auth/qoder/callback", (c) => AuthController.Qoder.Callback(c));
+oauthApp.get("/auth/perch/callback", (c) => AuthController.Perch.Callback(c));
+oauthApp.post("/auth/perch/callback", (c) => AuthController.Perch.Callback(c));
 oauthApp.route("/v1", messagesRoute);
 oauthApp.route("/v1", chatRoute);
 oauthApp.route("/v1", modelsRoute);

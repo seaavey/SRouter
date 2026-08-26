@@ -56,13 +56,15 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
         const providerEndpoint =
             baseId === "antigravity"
                 ? "/v1/auth/antigravity/login?format=json"
-                : baseId === "qoder"
-                  ? "/v1/auth/qoder/login?format=json"
-                  : baseId === "codebuddy"
-                    ? `/v1/auth/${authProviderId}/login?format=json`
-                    : baseId === "claude" || baseId === "anthropic"
-                      ? "/v1/auth/claude/login?format=json"
-                      : "/v1/auth/openai/login?format=json";
+                : baseId === "perch"
+                  ? "/v1/auth/perch/login?format=json"
+                  : baseId === "qoder"
+                    ? "/v1/auth/qoder/login?format=json"
+                    : baseId === "codebuddy"
+                      ? `/v1/auth/${authProviderId}/login?format=json`
+                      : baseId === "claude" || baseId === "anthropic"
+                        ? "/v1/auth/claude/login?format=json"
+                        : "/v1/auth/openai/login?format=json";
 
         api.get<OAuthLoginResponse>(providerEndpoint)
             .then((res) => {
@@ -152,9 +154,11 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
             const endpoint =
                 baseId === "antigravity"
                     ? "/v1/auth/antigravity/callback"
-                    : baseId === "qoder"
-                      ? "/v1/auth/qoder/callback"
-                      : "/v1/auth/openai/callback";
+                    : baseId === "perch"
+                      ? "/v1/auth/perch/callback"
+                      : baseId === "qoder"
+                        ? "/v1/auth/qoder/callback"
+                        : "/v1/auth/openai/callback";
             return api.post(endpoint, payload);
         },
         onSuccess: () => {

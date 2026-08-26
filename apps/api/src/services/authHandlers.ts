@@ -366,7 +366,8 @@ export const AuthHandlers = {
     TabiToken: tabiToken,
     TokenRouter: tokenRouter,
     CodeBuddy: codeBuddy,
-    CodeBuddyCN: codeBuddyCN
+    CodeBuddyCN: codeBuddyCN,
+    Perch: perch
 } as const;
 
 export const authProviderHandlers: Record<string, AuthProviderHandler> = {
@@ -382,5 +383,6 @@ export const authProviderHandlers: Record<string, AuthProviderHandler> = {
     tabitoken: AuthHandlers.TabiToken,
     tokenrouter: AuthHandlers.TokenRouter,
     codebuddy: AuthHandlers.CodeBuddy,
-    "codebuddy-cn": AuthHandlers.CodeBuddyCN
+    "codebuddy-cn": AuthHandlers.CodeBuddyCN,
+    perch: AuthHandlers.Perch
 };

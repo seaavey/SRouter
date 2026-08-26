@@ -439,6 +439,12 @@ RegisterEntry("qoder", {
     importToken: (params) => ProcessTokenImportFor(AuthHandlers.Qoder, params)
 });
 
+RegisterEntry("perch", {
+    initiate: (params) => InitiatePKCEFor(AuthHandlers.Perch, params),
+    callback: (code, state) => ProcessOAuthCallbackFor(AuthHandlers.Perch, code, state),
+    importToken: (params) => ProcessTokenImportFor(AuthHandlers.Perch, params)
+});
+
 RegisterEntry("codebuddy", {
     importToken: (params) => ProcessTokenImportFor(AuthHandlers.CodeBuddy, params)
 });
