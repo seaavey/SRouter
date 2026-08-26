@@ -14,7 +14,9 @@ interface CustomModelDBShape {
 }
 
 export function getAllCustomModelsDB(): CustomModelRow[] {
-    const Rows = db.prepare("SELECT * FROM custom_models ORDER BY created_at ASC").all() as unknown as CustomModelDBShape[];
+    const Rows = db
+        .prepare("SELECT * FROM custom_models ORDER BY created_at ASC")
+        .all() as unknown as CustomModelDBShape[];
 
     return Rows.map(mapCustomModelRow);
 }

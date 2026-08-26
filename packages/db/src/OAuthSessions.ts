@@ -39,8 +39,7 @@ export function saveOAuthSessionDB(session: OAuthSession): OAuthSession {
 
 export function getOAuthSessionDB(state: string): OAuthSession | null {
     const Row = db.prepare("SELECT * FROM oauth_sessions WHERE state = ?").get(state) as
-        | OAuthSessionRow
-        | undefined;
+        OAuthSessionRow | undefined;
 
     if (!Row) return null;
 
