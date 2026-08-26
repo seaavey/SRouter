@@ -14,7 +14,7 @@ import { TABITOKEN_PROVIDER } from "./tabitoken.js";
 import { TOKENROUTER_PROVIDER } from "./tokenrouter.js";
 import type { KnownProvider } from "./types.js";
 
-export const KNOWN_PROVIDERS: KnownProvider[] = [
+export const KNOWN_PROVIDERS: readonly KnownProvider[] = Object.freeze([
     KIRO_PROVIDER,
     NEOSANTARA_PROVIDER,
     GOROUTER_PROVIDER,
@@ -30,76 +30,60 @@ export const KNOWN_PROVIDERS: KnownProvider[] = [
     CODEBUDDY_PROVIDER,
     CODEBUDDY_CN_PROVIDER,
     OPENCODE_ZEN_PROVIDER
-];
+]);
 
-export const KNOWN_PROVIDER_MAP: Record<string, KnownProvider> = Object.fromEntries(
-    KNOWN_PROVIDERS.map((provider) => [provider.id, provider])
+export const KNOWN_PROVIDER_MAP: Readonly<Record<string, KnownProvider>> = Object.freeze(
+    Object.fromEntries(KNOWN_PROVIDERS.map((P) => [P.id, P]))
 );
 
-const KNOWN_PROVIDER_IDS_BY_LENGTH = Object.keys(KNOWN_PROVIDER_MAP).sort(
-    (left, right) => right.length - left.length
+const KNOWN_PROVIDER_IDS_BY_LENGTH: readonly string[] = Object.freeze(
+    Object.keys(KNOWN_PROVIDER_MAP).sort((A, B) => B.length - A.length)
 );
 
-export function providerById(id: string): KnownProvider | undefined {
-    return KNOWN_PROVIDER_MAP[id];
+export function providerById(Id: string): KnownProvider | undefined {
+    return KNOWN_PROVIDER_MAP[Id];
 }
 
-export function isKnownProvider(id: string): boolean {
-    return KNOWN_PROVIDER_MAP[id] !== undefined;
+export function isKnownProvider(Id: string): boolean {
+    return Id in KNOWN_PROVIDER_MAP;
 }
 
-/**
- * Collapse a provider account id to its base driver id (e.g.
- * openai_codex_1700000000 → openai, kiro-2 → kiro).
- */
-export function providerBaseId(id: string): string {
-    const knownId = KNOWN_PROVIDER_IDS_BY_LENGTH.find(
-        (candidate) =>
-            id === candidate || id.startsWith(`${candidate}_`) || id.startsWith(`${candidate}-`)
+export function providerBaseId(Id: string): string {
+    const MatchedId = KNOWN_PROVIDER_IDS_BY_LENGTH.find(
+        (Candidate) =>
+            Id === Candidate || Id.startsWith(`${Candidate}_`) || Id.startsWith(`${Candidate}-`)
     );
-    if (knownId) return knownId;
-    return id.split("_")[0]?.split("-")[0] ?? id;
+    if (MatchedId) return MatchedId;
+    return Id.split("_")[0]?.split("-")[0] ?? Id;
 }
 
-/**
- * Whether `id` is the base id itself or a multi-account variant of it
- * (`${baseId}_…` or `${baseId}-…`).
- */
-export function isProviderBaseId(id: string, baseId: string): boolean {
-    return id === baseId || id.startsWith(`${baseId}_`) || id.startsWith(`${baseId}-`);
+export function isProviderBaseId(Id: string, BaseId: string): boolean {
+    return Id === BaseId || Id.startsWith(`${BaseId}_`) || Id.startsWith(`${BaseId}-`);
 }
 
-/** Model-id prefix for a base id, honoring the catalog `alias` override. */
-export function providerAlias(baseId: string): string {
-    return KNOWN_PROVIDER_MAP[baseId]?.alias ?? baseId;
+export function providerAlias(BaseId: string): string {
+    return KNOWN_PROVIDER_MAP[BaseId]?.alias ?? BaseId;
 }
 
-/**
- * Resolve a model-id alias to a provider type. The stale "claude" alias is
- * preserved as a no-op for backward compatibility.
- */
-export function providerTypeForAlias(alias: string): string | null {
-    if (alias === "claude") return "claude";
-    if (alias === "cbai") return "codebuddy";
-    const provider = KNOWN_PROVIDERS.find((p) => p.alias === alias || p.id === alias);
-    return provider ? provider.id : null;
+export function providerTypeForAlias(Alias: string): string | null {
+    if (Alias === "claude") return "claude";
+    if (Alias === "cbai") return "codebuddy";
+    const Provider = KNOWN_PROVIDERS.find((P) => P.alias === Alias || P.id === Alias);
+    return Provider ? Provider.id : null;
 }
 
-/**
- * Returns the homepage / console URL for a given provider.
- */
 export function getProviderWebsiteUrl(
-    providerId: string,
-    defaultBaseUrl?: string
+    ProviderId: string,
+    DefaultBaseUrl?: string
 ): string | undefined {
-    const baseId = providerBaseId(providerId);
-    const known = KNOWN_PROVIDER_MAP[providerId] ?? KNOWN_PROVIDER_MAP[baseId];
-    if (known?.websiteUrl) return known.websiteUrl;
+    const BaseId = providerBaseId(ProviderId);
+    const Known = KNOWN_PROVIDER_MAP[ProviderId] ?? KNOWN_PROVIDER_MAP[BaseId];
+    if (Known?.websiteUrl) return Known.websiteUrl;
 
-    if (defaultBaseUrl) {
+    if (DefaultBaseUrl) {
         try {
-            const parsed = new URL(defaultBaseUrl);
-            return `${parsed.protocol}//${parsed.host}`;
+            const Parsed = new URL(DefaultBaseUrl);
+            return `${Parsed.protocol}//${Parsed.host}`;
         } catch {
             return undefined;
         }
