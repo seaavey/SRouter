@@ -14,7 +14,7 @@ import { TABITOKEN_PROVIDER } from "./tabitoken.js";
 import { TOKENROUTER_PROVIDER } from "./tokenrouter.js";
 import type { ProviderMetadata } from "./types.js";
 
-export const KNOWN_PROVIDERS: readonly ProviderMetadata[] = Object.freeze([
+export const KNOWN_PROVIDERS = [
     KIRO_PROVIDER,
     NEOSANTARA_PROVIDER,
     GOROUTER_PROVIDER,
@@ -30,15 +30,20 @@ export const KNOWN_PROVIDERS: readonly ProviderMetadata[] = Object.freeze([
     CODEBUDDY_PROVIDER,
     CODEBUDDY_CN_PROVIDER,
     OPENCODE_ZEN_PROVIDER
-]);
+] as const satisfies readonly ProviderMetadata[];
 
-export const KNOWN_PROVIDER_MAP: Readonly<Record<string, ProviderMetadata>> = Object.freeze(
-    Object.fromEntries(KNOWN_PROVIDERS.map((P) => [P.id, P]))
-);
+export const KNOWN_PROVIDER_MAP = Object.freeze(
+    Object.fromEntries(KNOWN_PROVIDERS.map((Provider) => [Provider.id, Provider]))
+) as Readonly<Record<string, ProviderMetadata>>;
 
-const KNOWN_PROVIDER_IDS_BY_LENGTH: readonly string[] = Object.freeze(
+const KNOWN_PROVIDER_IDS_DESC = Object.freeze(
     Object.keys(KNOWN_PROVIDER_MAP).sort((A, B) => B.length - A.length)
 );
+
+const LEGACY_ALIAS_MAP: Readonly<Record<string, string>> = Object.freeze({
+    claude: "claude",
+    cbai: "codebuddy"
+});
 
 export function providerById(Id: string): ProviderMetadata | undefined {
     return KNOWN_PROVIDER_MAP[Id];
@@ -49,12 +54,14 @@ export function isKnownProvider(Id: string): boolean {
 }
 
 export function providerBaseId(Id: string): string {
-    const MatchedId = KNOWN_PROVIDER_IDS_BY_LENGTH.find(
-        (Candidate) =>
-            Id === Candidate || Id.startsWith(`${Candidate}_`) || Id.startsWith(`${Candidate}-`)
+    return (
+        KNOWN_PROVIDER_IDS_DESC.find(
+            (Candidate) =>
+                Id === Candidate || Id.startsWith(`${Candidate}_`) || Id.startsWith(`${Candidate}-`)
+        ) ??
+        Id.split("_")[0]?.split("-")[0] ??
+        Id
     );
-    if (MatchedId) return MatchedId;
-    return Id.split("_")[0]?.split("-")[0] ?? Id;
 }
 
 export function isProviderBaseId(Id: string, BaseId: string): boolean {
@@ -66,10 +73,8 @@ export function providerAlias(BaseId: string): string {
 }
 
 export function providerTypeForAlias(Alias: string): string | null {
-    if (Alias === "claude") return "claude";
-    if (Alias === "cbai") return "codebuddy";
-    const Provider = KNOWN_PROVIDERS.find((P) => P.alias === Alias || P.id === Alias);
-    return Provider ? Provider.id : null;
+    if (Alias in LEGACY_ALIAS_MAP) return LEGACY_ALIAS_MAP[Alias];
+    return KNOWN_PROVIDERS.find((P) => P.alias === Alias || P.id === Alias)?.id ?? null;
 }
 
 export function getProviderWebsiteUrl(
@@ -77,16 +82,13 @@ export function getProviderWebsiteUrl(
     DefaultBaseUrl?: string
 ): string | undefined {
     const BaseId = providerBaseId(ProviderId);
-    const Known = KNOWN_PROVIDER_MAP[ProviderId] ?? KNOWN_PROVIDER_MAP[BaseId];
-    if (Known?.web_url) return Known.web_url;
+    const Metadata = KNOWN_PROVIDER_MAP[ProviderId] ?? KNOWN_PROVIDER_MAP[BaseId];
+    if (Metadata?.web_url) return Metadata.web_url;
 
-    if (DefaultBaseUrl) {
-        try {
-            const Parsed = new URL(DefaultBaseUrl);
-            return `${Parsed.protocol}//${Parsed.host}`;
-        } catch {
-            return undefined;
-        }
+    if (!DefaultBaseUrl) return undefined;
+    try {
+        return new URL(DefaultBaseUrl).origin;
+    } catch {
+        return undefined;
     }
-    return undefined;
 }
