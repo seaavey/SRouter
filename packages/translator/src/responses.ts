@@ -6,6 +6,7 @@ import type {
     FinishReason,
     JSONObject,
     JSONValue,
+    ToolChoiceOption,
     ToolDefinition,
     UsageInfo
 } from "@srouter/types";
@@ -52,14 +53,13 @@ export interface ResponsesRequestBody {
     model: string;
     input?: string | ResponsesInputItem[];
     instructions?: string;
-    tools?: Array<ResponsesToolDefinition | JSONObject>;
-    tool_choice?: unknown;
+    tools?: Array<ResponsesToolDefinition | ToolDefinition | JSONObject>;
+    tool_choice?: ToolChoiceOption | string;
     stream?: boolean;
     store?: boolean;
     reasoning?: { effort?: string; summary?: string };
     include?: string[];
     prompt_cache_key?: string;
-    [key: string]: JSONValue | unknown;
 }
 
 export interface ResponsesStreamState {
@@ -141,6 +141,7 @@ function mapMessageToInputItems(msg: ChatMessage): ResponsesInputItem[] {
     if (role === "user") {
         const parts: ResponsesContentPart[] = Array.isArray(msg.content)
             ? msg.content.map((c) => {
+                  if (typeof c === "string") return { type: "input_text", text: c };
                   if (c.type === "image_url" && c.image_url) {
                       const url = typeof c.image_url === "string" ? c.image_url : c.image_url.url;
                       return {
@@ -150,7 +151,7 @@ function mapMessageToInputItems(msg: ChatMessage): ResponsesInputItem[] {
                       };
                   }
                   if (c.type === "text") return { type: "input_text", text: c.text ?? "" };
-                  return { type: "input_text", text: flattenText(c as unknown as ChatMessage["content"]) };
+                  return { type: "input_text", text: "" };
               })
             : [{ type: "input_text", text: flattenText(msg.content) }];
         return [{ type: "message", role: "user", content: parts }];
@@ -180,9 +181,9 @@ function mapMessageToInputItems(msg: ChatMessage): ResponsesInputItem[] {
     return [];
 }
 
-function mapResponsesTools(tools?: ToolDefinition[]): Array<ResponsesToolDefinition | JSONObject> | undefined {
+function mapResponsesTools(tools?: ToolDefinition[]): Array<ResponsesToolDefinition | ToolDefinition | JSONObject> | undefined {
     if (!Array.isArray(tools) || tools.length === 0) return undefined;
-    const result: Array<ResponsesToolDefinition | JSONObject> = [];
+    const result: Array<ResponsesToolDefinition | ToolDefinition | JSONObject> = [];
     for (const tool of tools) {
         if (!tool || typeof tool !== "object") continue;
         const type = (tool as { type?: string }).type ?? "";
@@ -194,10 +195,10 @@ function mapResponsesTools(tools?: ToolDefinition[]): Array<ResponsesToolDefinit
                 type: "function",
                 name: name.slice(0, 128),
                 description: fn.description || "",
-                parameters: (fn.parameters as unknown as JSONObject) || { type: "object", properties: {} }
+                parameters: (fn.parameters as JSONObject | undefined) || { type: "object", properties: {} }
             });
         } else if (type === "namespace" || !type || type === "custom" || HOSTED_TOOL_TYPES.has(type)) {
-            result.push(tool as unknown as JSONObject);
+            result.push(tool);
         }
     }
     return result.length > 0 ? result : undefined;
@@ -249,7 +250,7 @@ export function chatToResponsesBody(req: ChatCompletionRequest): ResponsesReques
 
 export function responsesEventToChunk(
     eventType: string,
-    data: Record<string, unknown>,
+    data: JSONObject,
     state: ResponsesStreamState
 ): ChatCompletionChunk | null {
     if (!state.started) {
@@ -369,19 +370,33 @@ export function normalizeResponsesInput(
     return null;
 }
 
-export function convertResponsesApiFormat(body: ResponsesRequestBody): Record<string, unknown> {
-    if (!body.input) return body as unknown as Record<string, unknown>;
-
+export function convertResponsesApiFormat(body: ResponsesRequestBody): ChatCompletionRequest {
     const messages: ChatMessage[] = [];
     if (body.instructions) {
         messages.push({ role: "system", content: body.instructions });
+    }
+
+    if (!body.input) {
+        return {
+            model: body.model,
+            messages,
+            stream: body.stream,
+            tools: body.tools as ToolDefinition[] | undefined
+        };
     }
 
     let currentAssistantMsg: ChatMessage | null = null;
     const pendingToolResults: ChatMessage[] = [];
 
     const inputItems = normalizeResponsesInput(body.input);
-    if (!inputItems) return body as unknown as Record<string, unknown>;
+    if (!inputItems) {
+        return {
+            model: body.model,
+            messages,
+            stream: body.stream,
+            tools: body.tools as ToolDefinition[] | undefined
+        };
+    }
 
     for (const item of inputItems) {
         const itemType = item.type || (item.role ? "message" : null);
@@ -405,7 +420,7 @@ export function convertResponsesApiFormat(body: ResponsesRequestBody): Record<st
                                   : c.image_url?.url || "";
                           return {
                               type: "image_url",
-                              image_url: { url, detail: c.detail || "auto" }
+                              image_url: { url, detail: (c.detail as "auto" | "low" | "high") || "auto" }
                           };
                       }
                       return c;
@@ -450,13 +465,10 @@ export function convertResponsesApiFormat(body: ResponsesRequestBody): Record<st
     if (currentAssistantMsg) messages.push(currentAssistantMsg);
     messages.push(...pendingToolResults);
 
-    const result: Record<string, unknown> = { ...body, messages };
-    delete result.input;
-    delete result.instructions;
-    delete result.include;
-    delete result.prompt_cache_key;
-    delete result.store;
-    delete result.reasoning;
-
-    return result;
+    return {
+        model: body.model,
+        messages,
+        stream: body.stream,
+        tools: body.tools as ToolDefinition[] | undefined
+    };
 }
