@@ -192,6 +192,7 @@ const perch: AuthProviderHandler = {
     baseUrl: () => PERCH_APP_URL,
     oauthSuccessMessage: "Login Perch AI Berhasil!",
     tokenImportMessage: "Perch Access Token registered and saved directly to SQLite database!",
+    defaultRedirectUri: "http://localhost:1455/auth/perch/callback",
     oauthClass: PerchOAuth,
     mapOAuthTokens: (tokens) => ({
         accessToken: tokens.accessToken,

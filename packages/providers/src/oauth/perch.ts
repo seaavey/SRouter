@@ -1,4 +1,4 @@
-import { PERCH_SUPABASE_ANON_KEY, PERCH_SUPABASE_URL } from "@srouter/constants";
+import { PERCH_OAUTH_REDIRECT_URI, PERCH_SUPABASE_ANON_KEY, PERCH_SUPABASE_URL } from "@srouter/constants";
 import type { OAuthTokenResponse, PKCEPair } from "./base.js";
 
 export interface PerchOAuthOptions {
@@ -11,18 +11,18 @@ export interface PerchOAuthOptions {
 export class PerchOAuth {
     private supabaseUrl: string;
     private supabaseAnonKey: string;
-    private redirectUri?: string;
+    private redirectUri: string;
     private provider: string;
 
     constructor(options: PerchOAuthOptions = {}) {
         this.supabaseUrl = (options.supabaseUrl ?? PERCH_SUPABASE_URL).replace(/\/$/, "");
         this.supabaseAnonKey = options.supabaseAnonKey ?? PERCH_SUPABASE_ANON_KEY;
-        this.redirectUri = options.redirectUri;
+        this.redirectUri = options.redirectUri ?? PERCH_OAUTH_REDIRECT_URI;
         this.provider = options.provider ?? "google";
     }
 
     getAuthorizationUrl(pkce: PKCEPair, redirectUri?: string): string {
-        const targetRedirectUri = redirectUri || this.redirectUri || "http://127.0.0.1:3000/v1/auth/callback";
+        const targetRedirectUri = redirectUri || this.redirectUri;
         const params = new URLSearchParams({
             provider: this.provider,
             redirect_to: targetRedirectUri,

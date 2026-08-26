@@ -19,3 +19,6 @@ export const ANTIGRAVITY_OAUTH_SCOPE =
 export const ANTIGRAVITY_OAUTH_AUTHORIZE_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 export const ANTIGRAVITY_OAUTH_TOKEN_URL = "https://oauth2.googleapis.com/token";
 export const ANTIGRAVITY_OAUTH_PROMPT = "consent";
+
+// ─── Perch OAuth ───
+export const PERCH_OAUTH_REDIRECT_URI = "http://localhost:1455/auth/perch/callback";
