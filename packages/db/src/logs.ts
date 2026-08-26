@@ -7,17 +7,69 @@ import type {
 import { db } from "./db.js";
 import { generateId, num, optStr, str } from "./row-utils.js";
 
-export function logRequestDB(entry: Omit<RequestLogEntry, "id" | "createdAt">): RequestLogEntry {
-    const id = generateId("log");
-    const createdAt = Date.now();
+interface RequestLogRow {
+    id?: unknown;
+    api_key_id?: unknown;
+    provider_id?: unknown;
+    model?: unknown;
+    prompt_tokens?: unknown;
+    completion_tokens?: unknown;
+    total_tokens?: unknown;
+    status_code?: unknown;
+    latency_ms?: unknown;
+    cached_tokens?: unknown;
+    cache_creation_tokens?: unknown;
+    reasoning_tokens?: unknown;
+    estimated_cost?: unknown;
+    fallback_occurred?: unknown;
+    fallback_path?: unknown;
+    fallback_reason?: unknown;
+    resolved_model?: unknown;
+    created_at?: unknown;
+}
 
-    const query = db.prepare(`
+interface UsageSummaryRow {
+    totalRequests?: unknown;
+    totalTokens?: unknown;
+    totalPromptTokens?: unknown;
+    totalCompletionTokens?: unknown;
+    totalCachedTokens?: unknown;
+    totalCacheCreationTokens?: unknown;
+    totalReasoningTokens?: unknown;
+    totalEstimatedCost?: unknown;
+}
+
+interface ModelUsageDBShape {
+    model?: unknown;
+    totalRequests?: unknown;
+    totalTokens?: unknown;
+    promptTokens?: unknown;
+    completionTokens?: unknown;
+    cachedTokens?: unknown;
+    estimatedCost?: unknown;
+    lastUsedAt?: unknown;
+}
+
+interface UsageByModelDBShape {
+    model?: unknown;
+    totalRequests?: unknown;
+    totalInputTokens?: unknown;
+    totalOutputTokens?: unknown;
+    totalCachedTokens?: unknown;
+    estCost?: unknown;
+}
+
+export function logRequestDB(entry: Omit<RequestLogEntry, "id" | "createdAt">): RequestLogEntry {
+    const Id = generateId("log");
+    const CreatedAt = Date.now();
+
+    const Query = db.prepare(`
         INSERT INTO request_logs (id, api_key_id, provider_id, model, prompt_tokens, completion_tokens, total_tokens, status_code, latency_ms, cached_tokens, cache_creation_tokens, reasoning_tokens, estimated_cost, fallback_occurred, fallback_path, fallback_reason, resolved_model, created_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
-    query.run(
-        id,
+    Query.run(
+        Id,
         entry.apiKeyId ?? null,
         entry.providerId,
         entry.model,
@@ -34,25 +86,25 @@ export function logRequestDB(entry: Omit<RequestLogEntry, "id" | "createdAt">): 
         entry.fallbackPath ?? null,
         entry.fallbackReason ?? null,
         entry.resolvedModel ?? null,
-        createdAt
+        CreatedAt
     );
 
     return {
-        id,
+        id: Id,
         ...entry,
-        createdAt
+        createdAt: CreatedAt
     };
 }
 
 export function getRecentLogsDB(limit = 50): RequestLogEntry[] {
-    const query = db.prepare("SELECT * FROM request_logs ORDER BY created_at DESC LIMIT ?");
-    const rows = query.all(limit);
+    const Query = db.prepare("SELECT * FROM request_logs ORDER BY created_at DESC LIMIT ?");
+    const Rows = Query.all(limit) as RequestLogRow[];
 
-    return rows.map(mapLogRow);
+    return Rows.map(mapLogRow);
 }
 
 export function getUsageSummaryDB(): UsageSummary {
-    const query = db.prepare(`
+    const Query = db.prepare(`
         SELECT 
             COUNT(*) as totalRequests,
             COALESCE(SUM(total_tokens), 0) as totalTokens,
@@ -65,24 +117,24 @@ export function getUsageSummaryDB(): UsageSummary {
         FROM request_logs
     `);
 
-    const result = query.get();
+    const Result = Query.get() as UsageSummaryRow | undefined;
 
     return {
-        totalRequests: num(result?.totalRequests),
-        totalTokens: num(result?.totalTokens),
-        totalPromptTokens: num(result?.totalPromptTokens),
-        totalCompletionTokens: num(result?.totalCompletionTokens),
-        totalCachedTokens: num(result?.totalCachedTokens),
-        totalCacheCreationTokens: num(result?.totalCacheCreationTokens),
-        totalReasoningTokens: num(result?.totalReasoningTokens),
-        totalEstimatedCost: num(result?.totalEstimatedCost),
-        totalInputTokens: num(result?.totalPromptTokens),
-        totalOutputTokens: num(result?.totalCompletionTokens)
+        totalRequests: num(Result?.totalRequests),
+        totalTokens: num(Result?.totalTokens),
+        totalPromptTokens: num(Result?.totalPromptTokens),
+        totalCompletionTokens: num(Result?.totalCompletionTokens),
+        totalCachedTokens: num(Result?.totalCachedTokens),
+        totalCacheCreationTokens: num(Result?.totalCacheCreationTokens),
+        totalReasoningTokens: num(Result?.totalReasoningTokens),
+        totalEstimatedCost: num(Result?.totalEstimatedCost),
+        totalInputTokens: num(Result?.totalPromptTokens),
+        totalOutputTokens: num(Result?.totalCompletionTokens)
     };
 }
 
 export function getProviderUsageSummaryDB(providerId: string): UsageSummary {
-    const query = db.prepare(`
+    const Query = db.prepare(`
         SELECT 
             COUNT(*) as totalRequests,
             COALESCE(SUM(total_tokens), 0) as totalTokens,
@@ -96,24 +148,24 @@ export function getProviderUsageSummaryDB(providerId: string): UsageSummary {
         WHERE provider_id = ?
     `);
 
-    const result = query.get(providerId);
+    const Result = Query.get(providerId) as UsageSummaryRow | undefined;
 
     return {
-        totalRequests: num(result?.totalRequests),
-        totalTokens: num(result?.totalTokens),
-        totalPromptTokens: num(result?.totalPromptTokens),
-        totalCompletionTokens: num(result?.totalCompletionTokens),
-        totalCachedTokens: num(result?.totalCachedTokens),
-        totalCacheCreationTokens: num(result?.totalCacheCreationTokens),
-        totalReasoningTokens: num(result?.totalReasoningTokens),
-        totalEstimatedCost: num(result?.totalEstimatedCost),
-        totalInputTokens: num(result?.totalPromptTokens),
-        totalOutputTokens: num(result?.totalCompletionTokens)
+        totalRequests: num(Result?.totalRequests),
+        totalTokens: num(Result?.totalTokens),
+        totalPromptTokens: num(Result?.totalPromptTokens),
+        totalCompletionTokens: num(Result?.totalCompletionTokens),
+        totalCachedTokens: num(Result?.totalCachedTokens),
+        totalCacheCreationTokens: num(Result?.totalCacheCreationTokens),
+        totalReasoningTokens: num(Result?.totalReasoningTokens),
+        totalEstimatedCost: num(Result?.totalEstimatedCost),
+        totalInputTokens: num(Result?.totalPromptTokens),
+        totalOutputTokens: num(Result?.totalCompletionTokens)
     };
 }
 
 export function getProviderModelUsageDB(providerId: string): ModelUsageSummaryRow[] {
-    const query = db.prepare(`
+    const Query = db.prepare(`
         SELECT 
             model,
             COUNT(*) as totalRequests,
@@ -129,22 +181,22 @@ export function getProviderModelUsageDB(providerId: string): ModelUsageSummaryRo
         ORDER BY lastUsedAt DESC
     `);
 
-    const rows = query.all(providerId);
+    const Rows = Query.all(providerId) as ModelUsageDBShape[];
 
-    return rows.map((row) => ({
-        model: String(row.model ?? ""),
-        totalRequests: Number(row.totalRequests ?? 0),
-        totalTokens: Number(row.totalTokens ?? 0),
-        promptTokens: Number(row.promptTokens ?? 0),
-        completionTokens: Number(row.completionTokens ?? 0),
-        cachedTokens: Number(row.cachedTokens ?? 0),
-        estimatedCost: Number(row.estimatedCost ?? 0),
-        lastUsedAt: row.lastUsedAt ? Number(row.lastUsedAt) : null
+    return Rows.map((row) => ({
+        model: str(row.model),
+        totalRequests: num(row.totalRequests),
+        totalTokens: num(row.totalTokens),
+        promptTokens: num(row.promptTokens),
+        completionTokens: num(row.completionTokens),
+        cachedTokens: num(row.cachedTokens),
+        estimatedCost: num(row.estimatedCost),
+        lastUsedAt: row.lastUsedAt ? num(row.lastUsedAt) : null
     }));
 }
 
 export function getUsageByModelDB(): UsageByModelRow[] {
-    const query = db.prepare(`
+    const Query = db.prepare(`
         SELECT 
             model,
             COUNT(*) as totalRequests,
@@ -157,29 +209,29 @@ export function getUsageByModelDB(): UsageByModelRow[] {
         ORDER BY totalRequests DESC
     `);
 
-    const rows = query.all();
+    const Rows = Query.all() as UsageByModelDBShape[];
 
-    return rows.map((row) => ({
-        model: String(row.model ?? ""),
-        totalRequests: Number(row.totalRequests ?? 0),
-        totalInputTokens: Number(row.totalInputTokens ?? 0),
-        totalOutputTokens: Number(row.totalOutputTokens ?? 0),
-        totalCachedTokens: Number(row.totalCachedTokens ?? 0),
-        estCost: Number(row.estCost ?? 0)
+    return Rows.map((row) => ({
+        model: str(row.model),
+        totalRequests: num(row.totalRequests),
+        totalInputTokens: num(row.totalInputTokens),
+        totalOutputTokens: num(row.totalOutputTokens),
+        totalCachedTokens: num(row.totalCachedTokens),
+        estCost: num(row.estCost)
     }));
 }
 
 export function deleteLogsByModelDB(model: string): void {
-    const query = db.prepare("DELETE FROM request_logs WHERE model = ?");
-    query.run(model);
+    const Query = db.prepare("DELETE FROM request_logs WHERE model = ?");
+    Query.run(model);
 }
 
 export function deleteLogsByProviderDB(providerId: string): void {
-    const query = db.prepare("DELETE FROM request_logs WHERE provider_id = ?");
-    query.run(providerId);
+    const Query = db.prepare("DELETE FROM request_logs WHERE provider_id = ?");
+    Query.run(providerId);
 }
 
-function mapLogRow(row: Record<string, unknown>): RequestLogEntry {
+function mapLogRow(row: RequestLogRow): RequestLogEntry {
     return {
         id: str(row.id),
         apiKeyId: optStr(row.api_key_id),

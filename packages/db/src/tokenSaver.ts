@@ -26,25 +26,25 @@ export const DEFAULT_TOKEN_SAVER_SETTINGS: TokenSaverSettings = {
 const SETTINGS_KEY = "token_saver_config";
 
 export function getTokenSaverSettingsDB(): TokenSaverSettings {
-    const raw = getSettingDB(SETTINGS_KEY, "");
-    if (!raw) {
+    const Raw = getSettingDB(SETTINGS_KEY, "");
+    if (!Raw) {
         return { ...DEFAULT_TOKEN_SAVER_SETTINGS };
     }
     try {
-        const parsed = JSON.parse(raw) as Partial<TokenSaverSettings>;
+        const Parsed = JSON.parse(Raw) as Partial<TokenSaverSettings>;
         return {
-            enabled: parsed.enabled ?? DEFAULT_TOKEN_SAVER_SETTINGS.enabled,
+            enabled: Parsed.enabled ?? DEFAULT_TOKEN_SAVER_SETTINGS.enabled,
             compressToolOutput: {
                 ...DEFAULT_TOKEN_SAVER_SETTINGS.compressToolOutput,
-                ...(parsed.compressToolOutput ?? {})
+                ...(Parsed.compressToolOutput ?? {})
             },
             lazySeniorDev: {
                 ...DEFAULT_TOKEN_SAVER_SETTINGS.lazySeniorDev,
-                ...(parsed.lazySeniorDev ?? {})
+                ...(Parsed.lazySeniorDev ?? {})
             },
             compressLlmOutput: {
                 ...DEFAULT_TOKEN_SAVER_SETTINGS.compressLlmOutput,
-                ...(parsed.compressLlmOutput ?? {})
+                ...(Parsed.compressLlmOutput ?? {})
             }
         };
     } catch {
@@ -53,22 +53,22 @@ export function getTokenSaverSettingsDB(): TokenSaverSettings {
 }
 
 export function setTokenSaverSettingsDB(settings: Partial<TokenSaverSettings>): TokenSaverSettings {
-    const current = getTokenSaverSettingsDB();
-    const updated: TokenSaverSettings = {
-        enabled: typeof settings.enabled === "boolean" ? settings.enabled : current.enabled,
+    const Current = getTokenSaverSettingsDB();
+    const Updated: TokenSaverSettings = {
+        enabled: typeof settings.enabled === "boolean" ? settings.enabled : Current.enabled,
         compressToolOutput: {
-            ...current.compressToolOutput,
+            ...Current.compressToolOutput,
             ...(settings.compressToolOutput ?? {})
         },
         lazySeniorDev: {
-            ...current.lazySeniorDev,
+            ...Current.lazySeniorDev,
             ...(settings.lazySeniorDev ?? {})
         },
         compressLlmOutput: {
-            ...current.compressLlmOutput,
+            ...Current.compressLlmOutput,
             ...(settings.compressLlmOutput ?? {})
         }
     };
-    setSettingDB(SETTINGS_KEY, JSON.stringify(updated));
-    return updated;
+    setSettingDB(SETTINGS_KEY, JSON.stringify(Updated));
+    return Updated;
 }

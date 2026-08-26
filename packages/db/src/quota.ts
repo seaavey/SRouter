@@ -7,23 +7,24 @@ import type {
 } from "@srouter/types";
 import { getProviderModelUsageDB } from "./logs.js";
 import { getAllProvidersDB } from "./providers.js";
+import { num, str } from "./row-utils.js";
 
 function formatResetIn(resetTimeStr?: string): string {
     if (!resetTimeStr) return "24h 0m";
-    const resetTime = new Date(resetTimeStr).getTime();
-    const now = Date.now();
-    const diffMs = resetTime - now;
-    if (diffMs <= 0) return "0m";
-    const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-    const hours = Math.floor(diffMs / (1000 * 60 * 60));
-    if (days > 0) {
-        return `${days}d ${hours - days * 24}h`;
+    const ResetTime = new Date(resetTimeStr).getTime();
+    const Now = Date.now();
+    const DiffMs = ResetTime - Now;
+    if (DiffMs <= 0) return "0m";
+    const Days = Math.floor(DiffMs / (1000 * 60 * 60 * 24));
+    const Hours = Math.floor(DiffMs / (1000 * 60 * 60));
+    if (Days > 0) {
+        return `${Days}d ${Hours - Days * 24}h`;
     }
-    const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-    if (hours > 0) {
-        return `${hours}h ${minutes}m`;
+    const Minutes = Math.floor((DiffMs % (1000 * 60 * 60)) / (1000 * 60));
+    if (Hours > 0) {
+        return `${Hours}h ${Minutes}m`;
     }
-    return `${minutes}m`;
+    return `${Minutes}m`;
 }
 
 interface CloudCodeFetchAvailableModelsResponse {
@@ -49,7 +50,7 @@ export async function fetchAntigravityLiveQuota(
         throw new Error("Antigravity quota requires a valid access token");
     }
 
-    const res = await fetch("https://cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels", {
+    const Res = await fetch("https://cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels", {
         method: "POST",
         headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -60,35 +61,35 @@ export async function fetchAntigravityLiveQuota(
         body: JSON.stringify({})
     });
 
-    if (!res.ok) {
-        throw new Error(`Antigravity quota fetch failed: HTTP ${res.status}`);
+    if (!Res.ok) {
+        throw new Error(`Antigravity quota fetch failed: HTTP ${Res.status}`);
     }
 
-    const data = (await res.json()) as CloudCodeFetchAvailableModelsResponse;
-    if (!data.models || Object.keys(data.models).length === 0) {
+    const Data = (await Res.json()) as CloudCodeFetchAvailableModelsResponse;
+    if (!Data.models || Object.keys(Data.models).length === 0) {
         throw new Error("Antigravity quota fetch returned no models");
     }
 
-    const quotas: LiveModelQuotaItem[] = Object.entries(data.models).map(([modelId, item]) => {
-        const remainingFraction = item.quotaInfo?.remainingFraction ?? 1.0;
-        const percentageValue = Math.round(remainingFraction * 100);
-        const limit = 1000;
-        const used = Math.round((1 - remainingFraction) * limit);
-        const resetIn = formatResetIn(item.quotaInfo?.resetTime);
+    const Quotas: LiveModelQuotaItem[] = Object.entries(Data.models).map(([modelId, item]) => {
+        const RemainingFraction = item.quotaInfo?.remainingFraction ?? 1.0;
+        const PercentageValue = Math.round(RemainingFraction * 100);
+        const Limit = 1000;
+        const Used = Math.round((1 - RemainingFraction) * Limit);
+        const ResetIn = formatResetIn(item.quotaInfo?.resetTime);
 
-        let status: "ok" | "warning" | "exhausted" = "ok";
-        if (percentageValue <= 5) status = "exhausted";
-        else if (percentageValue <= 20) status = "warning";
+        let Status: "ok" | "warning" | "exhausted" = "ok";
+        if (PercentageValue <= 5) Status = "exhausted";
+        else if (PercentageValue <= 20) Status = "warning";
 
         return {
             name: item.displayName || modelId,
-            used,
-            limit,
-            percentage: `${percentageValue}%`,
-            percentageValue,
-            resetIn,
+            used: Used,
+            limit: Limit,
+            percentage: `${PercentageValue}%`,
+            percentageValue: PercentageValue,
+            resetIn: ResetIn,
             resetTime: item.quotaInfo?.resetTime,
-            status
+            status: Status
         };
     });
 
@@ -98,8 +99,8 @@ export async function fetchAntigravityLiveQuota(
         account: accountName,
         enabled,
         quotaType: "live_provider_quota",
-        totalQuotas: quotas.length,
-        quotas
+        totalQuotas: Quotas.length,
+        quotas: Quotas
     };
 }
 
@@ -119,8 +120,6 @@ interface CodeBuddyCNAccount {
     CapacitySizePrecise?: string;
 }
 
-// Refill packs roll into a new cycle before the resource expires; bonus packs
-// end exactly at expiry. >2d gap between cycle end and validity end = refill.
 const CN_REFILL_GAP_MS = 2 * 24 * 60 * 60 * 1000;
 
 export async function fetchCodeBuddyCNLiveQuota(
@@ -133,7 +132,7 @@ export async function fetchCodeBuddyCNLiveQuota(
         throw new Error("CodeBuddy CN quota requires an access token");
     }
 
-    const res = await fetch("https://copilot.tencent.com/v2/billing/meter/get-user-resource", {
+    const Res = await fetch("https://copilot.tencent.com/v2/billing/meter/get-user-resource", {
         method: "POST",
         headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -150,38 +149,38 @@ export async function fetchCodeBuddyCNLiveQuota(
         body: "{}"
     });
 
-    if (!res.ok) {
-        throw new Error(`CodeBuddy CN quota fetch failed: HTTP ${res.status}`);
+    if (!Res.ok) {
+        throw new Error(`CodeBuddy CN quota fetch failed: HTTP ${Res.status}`);
     }
 
-    const json = (await res.json()) as {
+    const Json = (await Res.json()) as {
         code?: number;
         msg?: string;
         data?: { Response?: { Data?: { Accounts?: CodeBuddyCNAccount[] } } };
     };
-    if (json.code !== 0) {
-        throw new Error(`CodeBuddy CN quota error: ${json.msg || "unknown"}`);
+    if (Json.code !== 0) {
+        throw new Error(`CodeBuddy CN quota error: ${Json.msg || "unknown"}`);
     }
 
-    const accounts = json.data?.Response?.Data?.Accounts ?? [];
-    if (accounts.length === 0) {
+    const Accounts = Json.data?.Response?.Data?.Accounts ?? [];
+    if (Accounts.length === 0) {
         throw new Error("CodeBuddy CN quota fetch returned no credit packages");
     }
 
     const cycleEndMs = (acc: CodeBuddyCNAccount): number => {
-        const t = acc.CycleEndTime ? new Date(acc.CycleEndTime).getTime() : NaN;
-        return Number.isFinite(t) ? t : Number.POSITIVE_INFINITY;
+        const T = acc.CycleEndTime ? new Date(acc.CycleEndTime).getTime() : NaN;
+        return Number.isFinite(T) ? T : Number.POSITIVE_INFINITY;
     };
     const isRefill = (acc: CodeBuddyCNAccount): boolean => {
-        const ce = cycleEndMs(acc);
-        const de = Number(acc.DeductionEndTime);
-        return Number.isFinite(ce) && Number.isFinite(de) && de - ce > CN_REFILL_GAP_MS;
+        const Ce = cycleEndMs(acc);
+        const De = num(acc.DeductionEndTime);
+        return Number.isFinite(Ce) && Number.isFinite(De) && De - Ce > CN_REFILL_GAP_MS;
     };
     const byExpiry = (a: CodeBuddyCNAccount, b: CodeBuddyCNAccount) =>
         cycleEndMs(a) - cycleEndMs(b);
 
-    const refills = accounts.filter(isRefill).sort(byExpiry);
-    const bonuses = accounts.filter((a) => !isRefill(a)).sort(byExpiry);
+    const Refills = Accounts.filter(isRefill).sort(byExpiry);
+    const Bonuses = Accounts.filter((a) => !isRefill(a)).sort(byExpiry);
 
     const toItem = (
         name: string,
@@ -189,7 +188,7 @@ export async function fetchCodeBuddyCNLiveQuota(
         total: number,
         resetTime?: string
     ): LiveModelQuotaItem => {
-        const remainingFraction = total > 0 ? (total - used) / total : 1;
+        const RemainingFraction = total > 0 ? (total - used) / total : 1;
         return {
             name,
             used: Math.round(used * 100) / 100,
@@ -199,63 +198,62 @@ export async function fetchCodeBuddyCNLiveQuota(
             resetIn: formatResetIn(resetTime),
             resetTime,
             status:
-                remainingFraction <= 0.05
+                RemainingFraction <= 0.05
                     ? "exhausted"
-                    : remainingFraction <= 0.2
+                    : RemainingFraction <= 0.2
                       ? "warning"
                       : "ok"
         };
     };
 
-    const num = (precise?: string, plain?: number): number => {
-        const n = Number(precise ?? plain);
-        return Number.isFinite(n) ? n : 0;
+    const parseNum = (precise?: string, plain?: number): number => {
+        return num(precise ?? plain);
     };
 
-    const quotas: LiveModelQuotaItem[] = [];
-    const seenCadence: Record<string, number> = {};
-    for (const acc of refills) {
-        const cycleStartMs = acc.CycleStartTime ? new Date(acc.CycleStartTime).getTime() : NaN;
-        const cycleDays = (cycleEndMs(acc) - cycleStartMs) / 86400000;
-        const base =
-            Number.isFinite(cycleDays) && cycleDays <= 1.5
+    const Quotas: LiveModelQuotaItem[] = [];
+    const SeenCadence: Record<string, number> = {};
+    for (const acc of Refills) {
+        const CycleStartMs = acc.CycleStartTime ? new Date(acc.CycleStartTime).getTime() : NaN;
+        const CycleDays = (cycleEndMs(acc) - CycleStartMs) / 86400000;
+        const Base =
+            Number.isFinite(CycleDays) && CycleDays <= 1.5
                 ? "Daily"
-                : Number.isFinite(cycleDays) && cycleDays <= 10
+                : Number.isFinite(CycleDays) && CycleDays <= 10
                   ? "Weekly"
                   : "Monthly";
-        seenCadence[base] = (seenCadence[base] ?? 0) + 1;
-        const name = seenCadence[base]! > 1 ? `${base} ${seenCadence[base]}` : base;
-        quotas.push(
+        SeenCadence[Base] = (SeenCadence[Base] ?? 0) + 1;
+        const Name = SeenCadence[Base]! > 1 ? `${Base} ${SeenCadence[Base]}` : Base;
+        Quotas.push(
             toItem(
-                name,
-                num(acc.CycleCapacityUsedPrecise, acc.CycleCapacityUsed),
-                num(acc.CycleCapacitySizePrecise, acc.CycleCapacitySize),
+                Name,
+                parseNum(acc.CycleCapacityUsedPrecise, acc.CycleCapacityUsed),
+                parseNum(acc.CycleCapacitySizePrecise, acc.CycleCapacitySize),
                 acc.CycleEndTime
             )
         );
     }
-    bonuses.forEach((acc, i) => {
-        quotas.push(
+    Bonuses.forEach((acc, i) => {
+        Quotas.push(
             toItem(
                 `Bonus Pack ${i + 1}`,
-                num(acc.CapacityUsedPrecise, acc.CapacityUsed),
-                num(acc.CapacitySizePrecise, acc.CapacitySize),
+                parseNum(acc.CapacityUsedPrecise, acc.CapacityUsed),
+                parseNum(acc.CapacitySizePrecise, acc.CapacitySize),
                 acc.CycleEndTime
             )
         );
     });
 
-    const basePkg = refills[0] ?? accounts[0] ?? {};
-    const plan = basePkg.PackageName || basePkg.SubProductName;
+    const BasePkg = Refills[0] ?? Accounts[0] ?? {};
+    const Plan = BasePkg.PackageName || BasePkg.SubProductName;
 
     return {
         id: providerId,
-        provider: plan ? `CodeBuddy CN (${plan})` : "CodeBuddy CN",
+        provider: Plan ? `CodeBuddy CN (${Plan})` : "CodeBuddy CN",
         account: accountName,
         enabled,
         quotaType: "live_provider_quota",
-        totalQuotas: quotas.length,
-        quotas
+        totalQuotas: Quotas.length,
+        quotas: Quotas
     };
 }
 
@@ -267,49 +265,45 @@ export async function getProviderQuotaAccount(p: {
     accessToken?: string;
     enabled: boolean;
 }): Promise<ProviderQuotaAccount> {
-    const isAntigravity =
+    const IsAntigravity =
         isProviderBaseId(p.providerId, "antigravity") || isProviderBaseId(p.id, "antigravity");
-    const isOpenAICodex =
+    const IsOpenAICodex =
         isProviderBaseId(p.providerId, "openai_codex") || isProviderBaseId(p.id, "openai_codex");
-    const isOpenAI = isProviderBaseId(p.providerId, "openai") || isProviderBaseId(p.id, "openai");
-    const isAnthropic =
+    const IsOpenAI = isProviderBaseId(p.providerId, "openai") || isProviderBaseId(p.id, "openai");
+    const IsAnthropic =
         isProviderBaseId(p.providerId, "anthropic") || isProviderBaseId(p.id, "anthropic");
-    const isCodeBuddyCN =
+    const IsCodeBuddyCN =
         isProviderBaseId(p.providerId, "codebuddy-cn") || isProviderBaseId(p.id, "codebuddy-cn");
-    // codebuddy.ai (international) has no known live quota endpoint; showing SRouter's
-    // own usage logs under a "CodeBuddy" card is misleading, so skip it entirely.
-    const isCodeBuddy =
-        !isCodeBuddyCN &&
+    const IsCodeBuddy =
+        !IsCodeBuddyCN &&
         (isProviderBaseId(p.providerId, "codebuddy") || isProviderBaseId(p.id, "codebuddy"));
 
-    const token = p.accessToken || p.apiKey || "";
+    const Token = p.accessToken || p.apiKey || "";
 
-    if (isCodeBuddy) {
+    if (IsCodeBuddy) {
         throw new Error("CodeBuddy (international) does not expose a live quota endpoint");
     }
 
-    if (isCodeBuddyCN) {
+    if (IsCodeBuddyCN) {
         return await fetchCodeBuddyCNLiveQuota(
             p.id,
             p.name || "CodeBuddy CN Account",
-            token,
+            Token,
             p.enabled
         );
     }
 
-    if (isAntigravity) {
+    if (IsAntigravity) {
         return await fetchAntigravityLiveQuota(
             p.id,
             p.name || "seaavey@gmail.com",
-            token,
+            Token,
             p.enabled
         );
     }
 
-    // For OpenAI Codex, OpenAI, Anthropic, or Custom Providers:
-    // Report REAL usage metrics aggregated from SRouter's database (request_logs)
-    const usageRows = getProviderModelUsageDB(p.id);
-    const usageMetrics: ProviderUsageMetric[] = usageRows.map((row) => ({
+    const UsageRows = getProviderModelUsageDB(p.id);
+    const UsageMetrics: ProviderUsageMetric[] = UsageRows.map((row) => ({
         model: row.model,
         totalRequests: row.totalRequests,
         totalTokens: row.totalTokens,
@@ -318,29 +312,29 @@ export async function getProviderQuotaAccount(p: {
         lastUsedAt: row.lastUsedAt ? new Date(row.lastUsedAt).toISOString() : null
     }));
 
-    let providerName = p.name || p.providerId || p.id;
-    if (isOpenAICodex) providerName = "OpenAI Codex";
-    else if (isOpenAI) providerName = "OpenAI";
-    else if (isAnthropic) providerName = "Anthropic";
+    let ProviderName = p.name || p.providerId || p.id;
+    if (IsOpenAICodex) ProviderName = "OpenAI Codex";
+    else if (IsOpenAI) ProviderName = "OpenAI";
+    else if (IsAnthropic) ProviderName = "Anthropic";
 
     return {
         id: p.id,
-        provider: providerName,
-        account: p.name || `${providerName} Account`,
+        provider: ProviderName,
+        account: p.name || `${ProviderName} Account`,
         enabled: p.enabled,
         quotaType: "usage_logged",
-        usageMetrics
+        usageMetrics: UsageMetrics
     };
 }
 
 export async function getQuotaSummaryDB(): Promise<QuotaResponse> {
-    const dbProviders = getAllProvidersDB();
-    const providerAccounts: ProviderQuotaAccount[] = [];
+    const DbProviders = getAllProvidersDB();
+    const ProviderAccounts: ProviderQuotaAccount[] = [];
 
-    for (const p of dbProviders) {
+    for (const p of DbProviders) {
         try {
-            const account = await getProviderQuotaAccount(p);
-            providerAccounts.push(account);
+            const Account = await getProviderQuotaAccount(p);
+            ProviderAccounts.push(Account);
         } catch {
             // Skip providers whose quota cannot be fetched
         }
@@ -348,7 +342,7 @@ export async function getQuotaSummaryDB(): Promise<QuotaResponse> {
 
     return {
         object: "quota",
-        totalAccounts: providerAccounts.length,
-        providers: providerAccounts
+        totalAccounts: ProviderAccounts.length,
+        providers: ProviderAccounts
     };
 }

@@ -9,6 +9,14 @@ export interface OAuthSession {
     createdAt?: number;
 }
 
+interface OAuthSessionRow {
+    state?: unknown;
+    code_verifier?: unknown;
+    client_id?: unknown;
+    redirect_uri?: unknown;
+    created_at?: unknown;
+}
+
 export function saveOAuthSessionDB(session: OAuthSession): OAuthSession {
     db.prepare(
         `INSERT INTO oauth_sessions (state, code_verifier, client_id, redirect_uri, created_at)
@@ -30,25 +38,27 @@ export function saveOAuthSessionDB(session: OAuthSession): OAuthSession {
 }
 
 export function getOAuthSessionDB(state: string): OAuthSession | null {
-    const row = db.prepare("SELECT * FROM oauth_sessions WHERE state = ?").get(state);
+    const Row = db.prepare("SELECT * FROM oauth_sessions WHERE state = ?").get(state) as
+        | OAuthSessionRow
+        | undefined;
 
-    if (!row) return null;
+    if (!Row) return null;
 
     return {
-        state: str(row.state),
-        codeVerifier: str(row.code_verifier),
-        clientId: str(row.client_id),
-        redirectUri: str(row.redirect_uri),
-        createdAt: num(row.created_at)
+        state: str(Row.state),
+        codeVerifier: str(Row.code_verifier),
+        clientId: str(Row.client_id),
+        redirectUri: str(Row.redirect_uri),
+        createdAt: num(Row.created_at)
     };
 }
 
 export function deleteOAuthSessionDB(state: string): boolean {
-    const result = db.prepare("DELETE FROM oauth_sessions WHERE state = ?").run(state);
-    return (result.changes ?? 0) > 0;
+    const Result = db.prepare("DELETE FROM oauth_sessions WHERE state = ?").run(state);
+    return num(Result.changes) > 0;
 }
 
 export function cleanupExpiredOAuthSessionsDB(maxAgeMs: number): void {
-    const cutoff = Date.now() - maxAgeMs;
-    db.prepare("DELETE FROM oauth_sessions WHERE created_at < ?").run(cutoff);
+    const Cutoff = Date.now() - maxAgeMs;
+    db.prepare("DELETE FROM oauth_sessions WHERE created_at < ?").run(Cutoff);
 }

@@ -2,26 +2,46 @@ import type { ProviderCategory, ProviderConfig, ProviderProtocol } from "@sroute
 import { db } from "./db.js";
 import { num, optStr, str } from "./row-utils.js";
 
-export function getAllProvidersDB(): ProviderConfig[] {
-    const query = db.prepare("SELECT * FROM providers ORDER BY created_at DESC");
-    const rows = query.all();
+interface ProviderRow {
+    id?: unknown;
+    provider_id?: unknown;
+    name?: unknown;
+    category?: unknown;
+    protocol?: unknown;
+    base_url?: unknown;
+    api_key?: unknown;
+    access_token?: unknown;
+    refresh_token?: unknown;
+    account_id?: unknown;
+    organization_id?: unknown;
+    token_expires_at?: unknown;
+    last_refreshed_at?: unknown;
+    custom_headers?: unknown;
+    provider_specific_data?: unknown;
+    enabled?: unknown;
+    created_at?: unknown;
+}
 
-    return rows.map(mapProviderRow);
+export function getAllProvidersDB(): ProviderConfig[] {
+    const Query = db.prepare("SELECT * FROM providers ORDER BY created_at DESC");
+    const Rows = Query.all() as ProviderRow[];
+
+    return Rows.map(mapProviderRow);
 }
 
 export function getProviderByIdDB(id: string): ProviderConfig | null {
-    const query = db.prepare("SELECT * FROM providers WHERE id = ?");
-    const row = query.get(id);
+    const Query = db.prepare("SELECT * FROM providers WHERE id = ?");
+    const Row = Query.get(id) as ProviderRow | undefined;
 
-    if (!row) return null;
+    if (!Row) return null;
 
-    return mapProviderRow(row);
+    return mapProviderRow(Row);
 }
 
 export function upsertProviderDB(
     config: ProviderConfig & { category: string; protocol: string }
 ): ProviderConfig {
-    const query = db.prepare(`
+    const Query = db.prepare(`
         INSERT INTO providers (
             id, provider_id, name, category, protocol, base_url, api_key,
             access_token, refresh_token, account_id, organization_id,
@@ -48,7 +68,7 @@ export function upsertProviderDB(
             created_at = excluded.created_at;
     `);
 
-    query.run(
+    Query.run(
         config.id,
         config.providerId,
         config.name,
@@ -78,9 +98,9 @@ export function createProviderDB(
 }
 
 export function deleteProviderDB(id: string): boolean {
-    const query = db.prepare("DELETE FROM providers WHERE id = ?");
-    const result = query.run(id);
-    return (result.changes ?? 0) > 0;
+    const Query = db.prepare("DELETE FROM providers WHERE id = ?");
+    const Result = Query.run(id);
+    return num(Result.changes) > 0;
 }
 
 export interface UpdateProviderTokensInput {
@@ -91,9 +111,6 @@ export interface UpdateProviderTokensInput {
     lastRefreshedAt?: number;
 }
 
-/**
- * Update only the token-related columns of a provider (used by TokenRefreshService).
- */
 export function updateProviderTokensDB(input: UpdateProviderTokensInput): void {
     db.prepare(
         `UPDATE providers SET
@@ -112,16 +129,16 @@ export function updateProviderTokensDB(input: UpdateProviderTokensInput): void {
 }
 
 export function getConnectionsByProviderIdDB(providerId: string): ProviderConfig[] {
-    const pId = providerId.toLowerCase();
-    const query = db.prepare(
+    const PId = providerId.toLowerCase();
+    const Query = db.prepare(
         "SELECT * FROM providers WHERE LOWER(provider_id) = ? OR LOWER(id) = ? ORDER BY created_at DESC"
     );
-    const rows = query.all(pId, pId);
+    const Rows = Query.all(PId, PId) as ProviderRow[];
 
-    return rows.map(mapProviderRow);
+    return Rows.map(mapProviderRow);
 }
 
-function mapProviderRow(row: Record<string, unknown>): ProviderConfig {
+function mapProviderRow(row: ProviderRow): ProviderConfig {
     return {
         id: str(row.id),
         providerId: str(row.provider_id),
@@ -136,9 +153,9 @@ function mapProviderRow(row: Record<string, unknown>): ProviderConfig {
         organizationId: optStr(row.organization_id),
         tokenExpiresAt: row.token_expires_at ? num(row.token_expires_at) : undefined,
         lastRefreshedAt: row.last_refreshed_at ? num(row.last_refreshed_at) : undefined,
-        customHeaders: row.custom_headers ? JSON.parse(String(row.custom_headers)) : undefined,
+        customHeaders: row.custom_headers ? JSON.parse(str(row.custom_headers)) : undefined,
         providerSpecificData: row.provider_specific_data
-            ? JSON.parse(String(row.provider_specific_data))
+            ? JSON.parse(str(row.provider_specific_data))
             : undefined,
         enabled: Boolean(row.enabled),
         createdAt: num(row.created_at)
