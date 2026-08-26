@@ -7,7 +7,7 @@
 SRouter is a local-first AI gateway and LLM proxy for OpenAI-, Anthropic-, and custom-compatible providers. Keep one stable API while SRouter handles routing, authentication, translation, quotas, and observability.
 
 <p>
-  <a href="https://github.com/seaavey/SRouter/releases"><img src="https://img.shields.io/badge/version-v0.1.2--rc.1-6366f1?style=flat-square" alt="Version"></a>
+  <a href="https://github.com/seaavey/SRouter/releases"><img src="https://img.shields.io/badge/version-v0.1.2--rc.2-6366f1?style=flat-square" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-22c55e?style=flat-square" alt="MIT License"></a>
   <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/node-%3E%3D22-339933?style=flat-square&logo=node.js&logoColor=white" alt="Node.js"></a>
   <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-5.8-3178c6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript"></a>

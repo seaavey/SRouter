@@ -1,6 +1,6 @@
 {
     "name": "@srouter/cli",
-    "version": "0.1.2-rc.1",
+    "version": "0.1.2-rc.2",
     "description": "CLI tool to seamlessly connect and configure AI coding tools with SRouter Gateway",
     "type": "module",
     "bin": {

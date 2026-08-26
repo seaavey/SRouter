@@ -1,6 +1,6 @@
 {
     "name": "srouter",
-    "version": "0.1.2-rc.1",
+    "version": "0.1.2-rc.2",
     "description": "High-performance multi-provider AI Gateway and LLM proxy router built with Hono, TypeScript, and SQLite WAL",
     "author": "Muhammad Adriansyah",
     "license": "MIT",
