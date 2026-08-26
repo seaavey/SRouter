@@ -5,21 +5,13 @@ import type {
     TokenSaverPreviewResponse
 } from "@srouter/types";
 
-// ANSI escape sequence regex
 const ANSI_REGEX = /\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g;
 
-/**
- * Strips ANSI color and control characters from terminal/command outputs.
- */
-export function stripAnsiCodes(text: string): string {
+export function StripAnsiCodes(text: string): string {
     return text.replace(ANSI_REGEX, "");
 }
 
-/**
- * Collapses multiple consecutive blank lines into at most one blank line,
- * and strips trailing whitespace from every line.
- */
-export function cleanWhitespace(text: string): string {
+export function CleanWhitespace(text: string): string {
     return text
         .split("\n")
         .map((line) => line.trimEnd())
@@ -28,18 +20,13 @@ export function cleanWhitespace(text: string): string {
         .trim();
 }
 
-/**
- * Compresses raw git diff output by stripping index hashes, mode changes,
- * and redundant diff chunk headers while preserving the actual modifications.
- */
-export function compressGitDiff(text: string): string {
+export function CompressGitDiff(text: string): string {
     const lines = text.split("\n");
     const result: string[] = [];
 
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i]!;
 
-        // Skip index hashes and file mode boilerplate
         if (
             line.startsWith("index ") ||
             line.startsWith("new file mode ") ||
@@ -51,7 +38,6 @@ export function compressGitDiff(text: string): string {
             continue;
         }
 
-        // Simplify diff headers
         if (line.startsWith("diff --git a/") && line.includes(" b/")) {
             const parts = line.split(" b/");
             const file = parts[1] || line.replace("diff --git a/", "");
@@ -63,13 +49,12 @@ export function compressGitDiff(text: string): string {
             continue;
         }
 
-        // Simplify chunk headers: @@ -10,6 +10,7 @@ export function... -> @@ L10 @@
         if (line.startsWith("@@ -")) {
             const match = line.match(/@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@(.*)/);
             if (match) {
-                const startLine = match[2];
+                const start_line = match[2];
                 const context = (match[3] || "").trim();
-                result.push(`@@ L${startLine}${context ? " " + context : ""} @@`);
+                result.push(`@@ L${start_line}${context ? " " + context : ""} @@`);
                 continue;
             }
         }
@@ -80,32 +65,27 @@ export function compressGitDiff(text: string): string {
     return result.join("\n");
 }
 
-/**
- * Compresses git status or git log output into dense summaries.
- */
-export function compressGitStatusOrLog(text: string): string {
-    // Git log compression: commit abcdef... \n Author: ... \n Date: ... \n\n message
+export function CompressGitStatusOrLog(text: string): string {
     if (text.includes("commit ") && text.includes("Author:")) {
-        const commitBlocks = text.split(/\n(?=commit [0-9a-f]{7,40})/);
-        const compressedCommits = commitBlocks.map((block) => {
-            const hashMatch = block.match(/commit ([0-9a-f]{7,40})/);
-            const msgMatch = block.match(/\n\n\s*([^\n]+)/);
-            const authorMatch = block.match(/Author:\s*([^<\n]+)/);
-            if (hashMatch) {
-                const shortHash = hashMatch[1]!.slice(0, 7);
-                const msg = msgMatch ? msgMatch[1]!.trim() : "";
-                const author = authorMatch ? ` (${authorMatch[1]!.trim()})` : "";
-                return `[${shortHash}] ${msg}${author}`;
+        const commit_blocks = text.split(/\n(?=commit [0-9a-f]{7,40})/);
+        const compressed_commits = commit_blocks.map((block) => {
+            const hash_match = block.match(/commit ([0-9a-f]{7,40})/);
+            const msg_match = block.match(/\n\n\s*([^\n]+)/);
+            const author_match = block.match(/Author:\s*([^<\n]+)/);
+            if (hash_match) {
+                const short_hash = hash_match[1]!.slice(0, 7);
+                const msg = msg_match ? msg_match[1]!.trim() : "";
+                const author = author_match ? ` (${author_match[1]!.trim()})` : "";
+                return `[${short_hash}] ${msg}${author}`;
             }
             return block;
         });
-        return compressedCommits.join("\n");
+        return compressed_commits.join("\n");
     }
 
-    // Git status compression: collapse boilerplate guidelines
     if (text.includes("Changes not staged for commit:") || text.includes("Untracked files:")) {
         const lines = text.split("\n");
-        const statusLines: string[] = [];
+        const status_lines: string[] = [];
         let branch = "";
 
         for (const line of lines) {
@@ -113,13 +93,13 @@ export function compressGitStatusOrLog(text: string): string {
             if (trimmed.startsWith("On branch ")) {
                 branch = trimmed;
             } else if (trimmed.startsWith("modified:") || trimmed.startsWith("both modified:")) {
-                statusLines.push(`M ${trimmed.replace(/^(both\s+)?modified:\s*/, "")}`);
+                status_lines.push(`M ${trimmed.replace(/^(both\s+)?modified:\s*/, "")}`);
             } else if (trimmed.startsWith("deleted:")) {
-                statusLines.push(`D ${trimmed.replace(/^deleted:\s*/, "")}`);
+                status_lines.push(`D ${trimmed.replace(/^deleted:\s*/, "")}`);
             } else if (trimmed.startsWith("new file:")) {
-                statusLines.push(`A ${trimmed.replace(/^new file:\s*/, "")}`);
+                status_lines.push(`A ${trimmed.replace(/^new file:\s*/, "")}`);
             } else if (trimmed.startsWith("renamed:")) {
-                statusLines.push(`R ${trimmed.replace(/^renamed:\s*/, "")}`);
+                status_lines.push(`R ${trimmed.replace(/^renamed:\s*/, "")}`);
             } else if (
                 trimmed.length > 0 &&
                 !trimmed.startsWith("(") &&
@@ -128,45 +108,41 @@ export function compressGitStatusOrLog(text: string): string {
                 !trimmed.startsWith("Untracked") &&
                 !trimmed.startsWith("Your branch")
             ) {
-                statusLines.push(`? ${trimmed}`);
+                status_lines.push(`? ${trimmed}`);
             }
         }
 
-        return [branch, ...statusLines].filter(Boolean).join("\n");
+        return [branch, ...status_lines].filter(Boolean).join("\n");
     }
 
     return text;
 }
 
-/**
- * Compresses grep / ripgrep output into compact grouped entries.
- */
-export function compressGrepOutput(text: string): string {
+export function CompressGrepOutput(text: string): string {
     const lines = text.split("\n");
-    const fileGroups = new Map<string, string[]>();
+    const file_groups = new Map<string, string[]>();
     const unparsed: string[] = [];
 
     for (const line of lines) {
-        // Matches: filepath.ts:123: line content or filepath.ts:123- line content
         const match = line.match(/^(\.?\/?[^:\n]+):(\d+)[:-](.*)$/);
         if (match) {
             const file = match[1]!.replace(/^\.\//, "");
-            const lineNum = match[2]!;
+            const line_num = match[2]!;
             const content = match[3]!.trim();
-            const group = fileGroups.get(file) || [];
-            group.push(`L${lineNum}: ${content}`);
-            fileGroups.set(file, group);
+            const group = file_groups.get(file) || [];
+            group.push(`L${line_num}: ${content}`);
+            file_groups.set(file, group);
         } else if (line.trim()) {
             unparsed.push(line);
         }
     }
 
-    if (fileGroups.size === 0) {
+    if (file_groups.size === 0) {
         return text;
     }
 
     const compressed: string[] = [];
-    for (const [file, entries] of fileGroups) {
+    for (const [file, entries] of file_groups) {
         compressed.push(`${file}:\n  ` + entries.join("\n  "));
     }
 
@@ -177,10 +153,7 @@ export function compressGrepOutput(text: string): string {
     return compressed.join("\n");
 }
 
-/**
- * Compresses file directory listings (e.g. `ls -la`, `tree`, `find`).
- */
-export function compressFileListings(text: string): string {
+export function CompressFileListings(text: string): string {
     const lines = text.split("\n");
     const result: string[] = [];
 
@@ -188,18 +161,16 @@ export function compressFileListings(text: string): string {
         const trimmed = line.trim();
         if (!trimmed || trimmed.startsWith("total ")) continue;
 
-        // Matches ls -l: drwxr-xr-x 12 user staff 384 Aug 17 20:00 filename
-        const lsMatch = trimmed.match(
+        const ls_match = trimmed.match(
             /^([drwxlsStT\-]{10})\s+\d+\s+\S+\s+\S+\s+(\d+)\s+[A-Za-z]{3}\s+\d+\s+[\d:]+\s+(.+)$/
         );
-        if (lsMatch) {
-            const isDir = lsMatch[1]!.startsWith("d");
-            const name = lsMatch[3]!;
-            result.push(isDir ? `${name}/` : name);
+        if (ls_match) {
+            const is_dir = ls_match[1]!.startsWith("d");
+            const name = ls_match[3]!;
+            result.push(is_dir ? `${name}/` : name);
             continue;
         }
 
-        // Tree output: ├── file.ts -> file.ts
         if (trimmed.includes("── ") || trimmed.includes("─── ")) {
             const name = trimmed.replace(/^[\s│├└─┬|`-]+/, "").trim();
             if (name) result.push(name);
@@ -212,48 +183,41 @@ export function compressFileListings(text: string): string {
     return result.join("\n");
 }
 
-/**
- * Compresses generic execution logs by collapsing repetitive progress bars and noise.
- */
-export function compressGenericLogs(text: string): string {
+export function CompressGenericLogs(text: string): string {
     const lines = text.split("\n");
     const result: string[] = [];
-    let lastLine = "";
-    let duplicateCount = 0;
+    let last_line = "";
+    let duplicate_count = 0;
 
     for (const line of lines) {
-        // Strip timestamps like [2026-08-17T20:00:00.000Z] or 2026-08-17 20:00:00
-        const strippedTimestamp = line
+        const stripped_timestamp = line
             .replace(/^\[?\d{4}-\d{2}-\d{2}[T\s]\d{2}:\d{2}:\d{2}(?:\.\d+)?Z?\]?\s*/, "")
             .replace(/^\[\d{2}:\d{2}:\d{2}\]\s*/, "");
 
-        if (strippedTimestamp === lastLine && strippedTimestamp.length > 0) {
-            duplicateCount++;
+        if (stripped_timestamp === last_line && stripped_timestamp.length > 0) {
+            duplicate_count++;
             continue;
         }
 
-        if (duplicateCount > 0) {
+        if (duplicate_count > 0) {
             result.push(
-                `  ↳ [repeated ${duplicateCount} more time${duplicateCount > 1 ? "s" : ""}]`
+                `  ↳ [repeated ${duplicate_count} more time${duplicate_count > 1 ? "s" : ""}]`
             );
-            duplicateCount = 0;
+            duplicate_count = 0;
         }
 
-        result.push(strippedTimestamp);
-        lastLine = strippedTimestamp;
+        result.push(stripped_timestamp);
+        last_line = stripped_timestamp;
     }
 
-    if (duplicateCount > 0) {
-        result.push(`  ↳ [repeated ${duplicateCount} more time${duplicateCount > 1 ? "s" : ""}]`);
+    if (duplicate_count > 0) {
+        result.push(`  ↳ [repeated ${duplicate_count} more time${duplicate_count > 1 ? "s" : ""}]`);
     }
 
     return result.join("\n");
 }
 
-/**
- * Detects tool output type and applies corresponding compression algorithms.
- */
-export function compressSingleToolOutput(
+export function CompressSingleToolOutput(
     text: string,
     settings: TokenSaverSettings["compressToolOutput"]
 ): string {
@@ -264,65 +228,52 @@ export function compressSingleToolOutput(
     let processed = text;
 
     if (settings.stripAnsiAndWhitespace) {
-        processed = stripAnsiCodes(processed);
+        processed = StripAnsiCodes(processed);
     }
 
-    // Git Diff detection
     if (
         settings.compressGit &&
         (processed.includes("diff --git") ||
             (processed.includes("--- ") && processed.includes("+++ ")))
     ) {
-        processed = compressGitDiff(processed);
-    }
-    // Git Log or Git Status
-    else if (
+        processed = CompressGitDiff(processed);
+    } else if (
         settings.compressGit &&
         (processed.includes("commit ") ||
             processed.includes("Changes not staged for commit:") ||
             processed.includes("On branch "))
     ) {
-        processed = compressGitStatusOrLog(processed);
-    }
-    // Grep / search result detection
-    else if (
+        processed = CompressGitStatusOrLog(processed);
+    } else if (
         settings.compressGrep &&
         /^[^\n:]+:\d+[:-]/m.test(processed) &&
         processed.split("\n").filter((l) => /^[^\n:]+:\d+[:-]/.test(l)).length >= 2
     ) {
-        processed = compressGrepOutput(processed);
-    }
-    // File list detection
-    else if (
+        processed = CompressGrepOutput(processed);
+    } else if (
         settings.compressFileLists &&
         (processed.includes("drwx") ||
             processed.includes("-rw-") ||
             processed.includes("├── ") ||
             processed.includes("└── "))
     ) {
-        processed = compressFileListings(processed);
-    }
-    // General Logs
-    else if (settings.compressLogs) {
-        processed = compressGenericLogs(processed);
+        processed = CompressFileListings(processed);
+    } else if (settings.compressLogs) {
+        processed = CompressGenericLogs(processed);
     }
 
     if (settings.stripAnsiAndWhitespace) {
-        processed = cleanWhitespace(processed);
+        processed = CleanWhitespace(processed);
     }
 
     return processed;
 }
 
-/**
- * Builds system prompt enhancements for Lazy Senior Dev and Caveman (Terse Output).
- */
-export function buildSystemPromptEnhancements(settings: TokenSaverSettings): string {
+export function BuildSystemPromptEnhancements(settings: TokenSaverSettings): string {
     if (!settings.enabled) return "";
 
     const parts: string[] = [];
 
-    // 1. Lazy Senior Dev (ponytail)
     if (settings.lazySeniorDev.enabled) {
         if (settings.lazySeniorDev.mode === "strict") {
             parts.push(
@@ -347,7 +298,6 @@ export function buildSystemPromptEnhancements(settings: TokenSaverSettings): str
         }
     }
 
-    // 2. Compress LLM Output (caveman)
     if (settings.compressLlmOutput.enabled) {
         if (settings.compressLlmOutput.mode === "ultra_terse") {
             parts.push(
@@ -374,10 +324,7 @@ export function buildSystemPromptEnhancements(settings: TokenSaverSettings): str
     return parts.join("\n\n");
 }
 
-/**
- * Simple, fast token estimation: ~4 chars per token for typical English/code text.
- */
-export function estimateTokens(text: string): number {
+export function EstimateTokens(text: string): number {
     if (!text) return 0;
     return Math.max(1, Math.ceil(text.length / 4));
 }
@@ -390,17 +337,14 @@ export interface AppliedTokenSaverResult {
     percentageSaved: number;
 }
 
-/**
- * Applies all enabled Token Saver optimizations to an incoming ChatCompletionRequest.
- */
-export function applyTokenSaver(
+export function ApplyTokenSaver(
     request: ChatCompletionRequest,
     settings: TokenSaverSettings
 ): AppliedTokenSaverResult {
     if (!settings.enabled) {
         const tokens = request.messages.reduce((acc, m) => {
             const content = typeof m.content === "string" ? m.content : JSON.stringify(m.content);
-            return acc + estimateTokens(content);
+            return acc + EstimateTokens(content);
         }, 0);
         return {
             request,
@@ -411,103 +355,112 @@ export function applyTokenSaver(
         };
     }
 
-    let originalTotalLength = 0;
-    let optimizedTotalLength = 0;
+    let original_total_length = 0;
+    let optimized_total_length = 0;
 
-    // 1. Compress Tool & Terminal Output inside messages
-    const optimizedMessages: ChatMessage[] = request.messages.map((msg) => {
-        const rawContent = typeof msg.content === "string" ? msg.content : "";
-        originalTotalLength += rawContent.length;
+    const optimized_messages: ChatMessage[] = request.messages.map((msg) => {
+        const raw_content = typeof msg.content === "string" ? msg.content : "";
+        original_total_length += raw_content.length;
 
         if (
             settings.compressToolOutput.enabled &&
-            rawContent.length >= settings.compressToolOutput.minCharacterThreshold &&
+            raw_content.length >= settings.compressToolOutput.minCharacterThreshold &&
             (msg.role === "tool" ||
                 msg.role === "user" ||
-                (msg.role === "assistant" && rawContent.includes("```")))
+                (msg.role === "assistant" && raw_content.includes("```")))
         ) {
-            const compressed = compressSingleToolOutput(rawContent, settings.compressToolOutput);
-            optimizedTotalLength += compressed.length;
+            const compressed = CompressSingleToolOutput(raw_content, settings.compressToolOutput);
+            optimized_total_length += compressed.length;
             return {
                 ...msg,
                 content: compressed
             };
         }
 
-        optimizedTotalLength += rawContent.length;
+        optimized_total_length += raw_content.length;
         return msg;
     });
 
-    // 2. Inject Prompt Enhancements (Lazy Senior Dev & Caveman)
-    const promptEnhancement = buildSystemPromptEnhancements(settings);
-    if (promptEnhancement) {
-        const systemMsgIndex = optimizedMessages.findIndex((m) => m.role === "system");
-        if (systemMsgIndex >= 0) {
-            const existing = optimizedMessages[systemMsgIndex]!;
-            const existingContent = typeof existing.content === "string" ? existing.content : "";
-            optimizedMessages[systemMsgIndex] = {
+    const prompt_enhancement = BuildSystemPromptEnhancements(settings);
+    if (prompt_enhancement) {
+        const system_msg_index = optimized_messages.findIndex((m) => m.role === "system");
+        if (system_msg_index >= 0) {
+            const existing = optimized_messages[system_msg_index]!;
+            const existing_content = typeof existing.content === "string" ? existing.content : "";
+            optimized_messages[system_msg_index] = {
                 ...existing,
-                content: `${existingContent}\n\n${promptEnhancement}`.trim()
+                content: `${existing_content}\n\n${prompt_enhancement}`.trim()
             };
         } else {
-            optimizedMessages.unshift({
+            optimized_messages.unshift({
                 role: "system",
-                content: promptEnhancement
+                content: prompt_enhancement
             });
         }
     }
 
-    const originalInputTokens = Math.max(1, Math.ceil(originalTotalLength / 4));
-    const optimizedInputTokens = Math.max(1, Math.ceil(optimizedTotalLength / 4));
-    const tokensSaved = Math.max(0, originalInputTokens - optimizedInputTokens);
-    const percentageSaved =
-        originalInputTokens > 0
-            ? Math.min(99, Math.round((tokensSaved / originalInputTokens) * 100))
+    const original_input_tokens = Math.max(1, Math.ceil(original_total_length / 4));
+    const optimized_input_tokens = Math.max(1, Math.ceil(optimized_total_length / 4));
+    const tokens_saved = Math.max(0, original_input_tokens - optimized_input_tokens);
+    const percentage_saved =
+        original_input_tokens > 0
+            ? Math.min(99, Math.round((tokens_saved / original_input_tokens) * 100))
             : 0;
 
     return {
         request: {
             ...request,
-            messages: optimizedMessages
+            messages: optimized_messages
         },
-        originalInputTokens,
-        optimizedInputTokens,
-        tokensSaved,
-        percentageSaved
+        originalInputTokens: original_input_tokens,
+        optimizedInputTokens: optimized_input_tokens,
+        tokensSaved: tokens_saved,
+        percentageSaved: percentage_saved
     };
 }
 
-/**
- * Preview / Simulator utility for UI and test endpoints.
- */
 export function PreviewTokenSaver(
     type: "tool_output" | "prompt",
     text: string,
     settings: TokenSaverSettings
 ): TokenSaverPreviewResponse {
-    const originalTokensEstimate = estimateTokens(text);
-    let transformedText = text;
+    const original_tokens_estimate = EstimateTokens(text);
+    let transformed_text = text;
 
     if (type === "tool_output") {
-        transformedText = compressSingleToolOutput(text, settings.compressToolOutput);
+        transformed_text = CompressSingleToolOutput(text, settings.compressToolOutput);
     } else {
-        const enhancements = buildSystemPromptEnhancements(settings);
-        transformedText = enhancements ? `${text}\n\n${enhancements}`.trim() : text;
+        const enhancements = BuildSystemPromptEnhancements(settings);
+        transformed_text = enhancements ? `${text}\n\n${enhancements}`.trim() : text;
     }
 
-    const transformedTokensEstimate = estimateTokens(transformedText);
-    const tokensSavedEstimate = Math.max(0, originalTokensEstimate - transformedTokensEstimate);
-    const percentageSaved =
-        originalTokensEstimate > 0
-            ? Math.round((tokensSavedEstimate / originalTokensEstimate) * 100)
+    const transformed_tokens_estimate = EstimateTokens(transformed_text);
+    const tokens_saved_estimate = Math.max(0, original_tokens_estimate - transformed_tokens_estimate);
+    const percentage_saved =
+        original_tokens_estimate > 0
+            ? Math.round((tokens_saved_estimate / original_tokens_estimate) * 100)
             : 0;
 
     return {
         originalText: text,
-        transformedText,
-        originalTokensEstimate,
-        transformedTokensEstimate,
-        tokensSavedEstimate,
-        percentageSaved
+        transformedText: transformed_text,
+        originalTokensEstimate: original_tokens_estimate,
+        transformedTokensEstimate: transformed_tokens_estimate,
+        tokensSavedEstimate: tokens_saved_estimate,
+        percentageSaved: percentage_saved
     };
 }
+
+// Canonical PascalCase Exports
+export const stripAnsiCodes = StripAnsiCodes;
+export const cleanWhitespace = CleanWhitespace;
+export const compressGitDiff = CompressGitDiff;
+export const compressGitStatusOrLog = CompressGitStatusOrLog;
+export const compressGrepOutput = CompressGrepOutput;
+export const compressFileListings = CompressFileListings;
+export const compressGenericLogs = CompressGenericLogs;
+export const compressSingleToolOutput = CompressSingleToolOutput;
+export const buildSystemPromptEnhancements = BuildSystemPromptEnhancements;
+export const estimateTokens = EstimateTokens;
+export const applyTokenSaver = ApplyTokenSaver;
+
