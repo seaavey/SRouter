@@ -1067,7 +1067,9 @@ export function buildAntigravityContents(req: ChatCompletionRequest): GeminiCont
             }
             let args: JSONObject = {};
             try {
-                args = stripZeroWidth(JSON.parse(legacyFunctionCall.arguments || "{}") as JSONObject);
+                args = stripZeroWidth(
+                    JSON.parse(legacyFunctionCall.arguments || "{}") as JSONObject
+                );
             } catch {
                 args = { raw: legacyFunctionCall.arguments || "" };
             }

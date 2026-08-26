@@ -148,7 +148,13 @@ function flattenText(content: ChatMessage["content"]): string {
     if (typeof content === "string") return content;
     if (Array.isArray(content)) {
         return content
-            .map((p) => (typeof p === "string" ? p : p && typeof p === "object" && "text" in p && typeof p.text === "string" ? p.text : ""))
+            .map((p) =>
+                typeof p === "string"
+                    ? p
+                    : p && typeof p === "object" && "text" in p && typeof p.text === "string"
+                      ? p.text
+                      : ""
+            )
             .filter(Boolean)
             .join("\n");
     }
@@ -159,11 +165,13 @@ function mapMessageToInputItems(msg: ChatMessage): ResponsesInputItem[] {
     const role = msg.role;
 
     if (role === "system") {
-        return [{
-            type: "message",
-            role: "developer",
-            content: [{ type: "input_text", text: flattenText(msg.content) }]
-        }];
+        return [
+            {
+                type: "message",
+                role: "developer",
+                content: [{ type: "input_text", text: flattenText(msg.content) }]
+            }
+        ];
     }
 
     if (role === "user") {
@@ -195,21 +203,27 @@ function mapMessageToInputItems(msg: ChatMessage): ResponsesInputItem[] {
             }));
         }
         const text = flattenText(msg.content);
-        return text ? [{ type: "message", role: "assistant", content: [{ type: "output_text", text }] }] : [];
+        return text
+            ? [{ type: "message", role: "assistant", content: [{ type: "output_text", text }] }]
+            : [];
     }
 
     if (role === "tool") {
-        return [{
-            type: "function_call_output",
-            call_id: msg.tool_call_id || "",
-            output: flattenText(msg.content)
-        }];
+        return [
+            {
+                type: "function_call_output",
+                call_id: msg.tool_call_id || "",
+                output: flattenText(msg.content)
+            }
+        ];
     }
 
     return [];
 }
 
-function mapResponsesTools(tools?: ToolDefinition[]): Array<ResponsesToolDefinition | ToolDefinition | JSONObject> | undefined {
+function mapResponsesTools(
+    tools?: ToolDefinition[]
+): Array<ResponsesToolDefinition | ToolDefinition | JSONObject> | undefined {
     if (!Array.isArray(tools) || tools.length === 0) return undefined;
     const result: Array<ResponsesToolDefinition | ToolDefinition | JSONObject> = [];
     for (const tool of tools) {
@@ -223,9 +237,17 @@ function mapResponsesTools(tools?: ToolDefinition[]): Array<ResponsesToolDefinit
                 type: "function",
                 name: name.slice(0, 128),
                 description: fn.description || "",
-                parameters: (fn.parameters as JSONObject | undefined) || { type: "object", properties: {} }
+                parameters: (fn.parameters as JSONObject | undefined) || {
+                    type: "object",
+                    properties: {}
+                }
             });
-        } else if (type === "namespace" || !type || type === "custom" || HOSTED_TOOL_TYPES.has(type)) {
+        } else if (
+            type === "namespace" ||
+            !type ||
+            type === "custom" ||
+            HOSTED_TOOL_TYPES.has(type)
+        ) {
             result.push(tool);
         }
     }
@@ -436,7 +458,10 @@ export function ConvertResponsesAPIFormat(body: ResponsesRequestBody): ChatCompl
                                   : c.image_url?.url || "";
                           return {
                               type: "image_url",
-                              image_url: { url, detail: (c.detail as "auto" | "low" | "high") || "auto" }
+                              image_url: {
+                                  url,
+                                  detail: (c.detail as "auto" | "low" | "high") || "auto"
+                              }
                           };
                       }
                       return c;

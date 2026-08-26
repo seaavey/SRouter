@@ -35,7 +35,13 @@ function flattenText(content: ChatMessage["content"]): string {
     if (typeof content === "string") return content;
     if (Array.isArray(content)) {
         return content
-            .map((p) => (typeof p === "string" ? p : p && typeof p === "object" && "text" in p && typeof p.text === "string" ? p.text : ""))
+            .map((p) =>
+                typeof p === "string"
+                    ? p
+                    : p && typeof p === "object" && "text" in p && typeof p.text === "string"
+                      ? p.text
+                      : ""
+            )
             .filter(Boolean)
             .join("\n");
     }
@@ -179,9 +185,7 @@ function mapMessages(messages: ChatCompletionRequest["messages"]): {
     return { messages: out, system: systemTexts.join("\n\n") };
 }
 
-function mapTools(
-    tools: ChatCompletionRequest["tools"]
-): CommandCodeToolDefinition[] | undefined {
+function mapTools(tools: ChatCompletionRequest["tools"]): CommandCodeToolDefinition[] | undefined {
     if (!Array.isArray(tools) || tools.length === 0) return undefined;
     const result: CommandCodeToolDefinition[] = [];
     for (const t of tools) {
@@ -453,7 +457,7 @@ function mapOpenAIUsage(raw?: CommandCodeUsage | null): UsageInfo | null {
     if (!raw) return null;
     const prompt_tokens = raw.inputTokens ?? 0;
     const completion_tokens = raw.outputTokens ?? 0;
-    const total_tokens = raw.totalTokens ?? (prompt_tokens + completion_tokens);
+    const total_tokens = raw.totalTokens ?? prompt_tokens + completion_tokens;
     return { prompt_tokens, completion_tokens, total_tokens };
 }
 

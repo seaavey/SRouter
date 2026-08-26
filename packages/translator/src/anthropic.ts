@@ -127,7 +127,9 @@ function mapAnthropicMessage(msg: AnthropicMessage): ChatMessage[] {
     return messages;
 }
 
-function mapAnthropicTools(tools?: AnthropicTool[] | ToolDefinition[]): ToolDefinition[] | undefined {
+function mapAnthropicTools(
+    tools?: AnthropicTool[] | ToolDefinition[]
+): ToolDefinition[] | undefined {
     if (!Array.isArray(tools) || tools.length === 0) return undefined;
 
     return tools.map((t) => {
@@ -435,4 +437,3 @@ export async function* OpenAIToAnthropicStream(
         type: "message_stop"
     };
 }
-
