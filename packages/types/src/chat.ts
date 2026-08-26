@@ -1,3 +1,13 @@
+export type JSONValue =
+    | string
+    | number
+    | boolean
+    | null
+    | { [key: string]: JSONValue }
+    | JSONValue[];
+
+export type JSONObject = Record<string, JSONValue>;
+
 export type ChatRole = "system" | "user" | "assistant" | "tool" | "function";
 export type ChatMessageRole = ChatRole;
 

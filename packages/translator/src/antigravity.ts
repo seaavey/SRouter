@@ -1,23 +1,22 @@
 import type {
     ChatCompletionChunk,
     ChatCompletionRequest,
-    ChatCompletionResponse
+    ChatCompletionResponse,
+    JSONObject,
+    JSONValue
 } from "@srouter/types";
 import crypto from "node:crypto";
 
-export type AntigravityJSONValue = string | number | boolean | null | { [x: string]: AntigravityJSONValue } | Array<AntigravityJSONValue>;
-export type AntigravityJSONObject = Record<string, AntigravityJSONValue>;
-
 export interface GeminiFunctionCall {
     name: string;
-    args?: AntigravityJSONObject;
+    args?: JSONObject;
     thoughtSignature?: string;
     thought_signature?: string;
 }
 
 export interface GeminiFunctionResponse {
     name: string;
-    response?: AntigravityJSONObject;
+    response?: JSONObject;
 }
 
 export interface GeminiInlineData {
@@ -939,7 +938,7 @@ export function getAntigravityModelFallbacks(modelName: string): string[] {
  */
 export function parseAntigravityTextualToolCall(
     text: string
-): { name: string; args: AntigravityJSONObject } | null {
+): { name: string; args: JSONObject } | null {
     if (typeof text !== "string") return null;
     const normalized = text.replace(/[\u200B-\u200D\uFEFF]/g, "");
     const match = normalized.match(
@@ -950,7 +949,7 @@ export function parseAntigravityTextualToolCall(
     const rawArgs = match[2]?.trim();
     if (!name || !rawArgs) return null;
     try {
-        return { name, args: stripZeroWidth(JSON.parse(rawArgs) as AntigravityJSONObject) };
+        return { name, args: stripZeroWidth(JSON.parse(rawArgs) as JSONObject) };
     } catch {
         return null;
     }
@@ -1028,9 +1027,9 @@ export function buildAntigravityContents(req: ChatCompletionRequest): GeminiCont
             }
 
             for (const tc of m.tool_calls) {
-                let args: AntigravityJSONObject = {};
+                let args: JSONObject = {};
                 try {
-                    args = stripZeroWidth(JSON.parse(tc.function.arguments || "{}") as AntigravityJSONObject);
+                    args = stripZeroWidth(JSON.parse(tc.function.arguments || "{}") as JSONObject);
                 } catch {
                     args = { raw: tc.function.arguments || "" };
                 }
@@ -1066,9 +1065,9 @@ export function buildAntigravityContents(req: ChatCompletionRequest): GeminiCont
                 text = stripCompetitiveAgentPrompts(stripZeroWidth(text));
                 if (text) parts.push({ text });
             }
-            let args: AntigravityJSONObject = {};
+            let args: JSONObject = {};
             try {
-                args = stripZeroWidth(JSON.parse(legacyFunctionCall.arguments || "{}") as AntigravityJSONObject);
+                args = stripZeroWidth(JSON.parse(legacyFunctionCall.arguments || "{}") as JSONObject);
             } catch {
                 args = { raw: legacyFunctionCall.arguments || "" };
             }
@@ -1092,16 +1091,16 @@ export function buildAntigravityContents(req: ChatCompletionRequest): GeminiCont
                 "function";
             const name = sanitizeFunctionName(rawName);
 
-            let responseObj: AntigravityJSONObject;
+            let responseObj: JSONObject;
             try {
                 const parsed =
                     typeof m.content === "string"
-                        ? (JSON.parse(m.content) as AntigravityJSONObject)
-                        : (m.content as AntigravityJSONValue);
+                        ? (JSON.parse(m.content) as JSONObject)
+                        : (m.content as JSONValue);
                 if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-                    responseObj = stripZeroWidth(parsed as AntigravityJSONObject);
+                    responseObj = stripZeroWidth(parsed as JSONObject);
                 } else {
-                    responseObj = { output: (parsed as AntigravityJSONValue) ?? "" };
+                    responseObj = { output: (parsed as JSONValue) ?? "" };
                 }
             } catch {
                 responseObj = { output: typeof m.content === "string" ? m.content : "" };

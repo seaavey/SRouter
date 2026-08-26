@@ -7,6 +7,8 @@ import type {
     ChatMessage,
     CommandCodeRole,
     FinishReason,
+    JSONObject,
+    JSONValue,
     ToolCall,
     ToolFunctionParameters,
     UsageInfo
@@ -24,11 +26,9 @@ export interface CommandCodeContentBlock {
     text?: string;
     toolCallId?: string;
     toolName?: string;
-    input?: Record<string, JSONValue> | JSONValue;
+    input?: JSONObject | JSONValue;
     output?: CommandCodeToolCallOutput;
 }
-
-export type JSONValue = string | number | boolean | null | { [x: string]: JSONValue } | Array<JSONValue>;
 
 function flattenText(content: ChatMessage["content"]): string {
     if (content == null) return "";
