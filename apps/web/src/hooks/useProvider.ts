@@ -58,33 +58,5 @@ export function useProvider(providerId: string) {
         }
     });
 
-    const addModelMutation = useMutation({
-        mutationFn: (modelId: string) =>
-            api.post<ModelObject>(`/v1/providers/${providerId}/models`, { modelId }),
-        onSuccess: () => {
-            void queryClient.invalidateQueries({ queryKey: ["providers", providerId] });
-            void queryClient.invalidateQueries({ queryKey: ["models"] });
-            toast.success("Custom model added");
-        },
-        onError: (err: Error) => {
-            toast.error(err.message || "Failed to add custom model");
-        }
-    });
-
-    const deleteModelMutation = useMutation({
-        mutationFn: (modelId: string) =>
-            api.delete<{ message: string }>(
-                `/v1/providers/${providerId}/models/${encodeURIComponent(modelId)}`
-            ),
-        onSuccess: () => {
-            void queryClient.invalidateQueries({ queryKey: ["providers", providerId] });
-            void queryClient.invalidateQueries({ queryKey: ["models"] });
-            toast.success("Custom model deleted");
-        },
-        onError: (err: Error) => {
-            toast.error(err.message || "Failed to delete custom model");
-        }
-    });
-
-    return { ...query, addMutation, deleteMutation, addModelMutation, deleteModelMutation };
+    return { ...query, addMutation, deleteMutation };
 }
