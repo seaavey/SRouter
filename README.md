@@ -19,6 +19,10 @@ Keep a single stable endpoint while SRouter routes requests, refreshes OAuth tok
   <img src="docs/images/dashboard-dark.png" alt="SRouter Dashboard" width="100%">
 </p>
 
+<p align="center">
+  <a href="docs/images/demo.mp4">▶️ <b>Watch UI & Dashboard Walkthrough Video (MP4)</b></a>
+</p>
+
 [Quick Start](#-quick-start) • [Providers](#-supported-providers) • [Coding Tools](#-connect-coding-tools) • [Integrations](#-integrate) • [API](#-api-endpoints) • [Docker](#-docker)
 
 </div>
