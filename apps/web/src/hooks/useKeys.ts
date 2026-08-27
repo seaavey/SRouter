@@ -8,6 +8,7 @@ export function useKeys() {
     const [loading, setLoading] = useState(true);
     const [creating, setCreating] = useState(false);
     const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [addingCreditId, setAddingCreditId] = useState<string | null>(null);
     const [newlyCreatedKey, setNewlyCreatedKey] = useState<DBAPIKey | null>(null);
 
     const fetchKeys = useCallback(async () => {
@@ -31,6 +32,7 @@ export function useKeys() {
             name: string;
             rateLimit?: number;
             quotaLimit?: number;
+            creditLimit?: number;
             allowed_models?: string[] | null;
         }) => {
             if (!data.name.trim()) {
@@ -56,6 +58,27 @@ export function useKeys() {
         []
     );
 
+    const addCredit = useCallback(async (id: string, amount: number) => {
+        if (!Number.isFinite(amount) || amount <= 0) {
+            toast.error("Amount must be greater than 0");
+            return null;
+        }
+
+        setAddingCreditId(id);
+        try {
+            const updated = await api.post<DBAPIKey>(`/v1/keys/${id}/credit`, { amount });
+            setKeys((prev) => prev.map((k) => (k.id === id ? updated : k)));
+            toast.success(`Added $${amount.toFixed(2)} credit to "${updated.name}"`);
+            return updated;
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : "Failed to add credit";
+            toast.error(msg);
+            return null;
+        } finally {
+            setAddingCreditId(null);
+        }
+    }, []);
+
     const deleteKey = useCallback(async (id: string) => {
         setDeletingId(id);
         try {
@@ -77,10 +100,12 @@ export function useKeys() {
         loading,
         creating,
         deletingId,
+        addingCreditId,
         newlyCreatedKey,
         setNewlyCreatedKey,
         fetchKeys,
         createKey,
+        addCredit,
         deleteKey
     };
 }

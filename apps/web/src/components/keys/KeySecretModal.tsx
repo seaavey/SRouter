@@ -88,6 +88,27 @@ export function KeySecretModal({ newKey, onClose }: KeySecretModalProps) {
                             </Button>
                         </div>
                     </div>
+                    {/* Key Limits / Credit Summary */}
+                    {(newKey.creditLimit > 0 || newKey.quotaLimit > 0 || newKey.rateLimit > 0) && (
+                        <div className="flex flex-wrap gap-2 text-[11px] font-mono text-muted-foreground pt-1">
+                            {newKey.creditLimit > 0 && (
+                                <span className="rounded-md border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-emerald-600 dark:text-emerald-400 font-semibold">
+                                    Credit: ${newKey.creditLimit.toFixed(2)} USD
+                                </span>
+                            )}
+                            {newKey.quotaLimit > 0 && (
+                                <span className="rounded-md border border-border/60 bg-secondary/40 px-2 py-0.5">
+                                    Quota: {newKey.quotaLimit.toLocaleString()} tokens
+                                </span>
+                            )}
+                            {newKey.rateLimit > 0 && (
+                                <span className="rounded-md border border-border/60 bg-secondary/40 px-2 py-0.5">
+                                    Rate: {newKey.rateLimit.toLocaleString()} req/m
+                                </span>
+                            )}
+                        </div>
+                    )}
+
                     {newKey.allowed_models && newKey.allowed_models.length > 0 ? (
                         <div className="space-y-1.5">
                             <span className="block text-xs font-medium text-foreground">

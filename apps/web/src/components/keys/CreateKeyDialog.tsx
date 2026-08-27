@@ -22,6 +22,7 @@ type CreateKeyDialogProps = {
         name: string;
         rateLimit?: number;
         quotaLimit?: number;
+        creditLimit?: number;
         allowed_models?: string[] | null;
     }) => Promise<void>;
 };
@@ -32,6 +33,7 @@ export function CreateKeyDialog({ open, creating, onOpenChange, onSubmit }: Crea
     const [name, setName] = useState("");
     const [rateLimit, setRateLimit] = useState("");
     const [quotaLimit, setQuotaLimit] = useState("");
+    const [creditLimit, setCreditLimit] = useState("");
     const [modelScope, setModelScope] = useState<ModelScope>("all");
     const [selectedModels, setSelectedModels] = useState<string[]>([]);
     const [modelSearch, setModelSearch] = useState("");
@@ -54,6 +56,7 @@ export function CreateKeyDialog({ open, creating, onOpenChange, onSubmit }: Crea
         setName("");
         setRateLimit("");
         setQuotaLimit("");
+        setCreditLimit("");
         setModelScope("all");
         setSelectedModels([]);
         setModelSearch("");
@@ -72,6 +75,7 @@ export function CreateKeyDialog({ open, creating, onOpenChange, onSubmit }: Crea
 
         const rateNum = rateLimit.trim() ? parseInt(rateLimit, 10) : undefined;
         const quotaNum = quotaLimit.trim() ? parseInt(quotaLimit, 10) : undefined;
+        const creditNum = creditLimit.trim() ? parseFloat(creditLimit) : undefined;
         const allowedModels =
             modelScope === "restricted" && selectedModels.length > 0 ? selectedModels : null;
 
@@ -79,6 +83,7 @@ export function CreateKeyDialog({ open, creating, onOpenChange, onSubmit }: Crea
             name: trimmedName,
             rateLimit: Number.isFinite(rateNum) && (rateNum ?? 0) > 0 ? rateNum : undefined,
             quotaLimit: Number.isFinite(quotaNum) && (quotaNum ?? 0) > 0 ? quotaNum : undefined,
+            creditLimit: Number.isFinite(creditNum) && (creditNum ?? 0) > 0 ? creditNum : undefined,
             allowed_models: allowedModels
         });
 
@@ -122,7 +127,7 @@ export function CreateKeyDialog({ open, creating, onOpenChange, onSubmit }: Crea
                     </div>
 
                     {/* Limits Section */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
                         {/* Rate Limit */}
                         <div className="space-y-1.5">
                             <label
@@ -130,8 +135,8 @@ export function CreateKeyDialog({ open, creating, onOpenChange, onSubmit }: Crea
                                 className="block text-xs font-medium text-foreground"
                             >
                                 Rate limit{" "}
-                                <span className="text-[11px] font-normal text-muted-foreground">
-                                    (req/min)
+                                <span className="text-[10px] font-normal text-muted-foreground">
+                                    (req/m)
                                 </span>
                             </label>
                             <Input
@@ -143,8 +148,8 @@ export function CreateKeyDialog({ open, creating, onOpenChange, onSubmit }: Crea
                                 placeholder="Unlimited"
                                 className="h-9 font-mono text-xs rounded-md bg-background border-input"
                             />
-                            <p className="text-[11px] text-muted-foreground">
-                                Optional max requests/min
+                            <p className="text-[10px] text-muted-foreground">
+                                Max req/min
                             </p>
                         </div>
 
@@ -155,7 +160,7 @@ export function CreateKeyDialog({ open, creating, onOpenChange, onSubmit }: Crea
                                 className="block text-xs font-medium text-foreground"
                             >
                                 Token quota{" "}
-                                <span className="text-[11px] font-normal text-muted-foreground">
+                                <span className="text-[10px] font-normal text-muted-foreground">
                                     (tokens)
                                 </span>
                             </label>
@@ -168,8 +173,34 @@ export function CreateKeyDialog({ open, creating, onOpenChange, onSubmit }: Crea
                                 placeholder="Unlimited"
                                 className="h-9 font-mono text-xs rounded-md bg-background border-input"
                             />
-                            <p className="text-[11px] text-muted-foreground">
-                                Optional max lifetime tokens
+                            <p className="text-[10px] text-muted-foreground">
+                                Max tokens
+                            </p>
+                        </div>
+
+                        {/* Credit Limit */}
+                        <div className="space-y-1.5">
+                            <label
+                                htmlFor="credit-limit"
+                                className="block text-xs font-medium text-foreground"
+                            >
+                                Credit limit{" "}
+                                <span className="text-[10px] font-normal text-muted-foreground">
+                                    ($ USD)
+                                </span>
+                            </label>
+                            <Input
+                                id="credit-limit"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={creditLimit}
+                                onChange={(e) => setCreditLimit(e.target.value)}
+                                placeholder="Unlimited"
+                                className="h-9 font-mono text-xs rounded-md bg-background border-input"
+                            />
+                            <p className="text-[10px] text-muted-foreground">
+                                Prepaid budget
                             </p>
                         </div>
                     </div>
