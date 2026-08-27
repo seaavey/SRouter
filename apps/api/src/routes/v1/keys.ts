@@ -9,4 +9,5 @@ KeysRouter.get("/keys", ApiKeyAuth, KeysController.ListKeys);
 
 // Mutation endpoints require Admin Auth
 KeysRouter.post("/keys", RequireAdmin, KeysController.CreateKey);
+KeysRouter.post("/keys/:id/credit", RequireAdmin, KeysController.AddCredit);
 KeysRouter.delete("/keys/:id", RequireAdmin, KeysController.DeleteKey);
