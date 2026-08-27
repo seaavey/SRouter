@@ -76,6 +76,31 @@ export function CreateApiKeyAuth(Options: ApiKeyAuthOptions = {}) {
                         code: "api_key_disabled"
                     });
                 }
+
+                if (ApiKeyRow.creditLimit > 0 && ApiKeyRow.usageCost >= ApiKeyRow.creditLimit) {
+                    return Err(
+                        c,
+                        "Insufficient credit balance. Your credit limit has been reached.",
+                        402,
+                        {
+                            type: "insufficient_quota",
+                            code: "insufficient_credit"
+                        }
+                    );
+                }
+
+                if (ApiKeyRow.quotaLimit > 0 && ApiKeyRow.usageTokens >= ApiKeyRow.quotaLimit) {
+                    return Err(
+                        c,
+                        "Token quota exceeded. Your lifetime token limit has been reached.",
+                        429,
+                        {
+                            type: "insufficient_quota",
+                            code: "quota_exceeded"
+                        }
+                    );
+                }
+
                 c.set("apiKeyRow", ApiKeyRow);
                 c.set("authType", "api_key");
                 return await next();
