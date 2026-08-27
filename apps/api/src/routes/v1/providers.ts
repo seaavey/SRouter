@@ -13,3 +13,15 @@ ProvidersRouter.get("/providers/:providerId", ApiKeyAuth, ProvidersController.Ge
 ProvidersRouter.post("/providers/verify", RequireAdmin, ProvidersController.VerifyProvider);
 ProvidersRouter.post("/providers", RequireAdmin, ProvidersController.AddProvider);
 ProvidersRouter.delete("/providers/:id", RequireAdmin, ProvidersController.DeleteProvider);
+
+// Custom (user-added) models per provider driver
+ProvidersRouter.post(
+    "/providers/:providerId/models",
+    RequireAdmin,
+    ProvidersController.AddCustomModel
+);
+ProvidersRouter.delete(
+    "/providers/:providerId/models/:modelId{.+}",
+    RequireAdmin,
+    ProvidersController.DeleteCustomModel
+);

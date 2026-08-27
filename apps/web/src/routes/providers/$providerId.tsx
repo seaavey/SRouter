@@ -21,6 +21,7 @@ import { useFavorites } from "@/hooks/useFavorites";
 import { toast } from "sonner";
 import { ConnectionCard } from "@/components/providers/ConnectionCard";
 import { ConnectionForm, type ConnectionFormInput } from "@/components/providers/ConnectionForm";
+import { AddModelDialog } from "@/components/providers/AddModelDialog";
 import { ProviderModelCard } from "@/components/providers/ProviderModelCard";
 import { ProviderModelTable } from "@/components/providers/ProviderModelTable";
 import { ProviderDetailSkeleton } from "@/components/skeletons";
@@ -39,7 +40,9 @@ function ProviderDetailPage() {
         error,
         refetch,
         addMutation,
-        deleteMutation
+        deleteMutation,
+        addModelMutation,
+        deleteModelMutation
     } = useProvider(providerId);
 
     const [modelSearch, setModelSearch] = useState("");
@@ -47,6 +50,7 @@ function ProviderDetailPage() {
     const [roundRobin, setRoundRobin] = useState(false);
     const [isAddOpen, setIsAddOpen] = useState(false);
     const [isOAuthModalOpen, setIsOAuthModalOpen] = useState(false);
+    const [isAddModelOpen, setIsAddModelOpen] = useState(false);
     const [formError, setFormError] = useState("");
     const { copied, copy } = useCopy();
     const { isFavorite } = useFavorites();
@@ -304,6 +308,15 @@ function ProviderDetailPage() {
                 <div className="flex shrink-0 items-center gap-2">
                     <Button
                         type="button"
+                        variant="outline"
+                        onClick={() => setIsAddModelOpen(true)}
+                        className="h-8 text-xs font-semibold cursor-pointer shadow-xs gap-1.5"
+                    >
+                        <Plus className="size-3.5" />
+                        <span>Add Model</span>
+                    </Button>
+                    <Button
+                        type="button"
                         onClick={handleAddConnection}
                         className="h-8 text-xs font-semibold cursor-pointer shadow-xs gap-1.5"
                     >
@@ -478,6 +491,22 @@ function ProviderDetailPage() {
                 provider={provider}
                 open={isOAuthModalOpen}
                 onOpenChange={setIsOAuthModalOpen}
+            />
+
+            {/* Add Custom Model Dialog */}
+            <AddModelDialog
+                open={isAddModelOpen}
+                onOpenChange={setIsAddModelOpen}
+                providerName={provider.name}
+                isPending={addModelMutation.isPending}
+                onSubmit={(modelId) =>
+                    addModelMutation.mutate(modelId, {
+                        onSuccess: () => {
+                            setIsAddModelOpen(false);
+                            toast.success(`Model "${modelId}" added to ${provider.name}`);
+                        }
+                    })
+                }
             />
         </div>
     );

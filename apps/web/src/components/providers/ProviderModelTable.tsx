@@ -240,6 +240,11 @@ export function ProviderModelTable({
                             >
                                 {model.id}
                             </span>
+                            {model.custom && (
+                                <span className="inline-flex items-center rounded-[4px] bg-sky-500/10 px-1.5 py-0.2 text-[9.5px] font-bold text-sky-600 dark:text-sky-400 border border-sky-500/20 shrink-0">
+                                    Custom
+                                </span>
+                            )}
 
                             <button
                                 type="button"

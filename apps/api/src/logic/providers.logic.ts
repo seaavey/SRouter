@@ -1,4 +1,9 @@
-import { DEFAULT_PROVIDER_MAP, isProviderCategory, isSeedProvider } from "@srouter/constants";
+import {
+    DEFAULT_PROVIDER_MAP,
+    isProviderCategory,
+    isSeedProvider,
+    providerAlias
+} from "@srouter/constants";
 import type {
     CreateProviderZod,
     ModelObject,
@@ -8,7 +13,13 @@ import type {
     ProviderProtocol,
     VerifyProviderZod
 } from "@srouter/types";
-import { getAllProvidersDB, upsertProviderDB } from "@srouter/db";
+import {
+    addCustomModelDB,
+    deleteCustomModelDB,
+    getAllProvidersDB,
+    getCustomModelsByProviderDB,
+    upsertProviderDB
+} from "@srouter/db";
 import { loadSavedProvidersFromDB, registry } from "@/services/registry.js";
 
 export interface GroupedCatalog {
@@ -190,6 +201,18 @@ export class ProvidersLogic {
             }
         }
 
+        const CustomModels = ProvidersLogic.ListCustomModels(ProviderId);
+        if (CustomModels.length > 0) {
+            const Merged = new Map<string, ModelObject>();
+            for (const M of LiveModels) {
+                Merged.set(M.id.toLowerCase(), M);
+            }
+            for (const M of CustomModels) {
+                Merged.set(M.id.toLowerCase(), M);
+            }
+            LiveModels = Array.from(Merged.values());
+        }
+
         return {
             ...Provider,
             connections: Connections,
@@ -250,13 +273,50 @@ export class ProvidersLogic {
         return ProviderDefinitionFromConfig(Config);
     }
 
+    public static AddCustomModel(ProviderId: string, ModelId: string): ModelObject {
+        const Id = ProviderId.toLowerCase();
+        if (
+            !DEFAULT_PROVIDER_MAP[Id] &&
+            !getAllProvidersDB().some((P) => BaseIdOf(P.providerId || P.id) === Id)
+        ) {
+            throw new Error(`Provider '${ProviderId}' not found`);
+        }
+        const Trimmed = ModelId.trim();
+        if (!Trimmed) throw new Error("Model ID is required");
+        if (Trimmed.length > 200 || !/^[A-Za-z0-9._\-/: ]+$/.test(Trimmed))
+            throw new Error(
+                "Model ID may only contain letters, numbers, dots, dashes, underscores, slashes, colons, and spaces"
+            );
+
+        addCustomModelDB(Id, Trimmed);
+        const FullId = `${providerAlias(Id)}/${Trimmed}`;
+        registry.clearModelsCache();
+        return { id: FullId, object: "model", owned_by: providerAlias(Id) };
+    }
+
+    public static DeleteCustomModel(ProviderId: string, ModelId: string): void {
+        const Deleted = deleteCustomModelDB(ProviderId.toLowerCase(), ModelId);
+        if (!Deleted) throw new Error(`Custom model '${ModelId}' not found for '${ProviderId}'`);
+        registry.clearModelsCache();
+    }
+
+    public static ListCustomModels(ProviderId: string): ModelObject[] {
+        const Alias = providerAlias(ProviderId.toLowerCase());
+        return getCustomModelsByProviderDB(ProviderId.toLowerCase()).map((Row) => ({
+            id: `${Alias}/${Row.modelId}`,
+            object: "model" as const,
+            owned_by: Alias,
+            custom: true
+        }));
+    }
+
     public static async VerifyConnection(Payload: VerifyProviderZod): Promise<{
         success: boolean;
         message: string;
         modelsCount?: number;
     }> {
         const Protocol = Payload.protocol || "openai";
-        const BaseUrl = (Payload.base_url?.trim() || "").replace(/\/+$/, "");
+        const BaseUrl = (Payload.baseUrl?.trim() || "").replace(/\/+$/, "");
         const ApiKey = Payload.apiKey?.trim();
 
         if (BaseUrl) {

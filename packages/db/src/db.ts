@@ -200,6 +200,16 @@ export function initDatabase(): void {
             value TEXT NOT NULL
         );
     `);
+
+    // 7. Table for user-added custom models per provider driver
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS custom_models (
+            provider_id TEXT NOT NULL,
+            model_id TEXT NOT NULL,
+            created_at INTEGER NOT NULL,
+            PRIMARY KEY (provider_id, model_id)
+        );
+    `);
 }
 
 // Auto-run schema initialization

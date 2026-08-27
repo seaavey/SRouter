@@ -137,6 +137,8 @@ export interface ModelObject {
     object: "model";
     created?: number;
     owned_by: string;
+    /** True when the entry was manually added by the user (custom_models table). */
+    custom?: boolean;
 }
 
 export interface ModelListResponse {
