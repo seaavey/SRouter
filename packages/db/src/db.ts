@@ -133,12 +133,18 @@ export function initDatabase(): void {
             rate_limit INTEGER DEFAULT 0,
             quota_limit INTEGER DEFAULT 0,
             usage_tokens INTEGER DEFAULT 0,
+            credit_limit REAL DEFAULT 0,
+            usage_cost REAL DEFAULT 0,
             allowed_models TEXT,
             created_at INTEGER NOT NULL
         );
     `);
 
-    ensureColumns("api_keys", [{ name: "allowed_models", definition: "allowed_models TEXT" }]);
+    ensureColumns("api_keys", [
+        { name: "allowed_models", definition: "allowed_models TEXT" },
+        { name: "credit_limit", definition: "credit_limit REAL DEFAULT 0" },
+        { name: "usage_cost", definition: "usage_cost REAL DEFAULT 0" }
+    ]);
 
     // 3. Table for Request Logs & Token Analytics
     db.exec(`
