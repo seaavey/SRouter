@@ -25,7 +25,8 @@ export class MessagesController {
 
         const body = parsed.data as AnthropicMessageRequest;
 
-        const AllowedModels = GetApiKeyRow(c)?.allowed_models;
+        const ApiKeyRow = GetApiKeyRow(c);
+        const AllowedModels = ApiKeyRow?.allowed_models;
         if (!IsModelAllowed(AllowedModels, body.model)) {
             return AnthropicErr(
                 c,
@@ -35,6 +36,7 @@ export class MessagesController {
             );
         }
 
+        const ApiKeyId = ApiKeyRow?.id;
         const OpenAIReq = AnthropicToOpenAIRequest(body);
         const isThinkingEnabled = Boolean(body.thinking?.type === "enabled");
 
@@ -47,7 +49,9 @@ export class MessagesController {
                 try {
                     const chunkGenerator = ChatLogic.ProcessStreamingCompletion(
                         OpenAIReq,
-                        startTime
+                        startTime,
+                        0,
+                        ApiKeyId
                     );
                     const AnthropicStream = OpenAIToAnthropicStream(chunkGenerator, body.model, {
                         allowThinking: isThinkingEnabled
@@ -71,7 +75,12 @@ export class MessagesController {
         }
 
         try {
-            const OpenAIRes = await ChatLogic.ProcessNonStreamingCompletion(OpenAIReq, startTime);
+            const OpenAIRes = await ChatLogic.ProcessNonStreamingCompletion(
+                OpenAIReq,
+                startTime,
+                0,
+                ApiKeyId
+            );
             const AnthropicRes = OpenAIToAnthropicResponse(OpenAIRes, body.model, {
                 allowThinking: isThinkingEnabled
             });

@@ -1,4 +1,9 @@
-import { findMatchingFallbackRulesDB, getTokenSaverSettingsDB, logRequestDB } from "@srouter/db";
+import {
+    findMatchingFallbackRulesDB,
+    getTokenSaverSettingsDB,
+    logRequestDB,
+    incrementAPIKeyUsageDB
+} from "@srouter/db";
 import { applyTokenSaver, estimateCostForUsage, extractUsageBreakdown } from "@srouter/translator";
 import type {
     ChatCompletionChunk,
@@ -93,6 +98,7 @@ function LogCompletion(
         fallbackOccurred?: boolean;
         fallbackPath?: string[];
         fallbackReason?: string;
+        apiKeyId?: string;
     }
 ): void {
     const breakdown = extractUsageBreakdown(providerId, options.usage);
@@ -100,8 +106,17 @@ function LogCompletion(
     const effectiveProvider = effectiveModel.includes("/")
         ? effectiveModel.split("/")[0]!
         : providerId;
+    const estimatedCost =
+        options.statusCode === 200
+            ? estimateCostForUsage(effectiveProvider, effectiveModel, breakdown)
+            : undefined;
+
+    if (options.statusCode === 200 && options.apiKeyId && breakdown.total_tokens > 0) {
+        incrementAPIKeyUsageDB(options.apiKeyId, breakdown.total_tokens, estimatedCost ?? 0);
+    }
 
     logRequestDB({
+        apiKeyId: options.apiKeyId,
         providerId,
         model,
         promptTokens: options.statusCode === 200 ? breakdown.prompt_tokens : 0,
@@ -111,10 +126,7 @@ function LogCompletion(
         cacheCreationTokens:
             options.statusCode === 200 ? breakdown.cache_creation_tokens : undefined,
         reasoningTokens: options.statusCode === 200 ? breakdown.reasoning_tokens : undefined,
-        estimatedCost:
-            options.statusCode === 200
-                ? estimateCostForUsage(effectiveProvider, effectiveModel, breakdown)
-                : undefined,
+        estimatedCost,
         fallbackOccurred: options.fallbackOccurred,
         fallbackPath: options.fallbackOccurred ? options.fallbackPath?.join(" -> ") : undefined,
         fallbackReason: options.fallbackReason,
@@ -127,7 +139,8 @@ export class ChatLogic {
     public static async ProcessNonStreamingCompletion(
         body: ChatCompletionRequest,
         startTime: number,
-        depth = 0
+        depth = 0,
+        apiKeyId?: string
     ): Promise<ChatCompletionResponse> {
         const effectiveBody =
             depth === 0 ? applyTokenSaver(body, getTokenSaverSettingsDB()).request : body;
@@ -196,7 +209,8 @@ export class ChatLogic {
                     return await this.ProcessNonStreamingCompletion(
                         followUpRequest,
                         startTime,
-                        depth + 1
+                        depth + 1,
+                        apiKeyId
                     );
                 }
 
@@ -205,7 +219,8 @@ export class ChatLogic {
                     usage: response.usage,
                     fallbackOccurred,
                     fallbackPath,
-                    fallbackReason
+                    fallbackReason,
+                    apiKeyId
                 });
 
                 return response;
@@ -226,7 +241,8 @@ export class ChatLogic {
             statusCode: 500,
             fallbackOccurred,
             fallbackPath,
-            fallbackReason
+            fallbackReason,
+            apiKeyId
         });
 
         throw lastError;
@@ -237,7 +253,8 @@ export class ChatLogic {
     public static async *ProcessStreamingCompletion(
         body: ChatCompletionRequest,
         startTime: number,
-        depth = 0
+        depth = 0,
+        apiKeyId?: string
     ): AsyncGenerator<ChatCompletionChunk, void, void> {
         const effectiveBody =
             depth === 0 ? applyTokenSaver(body, getTokenSaverSettingsDB()).request : body;
@@ -364,7 +381,12 @@ export class ChatLogic {
                         ...currentReq,
                         messages: updatedMessages
                     };
-                    yield* this.ProcessStreamingCompletion(followUpRequest, startTime, depth + 1);
+                    yield* this.ProcessStreamingCompletion(
+                        followUpRequest,
+                        startTime,
+                        depth + 1,
+                        apiKeyId
+                    );
                     return;
                 }
 
@@ -377,7 +399,8 @@ export class ChatLogic {
                     usage,
                     fallbackOccurred,
                     fallbackPath,
-                    fallbackReason
+                    fallbackReason,
+                    apiKeyId
                 });
 
                 return;
@@ -396,7 +419,8 @@ export class ChatLogic {
                     statusCode: 500,
                     fallbackOccurred,
                     fallbackPath,
-                    fallbackReason
+                    fallbackReason,
+                    apiKeyId
                 });
                 throw err;
             }
