@@ -16,7 +16,11 @@ Keep a single stable endpoint while SRouter routes requests, refreshes OAuth tok
 </p>
 
 <p align="center">
-  <img src="docs/images/demo.gif" alt="SRouter Dashboard Walkthrough" width="100%">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/demo-dark.gif">
+    <source media="(prefers-color-scheme: light)" srcset="docs/images/demo-light.gif">
+    <img src="docs/images/demo-dark.gif" alt="SRouter Dashboard Walkthrough" width="100%">
+  </picture>
 </p>
 
 [Quick Start](#-quick-start) • [Providers](#-supported-providers) • [Coding Tools](#-connect-coding-tools) • [Integrations](#-integrate) • [API](#-api-endpoints) • [Docker](#-docker)
