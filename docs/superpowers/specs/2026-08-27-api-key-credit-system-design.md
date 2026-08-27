@@ -14,7 +14,7 @@ Allow SRouter administrators to monetize and allocate prepaid spending balances 
 1. **Prepaid Credit Limit & Tracking**: Virtual keys can be configured with an optional credit limit in USD (e.g. `$5.00`, `$10.00`) or left as Unlimited.
 2. **Live Usage Deduction**: Each request completed through `/v1/chat/completions` (OpenAI format) or `/v1/messages` (Anthropic format) computes exact inference cost via `@srouter/pricing` (`calculateCostFromTokens`) and accumulates `usage_cost` (and `usage_tokens`).
 3. **Pre-flight Quota & Balance Guards**: Rejects requests with HTTP 402 (`insufficient_quota` / `insufficient_credit`) when credit balance is exhausted, and HTTP 429 (`quota_exceeded`) when token quota is exceeded.
-4. **Add Saldo Action**: Admin can top up / add balance directly to any key via a dedicated popup modal (`AddSaldoDialog`) and backend endpoint (`POST /v1/keys/:id/add-saldo`).
+4. **Add Credit Action**: Admin can top up / add balance directly to any key via a dedicated popup modal (`AddCreditDialog`) and backend endpoint (`POST /v1/keys/:id/credit`).
 5. **Dashboard Visibility**: Displays current remaining balance, lifetime cost consumed, progress bar, and credit limits inside `KeyTable`, `CreateKeyDialog`, and `KeySecretModal`.
 
 ---
@@ -61,7 +61,7 @@ export const CreateAPIKeySchema = z.object({
     allowed_models: z.array(z.string().min(1)).nullable().optional()
 });
 
-export const AddSaldoSchema = z.object({
+export const AddCreditSchema = z.object({
     amount: z.number().positive("Amount must be greater than 0")
 });
 ```
@@ -75,7 +75,7 @@ export const AddSaldoSchema = z.object({
    SET usage_tokens = usage_tokens + ?, usage_cost = usage_cost + ?
    WHERE id = ?
    ```
-4. `addSaldoAPIKeyDB(id: string, amount: number)`:
+4. `addCreditAPIKeyDB(id: string, amount: number)`:
    ```sql
    UPDATE api_keys
    SET credit_limit = credit_limit + ?
@@ -106,10 +106,10 @@ When a request authenticates via virtual API key (`authType === "api_key"` and `
 
 ### 3.3 Management Endpoints (`apps/api/src/routes/v1/keys.ts`)
 - `POST /v1/keys`: Accepts `creditLimit`.
-- `POST /v1/keys/:id/add-saldo`:
+- `POST /v1/keys/:id/credit`:
   - Protected by `adminAuth`.
-  - Validates request body with `ValidateJson(AddSaldoSchema)`.
-  - Calls `addSaldoAPIKeyDB(id, body.amount)`.
+  - Validates request body with `ValidateJson(AddCreditSchema)`.
+  - Calls `addCreditAPIKeyDB(id, body.amount)`.
   - Returns updated `DBAPIKey`.
 
 ---
@@ -127,16 +127,16 @@ When a request authenticates via virtual API key (`authType === "api_key"` and `
   - If `creditLimit > 0`: Displays remaining balance `$X.XX left` out of total `$Y.YY limit`, with a 3-tier colored progress bar (green `< 70%`, amber `70-90%`, red `> 90%`).
   - If `creditLimit === 0`: Displays `Unlimited` with `$X.XX used` subtext.
 - Action column:
-  - New **"Add Saldo"** action button per row (icon: `CircleDollarSign` or `Plus`).
-  - Opens `AddSaldoDialog`.
+  - New **"Add Credit"** action button per row (icon: `CircleDollarSign` or `Plus`).
+  - Opens `AddCreditDialog`.
 
-### 4.3 `AddSaldoDialog.tsx` (New Component)
+### 4.3 `AddCreditDialog.tsx` (New Component)
 - Modal dialog:
   - Key name and current balance status.
   - Input field `Amount to add ($ USD)`.
   - Quick amount chip buttons: `+$5`, `+$10`, `+$25`, `+$50`.
-  - Buttons: `Cancel`, `Add Saldo`.
-  - Calls `useAddSaldo` hook / API client `POST /v1/keys/:id/add-saldo`.
+  - Buttons: `Cancel`, `Add Credit`.
+  - Calls `useAddCredit` hook / API client `POST /v1/keys/:id/credit`.
 
 ### 4.4 `KeySecretModal.tsx`
 - Displays initial credit limit in the summary details alongside Token Quota and Allowed Models.
@@ -146,11 +146,11 @@ When a request authenticates via virtual API key (`authType === "api_key"` and `
 ## 5. Testing & Verification Plan
 
 1. **Unit & Database Tests**:
-   - `packages/db/tests`: Verify `creditLimit`, `usageCost`, `createAPIKeyDB`, `incrementAPIKeyUsageDB`, and `addSaldoAPIKeyDB`.
+   - `packages/db/tests`: Verify `creditLimit`, `usageCost`, `createAPIKeyDB`, `incrementAPIKeyUsageDB`, and `addCreditAPIKeyDB`.
    - `apps/api/tests/api-keys-credit.test.ts`:
      - Test key creation with `creditLimit`.
      - Test pre-flight rejection with HTTP 402 when `usageCost >= creditLimit`.
-     - Test `POST /v1/keys/:id/add-saldo` successfully increments `credit_limit`.
-     - Test subsequent request passes after adding saldo.
+     - Test `POST /v1/keys/:id/credit` successfully increments `credit_limit`.
+     - Test subsequent request passes after adding credit.
 2. **Build Verification**:
    - `pnpm run build` on `packages/types`, `packages/db`, `apps/api`, `apps/web`.
