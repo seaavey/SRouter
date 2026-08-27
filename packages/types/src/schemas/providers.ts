@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const ProviderCategorySchema = z.enum(["custom", "oauth", "free_tier", "api_key"]);
+export const ProviderCategorySchema = z.enum(["oauth", "free_tier", "api_key"]);
 export const ProviderProtocolSchema = z.enum(["openai", "anthropic", "gemini", "custom"]);
 
 export const CreateProviderSchema = z.object({

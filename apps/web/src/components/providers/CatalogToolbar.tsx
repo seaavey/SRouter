@@ -6,7 +6,6 @@ import {
     LayoutGrid,
     Layers,
     List,
-    Plus,
     RefreshCw,
     Search,
     X
@@ -18,7 +17,6 @@ import type { CatalogSummaryItems, FilterValue } from "@/utils/catalog.utils";
 interface CatalogToolbarProps {
     isFetching: boolean;
     onRefresh: () => void;
-    onAddProvider: () => void;
     summaryItems?: CatalogSummaryItems[];
     filterOptions: { value: FilterValue; label: string; count: number }[];
     filter: FilterValue;
@@ -39,7 +37,6 @@ const summaryIcons = {
 export function CatalogToolbar({
     isFetching,
     onRefresh,
-    onAddProvider,
     summaryItems,
     filterOptions,
     filter,
@@ -62,7 +59,7 @@ export function CatalogToolbar({
                     </h1>
                     <p className="mt-1 max-w-2xl text-xs text-muted-foreground leading-relaxed">
                         Manage upstream LLM executors, API credentials, and live inference
-                        connections across OpenAI, Anthropic, and custom gateways.
+                        connections across OpenAI, Anthropic, and gateway providers.
                     </p>
                 </div>
 
@@ -79,15 +76,6 @@ export function CatalogToolbar({
                             className={`size-3.5 text-muted-foreground ${isFetching ? "animate-spin" : ""}`}
                         />
                         <span>{isFetching ? "Syncing…" : "Refresh"}</span>
-                    </Button>
-                    <Button
-                        type="button"
-                        size="sm"
-                        onClick={onAddProvider}
-                        className="h-8 text-xs font-semibold cursor-pointer shadow-xs gap-1.5"
-                    >
-                        <Plus className="size-3.5" />
-                        <span>Add Provider</span>
                     </Button>
                 </div>
             </header>

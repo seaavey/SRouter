@@ -23,7 +23,6 @@ import {
 import { loadSavedProvidersFromDB, registry } from "@/services/registry.js";
 
 export interface GroupedCatalog {
-    custom: ProviderDefinition[];
     oauth: ProviderDefinition[];
     free_tier: ProviderDefinition[];
     api_key: ProviderDefinition[];
@@ -58,13 +57,15 @@ function BaseIdOf(ProviderId: string): string {
 }
 
 function ProviderDefinitionFromConfig(Connection: ProviderConfig): ProviderDefinition {
+    const Category: ProviderCategory =
+        Connection.category && isProviderCategory(Connection.category)
+            ? Connection.category
+            : "api_key";
+
     return {
         id: Connection.id,
         name: Connection.name,
-        category:
-            Connection.category && isProviderCategory(Connection.category)
-                ? Connection.category
-                : "custom",
+        category: Category,
         protocol:
             Connection.protocol && isProviderProtocol(Connection.protocol)
                 ? Connection.protocol
@@ -77,7 +78,7 @@ function ProviderDefinitionFromConfig(Connection: ProviderConfig): ProviderDefin
     };
 }
 
-function CatalogWithSavedCustomProviders(): ProviderDefinition[] {
+function CatalogWithSavedProviders(): ProviderDefinition[] {
     const Rows = getAllProvidersDB();
     const Catalog: ProviderDefinition[] = [];
     const Seen = new Set<string>();
@@ -91,11 +92,11 @@ function CatalogWithSavedCustomProviders(): ProviderDefinition[] {
         const Category: ProviderCategory =
             Connection.category && isProviderCategory(Connection.category)
                 ? Connection.category
-                : "custom";
+                : (Seed?.category ?? "api_key");
         const Protocol: ProviderProtocol =
             Connection.protocol && isProviderProtocol(Connection.protocol)
                 ? Connection.protocol
-                : "openai";
+                : (Seed?.protocol ?? "openai");
 
         const ConnectedCount = Rows.filter(
             (C) => !isSeedProvider(C) && C.enabled && BaseIdOf(C.providerId || C.id) === BaseId
@@ -146,14 +147,13 @@ function CatalogWithSavedCustomProviders(): ProviderDefinition[] {
 
 export class ProvidersLogic {
     public static ListProviders(): ProviderDefinition[] {
-        return CatalogWithSavedCustomProviders();
+        return CatalogWithSavedProviders();
     }
 
     public static GetCatalog(): CatalogSummary {
-        const Catalog = CatalogWithSavedCustomProviders();
+        const Catalog = CatalogWithSavedProviders();
 
         const Categories: GroupedCatalog = {
-            custom: Catalog.filter((P) => P.category === "custom"),
             oauth: Catalog.filter((P) => P.category === "oauth"),
             free_tier: Catalog.filter((P) => P.category === "free_tier"),
             api_key: Catalog.filter((P) => P.category === "api_key")
@@ -166,7 +166,7 @@ export class ProvidersLogic {
     }
 
     public static async GetProviderById(ProviderId: string): Promise<ProviderDefinition | null> {
-        const Catalog = CatalogWithSavedCustomProviders();
+        const Catalog = CatalogWithSavedProviders();
         const Provider = Catalog.find((P) => P.id.toLowerCase() === ProviderId.toLowerCase());
         if (!Provider) return null;
 
@@ -231,7 +231,10 @@ export class ProvidersLogic {
         if (!isProviderCategory(Payload.category)) throw new Error("Invalid provider category");
         if (!isProviderProtocol(Payload.protocol)) throw new Error("Invalid provider protocol");
         const RawId = Payload.id?.trim();
-        const Id = RawId ? RawId.toLowerCase().replace(/[^a-z0-9_-]/g, "") : `custom-${Date.now()}`;
+        const BaseId = RawId
+            ? RawId.toLowerCase().replace(/[^a-z0-9_-]/g, "")
+            : Payload.category;
+        const Id = RawId ? BaseId : `${BaseId}_${Date.now()}`;
         if (!Id)
             throw new Error("Provider ID must contain letters, numbers, underscores, or hyphens");
         if (getAllProvidersDB().some((Provider) => Provider.id === Id))
@@ -316,7 +319,7 @@ export class ProvidersLogic {
         modelsCount?: number;
     }> {
         const Protocol = Payload.protocol || "openai";
-        const BaseUrl = (Payload.baseUrl?.trim() || "").replace(/\/+$/, "");
+        const BaseUrl = (Payload.base_url?.trim() || "").replace(/\/+$/, "");
         const ApiKey = Payload.apiKey?.trim();
 
         if (BaseUrl) {

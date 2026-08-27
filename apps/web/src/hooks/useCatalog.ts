@@ -63,9 +63,6 @@ export function useCatalog() {
                             category: existing.category,
                             protocol: existing.protocol
                         });
-                    } else {
-                        // User-created custom provider
-                        providerMap.set(live.id, live);
                     }
                 }
             }
@@ -87,8 +84,7 @@ export function useCatalog() {
         const categories: Record<string, ProviderDefinition[]> = {
             oauth: allProviders.filter((p) => p.category === "oauth"),
             api_key: allProviders.filter((p) => p.category === "api_key"),
-            free_tier: allProviders.filter((p) => p.category === "free_tier"),
-            custom: allProviders.filter((p) => p.category === "custom")
+            free_tier: allProviders.filter((p) => p.category === "free_tier")
         };
         return {
             total: allProviders.length,

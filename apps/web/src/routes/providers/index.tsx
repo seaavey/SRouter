@@ -3,7 +3,6 @@ import { createFileRoute } from "@tanstack/react-router";
 import { RefreshCw, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCatalog } from "@/hooks/useCatalog";
-import { AddProviderSheet } from "@/components/providers/AddProviderSheet";
 import { Catalog } from "@/components/providers/Catalog";
 import { CatalogToolbar } from "@/components/providers/CatalogToolbar";
 import { ProvidersSkeleton } from "@/components/skeletons";
@@ -14,7 +13,6 @@ export const Route = createFileRoute("/providers/")({
 });
 
 function ProvidersPage() {
-    const [isAddOpen, setIsAddOpen] = useState(false);
     const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
     const catalog = useCatalog();
     const { data, error, isPending, isFetching, refetch } = catalog;
@@ -57,7 +55,6 @@ function ProvidersPage() {
             <CatalogToolbar
                 isFetching={isFetching}
                 onRefresh={() => void refetch()}
-                onAddProvider={() => setIsAddOpen(true)}
                 summaryItems={catalog.summaryItems}
                 filterOptions={catalog.filterOptions}
                 filter={catalog.filter}
@@ -69,8 +66,6 @@ function ProvidersPage() {
             />
 
             <Catalog groups={catalog.groups} search={catalog.search} viewMode={viewMode} />
-
-            <AddProviderSheet open={isAddOpen} onOpenChange={setIsAddOpen} />
         </div>
     );
 }
