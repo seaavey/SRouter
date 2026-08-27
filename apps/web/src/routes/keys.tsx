@@ -39,6 +39,7 @@ function KeysPage() {
         name: string;
         rateLimit?: number;
         quotaLimit?: number;
+        allowed_models?: string[] | null;
     }) => {
         const res = await createKey(data);
         if (res) {

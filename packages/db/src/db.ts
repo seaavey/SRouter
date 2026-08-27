@@ -133,9 +133,12 @@ export function initDatabase(): void {
             rate_limit INTEGER DEFAULT 0,
             quota_limit INTEGER DEFAULT 0,
             usage_tokens INTEGER DEFAULT 0,
+            allowed_models TEXT,
             created_at INTEGER NOT NULL
         );
     `);
+
+    ensureColumns("api_keys", [{ name: "allowed_models", definition: "allowed_models TEXT" }]);
 
     // 3. Table for Request Logs & Token Analytics
     db.exec(`

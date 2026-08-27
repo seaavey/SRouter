@@ -11,7 +11,19 @@ interface APIKeyRow {
     rate_limit: number;
     quota_limit: number;
     usage_tokens: number;
+    allowed_models: string | null;
     created_at: number;
+}
+
+function ParseAllowedModels(value: string | null): string[] | null {
+    if (!value) return null;
+    try {
+        const Parsed: unknown = JSON.parse(value);
+        if (Array.isArray(Parsed) && Parsed.every((item) => typeof item === "string")) {
+            return Parsed.length > 0 ? (Parsed as string[]) : null;
+        }
+    } catch {}
+    return null;
 }
 
 export function getAllAPIKeysDB(): DBAPIKey[] {
@@ -39,6 +51,7 @@ function mapAPIKeyRow(row: APIKeyRow): DBAPIKey {
         rateLimit: row.rate_limit,
         quotaLimit: row.quota_limit,
         usageTokens: row.usage_tokens,
+        allowed_models: ParseAllowedModels(row.allowed_models),
         createdAt: row.created_at
     };
 }
@@ -47,18 +60,30 @@ export function createAPIKeyDB(data: {
     name: string;
     rateLimit?: number;
     quotaLimit?: number;
+    allowed_models?: string[] | null;
 }): DBAPIKey {
     const Id = generateId("key");
     const RandomHex = randomUUID().replace(/-/g, "").slice(0, 16);
     const Key = `sr-live-${RandomHex}`;
     const CreatedAt = Date.now();
+    const AllowedModels =
+        data.allowed_models && data.allowed_models.length > 0 ? data.allowed_models : null;
+    const AllowedModelsJson = AllowedModels ? JSON.stringify(AllowedModels) : null;
 
     const Query = db.prepare(`
-        INSERT INTO api_keys (id, key, name, enabled, rate_limit, quota_limit, usage_tokens, created_at)
-        VALUES (?, ?, ?, 1, ?, ?, 0, ?)
+        INSERT INTO api_keys (id, key, name, enabled, rate_limit, quota_limit, usage_tokens, allowed_models, created_at)
+        VALUES (?, ?, ?, 1, ?, ?, 0, ?, ?)
     `);
 
-    Query.run(Id, Key, data.name, data.rateLimit ?? 0, data.quotaLimit ?? 0, CreatedAt);
+    Query.run(
+        Id,
+        Key,
+        data.name,
+        data.rateLimit ?? 0,
+        data.quotaLimit ?? 0,
+        AllowedModelsJson,
+        CreatedAt
+    );
 
     return {
         id: Id,
@@ -68,6 +93,7 @@ export function createAPIKeyDB(data: {
         rateLimit: data.rateLimit ?? 0,
         quotaLimit: data.quotaLimit ?? 0,
         usageTokens: 0,
+        allowed_models: AllowedModels,
         createdAt: CreatedAt
     };
 }

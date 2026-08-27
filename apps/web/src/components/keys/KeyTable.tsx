@@ -182,6 +182,7 @@ export function KeyTable({ keys, deletingId, onCreateClick, onDeleteClick }: Key
                                 <th className="py-2.5 px-4 text-right font-semibold">
                                     Token Quota
                                 </th>
+                                <th className="py-2.5 px-4 font-semibold">Models</th>
                                 <th className="py-2.5 px-4 text-right font-semibold">Usage</th>
                                 <th className="py-2.5 px-4 text-center font-semibold">Status</th>
                                 <th className="py-2.5 px-4 text-right font-semibold">Created</th>
@@ -270,6 +271,23 @@ export function KeyTable({ keys, deletingId, onCreateClick, onDeleteClick }: Key
                                             ) : (
                                                 <span className="text-muted-foreground/60">
                                                     Unlimited
+                                                </span>
+                                            )}
+                                        </td>
+
+                                        {/* Allowed Models Scope */}
+                                        <td className="py-3 px-4">
+                                            {k.allowed_models && k.allowed_models.length > 0 ? (
+                                                <span
+                                                    className="inline-flex items-center rounded-full border border-border/60 bg-secondary/40 px-2 py-0.5 font-mono text-[10px] font-medium text-foreground cursor-default"
+                                                    title={k.allowed_models.join("\n")}
+                                                >
+                                                    {k.allowed_models.length} model
+                                                    {k.allowed_models.length === 1 ? "" : "s"}
+                                                </span>
+                                            ) : (
+                                                <span className="font-mono text-[10px] text-muted-foreground/60">
+                                                    All
                                                 </span>
                                             )}
                                         </td>

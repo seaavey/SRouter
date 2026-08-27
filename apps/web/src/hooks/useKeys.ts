@@ -27,7 +27,12 @@ export function useKeys() {
     }, [fetchKeys]);
 
     const createKey = useCallback(
-        async (data: { name: string; rateLimit?: number; quotaLimit?: number }) => {
+        async (data: {
+            name: string;
+            rateLimit?: number;
+            quotaLimit?: number;
+            allowed_models?: string[] | null;
+        }) => {
             if (!data.name.trim()) {
                 toast.error("Key name is required");
                 return null;

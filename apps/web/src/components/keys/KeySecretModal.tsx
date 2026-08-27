@@ -88,6 +88,27 @@ export function KeySecretModal({ newKey, onClose }: KeySecretModalProps) {
                             </Button>
                         </div>
                     </div>
+                    {newKey.allowed_models && newKey.allowed_models.length > 0 ? (
+                        <div className="space-y-1.5">
+                            <span className="block text-xs font-medium text-foreground">
+                                Allowed models
+                            </span>
+                            <div className="flex flex-wrap gap-1.5">
+                                {newKey.allowed_models.map((model) => (
+                                    <span
+                                        key={model}
+                                        className="inline-flex items-center rounded-full border border-border/60 bg-secondary/40 px-2 py-0.5 font-mono text-[10px] text-foreground"
+                                    >
+                                        {model}
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
+                    ) : (
+                        <p className="text-[11px] text-muted-foreground">
+                            This key can access all models.
+                        </p>
+                    )}
                 </div>
 
                 <DialogFooter className="pt-2">

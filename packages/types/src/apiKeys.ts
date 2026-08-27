@@ -6,5 +6,6 @@ export interface DBAPIKey {
     rateLimit: number;
     quotaLimit: number;
     usageTokens: number;
+    allowed_models?: string[] | null;
     createdAt: number;
 }

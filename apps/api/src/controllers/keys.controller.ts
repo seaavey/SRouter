@@ -22,7 +22,8 @@ export class KeysController {
             const created = createAPIKeyDB({
                 name: parsed.data.name.trim(),
                 rateLimit: parsed.data.rateLimit ?? 0,
-                quotaLimit: parsed.data.quotaLimit ?? 0
+                quotaLimit: parsed.data.quotaLimit ?? 0,
+                allowed_models: parsed.data.allowed_models ?? null
             });
             return Ok(c, created, 201);
         } catch (error) {
