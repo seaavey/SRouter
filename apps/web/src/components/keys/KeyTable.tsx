@@ -1,17 +1,18 @@
 import { useState, useMemo } from "react";
-import { Check, Copy, KeyRound, Plus, Search, Trash2, X } from "lucide-react";
+import { Check, CircleDollarSign, Copy, KeyRound, Plus, Search, Trash2, X } from "lucide-react";
 import type { DBAPIKey } from "@srouter/types";
 import { useDebounce } from "@/hooks/useDebounce";
 import { formatCompactNumber } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-type KeyFilter = "all" | "active" | "with-quota" | "with-rate-limit";
+type KeyFilter = "all" | "active" | "with-credit" | "with-quota" | "with-rate-limit";
 
 type KeyTableProps = {
     keys: DBAPIKey[];
     deletingId: string | null;
     onCreateClick: () => void;
+    onAddCreditClick: (key: DBAPIKey) => void;
     onDeleteClick: (key: DBAPIKey) => void;
 };
 
@@ -20,7 +21,13 @@ function maskKey(key: string): string {
     return `${key.slice(0, 10)}••••••••${key.slice(-4)}`;
 }
 
-export function KeyTable({ keys, deletingId, onCreateClick, onDeleteClick }: KeyTableProps) {
+export function KeyTable({
+    keys,
+    deletingId,
+    onCreateClick,
+    onAddCreditClick,
+    onDeleteClick
+}: KeyTableProps) {
     const [search, setSearch] = useState("");
     const [filter, setFilter] = useState<KeyFilter>("all");
     const [copiedKeyId, setCopiedKeyId] = useState<string | null>(null);
@@ -40,6 +47,7 @@ export function KeyTable({ keys, deletingId, onCreateClick, onDeleteClick }: Key
             if (!matchesText) return false;
 
             if (filter === "active") return k.enabled;
+            if (filter === "with-credit") return (k.creditLimit ?? 0) > 0;
             if (filter === "with-quota") return (k.quotaLimit ?? 0) > 0;
             if (filter === "with-rate-limit") return (k.rateLimit ?? 0) > 0;
 
@@ -136,6 +144,17 @@ export function KeyTable({ keys, deletingId, onCreateClick, onDeleteClick }: Key
                         </button>
                         <button
                             type="button"
+                            onClick={() => setFilter("with-credit")}
+                            className={`rounded-md px-2.5 py-1 text-[11px] font-mono transition-colors cursor-pointer whitespace-nowrap ${
+                                filter === "with-credit"
+                                    ? "bg-secondary text-foreground font-semibold"
+                                    : "text-muted-foreground hover:text-foreground hover:bg-secondary/40"
+                            }`}
+                        >
+                            With Credit ({keys.filter((k) => (k.creditLimit ?? 0) > 0).length})
+                        </button>
+                        <button
+                            type="button"
                             onClick={() => setFilter("with-quota")}
                             className={`rounded-md px-2.5 py-1 text-[11px] font-mono transition-colors cursor-pointer whitespace-nowrap ${
                                 filter === "with-quota"
@@ -179,11 +198,12 @@ export function KeyTable({ keys, deletingId, onCreateClick, onDeleteClick }: Key
                                 <th className="py-2.5 px-4 font-semibold">Key Name & ID</th>
                                 <th className="py-2.5 px-4 font-semibold">Secret Key</th>
                                 <th className="py-2.5 px-4 text-right font-semibold">Rate Limit</th>
+                                <th className="py-2.5 px-4 text-right font-semibold">Credit / Balance</th>
                                 <th className="py-2.5 px-4 text-right font-semibold">
                                     Token Quota
                                 </th>
                                 <th className="py-2.5 px-4 font-semibold">Models</th>
-                                <th className="py-2.5 px-4 text-right font-semibold">Usage</th>
+                                <th className="py-2.5 px-4 text-right font-semibold">Tokens</th>
                                 <th className="py-2.5 px-4 text-center font-semibold">Status</th>
                                 <th className="py-2.5 px-4 text-right font-semibold">Created</th>
                                 <th className="py-2.5 px-4 text-right font-semibold">Action</th>
@@ -195,6 +215,14 @@ export function KeyTable({ keys, deletingId, onCreateClick, onDeleteClick }: Key
                                 const isDeleting = deletingId === k.id;
                                 const quotaLimit = k.quotaLimit ?? 0;
                                 const usageTokens = k.usageTokens ?? 0;
+                                const creditLimit = k.creditLimit ?? 0;
+                                const usageCost = k.usageCost ?? 0;
+                                const remainingCredit =
+                                    creditLimit > 0 ? Math.max(0, creditLimit - usageCost) : null;
+                                const creditPercent =
+                                    creditLimit > 0
+                                        ? Math.min(100, Math.round((usageCost / creditLimit) * 100))
+                                        : null;
                                 const quotaPercent =
                                     quotaLimit > 0
                                         ? Math.min(
@@ -253,6 +281,56 @@ export function KeyTable({ keys, deletingId, onCreateClick, onDeleteClick }: Key
                                                 <span className="text-muted-foreground/60">
                                                     Unlimited
                                                 </span>
+                                            )}
+                                        </td>
+
+                                        {/* Credit / Balance */}
+                                        <td className="py-3 px-4 text-right font-mono tabular-nums text-muted-foreground">
+                                            {creditLimit > 0 ? (
+                                                <div>
+                                                    <span
+                                                        className="text-foreground font-semibold text-emerald-500 cursor-default"
+                                                        title={`Credit: $${remainingCredit?.toFixed(2)} left of $${creditLimit.toFixed(2)}`}
+                                                    >
+                                                        ${remainingCredit?.toFixed(2)}{" "}
+                                                        <span className="text-[10px] text-muted-foreground font-normal">
+                                                            left
+                                                        </span>
+                                                    </span>
+                                                    {creditPercent !== null && (
+                                                        <div className="mt-1 flex items-center justify-end gap-1.5 text-[9.5px] text-muted-foreground">
+                                                            <div className="w-12 h-1 rounded-full bg-secondary overflow-hidden ring-1 ring-border/30">
+                                                                <div
+                                                                    className={`h-full transition-all duration-300 ${
+                                                                        creditPercent > 90
+                                                                            ? "bg-destructive"
+                                                                            : creditPercent > 70
+                                                                              ? "bg-amber-500"
+                                                                              : "bg-emerald-500"
+                                                                    }`}
+                                                                    style={{
+                                                                        width: `${creditPercent}%`
+                                                                    }}
+                                                                />
+                                                            </div>
+                                                            <span>{creditPercent}%</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <div
+                                                    className="cursor-default"
+                                                    title={`Spent: $${usageCost.toFixed(3)}`}
+                                                >
+                                                    <span className="text-muted-foreground/60">
+                                                        Unlimited
+                                                    </span>
+                                                    {usageCost > 0 && (
+                                                        <div className="text-[9.5px] text-muted-foreground/80 font-mono mt-0.5">
+                                                            ${usageCost.toFixed(2)} spent
+                                                        </div>
+                                                    )}
+                                                </div>
                                             )}
                                         </td>
 
@@ -337,18 +415,29 @@ export function KeyTable({ keys, deletingId, onCreateClick, onDeleteClick }: Key
                                             {new Date(k.createdAt).toLocaleDateString()}
                                         </td>
 
-                                        {/* Action: Revoke / Delete */}
+                                        {/* Action: Add Credit & Revoke / Delete */}
                                         <td className="py-3 px-4 text-right">
-                                            <button
-                                                type="button"
-                                                disabled={isDeleting}
-                                                onClick={() => onDeleteClick(k)}
-                                                className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors disabled:opacity-30 cursor-pointer ml-auto"
-                                                title="Revoke and delete key"
-                                                aria-label={`Revoke key ${k.name}`}
-                                            >
-                                                <Trash2 className="size-3.5" />
-                                            </button>
+                                            <div className="flex items-center justify-end gap-1">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => onAddCreditClick(k)}
+                                                    className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-emerald-500/10 hover:text-emerald-500 transition-colors cursor-pointer"
+                                                    title="Add credit / saldo"
+                                                    aria-label={`Add credit to key ${k.name}`}
+                                                >
+                                                    <CircleDollarSign className="size-3.5" />
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    disabled={isDeleting}
+                                                    onClick={() => onDeleteClick(k)}
+                                                    className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors disabled:opacity-30 cursor-pointer"
+                                                    title="Revoke and delete key"
+                                                    aria-label={`Revoke key ${k.name}`}
+                                                >
+                                                    <Trash2 className="size-3.5" />
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 );

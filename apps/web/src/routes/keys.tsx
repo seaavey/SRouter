@@ -11,6 +11,7 @@ import { KeyTable } from "@/components/keys/KeyTable";
 import { CreateKeyDialog } from "@/components/keys/CreateKeyDialog";
 import { KeySecretModal } from "@/components/keys/KeySecretModal";
 import { KeyDeleteDialog } from "@/components/keys/KeyDeleteDialog";
+import { AddCreditDialog } from "@/components/keys/AddCreditDialog";
 
 export const Route = createFileRoute("/keys")({
     staticData: { title: "API Keys" },
@@ -23,14 +24,17 @@ function KeysPage() {
         loading,
         creating,
         deletingId,
+        addingCreditId,
         newlyCreatedKey,
         setNewlyCreatedKey,
         createKey,
+        addCredit,
         deleteKey
     } = useKeys();
 
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [keyToDelete, setKeyToDelete] = useState<DBAPIKey | null>(null);
+    const [keyToAddCredit, setKeyToAddCredit] = useState<DBAPIKey | null>(null);
 
     const totalUsageTokens = keys.reduce((acc, k) => acc + (k.usageTokens || 0), 0);
     const activeKeysCount = keys.filter((k) => k.enabled).length;
@@ -39,6 +43,7 @@ function KeysPage() {
         name: string;
         rateLimit?: number;
         quotaLimit?: number;
+        creditLimit?: number;
         allowed_models?: string[] | null;
     }) => {
         const res = await createKey(data);
@@ -97,6 +102,7 @@ function KeysPage() {
                 keys={keys}
                 deletingId={deletingId}
                 onCreateClick={() => setIsCreateOpen(true)}
+                onAddCreditClick={(key) => setKeyToAddCredit(key)}
                 onDeleteClick={(key) => setKeyToDelete(key)}
             />
 
@@ -106,6 +112,16 @@ function KeysPage() {
                 creating={creating}
                 onOpenChange={setIsCreateOpen}
                 onSubmit={handleCreateKey}
+            />
+
+            <AddCreditDialog
+                apiKey={keyToAddCredit}
+                open={Boolean(keyToAddCredit)}
+                loading={Boolean(addingCreditId)}
+                onOpenChange={(open) => !open && setKeyToAddCredit(null)}
+                onSubmit={async (keyId, amount) => {
+                    await addCredit(keyId, amount);
+                }}
             />
 
             <KeySecretModal newKey={newlyCreatedKey} onClose={() => setNewlyCreatedKey(null)} />
