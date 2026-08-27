@@ -1,6 +1,7 @@
 import { Command } from "commander";
 import { CLI_VERSION } from "@srouter/constants";
 import { setupCommand } from "./commands/setup.js";
+import { initCommand } from "./commands/init.js";
 import { linkCommand } from "./commands/link.js";
 import { unlinkCommand } from "./commands/unlink.js";
 import { syncCommand } from "./commands/sync.js";
@@ -42,6 +43,18 @@ export function createCli(): Command {
         )
         .action(async (opts) => {
             await setupCommand(opts);
+        });
+
+    program
+        .command("init")
+        .description("Initialize and run SRouter Gateway (Docker container or Source Code)")
+        .option("-m, --mode <mode>", "Run mode (docker or source)")
+        .option("-p, --port <port>", "Gateway port (default: 3000)")
+        .option("-d, --dir <dir>", "Source code clone directory (default: ~/srouter)")
+        .option("-y, --yes", "Accept default values without interactive prompt")
+        .option("--detached", "Run docker container in background (default: true)")
+        .action(async (opts) => {
+            await initCommand(opts);
         });
 
     program
