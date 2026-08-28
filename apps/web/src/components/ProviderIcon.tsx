@@ -1,6 +1,8 @@
 import { useState } from "react";
 
 const ICON_MAPPING: Record<string, string> = {
+    bai: "/icons/providers/bai.svg",
+    "b.ai": "/icons/providers/bai.svg",
     openai_codex: "/icons/providers/codex.png",
     openai: "/icons/providers/openai.png",
     chatgpt: "/icons/providers/openai.png",

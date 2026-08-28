@@ -33,6 +33,8 @@ test("unregisterProvider removes a deleted runtime connection", () => {
 test("Neosantara uses its own model prefix alias", () => {
     assert.equal(getProviderAlias("neosantara"), "neosantara");
     assert.equal(getProviderAlias("neosantara_123"), "neosantara");
+    assert.equal(getProviderAlias("bai"), "bai");
+    assert.equal(getProviderAlias("bai_primary"), "bai");
 });
 
 test("GoRouter uses its own model prefix alias", () => {

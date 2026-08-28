@@ -1,4 +1,5 @@
 import {
+    BAI_BASE_URL,
     BLUESMINDS_BASE_URL,
     CODEBUDDY_BASE_URL,
     CODEBUDDY_CN_BASE_URL,
@@ -19,6 +20,7 @@ import { deleteProviderDB, getAllProvidersDB, upsertProviderDB } from "@srouter/
 import {
     AntigravityExecutor,
     AnthropicExecutor,
+    BAIExecutor,
     BluesMindsExecutor,
     CodeBuddyExecutor,
     CodexExecutor,
@@ -248,6 +250,17 @@ export function loadSavedProvidersFromDB(): void {
                         id: p.id || p.providerId,
                         name: p.name,
                         baseUrl: baseUrl || OPENCODE_ZEN_BASE_URL,
+                        apiKey: p.apiKey,
+                        accessToken: p.accessToken
+                    })
+                );
+                break;
+            case isProviderBaseId(p.id, "bai") || providerType === "bai":
+                registry.registerProvider(
+                    new BAIExecutor({
+                        id: p.id || p.providerId,
+                        name: p.name,
+                        baseUrl: baseUrl || BAI_BASE_URL,
                         apiKey: p.apiKey,
                         accessToken: p.accessToken
                     })
