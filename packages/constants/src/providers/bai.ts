@@ -14,12 +14,10 @@ export const BAI_DEFAULT_MODELS: BAIModelDefinition[] = [
     { id: "qwen3.8-flash", name: "Qwen 3.8 Flash (Free/Low-tier)" }
 ];
 
-export const BAI_DEFAULT_MODEL_IDS: string[] = BAI_DEFAULT_MODELS.map((m) => m.id);
-
 export const BAI_PROVIDER: ProviderMetadata = {
     id: "bai",
     name: "B.AI",
-    category: "api_key",
+    category: "free_tier",
     protocol: "openai",
     alias: "bai",
     base_url: BAI_BASE_URL,
