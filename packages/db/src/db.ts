@@ -63,6 +63,9 @@ function execWithRetry(sql: string, attempts = 5): void {
 
 execWithRetry("PRAGMA journal_mode = WAL;");
 execWithRetry("PRAGMA foreign_keys = ON;");
+execWithRetry("PRAGMA synchronous = NORMAL;");
+execWithRetry("PRAGMA temp_store = MEMORY;");
+execWithRetry("PRAGMA cache_size = -20000;");
 
 /**
  * Adds columns to a table if they do not already exist.
@@ -162,6 +165,20 @@ export function initDatabase(): void {
         );
     `);
 
+    db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_request_logs_created_at
+        ON request_logs(created_at DESC);
+
+        CREATE INDEX IF NOT EXISTS idx_request_logs_provider_created
+        ON request_logs(provider_id, created_at DESC);
+
+        CREATE INDEX IF NOT EXISTS idx_request_logs_provider_model
+        ON request_logs(provider_id, model);
+
+        CREATE INDEX IF NOT EXISTS idx_request_logs_model
+        ON request_logs(model);
+    `);
+
     // 4. Table for OAuth PKCE sessions (survive server restarts)
     db.exec(`
         CREATE TABLE IF NOT EXISTS oauth_sessions (
@@ -202,6 +219,11 @@ export function initDatabase(): void {
         );
     `);
 
+    db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_fallback_rules_priority
+        ON fallback_rules(priority ASC, created_at ASC);
+    `);
+
     // 6. Table for Global System Settings
     db.exec(`
         CREATE TABLE IF NOT EXISTS system_settings (
@@ -218,6 +240,14 @@ export function initDatabase(): void {
             created_at INTEGER NOT NULL,
             PRIMARY KEY (provider_id, model_id)
         );
+    `);
+
+    db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_providers_provider_id
+        ON providers(provider_id);
+
+        CREATE INDEX IF NOT EXISTS idx_custom_models_provider
+        ON custom_models(provider_id, created_at ASC);
     `);
 }
 
