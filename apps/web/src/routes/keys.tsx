@@ -11,7 +11,7 @@ import { KeyTable } from "@/components/keys/KeyTable";
 import { CreateKeyDialog } from "@/components/keys/CreateKeyDialog";
 import { KeySecretModal } from "@/components/keys/KeySecretModal";
 import { KeyDeleteDialog } from "@/components/keys/KeyDeleteDialog";
-import { AddCreditDialog } from "@/components/keys/AddCreditDialog";
+import { EditKeyDialog } from "@/components/keys/EditKeyDialog";
 
 export const Route = createFileRoute("/keys")({
     staticData: { title: "API Keys" },
@@ -23,20 +23,21 @@ function KeysPage() {
         keys,
         loading,
         creating,
+        updatingId,
         deletingId,
-        addingCreditId,
         newlyCreatedKey,
         setNewlyCreatedKey,
         createKey,
-        addCredit,
+        updateKey,
         deleteKey
     } = useKeys();
 
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [keyToDelete, setKeyToDelete] = useState<DBAPIKey | null>(null);
-    const [keyToAddCredit, setKeyToAddCredit] = useState<DBAPIKey | null>(null);
+    const [keyToEdit, setKeyToEdit] = useState<DBAPIKey | null>(null);
 
     const totalUsageTokens = keys.reduce((acc, k) => acc + (k.usageTokens || 0), 0);
+    const totalUsageCost = keys.reduce((acc, k) => acc + (k.usageCost || 0), 0);
     const activeKeysCount = keys.filter((k) => k.enabled).length;
 
     const handleCreateKey = async (data: {
@@ -95,6 +96,7 @@ function KeysPage() {
                 totalKeys={keys.length}
                 activeKeys={activeKeysCount}
                 totalUsageTokens={totalUsageTokens}
+                totalUsageCost={totalUsageCost}
             />
 
             {/* Key Management Table */}
@@ -102,7 +104,7 @@ function KeysPage() {
                 keys={keys}
                 deletingId={deletingId}
                 onCreateClick={() => setIsCreateOpen(true)}
-                onAddCreditClick={(key) => setKeyToAddCredit(key)}
+                onEditClick={(key) => setKeyToEdit(key)}
                 onDeleteClick={(key) => setKeyToDelete(key)}
             />
 
@@ -114,13 +116,13 @@ function KeysPage() {
                 onSubmit={handleCreateKey}
             />
 
-            <AddCreditDialog
-                apiKey={keyToAddCredit}
-                open={Boolean(keyToAddCredit)}
-                loading={Boolean(addingCreditId)}
-                onOpenChange={(open) => !open && setKeyToAddCredit(null)}
-                onSubmit={async (keyId, amount) => {
-                    await addCredit(keyId, amount);
+            <EditKeyDialog
+                apiKey={keyToEdit}
+                open={Boolean(keyToEdit)}
+                updating={Boolean(updatingId)}
+                onOpenChange={(open) => !open && setKeyToEdit(null)}
+                onSubmit={async (id, data) => {
+                    await updateKey(id, data);
                 }}
             />
 

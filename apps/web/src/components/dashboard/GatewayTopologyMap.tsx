@@ -796,16 +796,12 @@ function GatewayTopologyCanvas() {
                             <h2 className="text-xs font-bold text-foreground">
                                 Mesh routing topology
                             </h2>
-                            {hasAnyActiveTraffic ? (
+                            {hasAnyActiveTraffic && (
                                 <span className="flex items-center gap-1 rounded bg-emerald-500/10 border border-emerald-500/30 px-1.5 py-0.2 text-[9px] font-mono text-emerald-500 font-bold">
                                     <span className="size-1.5 rounded-full bg-emerald-500 animate-ping" />
                                     ROUTING TRAFFIC
                                 </span>
-                            ) : connectedProviders.length > 0 ? (
-                                <span className="rounded bg-secondary/60 border border-border/60 px-1.5 py-0.2 text-[9px] font-mono text-muted-foreground">
-                                    {connectedProviders.length} online
-                                </span>
-                            ) : null}
+                            )}
                         </div>
                         <p className="text-[11px] text-muted-foreground mt-0.5">
                             Hub-and-spoke radial constellation of SRouter Core dispatching directly to all connected providers.

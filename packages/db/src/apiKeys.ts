@@ -126,6 +126,63 @@ export function addCreditAPIKeyDB(id: string, amount: number): DBAPIKey | null {
     return mapAPIKeyRow(Row);
 }
 
+export function updateAPIKeyDB(
+    id: string,
+    data: {
+        name?: string;
+        enabled?: boolean;
+        rateLimit?: number;
+        quotaLimit?: number;
+        creditLimit?: number;
+        allowed_models?: string[] | null;
+    }
+): DBAPIKey | null {
+    const SelectQuery = db.prepare("SELECT * FROM api_keys WHERE id = ?");
+    const existing = SelectQuery.get(id) as unknown as APIKeyRow | undefined;
+    if (!existing) return null;
+
+    const fields: string[] = [];
+    const values: (string | number | null)[] = [];
+
+    if (data.name !== undefined) {
+        fields.push("name = ?");
+        values.push(data.name.trim());
+    }
+    if (data.enabled !== undefined) {
+        fields.push("enabled = ?");
+        values.push(data.enabled ? 1 : 0);
+    }
+    if (data.rateLimit !== undefined) {
+        fields.push("rate_limit = ?");
+        values.push(data.rateLimit);
+    }
+    if (data.quotaLimit !== undefined) {
+        fields.push("quota_limit = ?");
+        values.push(data.quotaLimit);
+    }
+    if (data.creditLimit !== undefined) {
+        fields.push("credit_limit = ?");
+        values.push(data.creditLimit);
+    }
+    if (data.allowed_models !== undefined) {
+        fields.push("allowed_models = ?");
+        const json =
+            data.allowed_models && data.allowed_models.length > 0
+                ? JSON.stringify(data.allowed_models)
+                : null;
+        values.push(json);
+    }
+
+    if (fields.length > 0) {
+        values.push(id);
+        const UpdateQuery = db.prepare(`UPDATE api_keys SET ${fields.join(", ")} WHERE id = ?`);
+        UpdateQuery.run(...values);
+    }
+
+    const updatedRow = SelectQuery.get(id) as unknown as APIKeyRow | undefined;
+    return updatedRow ? mapAPIKeyRow(updatedRow) : null;
+}
+
 export function deleteAPIKeyDB(id: string): boolean {
     const Query = db.prepare("DELETE FROM api_keys WHERE id = ?");
     const Result = Query.run(id);

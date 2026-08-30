@@ -1,46 +1,29 @@
 import { useState } from "react";
-import { Check, Cloud, Code2, Copy, Network } from "lucide-react";
+import { Check, Cloud, Code2, Copy, Network, ArrowUpRight } from "lucide-react";
 import { toast } from "sonner";
 import { getGatewayBaseUrl } from "@/lib/api";
 import { useTunnelStatus, useTunnelActions } from "@/hooks/useTunnel";
 import { TunnelModal } from "@/components/dashboard/TunnelModal";
-
-function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) {
-    const [copied, setCopied] = useState(false);
-
-    async function handleCopy() {
-        try {
-            await navigator.clipboard.writeText(text);
-            setCopied(true);
-            toast.success("Base URL copied", {
-                description: "Compatible with OpenAI and Anthropic clients."
-            });
-            setTimeout(() => setCopied(false), 1500);
-        } catch {
-            toast.error("Could not copy Base URL");
-        }
-    }
-
-    return (
-        <button
-            type="button"
-            onClick={() => void handleCopy()}
-            aria-label={`${label} to clipboard`}
-            className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md border border-border/70 bg-background/70 px-2.5 text-[11px] font-semibold text-muted-foreground transition-[color,background-color,transform] hover:bg-secondary hover:text-foreground active:translate-y-px"
-        >
-            {copied ? <Check className="size-3 text-emerald-500" /> : <Copy className="size-3" />}
-            <span className={copied ? "text-emerald-500" : undefined}>
-                {copied ? "Copied" : label}
-            </span>
-        </button>
-    );
-}
 
 export function NetworkStatus() {
     const apiBase = getGatewayBaseUrl();
     const { status: tunnel, fetchStatus } = useTunnelStatus();
     const { startTunnel, stopTunnel, installCloudflared } = useTunnelActions();
     const [modalOpen, setModalOpen] = useState(false);
+    const [copied, setCopied] = useState(false);
+
+    async function handleCopy() {
+        try {
+            await navigator.clipboard.writeText(apiBase);
+            setCopied(true);
+            toast.success("Base URL copied", {
+                description: "Compatible with OpenAI and Anthropic SDKs."
+            });
+            setTimeout(() => setCopied(false), 1600);
+        } catch {
+            toast.error("Could not copy Base URL");
+        }
+    }
 
     return (
         <section
@@ -69,23 +52,51 @@ export function NetworkStatus() {
                     </div>
                 </header>
 
-                {/* Base URL (Integrated direct display - no inner card) */}
-                <div className="space-y-2">
+                {/* Base URL Card */}
+                <div className="space-y-1.5">
                     <div className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/80">
                         <span>Base URL</span>
-                        <CopyButton text={apiBase} label="Copy" />
+                        <span className="text-[9px] font-normal lowercase tracking-normal text-muted-foreground/60">
+                            click to copy
+                        </span>
                     </div>
-                    <div className="flex items-center justify-between rounded-lg border border-border/50 bg-secondary/30 px-3 py-2 transition-colors hover:border-border/80">
-                        <code className="truncate font-mono text-[11.5px] text-foreground select-all">
-                            {apiBase}
-                        </code>
+
+                    <div
+                        onClick={() => void handleCopy()}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                void handleCopy();
+                            }
+                        }}
+                        className="group flex items-center justify-between gap-2.5 rounded-lg border border-border/60 bg-secondary/25 px-3 py-2 transition-all hover:border-border hover:bg-secondary/45 cursor-pointer active:scale-[0.99]"
+                    >
+                        <div className="flex items-center gap-2 min-w-0">
+                            <code className="truncate font-mono text-[11.5px] text-foreground font-medium select-all">
+                                {apiBase}
+                            </code>
+                        </div>
+
+                        <button
+                            type="button"
+                            aria-label="Copy base URL"
+                            className="inline-flex size-6 shrink-0 items-center justify-center rounded-md border border-border/60 bg-background/80 text-muted-foreground transition-colors group-hover:bg-secondary group-hover:text-foreground hover:border-border cursor-pointer"
+                        >
+                            {copied ? (
+                                <Check className="size-3 text-emerald-500" />
+                            ) : (
+                                <Copy className="size-3" />
+                            )}
+                        </button>
                     </div>
                 </div>
             </div>
 
-            {/* Bottom: Private Access (Integrated rows - no inner card) */}
+            {/* Bottom: Private Access / Tunneling */}
             <div className="mt-6 pt-4 border-t border-border/50">
-                <div className="flex items-center justify-between gap-3 mb-2">
+                <div className="flex items-center justify-between gap-3 mb-2.5">
                     <div>
                         <h3 className="text-xs font-semibold text-foreground">Private access</h3>
                         <p className="mt-0.5 text-[10.5px] text-muted-foreground">
@@ -97,37 +108,47 @@ export function NetworkStatus() {
                     </span>
                 </div>
 
-                <div className="divide-y divide-border/35">
-                    <div className="group flex items-center justify-between gap-3 py-2.5 transition-colors">
+                <div className="space-y-1.5">
+                    {/* Cloudflare Tunnel Row */}
+                    <div className="group flex items-center justify-between gap-3 rounded-lg border border-border/40 bg-secondary/15 p-2.5 transition-all hover:border-border/70 hover:bg-secondary/35">
                         <div className="flex items-center gap-2.5 min-w-0">
-                            <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-secondary/50 text-muted-foreground group-hover:text-foreground transition-colors">
+                            <div className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border/50 bg-secondary/50 text-muted-foreground group-hover:text-foreground transition-colors">
                                 <Cloud className="size-3.5" strokeWidth={1.75} />
                             </div>
                             <div className="min-w-0">
-                                <p className="text-[11.5px] font-medium text-foreground">
-                                    Cloudflare Tunnel
-                                </p>
+                                <div className="flex items-center gap-1.5">
+                                    <p className="text-[11.5px] font-medium text-foreground">
+                                        Cloudflare Tunnel
+                                    </p>
+                                    {tunnel?.running && (
+                                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-1.5 py-0.2 text-[8.5px] font-semibold text-emerald-500">
+                                            <span className="size-1 rounded-full bg-emerald-500 animate-pulse" />
+                                            Live
+                                        </span>
+                                    )}
+                                </div>
                                 <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
                                     {tunnel?.running
-                                        ? `Running${tunnel.domain ? ` · ${tunnel.domain}` : ""}`
+                                        ? tunnel.domain ?? "Active tunnel"
                                         : "Expose gateway without opening ports"}
                                 </p>
                             </div>
                         </div>
-                        <div className="flex shrink-0 items-center gap-1.5">
-                            <button
-                                type="button"
-                                onClick={() => setModalOpen(true)}
-                                className="inline-flex h-6 items-center rounded-md border border-border/60 px-2 font-mono text-[9px] font-semibold text-sky-500 transition-colors hover:bg-sky-500/10"
-                            >
-                                {tunnel?.running ? "Open" : "Configure"}
-                            </button>
-                        </div>
+
+                        <button
+                            type="button"
+                            onClick={() => setModalOpen(true)}
+                            className="inline-flex h-6.5 shrink-0 items-center gap-1 rounded-md border border-border/70 bg-background/80 px-2.5 font-mono text-[10px] font-semibold text-foreground transition-all hover:bg-secondary hover:border-border cursor-pointer active:translate-y-px"
+                        >
+                            <span>{tunnel?.running ? "Manage" : "Configure"}</span>
+                            <ArrowUpRight className="size-2.5 opacity-60" />
+                        </button>
                     </div>
 
-                    <div className="group flex items-center justify-between gap-3 py-2.5 transition-colors">
+                    {/* Tailscale Row */}
+                    <div className="flex items-center justify-between gap-3 rounded-lg border border-border/30 bg-secondary/10 p-2.5 opacity-75 transition-opacity hover:opacity-100">
                         <div className="flex items-center gap-2.5 min-w-0">
-                            <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-secondary/50 text-muted-foreground group-hover:text-foreground transition-colors">
+                            <div className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border/40 bg-secondary/40 text-muted-foreground">
                                 <Network className="size-3.5" strokeWidth={1.75} />
                             </div>
                             <div className="min-w-0">
@@ -135,13 +156,14 @@ export function NetworkStatus() {
                                     Tailscale
                                 </p>
                                 <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
-                                    Reach SRouter through your private mesh
+                                    Private mesh network access
                                 </p>
                             </div>
                         </div>
-                        <span className="flex shrink-0 items-center gap-1.5 rounded-full border border-border/50 bg-secondary/25 px-2 py-0.5 font-mono text-[8.5px] text-muted-foreground">
+
+                        <span className="flex shrink-0 items-center gap-1.5 rounded-full border border-border/40 bg-secondary/30 px-2 py-0.5 font-mono text-[8.5px] text-muted-foreground">
                             <span
-                                className="size-1 rounded-full bg-muted-foreground/50"
+                                className="size-1 rounded-full bg-muted-foreground/40"
                                 aria-hidden="true"
                             />
                             Coming soon

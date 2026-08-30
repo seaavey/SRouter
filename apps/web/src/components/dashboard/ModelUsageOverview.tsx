@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { ArrowDown, ArrowUp, Cpu, Sparkles, Layers, BarChart2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Cpu, Layers, BarChart2 } from "lucide-react";
 import type { UsageStats } from "@srouter/types";
 import { ProviderIcon } from "@/components/ProviderIcon";
 import { formatCompactNumber } from "@/lib/utils";
@@ -69,11 +69,6 @@ export function ModelUsageOverview({ models }: ModelUsageOverviewProps) {
                             >
                                 Model traffic
                             </h2>
-                            {topModels.length > 0 && (
-                                <span className="rounded-full border border-border/60 bg-secondary/40 px-1.5 py-0.5 font-mono text-[9px] text-muted-foreground font-medium shrink-0">
-                                    Top {topModels.length}
-                                </span>
-                            )}
                         </div>
                         <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
                             Highest token volume in the current dataset
@@ -156,16 +151,6 @@ export function ModelUsageOverview({ models }: ModelUsageOverviewProps) {
                                                 {name}
                                             </span>
                                         </div>
-
-                                        {model.totalCachedTokens > 0 && (
-                                            <span
-                                                className="hidden md:inline-flex items-center gap-0.5 rounded-full border border-sky-500/20 bg-sky-500/10 px-1.5 py-0.2 font-mono text-[8.5px] text-sky-500 shrink-0"
-                                                title={`Cached: ${model.totalCachedTokens.toLocaleString()} tokens`}
-                                            >
-                                                <Sparkles className="size-2.5" />
-                                                cached
-                                            </span>
-                                        )}
                                     </div>
 
                                     {/* Right: Metrics Table */}

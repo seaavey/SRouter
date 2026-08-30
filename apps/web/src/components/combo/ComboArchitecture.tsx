@@ -20,9 +20,6 @@ export function ComboArchitecture() {
                             <span className="text-xs font-bold text-foreground">
                                 Gateway Failover &amp; Cascade Pipeline
                             </span>
-                            <span className="rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-2 py-0.2 text-[9px] font-semibold">
-                                Zero Downtime
-                            </span>
                         </div>
                         <p className="text-[11px] text-muted-foreground truncate">
                             3-layer automated failover protection: Circuit Breaker &bull; Key

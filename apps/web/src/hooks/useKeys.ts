@@ -7,6 +7,7 @@ export function useKeys() {
     const [keys, setKeys] = useState<DBAPIKey[]>([]);
     const [loading, setLoading] = useState(true);
     const [creating, setCreating] = useState(false);
+    const [updatingId, setUpdatingId] = useState<string | null>(null);
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [addingCreditId, setAddingCreditId] = useState<string | null>(null);
     const [newlyCreatedKey, setNewlyCreatedKey] = useState<DBAPIKey | null>(null);
@@ -58,6 +59,35 @@ export function useKeys() {
         []
     );
 
+    const updateKey = useCallback(
+        async (
+            id: string,
+            data: {
+                name?: string;
+                enabled?: boolean;
+                rateLimit?: number;
+                quotaLimit?: number;
+                creditLimit?: number;
+                allowed_models?: string[] | null;
+            }
+        ) => {
+            setUpdatingId(id);
+            try {
+                const updated = await api.patch<DBAPIKey>(`/v1/keys/${id}`, data);
+                setKeys((prev) => prev.map((k) => (k.id === id ? updated : k)));
+                toast.success(`API Key "${updated.name}" updated successfully`);
+                return updated;
+            } catch (err) {
+                const msg = err instanceof Error ? err.message : "Failed to update API key";
+                toast.error(msg);
+                return null;
+            } finally {
+                setUpdatingId(null);
+            }
+        },
+        []
+    );
+
     const addCredit = useCallback(async (id: string, amount: number) => {
         if (!Number.isFinite(amount) || amount <= 0) {
             toast.error("Amount must be greater than 0");
@@ -99,12 +129,14 @@ export function useKeys() {
         keys,
         loading,
         creating,
+        updatingId,
         deletingId,
         addingCreditId,
         newlyCreatedKey,
         setNewlyCreatedKey,
         fetchKeys,
         createKey,
+        updateKey,
         addCredit,
         deleteKey
     };

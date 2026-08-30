@@ -1,6 +1,12 @@
 import type { Context } from "hono";
-import { getAllAPIKeysDB, createAPIKeyDB, deleteAPIKeyDB, addCreditAPIKeyDB } from "@srouter/db";
-import { CreateAPIKeySchema, AddCreditSchema } from "@srouter/types";
+import {
+    getAllAPIKeysDB,
+    createAPIKeyDB,
+    deleteAPIKeyDB,
+    addCreditAPIKeyDB,
+    updateAPIKeyDB
+} from "@srouter/db";
+import { CreateAPIKeySchema, AddCreditSchema, UpdateAPIKeySchema } from "@srouter/types";
 import { Err, Ok } from "@/utils/response.js";
 
 export class KeysController {
@@ -29,6 +35,27 @@ export class KeysController {
             return Ok(c, created, 201);
         } catch (error) {
             return Err(c, error instanceof Error ? error.message : "Failed to create API key", 500);
+        }
+    }
+
+    public static async UpdateKey(c: Context): Promise<Response> {
+        const id = c.req.param("id");
+        if (!id) return Err(c, "Key ID is required", 400);
+
+        const rawBody = await c.req.json().catch(() => null);
+        const parsed = UpdateAPIKeySchema.safeParse(rawBody);
+        if (!parsed.success) {
+            return Err(c, parsed.error.issues[0]?.message || "Invalid update payload", 400);
+        }
+
+        try {
+            const updated = updateAPIKeyDB(id, parsed.data);
+            if (!updated) {
+                return Err(c, `Key '${id}' not found`, 404);
+            }
+            return Ok(c, updated);
+        } catch (error) {
+            return Err(c, error instanceof Error ? error.message : "Failed to update API key", 500);
         }
     }
 

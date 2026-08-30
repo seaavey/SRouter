@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { AlertCircle, Check, Copy } from "lucide-react";
+import { toast } from "sonner";
 import type { DBAPIKey } from "@srouter/types";
 import {
     Dialog,
@@ -23,9 +24,10 @@ export function KeySecretModal({ newKey, onClose }: KeySecretModalProps) {
         try {
             await navigator.clipboard.writeText(text);
             setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
+            toast.success("API key copied to clipboard");
+            setTimeout(() => setCopied(false), 1600);
         } catch {
-            // fallback
+            toast.error("Could not copy API key");
         }
     };
 
