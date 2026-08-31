@@ -21,6 +21,7 @@ import {
     upsertProviderDB
 } from "@srouter/db";
 import { loadSavedProvidersFromDB, registry } from "@/services/registry.js";
+import { AssertPublicUrl } from "@/utils/ssrf.js";
 
 export interface GroupedCatalog {
     oauth: ProviderDefinition[];
@@ -326,32 +327,15 @@ export class ProvidersLogic {
 
         if (BaseUrl) {
             try {
-                const Url = new URL(BaseUrl);
-                if (!["http:", "https:"].includes(Url.protocol)) {
-                    return {
-                        success: false,
-                        message: "URL endpoint harus berformat HTTP atau HTTPS."
-                    };
-                }
-                const Hostname = Url.hostname.toLowerCase();
-                const IsInternalHost =
-                    Hostname === "169.254.169.254" ||
-                    Hostname === "metadata.google.internal" ||
-                    Hostname === "instance-data" ||
-                    Hostname === "localhost" ||
-                    Hostname === "127.0.0.1" ||
-                    Hostname === "::1" ||
-                    Hostname.startsWith("127.") ||
-                    Hostname.startsWith("169.254.");
-                if (IsInternalHost) {
-                    return {
-                        success: false,
-                        message:
-                            "Target URL tidak diizinkan untuk verifikasi (endpoint internal/metadata diblokir)."
-                    };
-                }
-            } catch {
-                return { success: false, message: "Format Endpoint Base URL tidak valid." };
+                await AssertPublicUrl(BaseUrl);
+            } catch (Err) {
+                return {
+                    success: false,
+                    message:
+                        Err instanceof Error
+                            ? `Target URL tidak diizinkan: ${Err.message}`
+                            : "Format Endpoint Base URL tidak valid."
+                };
             }
         }
 
@@ -378,6 +362,7 @@ export class ProvidersLogic {
                 const Res = await fetch(TargetUrl, {
                     method: "GET",
                     headers: Headers,
+                    redirect: "manual",
                     signal: AbortSignal.timeout(8000)
                 });
 
@@ -393,6 +378,13 @@ export class ProvidersLogic {
                                 ? `Koneksi Anthropic valid! (${Count} model ditemukan)`
                                 : "Koneksi Anthropic berhasil diverifikasi.",
                         modelsCount: Count
+                    };
+                }
+
+                if (Res.status >= 300 && Res.status < 400) {
+                    return {
+                        success: false,
+                        message: "Redirect tidak diikuti untuk verifikasi (potensi SSRF)."
                     };
                 }
 
@@ -431,6 +423,7 @@ export class ProvidersLogic {
             const Res = await fetch(TargetUrl, {
                 method: "GET",
                 headers: Headers,
+                redirect: "manual",
                 signal: AbortSignal.timeout(8000)
             });
 
@@ -446,6 +439,13 @@ export class ProvidersLogic {
                             ? `Koneksi OpenAI valid! (${Count} model ditemukan)`
                             : "Koneksi OpenAI berhasil diverifikasi.",
                     modelsCount: Count
+                };
+            }
+
+            if (Res.status >= 300 && Res.status < 400) {
+                return {
+                    success: false,
+                    message: "Redirect tidak diikuti untuk verifikasi (potensi SSRF)."
                 };
             }
 

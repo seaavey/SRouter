@@ -76,24 +76,33 @@ export const ToolChoiceSchema = z.union([
 ]);
 
 export const ChatCompletionRequestSchema = z.object({
-    model: z.string({
-        required_error: "Missing required parameter 'model'"
-    }),
+    model: z
+        .string({
+            required_error: "Missing required parameter 'model'"
+        })
+        .min(1)
+        .max(300),
     messages: z
         .array(ChatMessageSchema, {
             required_error: "Missing required parameter 'messages'"
         })
-        .min(1, "Parameter 'messages' cannot be empty"),
+        .min(1, "Parameter 'messages' cannot be empty")
+        .max(1000, "Parameter 'messages' exceeds the maximum of 1000 entries"),
     temperature: z.number().min(0).max(2).optional(),
     top_p: z.number().min(0).max(1).optional(),
-    n: z.number().int().positive().optional(),
+    n: z.number().int().positive().max(8).optional(),
     stream: z.boolean().optional(),
-    stop: z.union([z.string(), z.array(z.string())]).optional(),
-    max_tokens: z.number().int().positive().optional(),
+    stop: z.union([z.string(), z.array(z.string().max(1000)).max(16)]).optional(),
+    max_tokens: z
+        .number()
+        .int()
+        .positive()
+        .max(1_000_000, "Parameter 'max_tokens' exceeds the gateway maximum")
+        .optional(),
     presence_penalty: z.number().min(-2).max(2).optional(),
     frequency_penalty: z.number().min(-2).max(2).optional(),
-    user: z.string().optional(),
-    tools: z.array(ToolDefinitionSchema).optional(),
+    user: z.string().max(300).optional(),
+    tools: z.array(ToolDefinitionSchema).max(128).optional(),
     tool_choice: ToolChoiceSchema.optional(),
     response_format: z
         .object({
