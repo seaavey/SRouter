@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useFallbacks } from "@/hooks/useFallbacks";
 import { ComboHeader } from "@/components/combo/combo.header";
 import { ComboArchitecture } from "@/components/combo/combo.architecture";
-import ComboForm from "@/components/forms/combo.form";
+import ComboForm from "@/components/combo/combo.form";
 import { ComboList } from "@/components/combo/combo.list";
 
 export const Route = createFileRoute("/combo")({

@@ -4,7 +4,7 @@ import ComboModelPickerModal, {
     formatModelDisplayName,
     getModelCapabilities,
     type ComboModelItem
-} from "@/components/dialog/combo.dialog";
+} from "./combo.dialog";
 import { ProviderIcon } from "@/components/ProviderIcon";
 import type { CreateFallbackRuleInput, FallbackRule } from "@srouter/types";
 

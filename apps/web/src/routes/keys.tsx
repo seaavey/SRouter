@@ -6,14 +6,14 @@ import type { CreateAPIKeyZod, APIKeyZod } from "@srouter/types";
 import { Button } from "@/components/ui/button";
 import { KeysSkeleton } from "@/components/skeletons";
 
-import KeyMetrics from "@/components/sections/keys.section";
-import { KeyTable } from "@/components/tables/keys.table";
+import KeyMetrics from "@/components/keys/keys.section";
+import { KeyTable } from "@/components/keys/keys.table";
 import {
     CreateKeyDialog,
     EditKeyDialog,
     KeyDeleteDialog,
     KeySecretModal
-} from "@/components/dialog/keys.dialogs";
+} from "@/components/keys/keys.dialogs";
 
 export const Route = createFileRoute("/keys")({
     staticData: { title: "API Keys" },

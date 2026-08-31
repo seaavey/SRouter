@@ -22,7 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { ProviderIcon } from "@/components/ProviderIcon";
-import { formatModelDisplayName, getModelCapabilities } from "@/components/dialog/combo.dialog";
+import { formatModelDisplayName, getModelCapabilities } from "./combo.dialog";
 import { useCopy } from "@/hooks/useCopy";
 import { toast } from "sonner";
 import type { FallbackRule } from "@srouter/types";

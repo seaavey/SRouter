@@ -14,7 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ProviderIcon } from "@/components/ProviderIcon";
-import { ConnectOAuthModal } from "@/components/ui/ConnectOAuthModal";
+import { ConnectOAuthModal } from "@/components/providers/ConnectOAuthModal";
 import { useProvider, type AddConnectionPayload } from "@/hooks/useProvider";
 import { useCopy } from "@/hooks/useCopy";
 import { useFavorites } from "@/hooks/useFavorites";
