@@ -11,6 +11,7 @@ import { Err, Ok } from "@/utils/response.js";
 export class SettingsController {
     public static GetSettings(c: Context): Response {
         return Ok(c, {
+            require_api_key: getRequireApiKeyDB(),
             requireApiKey: getRequireApiKeyDB(),
             settings: getAllSettingsDB()
         });
@@ -24,8 +25,8 @@ export class SettingsController {
         }
 
         try {
-            if (typeof Parsed.data.requireApiKey === "boolean") {
-                setRequireApiKeyDB(Parsed.data.requireApiKey);
+            if (typeof Parsed.data.require_api_key === "boolean") {
+                setRequireApiKeyDB(Parsed.data.require_api_key);
             }
             if (Parsed.data.settings) {
                 for (const [key, value] of Object.entries(Parsed.data.settings)) {
@@ -37,6 +38,7 @@ export class SettingsController {
 
             return Ok(c, {
                 message: "Settings updated successfully",
+                require_api_key: getRequireApiKeyDB(),
                 requireApiKey: getRequireApiKeyDB(),
                 settings: getAllSettingsDB()
             });

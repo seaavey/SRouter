@@ -13,6 +13,7 @@ import { api } from "@/lib/api";
 
 export interface ConnectionFormInput {
     name?: string;
+    base_url?: string;
     baseUrl?: string;
     apiKey: string;
 }
@@ -72,8 +73,8 @@ export function ConnectionForm({
         try {
             const res = await api.post<VerifyResponse>("/v1/providers/verify", {
                 protocol,
-                baseUrl: defaultBaseUrl || undefined,
-                apiKey: trimmedKey
+                base_url: defaultBaseUrl || undefined,
+                api_key: trimmedKey
             });
             if (res.success) {
                 setVerifyStatus("success");
@@ -105,7 +106,7 @@ export function ConnectionForm({
         setFormError("");
         onSubmit({
             name: `${providerName} Key`,
-            baseUrl: defaultBaseUrl || undefined,
+            base_url: defaultBaseUrl || undefined,
             apiKey: trimmedKey
         });
     };

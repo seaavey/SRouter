@@ -15,12 +15,17 @@ export interface OAuthLoginResult {
 
 export interface TokenImportParams {
     id?: string;
-    accessToken: string;
+    access_token?: string;
+    accessToken?: string;
+    refresh_token?: string;
     refreshToken?: string;
+    account_id?: string;
     accountId?: string;
     base_url?: string;
     baseUrl?: string;
     name?: string;
+    id_token?: string;
+    idToken?: string;
 }
 
 export interface OAuthTokens {

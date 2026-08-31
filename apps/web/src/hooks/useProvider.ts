@@ -13,8 +13,8 @@ export interface AddConnectionPayload {
     name: string;
     category: ProviderCategory;
     protocol: ProviderProtocol;
-    baseUrl?: string;
-    apiKey?: string;
+    base_url?: string;
+    api_key?: string;
 }
 
 /**
@@ -60,7 +60,7 @@ export function useProvider(providerId: string) {
 
     const addModelMutation = useMutation({
         mutationFn: (modelId: string) =>
-            api.post<ModelObject>(`/v1/providers/${providerId}/models`, { modelId }),
+            api.post<ModelObject>(`/v1/providers/${providerId}/models`, { model_id: modelId }),
         onSuccess: () => {
             void queryClient.invalidateQueries({ queryKey: ["providers", providerId] });
             void queryClient.invalidateQueries({ queryKey: ["models"] });

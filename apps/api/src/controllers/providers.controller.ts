@@ -78,7 +78,7 @@ export class ProvidersController {
         }
 
         try {
-            const Model = ProvidersLogic.AddCustomModel(ProviderId, Parsed.data.modelId);
+            const Model = ProvidersLogic.AddCustomModel(ProviderId, Parsed.data.model_id);
             return Ok(c, Model, 201);
         } catch (error) {
             return Err(c, error instanceof Error ? error.message : "Invalid model payload", 400);

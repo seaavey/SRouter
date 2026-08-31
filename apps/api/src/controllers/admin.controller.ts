@@ -168,26 +168,26 @@ export class AdminController {
         }
 
         const PasswordHash = Store.getPasswordHash();
-        if (!PasswordHash || !verifyAdminPassword(Parsed.data.currentPassword, PasswordHash)) {
+        if (!PasswordHash || !verifyAdminPassword(Parsed.data.current_password, PasswordHash)) {
             return Err(c, "Current admin password is incorrect", 401, {
                 code: "invalid_credentials"
             });
         }
 
-        const PasswordError = validateAdminPassword(Parsed.data.newPassword);
+        const PasswordError = validateAdminPassword(Parsed.data.new_password);
         if (PasswordError) {
             return Err(c, PasswordError, 400, {
                 code: "invalid_password"
             });
         }
 
-        if (Parsed.data.newPassword !== Parsed.data.confirmation) {
+        if (Parsed.data.new_password !== Parsed.data.confirmation) {
             return Err(c, "New password confirmation does not match", 400, {
                 code: "password_mismatch"
             });
         }
 
-        const Updated = Store.updatePasswordHash(hashAdminPassword(Parsed.data.newPassword), Now());
+        const Updated = Store.updatePasswordHash(hashAdminPassword(Parsed.data.new_password), Now());
         if (!Updated) {
             return Err(c, "Failed to update admin password", 500, {
                 code: "password_update_failed"

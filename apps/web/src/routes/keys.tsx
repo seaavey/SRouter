@@ -2,16 +2,18 @@ import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Plus } from "lucide-react";
 import { useKeys } from "@/hooks/useKeys";
-import type { DBAPIKey } from "@srouter/types";
+import type { CreateAPIKeyZod, APIKeyZod } from "@srouter/types";
 import { Button } from "@/components/ui/button";
 import { KeysSkeleton } from "@/components/skeletons";
 
 import { KeyMetrics } from "@/components/keys/KeyMetrics";
-import { KeyTable } from "@/components/keys/KeyTable";
-import { CreateKeyDialog } from "@/components/keys/CreateKeyDialog";
-import { KeySecretModal } from "@/components/keys/KeySecretModal";
-import { KeyDeleteDialog } from "@/components/keys/KeyDeleteDialog";
-import { EditKeyDialog } from "@/components/keys/EditKeyDialog";
+import { KeyTable } from "@/components/tables/keys.table";
+import {
+    CreateKeyDialog,
+    EditKeyDialog,
+    KeyDeleteDialog,
+    KeySecretModal
+} from "@/components/dialog/keys.dialogs";
 
 export const Route = createFileRoute("/keys")({
     staticData: { title: "API Keys" },
@@ -33,20 +35,14 @@ function KeysPage() {
     } = useKeys();
 
     const [isCreateOpen, setIsCreateOpen] = useState(false);
-    const [keyToDelete, setKeyToDelete] = useState<DBAPIKey | null>(null);
-    const [keyToEdit, setKeyToEdit] = useState<DBAPIKey | null>(null);
+    const [keyToDelete, setKeyToDelete] = useState<APIKeyZod | null>(null);
+    const [keyToEdit, setKeyToEdit] = useState<APIKeyZod | null>(null);
 
-    const totalUsageTokens = keys.reduce((acc, k) => acc + (k.usageTokens || 0), 0);
-    const totalUsageCost = keys.reduce((acc, k) => acc + (k.usageCost || 0), 0);
+    const totalUsageTokens = keys.reduce((acc, k) => acc + (k.usage_tokens || 0), 0);
+    const totalUsageCost = keys.reduce((acc, k) => acc + (k.usage_cost || 0), 0);
     const activeKeysCount = keys.filter((k) => k.enabled).length;
 
-    const handleCreateKey = async (data: {
-        name: string;
-        rateLimit?: number;
-        quotaLimit?: number;
-        creditLimit?: number;
-        allowed_models?: string[] | null;
-    }) => {
+    const handleCreateKey = async (data: CreateAPIKeyZod) => {
         const res = await createKey(data);
         if (res) {
             setIsCreateOpen(false);
@@ -66,7 +62,6 @@ function KeysPage() {
 
     return (
         <div className="mx-auto flex w-full max-w-7xl flex-col gap-5">
-            {/* Header */}
             <header className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end border-b border-border/80 pb-5">
                 <div className="min-w-0">
                     <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
@@ -91,7 +86,6 @@ function KeysPage() {
                 </Button>
             </header>
 
-            {/* Metrics */}
             <KeyMetrics
                 totalKeys={keys.length}
                 activeKeys={activeKeysCount}
@@ -99,7 +93,6 @@ function KeysPage() {
                 totalUsageCost={totalUsageCost}
             />
 
-            {/* Key Management Table */}
             <KeyTable
                 keys={keys}
                 deletingId={deletingId}
@@ -108,7 +101,6 @@ function KeysPage() {
                 onDeleteClick={(key) => setKeyToDelete(key)}
             />
 
-            {/* Dialogs */}
             <CreateKeyDialog
                 open={isCreateOpen}
                 creating={creating}

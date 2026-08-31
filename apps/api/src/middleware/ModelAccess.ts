@@ -1,5 +1,5 @@
 import type { Context, MiddlewareHandler } from "hono";
-import type { DBAPIKey } from "@srouter/types";
+import type { APIKeyZod } from "@srouter/types";
 import { Err } from "@/utils/response.js";
 
 function NormalizeModelId(model: string): string {
@@ -19,8 +19,8 @@ export function IsModelAllowed(
     });
 }
 
-export function GetApiKeyRow(c: Context): DBAPIKey | undefined {
-    return c.get("apiKeyRow") as DBAPIKey | undefined;
+export function GetApiKeyRow(c: Context): APIKeyZod | undefined {
+    return c.get("apiKeyRow") as APIKeyZod | undefined;
 }
 
 export function EnforceModelAccess(): MiddlewareHandler {

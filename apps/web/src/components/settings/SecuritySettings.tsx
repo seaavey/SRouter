@@ -121,8 +121,8 @@ print(response.choices[0].message.content)`;
         setIsChangingPassword(true);
         try {
             await api.post("/v1/admin/change-password", {
-                currentPassword,
-                newPassword,
+                current_password: currentPassword,
+                new_password: newPassword,
                 confirmation
             });
             toast.success("Admin password changed successfully");

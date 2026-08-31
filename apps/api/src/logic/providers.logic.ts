@@ -251,21 +251,22 @@ export class ProvidersLogic {
                 throw new Error("Base URL must be a valid HTTP or HTTPS URL");
             }
         }
-        const ApiKey = Payload.apiKey?.trim();
+        const ApiKey = Payload.api_key?.trim();
         if (Category === "api_key" && !ApiKey)
             throw new Error("API key is required for API key providers");
 
         const Config = {
             id: Id,
-            providerId: Id,
+            providerId: Payload.provider_id || Id,
             name: Name,
             category: Category,
             protocol: Protocol,
             base_url: BaseUrl,
             apiKey: ApiKey,
-            accessToken: Payload.accessToken,
-            refreshToken: Payload.refreshToken,
-            providerSpecificData: Payload.providerSpecificData,
+            accessToken: Payload.access_token,
+            refreshToken: Payload.refresh_token,
+            providerSpecificData: Payload.provider_specific_data,
+            customHeaders: Payload.custom_headers,
             enabled: true,
             createdAt: Date.now()
         };
@@ -319,8 +320,9 @@ export class ProvidersLogic {
         modelsCount?: number;
     }> {
         const Protocol = Payload.protocol || "openai";
-        const BaseUrl = (Payload.base_url?.trim() || "").replace(/\/+$/, "");
-        const ApiKey = Payload.apiKey?.trim();
+        const RawBaseUrl = Payload.base_url?.trim() || "";
+        const BaseUrl = RawBaseUrl.replace(/\/+$/, "");
+        const ApiKey = Payload.api_key?.trim();
 
         if (BaseUrl) {
             try {
@@ -355,9 +357,15 @@ export class ProvidersLogic {
 
         try {
             if (Protocol === "anthropic") {
-                const TargetUrl = BaseUrl
-                    ? `${BaseUrl}/v1/models`
-                    : "https://api.anthropic.com/v1/models";
+                let TargetUrl: string;
+                if (!BaseUrl) {
+                    TargetUrl = "https://api.anthropic.com/v1/models";
+                } else if (BaseUrl.endsWith("/v1")) {
+                    TargetUrl = `${BaseUrl}/models`;
+                } else {
+                    TargetUrl = `${BaseUrl}/v1/models`;
+                }
+
                 const Headers: Record<string, string> = {
                     "User-Agent": "SRouter/1.0.0 (Node.js)",
                     Accept: "application/json",
@@ -402,7 +410,15 @@ export class ProvidersLogic {
                 };
             }
 
-            const TargetUrl = BaseUrl ? `${BaseUrl}/models` : "https://api.openai.com/v1/models";
+            let TargetUrl: string;
+            if (!BaseUrl) {
+                TargetUrl = "https://api.openai.com/v1/models";
+            } else if (BaseUrl.endsWith("/models")) {
+                TargetUrl = BaseUrl;
+            } else {
+                TargetUrl = `${BaseUrl}/models`;
+            }
+
             const Headers: Record<string, string> = {
                 "User-Agent": "SRouter/1.0.0 (Node.js)",
                 "Accept-Encoding": "identity",

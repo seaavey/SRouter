@@ -19,23 +19,23 @@ afterEach(() => {
 test("createAPIKeyDB stores creditLimit and usageCost default to 0", () => {
     const key = createAPIKeyDB({
         name: "Test Credit Key",
-        creditLimit: 15.5
+        credit_limit: 15.5
     });
     createdIds.push(key.id);
 
-    assert.equal(key.creditLimit, 15.5);
-    assert.equal(key.usageCost, 0);
+    assert.equal(key.credit_limit, 15.5);
+    assert.equal(key.usage_cost, 0);
 
     const lookup = getAPIKeyByKeyDB(key.key);
     assert.ok(lookup);
-    assert.equal(lookup?.creditLimit, 15.5);
-    assert.equal(lookup?.usageCost, 0);
+    assert.equal(lookup?.credit_limit, 15.5);
+    assert.equal(lookup?.usage_cost, 0);
 });
 
 test("incrementAPIKeyUsageDB increments tokens and dollar cost", () => {
     const key = createAPIKeyDB({
         name: "Usage Test Key",
-        creditLimit: 20
+        credit_limit: 20
     });
     createdIds.push(key.id);
 
@@ -43,21 +43,21 @@ test("incrementAPIKeyUsageDB increments tokens and dollar cost", () => {
 
     const lookup = getAPIKeyByKeyDB(key.key);
     assert.ok(lookup);
-    assert.equal(lookup?.usageTokens, 500);
-    assert.equal(Math.round((lookup?.usageCost ?? 0) * 1000) / 1000, 0.025);
+    assert.equal(lookup?.usage_tokens, 500);
+    assert.equal(Math.round((lookup?.usage_cost ?? 0) * 1000) / 1000, 0.025);
 });
 
 test("addCreditAPIKeyDB increases creditLimit", () => {
     const key = createAPIKeyDB({
         name: "Add Credit Test Key",
-        creditLimit: 10
+        credit_limit: 10
     });
     createdIds.push(key.id);
 
     const updated = addCreditAPIKeyDB(key.id, 5.25);
     assert.ok(updated);
-    assert.equal(updated?.creditLimit, 15.25);
+    assert.equal(updated?.credit_limit, 15.25);
 
     const lookup = getAPIKeyByKeyDB(key.key);
-    assert.equal(lookup?.creditLimit, 15.25);
+    assert.equal(lookup?.credit_limit, 15.25);
 });

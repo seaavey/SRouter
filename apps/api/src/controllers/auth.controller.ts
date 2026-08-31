@@ -52,9 +52,9 @@ async function CallbackFor(
     let code = c.req.query("code") ?? body?.code;
     let state = c.req.query("state") ?? body?.state;
 
-    if (body?.callbackUrl) {
+    if (body?.callback_url) {
         try {
-            const url = new URL(body.callbackUrl);
+            const url = new URL(body.callback_url);
             code = code ?? url.searchParams.get("code") ?? undefined;
             state = state ?? url.searchParams.get("state") ?? undefined;
         } catch {}

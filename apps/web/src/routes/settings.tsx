@@ -38,7 +38,8 @@ type SettingsTab =
     "security" | "gateway" | "appearance" | "logging" | "playground" | "data" | "system";
 
 interface ServerSettingsResponse {
-    requireApiKey: boolean;
+    require_api_key?: boolean;
+    requireApiKey?: boolean;
     settings?: Record<string, string>;
 }
 
@@ -69,15 +70,20 @@ function SettingsPage() {
     const [requireApiKey, setRequireApiKey] = useState<boolean>(false);
 
     useEffect(() => {
-        if (serverSettings && typeof serverSettings.requireApiKey === "boolean") {
-            setRequireApiKey(serverSettings.requireApiKey);
+        if (serverSettings) {
+            const val = serverSettings.require_api_key ?? serverSettings.requireApiKey;
+            if (typeof val === "boolean") {
+                setRequireApiKey(val);
+            }
         }
     }, [serverSettings]);
 
     // Mutation to update server settings
     const updateServerMutation = useMutation({
         mutationFn: (newRequireApiKey: boolean) =>
-            api.post("/v1/settings", { requireApiKey: newRequireApiKey }),
+            api.post("/v1/settings", {
+                require_api_key: newRequireApiKey
+            }),
         onSuccess: (_data, newRequireApiKey) => {
             queryClient.invalidateQueries({ queryKey: ["server_settings"] });
             toast.success(

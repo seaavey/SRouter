@@ -1,4 +1,4 @@
-import type { DBAPIKey } from "@srouter/types";
+import type { APIKeyZod } from "@srouter/types";
 import { db } from "./db.js";
 import { randomUUID } from "node:crypto";
 import { generateId, num, str } from "./row-utils.js";
@@ -28,14 +28,14 @@ function ParseAllowedModels(value: string | null): string[] | null {
     return null;
 }
 
-export function getAllAPIKeysDB(): DBAPIKey[] {
+export function getAllAPIKeysDB(): APIKeyZod[] {
     const Query = db.prepare("SELECT * FROM api_keys ORDER BY created_at DESC");
     const Rows = Query.all() as unknown as APIKeyRow[];
 
     return Rows.map(mapAPIKeyRow);
 }
 
-export function getAPIKeyByKeyDB(key: string): DBAPIKey | null {
+export function getAPIKeyByKeyDB(key: string): APIKeyZod | null {
     const Query = db.prepare("SELECT * FROM api_keys WHERE key = ? AND enabled = 1");
     const Row = Query.get(key) as unknown as APIKeyRow | undefined;
 
@@ -44,29 +44,33 @@ export function getAPIKeyByKeyDB(key: string): DBAPIKey | null {
     return mapAPIKeyRow(Row);
 }
 
-function mapAPIKeyRow(row: APIKeyRow): DBAPIKey {
+function mapAPIKeyRow(row: APIKeyRow): APIKeyZod {
     return {
         id: row.id,
         key: row.key,
         name: row.name,
         enabled: Boolean(row.enabled),
-        rateLimit: row.rate_limit ?? 0,
-        quotaLimit: row.quota_limit ?? 0,
-        usageTokens: row.usage_tokens ?? 0,
-        creditLimit: row.credit_limit ?? 0,
-        usageCost: row.usage_cost ?? 0,
+        rate_limit: row.rate_limit ?? 0,
+        quota_limit: row.quota_limit ?? 0,
+        usage_tokens: row.usage_tokens ?? 0,
+        credit_limit: row.credit_limit ?? 0,
+        usage_cost: row.usage_cost ?? 0,
         allowed_models: ParseAllowedModels(row.allowed_models),
-        createdAt: row.created_at
+        created_at: row.created_at
     };
 }
 
 export function createAPIKeyDB(data: {
     name: string;
+    enabled?: boolean;
+    rate_limit?: number;
+    quota_limit?: number;
+    credit_limit?: number;
     rateLimit?: number;
     quotaLimit?: number;
     creditLimit?: number;
     allowed_models?: string[] | null;
-}): DBAPIKey {
+}): APIKeyZod {
     const Id = generateId("key");
     const RandomHex = randomUUID().replace(/-/g, "").slice(0, 16);
     const Key = `sr-live-${RandomHex}`;
@@ -74,19 +78,23 @@ export function createAPIKeyDB(data: {
     const AllowedModels =
         data.allowed_models && data.allowed_models.length > 0 ? data.allowed_models : null;
     const AllowedModelsJson = AllowedModels ? JSON.stringify(AllowedModels) : null;
-    const CreditLimit = data.creditLimit ?? 0;
+    const RateLimit = data.rate_limit ?? data.rateLimit ?? 0;
+    const QuotaLimit = data.quota_limit ?? data.quotaLimit ?? 0;
+    const CreditLimit = data.credit_limit ?? data.creditLimit ?? 0;
+    const Enabled = data.enabled !== undefined ? (data.enabled ? 1 : 0) : 1;
 
     const Query = db.prepare(`
         INSERT INTO api_keys (id, key, name, enabled, rate_limit, quota_limit, usage_tokens, credit_limit, usage_cost, allowed_models, created_at)
-        VALUES (?, ?, ?, 1, ?, ?, 0, ?, 0, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, 0, ?, 0, ?, ?)
     `);
 
     Query.run(
         Id,
         Key,
         data.name,
-        data.rateLimit ?? 0,
-        data.quotaLimit ?? 0,
+        Enabled,
+        RateLimit,
+        QuotaLimit,
         CreditLimit,
         AllowedModelsJson,
         CreatedAt
@@ -96,14 +104,14 @@ export function createAPIKeyDB(data: {
         id: Id,
         key: Key,
         name: data.name,
-        enabled: true,
-        rateLimit: data.rateLimit ?? 0,
-        quotaLimit: data.quotaLimit ?? 0,
-        usageTokens: 0,
-        creditLimit: CreditLimit,
-        usageCost: 0,
+        enabled: Boolean(Enabled),
+        rate_limit: RateLimit,
+        quota_limit: QuotaLimit,
+        usage_tokens: 0,
+        credit_limit: CreditLimit,
+        usage_cost: 0,
         allowed_models: AllowedModels,
-        createdAt: CreatedAt
+        created_at: CreatedAt
     };
 }
 
@@ -114,7 +122,7 @@ export function incrementAPIKeyUsageDB(keyId: string, tokens: number, cost = 0):
     Query.run(tokens, cost, keyId);
 }
 
-export function addCreditAPIKeyDB(id: string, amount: number): DBAPIKey | null {
+export function addCreditAPIKeyDB(id: string, amount: number): APIKeyZod | null {
     const UpdateQuery = db.prepare(
         "UPDATE api_keys SET credit_limit = credit_limit + ? WHERE id = ?"
     );
@@ -131,12 +139,15 @@ export function updateAPIKeyDB(
     data: {
         name?: string;
         enabled?: boolean;
+        rate_limit?: number;
+        quota_limit?: number;
+        credit_limit?: number;
         rateLimit?: number;
         quotaLimit?: number;
         creditLimit?: number;
         allowed_models?: string[] | null;
     }
-): DBAPIKey | null {
+): APIKeyZod | null {
     const SelectQuery = db.prepare("SELECT * FROM api_keys WHERE id = ?");
     const existing = SelectQuery.get(id) as unknown as APIKeyRow | undefined;
     if (!existing) return null;
@@ -152,17 +163,20 @@ export function updateAPIKeyDB(
         fields.push("enabled = ?");
         values.push(data.enabled ? 1 : 0);
     }
-    if (data.rateLimit !== undefined) {
+    const rateLimit = data.rate_limit ?? data.rateLimit;
+    if (rateLimit !== undefined) {
         fields.push("rate_limit = ?");
-        values.push(data.rateLimit);
+        values.push(rateLimit);
     }
-    if (data.quotaLimit !== undefined) {
+    const quotaLimit = data.quota_limit ?? data.quotaLimit;
+    if (quotaLimit !== undefined) {
         fields.push("quota_limit = ?");
-        values.push(data.quotaLimit);
+        values.push(quotaLimit);
     }
-    if (data.creditLimit !== undefined) {
+    const creditLimit = data.credit_limit ?? data.creditLimit;
+    if (creditLimit !== undefined) {
         fields.push("credit_limit = ?");
-        values.push(data.creditLimit);
+        values.push(creditLimit);
     }
     if (data.allowed_models !== undefined) {
         fields.push("allowed_models = ?");

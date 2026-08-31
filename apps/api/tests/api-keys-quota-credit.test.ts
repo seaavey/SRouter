@@ -21,7 +21,7 @@ function createTestApp() {
 test("ApiKeyAuth rejects request with 402 when credit balance is exhausted", async () => {
     const key = createAPIKeyDB({
         name: "Exhausted Credit Key",
-        creditLimit: 5.0
+        credit_limit: 5.0
     });
     createdIds.push(key.id);
 
@@ -45,7 +45,7 @@ test("ApiKeyAuth rejects request with 402 when credit balance is exhausted", asy
 test("ApiKeyAuth rejects request with 429 when token quota is exhausted", async () => {
     const key = createAPIKeyDB({
         name: "Exhausted Quota Key",
-        quotaLimit: 1000
+        quota_limit: 1000
     });
     createdIds.push(key.id);
 
@@ -69,8 +69,8 @@ test("ApiKeyAuth rejects request with 429 when token quota is exhausted", async 
 test("ApiKeyAuth allows request when within credit and quota limits", async () => {
     const key = createAPIKeyDB({
         name: "Valid Key",
-        creditLimit: 10.0,
-        quotaLimit: 10000
+        credit_limit: 10.0,
+        quota_limit: 10000
     });
     createdIds.push(key.id);
 

@@ -53,8 +53,8 @@ test("ChatLogic.ProcessNonStreamingCompletion records usage tokens and dollar co
 
         const updated = getAPIKeyByKeyDB(key.key);
         assert.ok(updated);
-        assert.equal(updated?.usageTokens, 150);
-        assert.ok((updated?.usageCost ?? 0) > 0, "Usage cost should be greater than 0");
+        assert.equal(updated?.usage_tokens, 150);
+        assert.ok((updated?.usage_cost ?? 0) > 0, "Usage cost should be greater than 0");
     } finally {
         registry.chatCompletion = origMethod;
     }
@@ -63,7 +63,7 @@ test("ChatLogic.ProcessNonStreamingCompletion records usage tokens and dollar co
 test("ChatLogic.ProcessStreamingCompletion records usage tokens and dollar cost for apiKeyId", async () => {
     const key = createAPIKeyDB({
         name: "Streaming Deduction Key",
-        creditLimit: 10
+        credit_limit: 10
     });
     createdIds.push(key.id);
 
@@ -108,8 +108,8 @@ test("ChatLogic.ProcessStreamingCompletion records usage tokens and dollar cost 
 
         const updated = getAPIKeyByKeyDB(key.key);
         assert.ok(updated);
-        assert.equal(updated?.usageTokens, 300);
-        assert.ok((updated?.usageCost ?? 0) > 0, "Streaming usage cost should be greater than 0");
+        assert.equal(updated?.usage_tokens, 300);
+        assert.ok((updated?.usage_cost ?? 0) > 0, "Streaming usage cost should be greater than 0");
     } finally {
         registry.chatCompletionStream = origStream;
     }

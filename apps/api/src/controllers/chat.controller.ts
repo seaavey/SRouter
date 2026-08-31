@@ -1,6 +1,6 @@
 import type { Context } from "hono";
 import { streamSSE } from "hono/streaming";
-import type { ChatCompletionRequest, DBAPIKey } from "@srouter/types";
+import type { ChatCompletionRequest, APIKeyZod } from "@srouter/types";
 import { ChatLogic } from "@/logic/chat.logic.js";
 import { Err, FormatErrorPayload, Ok } from "@/utils/response.js";
 
@@ -17,7 +17,7 @@ export class ChatController {
         const Body = NormalizeDeveloperRole(
             c.req.valid("json" as never) as ChatCompletionRequest
         );
-        const ApiKeyRow = c.get("apiKeyRow") as DBAPIKey | undefined;
+        const ApiKeyRow = c.get("apiKeyRow") as APIKeyZod | undefined;
         const ApiKeyId = ApiKeyRow?.id;
 
         if (Body.stream) {

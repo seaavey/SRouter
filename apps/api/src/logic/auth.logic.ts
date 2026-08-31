@@ -180,13 +180,15 @@ function ProcessTokenImportFor(
 ): ProviderConfig {
     const timestamp = Date.now();
     const accountId = params.id || `${handler.idPrefix}_${timestamp}`;
-    const email = ExtractEmailFromToken(params.accessToken) || ExtractEmailFromToken(params.idToken);
+    const token = params.access_token || params.accessToken || "";
+    const refreshToken = params.refresh_token || params.refreshToken;
+    const email = ExtractEmailFromToken(token) || ExtractEmailFromToken(params.id_token || params.idToken);
     const providerName =
         params.name || email || `${handler.displayName} (Account #${timestamp.toString().slice(-4)})`;
     const mapping = handler.mapImportTokens?.(params) ?? {
-        accessToken: params.accessToken,
-        refreshToken: params.refreshToken,
-        accountId: params.accountId
+        accessToken: token,
+        refreshToken: refreshToken,
+        accountId: params.account_id || params.accountId
     };
     const baseUrl = params.base_url || params.baseUrl || handler.baseUrl?.();
 

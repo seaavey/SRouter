@@ -16,10 +16,10 @@ export const AdminLoginSchema = z.object({
 export type AdminLoginZod = z.infer<typeof AdminLoginSchema>;
 
 export const AdminChangePasswordSchema = z.object({
-    currentPassword: z
+    current_password: z
         .string({ required_error: "Current password is required" })
         .min(1, "Current password is required"),
-    newPassword: z
+    new_password: z
         .string({ required_error: "New password is required" })
         .min(1, "New password is required"),
     confirmation: z

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 import { createAPIKeyDB, deleteAPIKeyDB, getAPIKeyByKeyDB } from "@srouter/db";
-import type { DBAPIKey } from "@srouter/types";
+import type { APIKeyZod } from "@srouter/types";
 import { Hono } from "hono";
 import { KeysRouter } from "@/routes/v1/keys.js";
 import { createAdminSession, ADMIN_SESSION_COOKIE } from "@/services/adminAuth.js";
@@ -31,22 +31,22 @@ test("POST /v1/keys creates key with creditLimit", async () => {
         },
         body: JSON.stringify({
             name: "Credit API Key",
-            creditLimit: 25.5
+            credit_limit: 25.5
         })
     });
 
     assert.equal(res.status, 201);
-    const body = (await res.json()) as DBAPIKey;
+    const body = (await res.json()) as APIKeyZod;
     createdIds.push(body.id);
-    assert.equal(body.creditLimit, 25.5);
-    assert.equal(body.usageCost, 0);
+    assert.equal(body.credit_limit, 25.5);
+    assert.equal(body.usage_cost, 0);
 });
 
 test("POST /v1/keys/:id/credit adds credit to existing key", async () => {
     const token = createAdminSession();
     const key = createAPIKeyDB({
         name: "Topup Route Key",
-        creditLimit: 10
+        credit_limit: 10
     });
     createdIds.push(key.id);
 
@@ -61,11 +61,11 @@ test("POST /v1/keys/:id/credit adds credit to existing key", async () => {
     });
 
     assert.equal(res.status, 200);
-    const body = (await res.json()) as DBAPIKey;
-    assert.equal(body.creditLimit, 25);
+    const body = (await res.json()) as APIKeyZod;
+    assert.equal(body.credit_limit, 25);
 
     const lookup = getAPIKeyByKeyDB(key.key);
-    assert.equal(lookup?.creditLimit, 25);
+    assert.equal(lookup?.credit_limit, 25);
 });
 
 test("POST /v1/keys/:id/credit rejects non-positive amount", async () => {

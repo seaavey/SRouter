@@ -1,16 +1,16 @@
 import { useState } from "react";
 import { Check, Copy, KeyRound, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import type { DBAPIKey } from "@srouter/types";
+import type { APIKeyZod } from "@srouter/types";
 import { formatCompactNumber } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
-type KeyTableProps = {
-    keys: DBAPIKey[];
+export type KeyTableProps = {
+    keys: APIKeyZod[];
     deletingId: string | null;
     onCreateClick: () => void;
-    onEditClick: (key: DBAPIKey) => void;
-    onDeleteClick: (key: DBAPIKey) => void;
+    onEditClick: (key: APIKeyZod) => void;
+    onDeleteClick: (key: APIKeyZod) => void;
 };
 
 function maskKey(key: string): string {
@@ -81,11 +81,11 @@ export function KeyTable({
                         {keys.map((k) => {
                             const isCopied = copiedKeyId === k.id;
                             const isDeleting = deletingId === k.id;
-                            const quotaLimit = k.quotaLimit ?? 0;
-                            const usageTokens = k.usageTokens ?? 0;
-                            const creditLimit = k.creditLimit ?? 0;
-                            const usageCost = k.usageCost ?? 0;
-                            const rateLimit = k.rateLimit ?? 0;
+                            const quotaLimit = k.quota_limit ?? 0;
+                            const usageTokens = k.usage_tokens ?? 0;
+                            const creditLimit = k.credit_limit ?? 0;
+                            const usageCost = k.usage_cost ?? 0;
+                            const rateLimit = k.rate_limit ?? 0;
                             const hasAllowedModels = Boolean(k.allowed_models && k.allowed_models.length > 0);
 
                             const remainingCredit =
@@ -129,7 +129,7 @@ export function KeyTable({
                                                 )}
                                             </code>
                                             <span className="text-[10px] text-muted-foreground/60">
-                                                {new Date(k.createdAt).toLocaleDateString()}
+                                                {new Date(k.created_at).toLocaleDateString()}
                                             </span>
                                         </div>
                                     </td>

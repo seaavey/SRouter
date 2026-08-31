@@ -148,8 +148,8 @@ test("change-password validates current password and updates admin account", asy
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-            currentPassword: "correct horse battery staple",
-            newPassword: "new correct horse battery staple",
+            current_password: "correct horse battery staple",
+            new_password: "new correct horse battery staple",
             confirmation: "new correct horse battery staple"
         })
     });
@@ -169,8 +169,8 @@ test("change-password validates current password and updates admin account", asy
         method: "POST",
         headers: { "Content-Type": "application/json", Cookie: cookie },
         body: JSON.stringify({
-            currentPassword: "wrong password here",
-            newPassword: "new correct horse battery staple",
+            current_password: "wrong password here",
+            new_password: "new correct horse battery staple",
             confirmation: "new correct horse battery staple"
         })
     });
@@ -181,8 +181,8 @@ test("change-password validates current password and updates admin account", asy
         method: "POST",
         headers: { "Content-Type": "application/json", Cookie: cookie },
         body: JSON.stringify({
-            currentPassword: "correct horse battery staple",
-            newPassword: "a".repeat(129),
+            current_password: "correct horse battery staple",
+            new_password: "a".repeat(129),
             confirmation: "a".repeat(129)
         })
     });
@@ -193,8 +193,8 @@ test("change-password validates current password and updates admin account", asy
         method: "POST",
         headers: { "Content-Type": "application/json", Cookie: cookie },
         body: JSON.stringify({
-            currentPassword: "correct horse battery staple",
-            newPassword: "new correct horse battery staple",
+            current_password: "correct horse battery staple",
+            new_password: "new correct horse battery staple",
             confirmation: "different confirmation here"
         })
     });
@@ -205,8 +205,8 @@ test("change-password validates current password and updates admin account", asy
         method: "POST",
         headers: { "Content-Type": "application/json", Cookie: cookie },
         body: JSON.stringify({
-            currentPassword: "correct horse battery staple",
-            newPassword: "new correct horse battery staple",
+            current_password: "correct horse battery staple",
+            new_password: "new correct horse battery staple",
             confirmation: "new correct horse battery staple"
         })
     });

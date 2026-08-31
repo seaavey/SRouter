@@ -77,7 +77,7 @@ export function CreateApiKeyAuth(Options: ApiKeyAuthOptions = {}) {
                     });
                 }
 
-                if (ApiKeyRow.creditLimit > 0 && ApiKeyRow.usageCost >= ApiKeyRow.creditLimit) {
+                if (ApiKeyRow.credit_limit > 0 && ApiKeyRow.usage_cost >= ApiKeyRow.credit_limit) {
                     return Err(
                         c,
                         "Insufficient credit balance. Your credit limit has been reached.",
@@ -89,7 +89,7 @@ export function CreateApiKeyAuth(Options: ApiKeyAuthOptions = {}) {
                     );
                 }
 
-                if (ApiKeyRow.quotaLimit > 0 && ApiKeyRow.usageTokens >= ApiKeyRow.quotaLimit) {
+                if (ApiKeyRow.quota_limit > 0 && ApiKeyRow.usage_tokens >= ApiKeyRow.quota_limit) {
                     return Err(
                         c,
                         "Token quota exceeded. Your lifetime token limit has been reached.",
