@@ -14,7 +14,7 @@ Dokumentasi file-file yang menggunakan penamaan `Form` atau menangani fungsional
 ## 2. Komponen & Dialog dengan Form Internal
 
 - [ ] `apps/web/src/components/auth/AdminAuthGate.tsx` — Berisi internal component `AdminAuthForm` untuk autentikasi master key / login admin.
-- [ ] `apps/web/src/components/dialog/keys.dialogs.tsx` — Berisi form create/edit API Key, tipe data `KeyFormData`, serta custom hook `useKeyForm`.
+- [x] `apps/web/src/components/dialog/keys.dialogs.tsx` — Berisi form create/edit API Key, tipe data `KeyFormData`, serta custom hook `useKeyForm`.
 - [ ] `apps/web/src/components/ui/ConnectOAuthModal.tsx` — Form modal untuk integrasi OAuth & input Personal Access Token (PAT).
 - [ ] `apps/web/src/components/settings/SecuritySettings.tsx` — Berisi form ganti password dan pengaturan keamanan.
 
