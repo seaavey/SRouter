@@ -6,7 +6,7 @@ import type { CreateAPIKeyZod, APIKeyZod } from "@srouter/types";
 import { Button } from "@/components/ui/button";
 import { KeysSkeleton } from "@/components/skeletons";
 
-import { KeyMetrics } from "@/components/keys/KeyMetrics";
+import KeyMetrics from "@/components/sections/keys.section";
 import { KeyTable } from "@/components/tables/keys.table";
 import {
     CreateKeyDialog,

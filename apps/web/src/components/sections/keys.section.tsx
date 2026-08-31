@@ -8,7 +8,7 @@ type KeyMetricsProps = {
     totalUsageCost?: number;
 };
 
-export function KeyMetrics({
+export default function KeyMetrics({
     totalKeys,
     activeKeys,
     totalUsageTokens,
