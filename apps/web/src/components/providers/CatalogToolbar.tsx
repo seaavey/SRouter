@@ -6,6 +6,7 @@ import {
     LayoutGrid,
     Layers,
     List,
+    Plus,
     RefreshCw,
     Search,
     X
@@ -25,6 +26,7 @@ interface CatalogToolbarProps {
     onSearchChange: (value: string) => void;
     viewMode: "grid" | "list";
     onViewModeChange: (mode: "grid" | "list") => void;
+    onAddCustom?: () => void;
 }
 
 const summaryIcons = {
@@ -44,7 +46,8 @@ export function CatalogToolbar({
     search,
     onSearchChange,
     viewMode,
-    onViewModeChange
+    onViewModeChange,
+    onAddCustom
 }: CatalogToolbarProps) {
     return (
         <div className="space-y-6 font-mono">
@@ -64,6 +67,17 @@ export function CatalogToolbar({
                 </div>
 
                 <div className="flex shrink-0 items-center gap-2">
+                    {onAddCustom && (
+                        <Button
+                            type="button"
+                            size="sm"
+                            onClick={onAddCustom}
+                            className="h-8 text-xs font-medium cursor-pointer gap-1.5 shadow-2xs"
+                        >
+                            <Plus className="size-3.5" />
+                            <span>Add Custom Provider</span>
+                        </Button>
+                    )}
                     <Button
                         type="button"
                         variant="outline"
