@@ -1,7 +1,7 @@
 ---
 name: srouter-cli
 description: |
-    Development skill for SRouter CLI (@srouter/cli / apps/cli). Use whenever modifying CLI behavior, command orchestration, adapter integrations, shell environment generation, onboarding/setup UX, migrations, backup/restore logic, terminal-facing developer tooling, or Claude/OpenCode integrations inside apps/cli. Also use when debugging Commander.js execution flow, env export behavior, adapter config mutation, or dry-run/rollback safety.
+    Comprehensive development skill for the SRouter CLI (@srouter/cli / apps/cli). Use whenever working on, modifying, debugging, or reviewing: Commander.js command orchestration, srouter CLI commands (setup, init, link, unlink, status, doctor, sync, env, run, migrate), adapter integrations (Claude Code ~/.claude.json, OpenCode ~/.opencode.json), backup/restore snapshotting (~/.srouter/backups/), shell environment variable exports (bash, zsh, fish, powershell), interactive terminal prompts (@clack/prompts), or dry-run safety modes.
 ---
 
 # ⚡ SRouter — CLI Skill

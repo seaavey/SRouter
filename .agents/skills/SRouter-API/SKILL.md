@@ -1,7 +1,7 @@
 ---
 name: srouter-api
 description: |
-    Development skill for SRouter API server and backend packages (@srouter/db, @srouter/executors, @srouter/providers, @srouter/translator, @srouter/pricing, @srouter/constants, @srouter/types). Use when working on apps/api routes, Hono middleware, authentication, OAuth flows, provider drivers, translators, streaming APIs, database access, or backend package architecture.
+    Comprehensive development skill for the SRouter backend, API gateway server (apps/api), and shared backend packages (@srouter/db, @srouter/executors, @srouter/providers, @srouter/translator, @srouter/pricing, @srouter/constants, @srouter/types). Use whenever working on, modifying, debugging, or reviewing: Hono 4 routes/middleware, /v1 endpoints (/v1/chat/completions, /v1/models, /v1/keys, /v1/settings, /v1/auth, /v1/fallbacks), ApiKeyAuth / RequireAdmin guards, SQLite database queries (packages/db), provider executor drivers (packages/executors), dialect translators (packages/translator), snake_case Zod schemas (packages/types), SSE streaming, or token sweeper & tunnel services.
 ---
 
 # ⚡ SRouter — API & Backend Skill

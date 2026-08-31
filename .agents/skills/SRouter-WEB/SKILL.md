@@ -1,7 +1,7 @@
 ---
 name: srouter-web
 description: |
-    Development skill for SRouter Web Dashboard (`apps/web`). Use whenever modifying React 19 routes, dashboard pages, provider configuration UI, streaming playground/chat UX, TanStack Query hooks, Tailwind v4 styling, Base UI components, auth/layout flows, API client behavior, or frontend state architecture. Also use when debugging route loaders, optimistic mutations, theme/layout regressions, query invalidation bugs, or `/v1` API integration issues.
+    Comprehensive development skill for the SRouter React 19 Web Dashboard (`apps/web`). Use whenever working on, modifying, debugging, or reviewing: TanStack Router page routes (`routes/keys.tsx`, `routes/combo.tsx`, `routes/providers/`, `routes/playground.tsx`, `routes/settings.tsx`, `routes/logs.tsx`), feature-based components (`components/keys/`, `components/combo/`, `components/providers/`, `components/playground/`, `components/ui/`), TanStack Query hooks (`useKeys`, `useProvider`, `useFallbacks`, `useFavorites`), Tailwind v4 OKLCH theme styling, Base UI primitives, streaming chat/playground UX, optimistic updates & query invalidations, or `/v1` API client integrations (`lib/api.ts`).
 ---
 
 # ⚡ SRouter — Web Dashboard Skill
