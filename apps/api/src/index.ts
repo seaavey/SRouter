@@ -3,7 +3,6 @@ import path from "node:path";
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono, type Context } from "hono";
-import { cors } from "hono/cors";
 import { AuthRouter } from "@/routes/v1/auth.js";
 import { AuthController } from "@/controllers/auth.controller.js";
 import { adminRoute } from "@/routes/v1/admin.js";
@@ -16,7 +15,9 @@ import { ProvidersRouter } from "@/routes/v1/providers.js";
 import { QuotaRouter } from "@/routes/v1/quota.js";
 import { SettingsRouter } from "@/routes/v1/settings.js";
 import { TunnelRouter } from "@/routes/v1/tunnel.js";
-import { RequireAdmin } from "@/middleware/AdminAuth.js";
+import { CreateCorsMiddleware, ParseAllowedOrigins } from "@/middleware/Cors.js";
+import { CreateCsrfOriginGuard } from "@/middleware/CsrfOrigin.js";
+import { CreateBodyLimitMiddleware } from "@/middleware/BodyLimit.js";
 import { startTokenRefreshSweeper } from "@/services/tokenRefresh.js";
 import { resolveWebDistPath } from "@/services/webDist.js";
 import { warmModelRegistry } from "@/services/registry.js";
@@ -40,27 +41,15 @@ app.use("/*", async (c, next) => {
     c.header("Referrer-Policy", "strict-origin-when-cross-origin");
 });
 
-// Enable CORS with sensible defaults
-app.use(
-    "/*",
-    cors({
-        origin: (origin) => {
-            // Allow requests with no origin (mobile apps, curl, server-to-server)
-            if (!origin) return "*";
-            // Allow localhost/loopback development origins
-            if (/^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(origin)) {
-                return origin;
-            }
-            // For public origins, return origin without wildcard when credentials are needed,
-            // or return origin if explicitly running as API gateway
-            return origin;
-        },
-        allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-        allowHeaders: ["Content-Type", "Authorization", "x-api-key", "anthropic-version"],
-        exposeHeaders: ["Content-Length", "X-Request-Id", "X-Version"],
-        credentials: true
-    })
-);
+// CORS: loopback origins always pass; public origins require SROUTER_CORS_ORIGINS.
+const CorsAllowlist = ParseAllowedOrigins();
+app.use("/*", CreateCorsMiddleware(CorsAllowlist));
+
+// CSRF defense for cookie-authenticated mutations (no-op for API-key traffic).
+app.use("/v1/*", CreateCsrfOriginGuard(CorsAllowlist));
+
+// Reject oversized bodies before they are buffered into memory.
+app.use("/v1/*", CreateBodyLimitMiddleware());
 
 // Bootstrap the admin account only when SROUTER_ADMIN_PASSWORD is set.
 // Otherwise first-run setup happens through the dashboard.
@@ -140,12 +129,8 @@ app.route("/v1", AuthRouter);
 app.route("/v1", QuotaRouter);
 app.route("/v1", SettingsRouter);
 
-// Cloudflare Tunnel management (admin-only; status readable via API key too)
+// Cloudflare Tunnel management (admin-only; guard lives inside TunnelRouter)
 app.route("/v1", TunnelRouter);
-app.use("/v1/tunnel/start", RequireAdmin);
-app.use("/v1/tunnel/stop", RequireAdmin);
-app.use("/v1/tunnel/config", RequireAdmin);
-app.use("/v1/tunnel/install", RequireAdmin);
 
 // Mount /v1/v1 compatibility routes for SDKs that append /v1 to a baseURL containing /v1
 app.route("/v1/v1", MessagesRouter);
