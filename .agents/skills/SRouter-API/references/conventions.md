@@ -10,6 +10,7 @@ Use PascalCase for:
 - helpers
 - logic methods
 - domain variables
+- Zod schemas and derived types (`APIKeySchema`, `CreateProviderSchema`, `APIKeyZod`)
 
 Examples:
 
