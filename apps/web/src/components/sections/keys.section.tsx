@@ -19,7 +19,6 @@ export default function KeyMetrics({
             aria-label="API Keys Summary"
             className="grid grid-cols-1 rounded-xl border border-border/70 bg-card/60 divide-y sm:divide-y-0 sm:divide-x sm:grid-cols-3 divide-border/60 shadow-2xs font-mono"
         >
-            {/* 1. Active Keys */}
             <article className="relative min-w-0 p-4 sm:p-5">
                 <div className="flex items-center gap-2 text-muted-foreground">
                     <div className="flex size-6 items-center justify-center rounded-md bg-secondary/60 text-foreground">
@@ -41,8 +40,6 @@ export default function KeyMetrics({
                     Authorized virtual bearer tokens
                 </p>
             </article>
-
-            {/* 2. Token Throughput */}
             <article className="relative min-w-0 p-4 sm:p-5">
                 <div className="flex items-center gap-2 text-muted-foreground">
                     <div className="flex size-6 items-center justify-center rounded-md bg-secondary/60 text-amber-500">
@@ -65,8 +62,6 @@ export default function KeyMetrics({
                     Cumulative tokens routed via keys
                 </p>
             </article>
-
-            {/* 3. Usage Spend */}
             <article className="relative min-w-0 p-4 sm:p-5">
                 <div className="flex items-center gap-2 text-muted-foreground">
                     <div className="flex size-6 items-center justify-center rounded-md bg-secondary/60 text-emerald-500">

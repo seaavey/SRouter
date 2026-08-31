@@ -1,7 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AlertCircle, Check, Copy, KeyRound, Search, X } from "lucide-react";
-import type { CreateAPIKeyZod, APIKeyZod, ModelListResponse, UpdateAPIKeyZod } from "@srouter/types";
+import type {
+    CreateAPIKeyZod,
+    APIKeyZod,
+    ModelListResponse,
+    UpdateAPIKeyZod
+} from "@srouter/types";
 import { api } from "@/lib/api";
 import { cn, formatCompactNumber } from "@/lib/utils";
 import { useCopy } from "@/hooks/useCopy";
@@ -82,14 +87,14 @@ export type AddCreditDialogProps = {
 };
 
 export type KeyDeleteDialogProps = {
-    keyToDelete: APIKeyZod | null;
+    IDKey: APIKeyZod | null;
     deleting: boolean;
     onClose: () => void;
     onConfirm: (keyId: string) => Promise<void>;
 };
 
 export type KeySecretModalProps = {
-    newKey: APIKeyZod | null;
+    new_key: APIKeyZod | null;
     onClose: () => void;
 };
 
@@ -596,20 +601,20 @@ export function EditKeyDialog({
         }
     }, [apiKey]);
 
-    const activeKey = apiKey ?? cachedKey;
+    const active_key = apiKey ?? cachedKey;
 
     return (
         <KeyFormDialog
-            open={open && Boolean(activeKey)}
+            open={open && Boolean(active_key)}
             onOpenChange={onOpenChange}
             title="API Key Details & Settings"
             description="View telemetry and configure rate limits, quotas, and model scopes."
-            apiKey={activeKey}
+            apiKey={active_key}
             submitLabel="Save Changes"
             submittingLabel="Saving…"
             isSubmitting={updating}
             onSubmit={(payload) =>
-                activeKey ? onSubmit(activeKey.id, payload) : Promise.resolve()
+                active_key ? onSubmit(active_key.id, payload) : Promise.resolve()
             }
         />
     );
@@ -631,24 +636,24 @@ export function AddCreditDialog({
         }
     }, [apiKey]);
 
-    const activeKey = apiKey ?? cachedKey;
+    const active_key = apiKey ?? cachedKey;
 
-    const current_limit = activeKey?.credit_limit ?? 0;
-    const current_cost = activeKey?.usage_cost ?? 0;
+    const current_limit = active_key?.credit_limit ?? 0;
+    const current_cost = active_key?.usage_cost ?? 0;
     const remaining_balance = current_limit > 0 ? Math.max(0, current_limit - current_cost) : null;
 
     const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
         e.preventDefault();
         const num = parseFloat(amount);
-        if (!Number.isFinite(num) || num <= 0 || !activeKey) return;
+        if (!Number.isFinite(num) || num <= 0 || !active_key) return;
 
-        await onSubmit(activeKey.id, num);
+        await onSubmit(active_key.id, num);
         setAmount("");
         onOpenChange(false);
     };
 
     return (
-        <Dialog open={open && Boolean(activeKey)} onOpenChange={onOpenChange}>
+        <Dialog open={open && Boolean(active_key)} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-md bg-card border-border p-6">
                 <DialogHeader className="space-y-1 text-left">
                     <DialogTitle className="text-base font-semibold text-foreground">
@@ -657,7 +662,7 @@ export function AddCreditDialog({
                     <DialogDescription className="text-xs text-muted-foreground leading-relaxed">
                         Add prepaid dollar balance to{" "}
                         <span className="font-semibold text-foreground font-mono">
-                            {activeKey?.name}
+                            {active_key?.name}
                         </span>
                         .
                     </DialogDescription>
@@ -736,24 +741,19 @@ export function AddCreditDialog({
     );
 }
 
-export function KeyDeleteDialog({
-    keyToDelete,
-    deleting,
-    onClose,
-    onConfirm
-}: KeyDeleteDialogProps) {
-    const [cachedKey, setCachedKey] = useState<APIKeyZod | null>(keyToDelete);
+export function KeyDeleteDialog({ IDKey, deleting, onClose, onConfirm }: KeyDeleteDialogProps) {
+    const [cachedKey, setCachedKey] = useState<APIKeyZod | null>(IDKey);
 
     useEffect(() => {
-        if (keyToDelete) {
-            setCachedKey(keyToDelete);
+        if (IDKey) {
+            setCachedKey(IDKey);
         }
-    }, [keyToDelete]);
+    }, [IDKey]);
 
-    const activeKey = keyToDelete ?? cachedKey;
+    const active_key = IDKey ?? cachedKey;
 
     return (
-        <Dialog open={Boolean(keyToDelete)} onOpenChange={(open) => !open && onClose()}>
+        <Dialog open={Boolean(IDKey)} onOpenChange={(open) => !open && onClose()}>
             <DialogContent className="sm:max-w-md bg-card border-border p-6">
                 <DialogHeader className="space-y-1 text-left">
                     <DialogTitle className="text-base font-semibold text-destructive">
@@ -761,7 +761,7 @@ export function KeyDeleteDialog({
                     </DialogTitle>
                     <DialogDescription className="text-xs text-muted-foreground leading-relaxed">
                         Are you sure you want to revoke{" "}
-                        <span className="font-semibold text-foreground">{activeKey?.name}</span>?
+                        <span className="font-semibold text-foreground">{active_key?.name}</span>?
                         Any downstream requests using this token will immediately fail with HTTP 401
                         Unauthorized.
                     </DialogDescription>
@@ -770,7 +770,7 @@ export function KeyDeleteDialog({
                 <div className="rounded-md border border-border bg-secondary/30 p-3 text-xs font-mono space-y-1 my-1">
                     <div className="text-muted-foreground text-[11px]">Token identifier</div>
                     <code className="text-foreground text-xs">
-                        {activeKey ? maskKey(activeKey.key) : ""}
+                        {active_key ? maskKey(active_key.key) : ""}
                     </code>
                 </div>
 
@@ -786,8 +786,8 @@ export function KeyDeleteDialog({
                     <Button
                         type="button"
                         variant="destructive"
-                        disabled={deleting || !activeKey}
-                        onClick={() => activeKey && void onConfirm(activeKey.id)}
+                        disabled={deleting || !active_key}
+                        onClick={() => active_key && void onConfirm(active_key.id)}
                         className="h-8.5 text-xs font-semibold cursor-pointer shadow-xs"
                     >
                         {deleting ? "Revoking…" : "Revoke Key"}
@@ -798,20 +798,20 @@ export function KeyDeleteDialog({
     );
 }
 
-export function KeySecretModal({ newKey, onClose }: KeySecretModalProps) {
+export function KeySecretModal({ new_key, onClose }: KeySecretModalProps) {
     const { copied, copy } = useCopy();
-    const [cachedKey, setCachedKey] = useState<APIKeyZod | null>(newKey);
+    const [cachedKey, setCachedKey] = useState<APIKeyZod | null>(new_key);
 
     useEffect(() => {
-        if (newKey) {
-            setCachedKey(newKey);
+        if (new_key) {
+            setCachedKey(new_key);
         }
-    }, [newKey]);
+    }, [new_key]);
 
-    const activeKey = newKey ?? cachedKey;
+    const active_key = new_key ?? cachedKey;
 
     return (
-        <Dialog open={Boolean(newKey)} onOpenChange={(open) => !open && onClose()}>
+        <Dialog open={Boolean(new_key)} onOpenChange={(open) => !open && onClose()}>
             <DialogContent className="sm:max-w-md bg-card border-border p-6">
                 <DialogHeader className="space-y-1 text-left">
                     <DialogTitle className="text-base font-semibold text-foreground">
@@ -823,7 +823,7 @@ export function KeySecretModal({ newKey, onClose }: KeySecretModalProps) {
                     </DialogDescription>
                 </DialogHeader>
 
-                {activeKey ? (
+                {active_key ? (
                     <div className="space-y-3.5 py-2">
                         <div className="rounded-lg border border-amber-500/25 bg-amber-500/10 p-3 flex items-start gap-2.5">
                             <AlertCircle className="size-4 text-amber-500 shrink-0 mt-0.5" />
@@ -835,26 +835,26 @@ export function KeySecretModal({ newKey, onClose }: KeySecretModalProps) {
 
                         <div className="space-y-1.5">
                             <div className="flex items-center justify-between text-xs font-medium text-foreground">
-                                <span>{activeKey.name}</span>
+                                <span>{active_key.name}</span>
                                 <span className="font-mono text-[10px] text-muted-foreground">
-                                    {activeKey.id}
+                                    {active_key.id}
                                 </span>
                             </div>
                             <div className="flex items-center gap-2">
-                                <input
+                                <Input
                                     type="text"
                                     readOnly
-                                    value={activeKey.key}
+                                    value={active_key.key}
                                     className="w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-xs text-foreground select-all focus:outline-none focus:ring-1 focus:ring-ring"
                                 />
                                 <Button
                                     type="button"
                                     onClick={() =>
-                                        void copy(activeKey.key, "API key copied to clipboard")
+                                        void copy(active_key.key, "API key copied to clipboard")
                                     }
                                     className="h-9 px-3.5 text-xs font-semibold shrink-0 cursor-pointer shadow-xs gap-1.5"
                                 >
-                                    {copied === activeKey.key ? (
+                                    {copied === active_key.key ? (
                                         <>
                                             <Check className="size-3.5 text-emerald-400" />
                                             <span>Copied</span>
@@ -869,35 +869,35 @@ export function KeySecretModal({ newKey, onClose }: KeySecretModalProps) {
                             </div>
                         </div>
 
-                        {(activeKey.credit_limit > 0 ||
-                            activeKey.quota_limit > 0 ||
-                            activeKey.rate_limit > 0) && (
+                        {(active_key.credit_limit > 0 ||
+                            active_key.quota_limit > 0 ||
+                            active_key.rate_limit > 0) && (
                             <div className="flex flex-wrap gap-2 text-[11px] font-mono text-muted-foreground pt-1">
-                                {activeKey.credit_limit > 0 && (
+                                {active_key.credit_limit > 0 && (
                                     <span className="rounded-md border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-emerald-600 dark:text-emerald-400 font-semibold">
-                                        Credit: ${activeKey.credit_limit.toFixed(2)} USD
+                                        Credit: ${active_key.credit_limit.toFixed(2)} USD
                                     </span>
                                 )}
-                                {activeKey.quota_limit > 0 && (
+                                {active_key.quota_limit > 0 && (
                                     <span className="rounded-md border border-border/60 bg-secondary/40 px-2 py-0.5">
-                                        Quota: {activeKey.quota_limit.toLocaleString()} tokens
+                                        Quota: {active_key.quota_limit.toLocaleString()} tokens
                                     </span>
                                 )}
-                                {activeKey.rate_limit > 0 && (
+                                {active_key.rate_limit > 0 && (
                                     <span className="rounded-md border border-border/60 bg-secondary/40 px-2 py-0.5">
-                                        Rate: {activeKey.rate_limit.toLocaleString()} req/m
+                                        Rate: {active_key.rate_limit.toLocaleString()} req/m
                                     </span>
                                 )}
                             </div>
                         )}
 
-                        {activeKey.allowed_models && activeKey.allowed_models.length > 0 ? (
+                        {active_key.allowed_models && active_key.allowed_models.length > 0 ? (
                             <div className="space-y-1.5">
                                 <span className="block text-xs font-medium text-foreground">
                                     Allowed models
                                 </span>
                                 <div className="flex flex-wrap gap-1.5">
-                                    {activeKey.allowed_models.map((model) => (
+                                    {active_key.allowed_models.map((model) => (
                                         <span
                                             key={model}
                                             className="inline-flex items-center rounded-full border border-border/60 bg-secondary/40 px-2 py-0.5 font-mono text-[10px] text-foreground"
