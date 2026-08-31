@@ -23,14 +23,15 @@
     "scripts": {
         "build": "tsc",
         "clean": "rm -rf dist",
-        "test": "tsx --test tests/**/*.test.ts"
+        "test": "tsx --test tests/**/*.test.ts",
+        "update": "tsx scripts/update.ts"
     },
     "dependencies": {
         "@srouter/types": "workspace:*"
     },
     "devDependencies": {
-        "@types/node": "^26.1.1",
-        "tsx": "^4.19.3",
-        "typescript": "^5.0.0"
+        "@types/node": "^26.4.0",
+        "tsx": "^4.23.13",
+        "typescript": "^5.9.3"
     }
 }

@@ -5,6 +5,7 @@ import {
     DEFAULT_PRICING,
     formatCost,
     getPricingForModel,
+    loadModelsDevData,
     loadPricingData,
     normalizeModelName,
     stripJsonComments
@@ -167,4 +168,13 @@ test("Cost calculation and formatting", () => {
         pricing
     );
     assert.equal(cachedCost, 1.65);
+});
+
+test("models.dev dataset loading from models.jsonc", () => {
+    const modelsData = loadModelsDevData();
+    assert.ok(Object.keys(modelsData).length > 0, "modelsData should not be empty");
+    assert.ok(modelsData["minimax/MiniMax-M3"], "Should contain minimax/MiniMax-M3");
+    assert.equal(modelsData["minimax/MiniMax-M3"]?.name, "MiniMax-M3");
+    assert.equal(modelsData["minimax/MiniMax-M3"]?.family, "minimax");
+    assert.ok(modelsData["upstage/solar-pro4"], "Should contain upstage/solar-pro4");
 });

@@ -1,17 +1,72 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { ModelPrice, PricingDataset, ProviderModelMap, RawPricingDataset } from "./types.js";
+import type {
+    ModelPrice,
+    ModelsDevModel,
+    PricingDataset,
+    ProviderModelMap,
+    RawPricingDataset
+} from "./types.js";
 
 /**
  * Strips single-line (// ...) and multi-line (/ * ... * /) comments
- * and removes trailing commas from a JSONC string.
+ * and removes trailing commas from a JSONC string while safely preserving string literals and URLs.
  */
 export function stripJsonComments(jsonc: string): string {
-    return jsonc
-        .replace(/\/\*[\s\S]*?\*\//g, "") // remove /* ... */
-        .replace(/\/\/.*$/gm, "") // remove // ...
-        .replace(/,\s*([}\]])/g, "$1"); // strip trailing commas
+    let insideString = false;
+    let isEscaped = false;
+    let output = "";
+    let i = 0;
+
+    while (i < jsonc.length) {
+        const char = jsonc[i]!;
+        const nextChar = jsonc[i + 1];
+
+        if (insideString) {
+            output += char;
+            if (isEscaped) {
+                isEscaped = false;
+            } else if (char === "\\") {
+                isEscaped = true;
+            } else if (char === '"') {
+                insideString = false;
+            }
+            i++;
+            continue;
+        }
+
+        if (char === '"') {
+            insideString = true;
+            output += char;
+            i++;
+            continue;
+        }
+
+        // Single line comment: // ...
+        if (char === "/" && nextChar === "/") {
+            i += 2;
+            while (i < jsonc.length && jsonc[i] !== "\n" && jsonc[i] !== "\r") {
+                i++;
+            }
+            continue;
+        }
+
+        // Multi line comment: /* ... */
+        if (char === "/" && nextChar === "*") {
+            i += 2;
+            while (i < jsonc.length && !(jsonc[i] === "*" && jsonc[i + 1] === "/")) {
+                i++;
+            }
+            i += 2;
+            continue;
+        }
+
+        output += char;
+        i++;
+    }
+
+    return output.replace(/,(\s*[}\]])/g, "$1");
 }
 
 /**
@@ -102,4 +157,44 @@ export function loadPricingData(customPath?: string): PricingDataset {
         providerModels: isGroupedArray ? (raw.models as ProviderModelMap) : undefined,
         aliases: raw.aliases || {}
     };
+}
+
+/**
+ * Finds the path to models.jsonc data file sourced from models.dev.
+ */
+export function resolveModelsDevDataPath(customPath?: string): string {
+    if (customPath) return customPath;
+
+    const currentDir = path.dirname(fileURLToPath(import.meta.url));
+
+    const candidates = [
+        path.resolve(currentDir, "../models.jsonc"),
+        path.resolve(currentDir, "../models.json"),
+        path.resolve(currentDir, "../../models.jsonc"),
+        path.resolve(currentDir, "../../models.json"),
+        path.resolve(process.cwd(), "packages/pricing/models.jsonc"),
+        path.resolve(process.cwd(), "packages/pricing/models.json"),
+        path.resolve(process.cwd(), "models.jsonc"),
+        path.resolve(process.cwd(), "models.json")
+    ];
+
+    for (const candidate of candidates) {
+        if (fs.existsSync(candidate)) {
+            return candidate;
+        }
+    }
+
+    return candidates[0]!;
+}
+
+/**
+ * Loads and parses the models.dev dataset from models.jsonc.
+ */
+export function loadModelsDevData(customPath?: string): Record<string, ModelsDevModel> {
+    const filePath = resolveModelsDevDataPath(customPath);
+    if (!fs.existsSync(filePath)) {
+        return {};
+    }
+    const content = fs.readFileSync(filePath, "utf-8");
+    return parseJsonc<Record<string, ModelsDevModel>>(content);
 }
