@@ -1,123 +1,93 @@
 import { useEffect, useMemo, useState } from "react";
 import { Brain, ChevronDown, ChevronUp, Eye, Layers, Plus, Trash2, X } from "lucide-react";
-import {
-    ComboModelPickerModal,
+import ComboModelPickerModal, {
     formatModelDisplayName,
     getModelCapabilities,
     type ComboModelItem
-} from "./ComboModelPickerModal";
+} from "@/components/dialog/combo.dialog";
 import { ProviderIcon } from "@/components/ProviderIcon";
-import type { FallbackRule } from "@srouter/types";
+import type { CreateFallbackRuleInput, FallbackRule } from "@srouter/types";
 
 interface ComboFormProps {
     open?: boolean;
     saving: boolean;
-    existingFallbacks?: FallbackRule[];
-    initialComboName?: string;
-    initialModels?: string[];
+    existing_fallbacks?: FallbackRule[];
+    initial_combo_name?: string;
+    initial_models?: string[];
     onCancel: () => void;
-    onSubmitCombo?: (comboName: string, models: string[]) => Promise<unknown>;
-    onSubmit?: (data: {
-        sourceModel: string;
-        targetModel: string;
-        priority: number;
-        enabled: boolean;
-        triggerOnStatus?: number[];
-    }) => Promise<unknown>;
+    onSubmitCombo?: (comboName: string, models: string[]) => Promise<void> | void;
+    onSubmit?: (data: CreateFallbackRuleInput) => Promise<void> | void;
 }
 
 const COMBO_NAME_REGEX = /^[a-zA-Z0-9._-]+$/;
 
-export function ComboForm({
+const toModelItem = (id: string): ComboModelItem => {
+    const providerId = id.includes("/") ? id.split("/")[0]! : "custom";
+    return {
+        id,
+        name: formatModelDisplayName(id),
+        providerId,
+        providerName: providerId.toUpperCase()
+    };
+};
+
+export default function ComboForm({
     open = true,
     saving,
-    existingFallbacks = [],
-    initialComboName = "",
-    initialModels = [],
+    existing_fallbacks = [],
+    initial_combo_name = "",
+    initial_models = [],
     onCancel,
     onSubmitCombo,
     onSubmit
 }: ComboFormProps) {
-    const isEditMode = Boolean(initialComboName);
-    const [comboName, setComboName] = useState(initialComboName);
+    const isEditMode = Boolean(initial_combo_name);
+    const [comboName, setComboName] = useState(initial_combo_name);
     const [selectedModels, setSelectedModels] = useState<ComboModelItem[]>([]);
     const [isPickerOpen, setIsPickerOpen] = useState(false);
 
     useEffect(() => {
-        if (open) {
-            setComboName(initialComboName);
-            if (initialModels.length > 0) {
-                setSelectedModels(
-                    initialModels.map((id) => {
-                        const providerId = id.includes("/") ? id.split("/")[0]! : "custom";
-                        return {
-                            id,
-                            name: formatModelDisplayName(id),
-                            providerId,
-                            providerName: providerId.toUpperCase()
-                        };
-                    })
-                );
-            } else {
-                setSelectedModels([]);
-            }
-        }
-    }, [open, initialComboName, initialModels]);
+        if (!open) return;
+        setComboName(initial_combo_name);
+        setSelectedModels(initial_models.length > 0 ? initial_models.map(toModelItem) : []);
+    }, [open, initial_combo_name, initial_models]);
 
-    const existingComboNames = useMemo(() => {
-        const set = new Set<string>();
-        for (const fb of existingFallbacks) {
-            if (fb.sourceModel && !fb.sourceModel.includes("*")) {
-                set.add(fb.sourceModel);
-            }
-        }
-        return Array.from(set);
-    }, [existingFallbacks]);
+    const existingComboNames = useMemo(
+        () =>
+            Array.from(
+                new Set(
+                    existing_fallbacks
+                        .filter((f) => f.sourceModel && !f.sourceModel.includes("*"))
+                        .map((f) => f.sourceModel)
+                )
+            ),
+        [existing_fallbacks]
+    );
 
-    const isNameValid = useMemo(() => {
-        if (!comboName.trim()) return false;
-        return COMBO_NAME_REGEX.test(comboName.trim());
-    }, [comboName]);
-
+    const isNameValid = COMBO_NAME_REGEX.test(comboName.trim());
     const canSubmit = isNameValid && selectedModels.length > 0 && !saving;
 
-    const handleToggleModel = (model: ComboModelItem) => {
-        setSelectedModels((prev) => {
-            const exists = prev.some((m) => m.id === model.id);
-            if (exists) {
-                return prev.filter((m) => m.id !== model.id);
-            }
-            return [...prev, model];
-        });
-    };
+    const handleToggleModel = (model: ComboModelItem) =>
+        setSelectedModels((prev) =>
+            prev.some((m) => m.id === model.id)
+                ? prev.filter((m) => m.id !== model.id)
+                : [...prev, model]
+        );
 
-    const handleRemoveModel = (modelId: string) => {
+    const handleRemoveModel = (modelId: string) =>
         setSelectedModels((prev) => prev.filter((m) => m.id !== modelId));
-    };
 
-    const handleMoveUp = (index: number) => {
-        if (index <= 0) return;
+    const moveModel = (from: number, to: number) => {
         setSelectedModels((prev) => {
+            if (to < 0 || to >= prev.length) return prev;
             const next = [...prev];
-            const temp = next[index - 1]!;
-            next[index - 1] = next[index]!;
-            next[index] = temp;
+            const [moved] = next.splice(from, 1);
+            if (moved) next.splice(to, 0, moved);
             return next;
         });
     };
 
-    const handleMoveDown = (index: number) => {
-        if (index >= selectedModels.length - 1) return;
-        setSelectedModels((prev) => {
-            const next = [...prev];
-            const temp = next[index + 1]!;
-            next[index + 1] = next[index]!;
-            next[index] = temp;
-            return next;
-        });
-    };
-
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
         e.preventDefault();
         if (!canSubmit) return;
 
@@ -127,10 +97,10 @@ export function ComboForm({
         if (onSubmitCombo) {
             await onSubmitCombo(trimmedName, modelIds);
         } else if (onSubmit) {
-            for (let i = 0; i < modelIds.length; i++) {
+            for (const [i, targetModel] of modelIds.entries()) {
                 await onSubmit({
                     sourceModel: trimmedName,
-                    targetModel: modelIds[i]!,
+                    targetModel,
                     priority: i + 1,
                     enabled: true,
                     triggerOnStatus: [429, 403, 500, 502, 503, 504]
@@ -155,7 +125,6 @@ export function ComboForm({
                     className="relative flex flex-col w-full max-w-lg rounded-2xl border border-zinc-800 bg-[#161618] text-zinc-100 shadow-2xl overflow-hidden font-sans"
                     onClick={(e) => e.stopPropagation()}
                 >
-                    {/* macOS Title Bar */}
                     <div className="flex items-center justify-between border-b border-zinc-800/80 px-4 py-3 bg-[#121214]">
                         <div className="flex items-center gap-2">
                             <div className="flex items-center gap-1.5">
@@ -177,7 +146,6 @@ export function ComboForm({
                     </div>
 
                     <form onSubmit={handleSubmit} className="flex flex-col gap-4 p-5">
-                        {/* Field 1: Combo Name */}
                         <div className="space-y-1.5 text-left">
                             <label className="text-xs font-semibold text-zinc-200 block">
                                 Combo Name
@@ -202,7 +170,6 @@ export function ComboForm({
                             </p>
                         </div>
 
-                        {/* Field 2: Models Box */}
                         <div className="space-y-1.5 text-left">
                             <label className="text-xs font-semibold text-zinc-200 block">
                                 Models
@@ -254,7 +221,7 @@ export function ComboForm({
                                                         <button
                                                             type="button"
                                                             disabled={idx === 0}
-                                                            onClick={() => handleMoveUp(idx)}
+                                                            onClick={() => moveModel(idx, idx - 1)}
                                                             className="p-1 text-zinc-500 hover:text-zinc-200 disabled:opacity-30 cursor-pointer"
                                                             title="Move up"
                                                         >
@@ -265,7 +232,7 @@ export function ComboForm({
                                                             disabled={
                                                                 idx === selectedModels.length - 1
                                                             }
-                                                            onClick={() => handleMoveDown(idx)}
+                                                            onClick={() => moveModel(idx, idx + 1)}
                                                             className="p-1 text-zinc-500 hover:text-zinc-200 disabled:opacity-30 cursor-pointer"
                                                             title="Move down"
                                                         >
@@ -288,7 +255,6 @@ export function ComboForm({
                                     </div>
                                 )}
 
-                                {/* Dashed Add Model Button */}
                                 <button
                                     type="button"
                                     onClick={() => setIsPickerOpen(true)}
@@ -300,7 +266,6 @@ export function ComboForm({
                             </div>
                         </div>
 
-                        {/* Modal Actions */}
                         <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-zinc-800/80">
                             <button
                                 type="button"
@@ -327,7 +292,6 @@ export function ComboForm({
                 </div>
             </div>
 
-            {/* Submodal for selecting models */}
             <ComboModelPickerModal
                 open={isPickerOpen}
                 onClose={() => setIsPickerOpen(false)}

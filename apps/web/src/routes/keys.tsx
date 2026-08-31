@@ -118,10 +118,10 @@ function KeysPage() {
                 }}
             />
 
-            <KeySecretModal newKey={newlyCreatedKey} onClose={() => setNewlyCreatedKey(null)} />
+            <KeySecretModal new_key={newlyCreatedKey} onClose={() => setNewlyCreatedKey(null)} />
 
             <KeyDeleteDialog
-                keyToDelete={keyToDelete}
+                IDKey={keyToDelete}
                 deleting={Boolean(deletingId)}
                 onClose={() => setKeyToDelete(null)}
                 onConfirm={handleDeleteKey}

@@ -21,6 +21,35 @@ interface ComboModelPickerModalProps {
     existingCombos?: string[];
 }
 
+const EMPTY_COMBOS: string[] = [];
+
+const ANTIGRAVITY_STATIC_MODELS: ComboModelItem[] = ANTIGRAVITY_MODELS.map((m) => ({
+    id: `antigravity/${m.id}`,
+    name: m.name,
+    providerId: "antigravity",
+    providerName: "Antigravity"
+}));
+
+const FALLBACK_PROVIDER_MODELS: Record<string, ComboModelItem[]> = {
+    openai_codex: [
+        { id: "openai_codex/gpt-4o", name: "GPT-4o", providerId: "openai_codex", providerName: "OpenAI" },
+        { id: "openai_codex/gpt-4o-mini", name: "GPT-4o Mini", providerId: "openai_codex", providerName: "OpenAI" },
+        { id: "openai_codex/o1", name: "o1", providerId: "openai_codex", providerName: "OpenAI" },
+        { id: "openai_codex/o3-mini", name: "o3-mini", providerId: "openai_codex", providerName: "OpenAI" }
+    ],
+    openai: [
+        { id: "openai/gpt-4o", name: "GPT-4o", providerId: "openai", providerName: "OpenAI" },
+        { id: "openai/gpt-4o-mini", name: "GPT-4o Mini", providerId: "openai", providerName: "OpenAI" },
+        { id: "openai/o1", name: "o1", providerId: "openai", providerName: "OpenAI" },
+        { id: "openai/o3-mini", name: "o3-mini", providerId: "openai", providerName: "OpenAI" }
+    ],
+    anthropic: [
+        { id: "anthropic/claude-3-7-sonnet", name: "Claude 3.7 Sonnet (Thinking)", providerId: "anthropic", providerName: "Anthropic" },
+        { id: "anthropic/claude-3-5-sonnet", name: "Claude 3.5 Sonnet", providerId: "anthropic", providerName: "Anthropic" },
+        { id: "anthropic/claude-3-5-haiku", name: "Claude 3.5 Haiku", providerId: "anthropic", providerName: "Anthropic" }
+    ]
+};
+
 export function getModelCapabilities(modelId: string, modelName?: string) {
     const combined = `${modelId} ${modelName || ""}`.toLowerCase();
 
@@ -62,7 +91,6 @@ export function formatModelDisplayName(rawId: string, rawName?: string): string 
     const known = ANTIGRAVITY_MODELS.find((m) => m.id === cleanId || m.id === rawId);
     if (known) return known.name;
 
-    // Formatting shortcuts for popular models
     if (cleanId === "claude-sonnet-4-6") return "Claude Sonnet 4.6 (Thinking)";
     if (cleanId === "claude-opus-4-6-thinking") return "Claude Opus 4.6 (Thinking)";
     if (cleanId.startsWith("gemini-3.7-flash"))
@@ -78,20 +106,23 @@ export function formatModelDisplayName(rawId: string, rawName?: string): string 
     return cleanId.replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-export function ComboModelPickerModal({
+export default function ComboModelPickerModal({
     open,
     onClose,
     selectedModelIds,
     onToggleModel,
-    existingCombos = []
+    existingCombos = EMPTY_COMBOS
 }: ComboModelPickerModalProps) {
     const [search, setSearch] = useState("");
 
     const { data: modelsData } = useQuery({
         queryKey: ["models"],
         queryFn: () => api.get<ModelListResponse>("/v1/models"),
-        enabled: open
+        enabled: open,
+        staleTime: 60_000
     });
+
+    const selectedSet = useMemo(() => new Set(selectedModelIds), [selectedModelIds]);
 
     const groups = useMemo(() => {
         const result: Array<{
@@ -101,7 +132,6 @@ export function ComboModelPickerModal({
             models: ComboModelItem[];
         }> = [];
 
-        // 1. Existing Combos Group
         if (existingCombos.length > 0) {
             result.push({
                 id: "combos",
@@ -118,16 +148,8 @@ export function ComboModelPickerModal({
 
         const providerModelsMap = new Map<string, ComboModelItem[]>();
 
-        // 2. Add Built-in Antigravity models (ensures rich Antigravity list like in screenshots)
-        const antigravityList: ComboModelItem[] = ANTIGRAVITY_MODELS.map((m) => ({
-            id: `antigravity/${m.id}`,
-            name: m.name,
-            providerId: "antigravity",
-            providerName: "Antigravity"
-        }));
-        providerModelsMap.set("antigravity", antigravityList);
+        providerModelsMap.set("antigravity", ANTIGRAVITY_STATIC_MODELS);
 
-        // 3. Populate from live /v1/models API
         const liveModels = modelsData?.data ?? [];
         for (const m of liveModels) {
             let providerId = "custom";
@@ -161,62 +183,13 @@ export function ComboModelPickerModal({
             }
         }
 
-        // 4. Fallback defaults for other known providers if not returned by live API
         for (const kp of KNOWN_PROVIDERS) {
             if (kp.id === "antigravity") continue;
-            if (!providerModelsMap.has(kp.id)) {
-                const sampleModels: ComboModelItem[] = [];
-                if (kp.id === "openai_codex" || kp.id === "openai") {
-                    sampleModels.push(
-                        {
-                            id: `${kp.id}/gpt-4o`,
-                            name: "GPT-4o",
-                            providerId: kp.id,
-                            providerName: kp.name
-                        },
-                        {
-                            id: `${kp.id}/gpt-4o-mini`,
-                            name: "GPT-4o Mini",
-                            providerId: kp.id,
-                            providerName: kp.name
-                        },
-                        { id: `${kp.id}/o1`, name: "o1", providerId: kp.id, providerName: kp.name },
-                        {
-                            id: `${kp.id}/o3-mini`,
-                            name: "o3-mini",
-                            providerId: kp.id,
-                            providerName: kp.name
-                        }
-                    );
-                } else if (kp.id === "anthropic") {
-                    sampleModels.push(
-                        {
-                            id: "anthropic/claude-3-7-sonnet",
-                            name: "Claude 3.7 Sonnet (Thinking)",
-                            providerId: kp.id,
-                            providerName: kp.name
-                        },
-                        {
-                            id: "anthropic/claude-3-5-sonnet",
-                            name: "Claude 3.5 Sonnet",
-                            providerId: kp.id,
-                            providerName: kp.name
-                        },
-                        {
-                            id: "anthropic/claude-3-5-haiku",
-                            name: "Claude 3.5 Haiku",
-                            providerId: kp.id,
-                            providerName: kp.name
-                        }
-                    );
-                }
-                if (sampleModels.length > 0) {
-                    providerModelsMap.set(kp.id, sampleModels);
-                }
+            if (!providerModelsMap.has(kp.id) && FALLBACK_PROVIDER_MODELS[kp.id]) {
+                providerModelsMap.set(kp.id, FALLBACK_PROVIDER_MODELS[kp.id]!);
             }
         }
 
-        // Convert Map to ordered groups
         for (const [providerId, models] of providerModelsMap.entries()) {
             const kp = KNOWN_PROVIDERS.find((p) => p.id === providerId || p.alias === providerId);
             result.push({
@@ -257,7 +230,6 @@ export function ComboModelPickerModal({
                 className="relative flex flex-col w-full max-w-xl max-h-[85vh] rounded-2xl border border-zinc-800 bg-[#161618] text-zinc-100 shadow-2xl overflow-hidden font-sans"
                 onClick={(e) => e.stopPropagation()}
             >
-                {/* macOS Style Title Bar */}
                 <div className="flex items-center justify-between border-b border-zinc-800/80 px-4 py-3 bg-[#121214]">
                     <div className="flex items-center gap-2">
                         <div className="flex items-center gap-1.5">
@@ -276,9 +248,7 @@ export function ComboModelPickerModal({
                     </button>
                 </div>
 
-                {/* Body Content */}
                 <div className="flex flex-col gap-3.5 p-4 sm:p-5 overflow-y-auto">
-                    {/* Tip Notice Banner */}
                     <div className="rounded-xl border border-red-950/60 bg-red-950/20 p-3 flex items-start gap-2.5">
                         <Info className="size-4 text-orange-400 shrink-0 mt-0.5" />
                         <p className="text-xs text-zinc-300 leading-relaxed font-normal">
@@ -286,7 +256,6 @@ export function ComboModelPickerModal({
                         </p>
                     </div>
 
-                    {/* Search Bar */}
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-zinc-400" />
                         <input
@@ -299,7 +268,6 @@ export function ComboModelPickerModal({
                         />
                     </div>
 
-                    {/* Grouped Model Badges */}
                     <div className="space-y-4 pt-1">
                         {filteredGroups.length === 0 ? (
                             <div className="py-8 text-center text-xs text-zinc-500 font-mono">
@@ -308,7 +276,6 @@ export function ComboModelPickerModal({
                         ) : (
                             filteredGroups.map((group) => (
                                 <div key={group.id} className="space-y-2">
-                                    {/* Category Header */}
                                     <div className="flex items-center gap-1.5 text-xs font-bold text-orange-400">
                                         {group.isCombo ? (
                                             <Layers className="size-3.5 text-orange-400" />
@@ -324,10 +291,9 @@ export function ComboModelPickerModal({
                                         </span>
                                     </div>
 
-                                    {/* Pill Badges */}
                                     <div className="flex flex-wrap gap-2">
                                         {group.models.map((model) => {
-                                            const isSelected = selectedModelIds.includes(model.id);
+                                            const isSelected = selectedSet.has(model.id);
                                             const { hasVision, hasThinking } = getModelCapabilities(
                                                 model.id,
                                                 model.name
@@ -361,7 +327,6 @@ export function ComboModelPickerModal({
                     </div>
                 </div>
 
-                {/* Footer Action */}
                 <div className="flex justify-end border-t border-zinc-800/80 px-4 py-3 bg-[#121214]">
                     <button
                         type="button"

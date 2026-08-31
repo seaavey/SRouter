@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useFallbacks } from "@/hooks/useFallbacks";
-import { ComboHeader } from "@/components/combo/ComboHeader";
-import { ComboArchitecture } from "@/components/combo/ComboArchitecture";
-import { ComboForm } from "@/components/combo/ComboForm";
-import { ComboList } from "@/components/combo/ComboList";
+import { ComboHeader } from "@/components/combo/combo.header";
+import { ComboArchitecture } from "@/components/combo/combo.architecture";
+import ComboForm from "@/components/forms/combo.form";
+import { ComboList } from "@/components/combo/combo.list";
 
 export const Route = createFileRoute("/combo")({
     staticData: { title: "Model Combo" },
@@ -67,9 +67,9 @@ function ComboPage() {
             <ComboForm
                 open={isAdding || Boolean(editingCombo)}
                 saving={saving}
-                existingFallbacks={fallbacks}
-                initialComboName={editingCombo?.name ?? ""}
-                initialModels={editingCombo?.models ?? []}
+                existing_fallbacks={fallbacks}
+                initial_combo_name={editingCombo?.name ?? ""}
+                initial_models={editingCombo?.models ?? []}
                 onCancel={() => {
                     setIsAdding(false);
                     setEditingCombo(null);
