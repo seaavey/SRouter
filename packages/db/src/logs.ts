@@ -317,10 +317,11 @@ export function getAnalyticsDB(window: AnalyticsWindow): AnalyticsDBResult {
     const BucketSizeMs = getBucketSizeMs(window);
     const Since = Now - BucketSizeMs * getBucketCount(window);
 
-    // A. Time buckets
+    // A. Time buckets — node:sqlite binds numbers as REAL, so division yields a
+    // float and `(x / b) * b` round-trips. CAST truncates to the bucket start.
     const BucketsSql = `
         SELECT
-            (created_at / ?) * ? AS bucket,
+            CAST(created_at / ? AS INTEGER) * ? AS bucket,
             COUNT(*)                                             AS totalRequests,
             SUM(CASE WHEN status_code >= 200 AND status_code < 300 THEN 1 ELSE 0 END) AS successRequests,
             SUM(CASE WHEN status_code >= 400 THEN 1 ELSE 0 END)  AS errorRequests,
