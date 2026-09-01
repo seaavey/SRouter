@@ -1,3 +1,5 @@
+import type { AnalyticsReport, AnalyticsWindow } from "@srouter/types";
+
 export class ApiError extends Error {
     status: number;
 
@@ -82,3 +84,8 @@ export function getGatewayBaseUrl(): string {
 
     return "http://localhost:3000/v1";
 }
+
+export const Api = {
+    getAnalytics: (window: AnalyticsWindow): Promise<AnalyticsReport> =>
+        api.get<AnalyticsReport>(`/v1/logs/analytics?window=${window}`)
+};
