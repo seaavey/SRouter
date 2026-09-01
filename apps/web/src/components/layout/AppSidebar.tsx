@@ -10,7 +10,8 @@ import {
     ScrollText,
     Settings,
     Terminal,
-    Zap
+    Zap,
+    BarChart2
 } from "lucide-react";
 import {
     Sidebar,
@@ -36,6 +37,7 @@ const routingNavItems = [
     { to: "/providers", label: "Providers", icon: Boxes },
     { to: "/combo", label: "Combo", icon: GitFork },
     { to: "/token-saver", label: "Token Saver", icon: Coins },
+    { to: "/analytics", label: "Analytics", icon: BarChart2 },
     { to: "/quota", label: "Quotas & Limits", icon: Gauge },
     { to: "/logs", label: "Audit Logs", icon: ScrollText }
 ] as const;

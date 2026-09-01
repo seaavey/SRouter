@@ -5,3 +5,4 @@ export { KeysSkeleton } from "./KeysSkeleton";
 export { LogsSkeleton } from "./LogsSkeleton";
 export { QuotaSkeleton } from "./QuotaSkeleton";
 export { SettingsSkeleton } from "./SettingsSkeleton";
+export { AnalyticsSkeleton } from "./AnalyticsSkeleton";
