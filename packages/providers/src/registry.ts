@@ -393,16 +393,22 @@ export class ProviderRegistry {
         }
 
         if (candidates.length > 0) {
-            // Apply round-robin rotation among healthy candidates when enabled
             const sorted = this.circuitBreaker.sortCandidatesByHealth(candidates);
-            // Determine baseId for round-robin state lookup
             const baseId = providerBaseId(candidates[0]!.id);
             if (this.roundRobinEnabled.get(baseId) && sorted.length > 1) {
-                const idx = this.roundRobinIndex.get(baseId) ?? 0;
-                this.roundRobinIndex.set(baseId, (idx + 1) % sorted.length);
-                // Rotate so the next index becomes first (preserves health order within rotation)
-                const rotated = [...sorted.slice(idx), ...sorted.slice(0, idx)];
-                return rotated;
+                // Rotate only among healthy candidates; degraded ones stay as a
+                // fallback tail so a cooling-down account is never hit first.
+                const healthy = sorted.filter(
+                    (c) => this.circuitBreaker.getHealth(c.id).state === "healthy"
+                );
+                const degraded = sorted.filter(
+                    (c) => this.circuitBreaker.getHealth(c.id).state !== "healthy"
+                );
+                if (healthy.length > 1) {
+                    const idx = this.roundRobinIndex.get(baseId) ?? 0;
+                    this.roundRobinIndex.set(baseId, (idx + 1) % healthy.length);
+                    return [...healthy.slice(idx), ...healthy.slice(0, idx), ...degraded];
+                }
             }
             return sorted;
         }

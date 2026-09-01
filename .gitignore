@@ -44,6 +44,10 @@ Thumbs.db
 # TypeScript incremental build metadata
 apps/web/tsconfig.tsbuildinfo
 
+# Graphify knowledge graph output
+graphify-out/
+.graphify-out/
+
 # Lockfiles from alternative package managers (pnpm-lock.yaml is tracked for CI/Docker)
 package-lock.json
 yarn.lock

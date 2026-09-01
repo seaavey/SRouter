@@ -12,7 +12,7 @@ interface ConnectionCardProps {
     connections: ProviderConfig[];
     roundRobin: boolean;
     isDeleting: boolean;
-    onToggleRoundRobin: () => void;
+    onToggleRoundRobin: (enabled: boolean) => void;
     onRefresh: () => void;
     onAdd: () => void;
     onDelete: (connectionId: string) => void;

@@ -329,9 +329,7 @@ function ProviderDetailPage() {
                 connections={connections}
                 roundRobin={provider.roundRobin ?? false}
                 isDeleting={deleteMutation.isPending}
-                onToggleRoundRobin={() =>
-                    toggleRoundRobinMutation.mutate(!(provider.roundRobin ?? false))
-                }
+                onToggleRoundRobin={(enabled) => toggleRoundRobinMutation.mutate(enabled)}
                 onRefresh={() => void refetch()}
                 onAdd={handleAddConnection}
                 onDelete={(connectionId) =>
