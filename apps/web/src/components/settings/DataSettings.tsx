@@ -1,16 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import {
-    Database,
-    Download,
-    Upload,
-    Trash2,
-    RotateCcw,
-    HardDrive,
-    AlertTriangle,
-    FileJson,
-    Check,
-    Loader2
-} from "lucide-react";
+import { Download, Upload, Trash2, RotateCcw, HardDrive } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,6 +10,7 @@ import {
     DialogHeader,
     DialogTitle
 } from "@/components/ui/dialog";
+import { SettingsSection, SettingsRow, ValueBadge } from "./settings-ui";
 import type { StorageStats } from "@/hooks/useSettings";
 
 interface DataSettingsProps {
@@ -39,258 +29,143 @@ function formatBytes(bytes: number): string {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
 }
 
-export function DataSettings({
-    exportSettings,
-    importSettings,
-    clearPlaygroundHistory,
-    resetToDefaults,
-    getStorageStats
-}: DataSettingsProps) {
+export function DataSettings(props: DataSettingsProps) {
+    const {
+        exportSettings,
+        importSettings,
+        clearPlaygroundHistory,
+        resetToDefaults,
+        getStorageStats
+    } = props;
     const [stats, setStats] = useState<StorageStats>({
         totalBytes: 0,
         itemsCount: 0,
         playgroundBytes: 0,
         settingsBytes: 0
     });
-
     const [isImportOpen, setIsImportOpen] = useState(false);
     const [importText, setImportText] = useState("");
     const [isClearOpen, setIsClearOpen] = useState(false);
     const [isResetOpen, setIsResetOpen] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const refreshStats = () => {
-        setStats(getStorageStats());
-    };
-
+    const refresh = () => setStats(getStorageStats());
     useEffect(() => {
-        refreshStats();
+        refresh();
     }, []);
 
-    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
-
         const reader = new FileReader();
-        reader.onload = (event) => {
-            const content = event.target?.result as string;
-            if (content) {
-                setImportText(content);
-            }
+        reader.onload = (ev) => {
+            const c = ev.target?.result as string;
+            if (c) setImportText(c);
         };
         reader.readAsText(file);
     };
 
-    const handleImportSubmit = () => {
+    const handleImport = () => {
         if (!importText.trim()) {
-            toast.error("Please provide valid JSON configuration");
+            toast.error("Please provide valid JSON");
             return;
         }
-
-        const success = importSettings(importText);
-        if (success) {
+        if (importSettings(importText)) {
             setIsImportOpen(false);
             setImportText("");
-            refreshStats();
+            refresh();
         }
-    };
-
-    const handleConfirmClear = () => {
-        clearPlaygroundHistory();
-        setIsClearOpen(false);
-        refreshStats();
-    };
-
-    const handleConfirmReset = () => {
-        resetToDefaults();
-        setIsResetOpen(false);
-        refreshStats();
     };
 
     return (
-        <div className="rounded-xl border border-border/80 bg-card p-5 space-y-6 shadow-2xs">
-            <div>
+        <SettingsSection index="06" title="Data" description="Storage backup, import, and cleanup.">
+            <div className="flex items-center justify-between py-2">
                 <div className="flex items-center gap-2">
-                    <Database className="size-4 text-emerald-500" />
-                    <h2 className="text-sm font-bold text-foreground tracking-tight">
-                        Data, Backup & Local Storage
-                    </h2>
+                    <HardDrive className="size-3.5 text-muted-foreground" />
+                    <span className="text-xs font-semibold text-foreground">LocalStorage</span>
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                    Inspect local storage footprint, export portability backups, or purge local
-                    session cache.
-                </p>
+                <span className="font-mono text-[11px] font-bold tabular-nums text-foreground">
+                    {formatBytes(stats.totalBytes)} ({stats.itemsCount} keys)
+                </span>
+            </div>
+            <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden flex mb-2">
+                <div
+                    className="h-full bg-blue-500"
+                    style={{
+                        width: `${stats.totalBytes > 0 ? (stats.playgroundBytes / stats.totalBytes) * 100 : 0}%`
+                    }}
+                />
+                <div
+                    className="h-full bg-amber-500"
+                    style={{
+                        width: `${stats.totalBytes > 0 ? (stats.settingsBytes / stats.totalBytes) * 100 : 0}%`
+                    }}
+                />
+            </div>
+            <div className="flex gap-3 text-[10px] font-mono text-muted-foreground pb-2">
+                <span className="flex items-center gap-1">
+                    <span className="size-1.5 rounded-full bg-blue-500" /> Playground:{" "}
+                    {formatBytes(stats.playgroundBytes)}
+                </span>
+                <span className="flex items-center gap-1">
+                    <span className="size-1.5 rounded-full bg-amber-500" /> Settings:{" "}
+                    {formatBytes(stats.settingsBytes)}
+                </span>
             </div>
 
-            {/* Storage Usage Meter */}
-            <div className="rounded-xl border border-border/70 bg-muted/20 p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        <HardDrive className="size-4 text-muted-foreground" />
-                        <span className="text-xs font-bold text-foreground">
-                            Browser LocalStorage Allocation
-                        </span>
-                    </div>
-                    <span className="text-xs font-mono font-bold text-foreground tabular-nums">
-                        {formatBytes(stats.totalBytes)} ({stats.itemsCount} stored keys)
-                    </span>
-                </div>
-
-                {/* Storage breakdown bar */}
-                <div className="space-y-1.5">
-                    <div className="h-2 w-full rounded-full bg-muted overflow-hidden flex">
-                        <div
-                            className="h-full bg-blue-500 transition-all duration-300"
-                            style={{
-                                width: `${stats.totalBytes > 0 ? (stats.playgroundBytes / stats.totalBytes) * 100 : 0}%`
-                            }}
-                            title={`Playground: ${formatBytes(stats.playgroundBytes)}`}
-                        />
-                        <div
-                            className="h-full bg-amber-500 transition-all duration-300"
-                            style={{
-                                width: `${stats.totalBytes > 0 ? (stats.settingsBytes / stats.totalBytes) * 100 : 0}%`
-                            }}
-                            title={`Settings: ${formatBytes(stats.settingsBytes)}`}
-                        />
-                    </div>
-                    <div className="flex items-center justify-between text-[10px] font-mono text-muted-foreground">
-                        <div className="flex items-center gap-3">
-                            <span className="flex items-center gap-1">
-                                <span className="size-2 rounded-full bg-blue-500" />
-                                <span>
-                                    Playground Sessions: {formatBytes(stats.playgroundBytes)}
-                                </span>
-                            </span>
-                            <span className="flex items-center gap-1">
-                                <span className="size-2 rounded-full bg-amber-500" />
-                                <span>Preferences: {formatBytes(stats.settingsBytes)}</span>
-                            </span>
-                        </div>
-                    </div>
-                </div>
+            <div className="flex flex-wrap gap-2 py-2">
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={exportSettings}
+                    className="text-[11px] cursor-pointer"
+                >
+                    <Download className="size-3" /> Export
+                </Button>
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsImportOpen(true)}
+                    className="text-[11px] cursor-pointer"
+                >
+                    <Upload className="size-3" /> Import
+                </Button>
+                <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => setIsClearOpen(true)}
+                    className="text-[11px] cursor-pointer"
+                >
+                    <Trash2 className="size-3" /> Clear
+                </Button>
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsResetOpen(true)}
+                    className="text-[11px] text-amber-500 cursor-pointer"
+                >
+                    <RotateCcw className="size-3" /> Reset
+                </Button>
             </div>
 
-            {/* Action Cards */}
-            <div className="space-y-3">
-                {/* Export & Import Row */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="flex flex-col justify-between p-4 rounded-xl border border-border/80 bg-background space-y-3">
-                        <div className="space-y-1">
-                            <div className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                                <Download className="size-3.5 text-blue-500" />
-                                <span>Export Configuration Backup</span>
-                            </div>
-                            <p className="text-[11px] text-muted-foreground">
-                                Download all preferences and timeout rules as an offline JSON
-                                archive.
-                            </p>
-                        </div>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={exportSettings}
-                            className="w-full font-semibold cursor-pointer"
-                        >
-                            <Download className="size-3.5" />
-                            <span>Export Backup JSON</span>
-                        </Button>
-                    </div>
-
-                    <div className="flex flex-col justify-between p-4 rounded-xl border border-border/80 bg-background space-y-3">
-                        <div className="space-y-1">
-                            <div className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                                <Upload className="size-3.5 text-emerald-500" />
-                                <span>Import Configuration</span>
-                            </div>
-                            <p className="text-[11px] text-muted-foreground">
-                                Restore preferences from a previously saved SRouter settings JSON
-                                file.
-                            </p>
-                        </div>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setIsImportOpen(true)}
-                            className="w-full font-semibold cursor-pointer"
-                        >
-                            <Upload className="size-3.5" />
-                            <span>Import Backup JSON</span>
-                        </Button>
-                    </div>
-                </div>
-
-                {/* Clear & Reset Row */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                    <div className="flex flex-col justify-between p-4 rounded-xl border border-border/80 bg-background space-y-3">
-                        <div className="space-y-1">
-                            <div className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                                <Trash2 className="size-3.5 text-rose-500" />
-                                <span>Clear Playground History</span>
-                            </div>
-                            <p className="text-[11px] text-muted-foreground">
-                                Delete all cached chat threads and conversations from browser
-                                memory.
-                            </p>
-                        </div>
-                        <Button
-                            type="button"
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => setIsClearOpen(true)}
-                            className="w-full font-semibold cursor-pointer"
-                        >
-                            <Trash2 className="size-3.5" />
-                            <span>Clear Playground Sessions</span>
-                        </Button>
-                    </div>
-
-                    <div className="flex flex-col justify-between p-4 rounded-xl border border-border/80 bg-background space-y-3">
-                        <div className="space-y-1">
-                            <div className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                                <RotateCcw className="size-3.5 text-amber-500" />
-                                <span>Factory Reset Settings</span>
-                            </div>
-                            <p className="text-[11px] text-muted-foreground">
-                                Restore all client gateway parameters and UI themes to factory
-                                defaults.
-                            </p>
-                        </div>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setIsResetOpen(true)}
-                            className="w-full text-amber-500 hover:text-amber-600 font-semibold cursor-pointer"
-                        >
-                            <RotateCcw className="size-3.5" />
-                            <span>Reset All to Defaults</span>
-                        </Button>
-                    </div>
-                </div>
-            </div>
-
-            {/* Modal: Import Configuration */}
             <Dialog open={isImportOpen} onOpenChange={setIsImportOpen}>
-                <DialogContent className="max-w-lg">
+                <DialogContent>
                     <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2 text-sm font-bold">
-                            <FileJson className="size-4 text-emerald-500" />
-                            <span>Import Settings Configuration</span>
-                        </DialogTitle>
+                        <DialogTitle className="text-sm font-bold">Import Settings</DialogTitle>
                         <DialogDescription className="text-xs">
-                            Select a JSON file or paste exported JSON settings content below.
+                            Paste exported JSON or select a file.
                         </DialogDescription>
                     </DialogHeader>
-
-                    <div className="space-y-3 py-2">
+                    <div className="space-y-2 py-2">
                         <input
                             type="file"
                             accept=".json,application/json"
                             ref={fileInputRef}
-                            onChange={handleFileSelect}
+                            onChange={handleFile}
                             className="hidden"
                         />
                         <Button
@@ -298,24 +173,19 @@ export function DataSettings({
                             variant="outline"
                             size="sm"
                             onClick={() => fileInputRef.current?.click()}
-                            className="w-full font-semibold cursor-pointer"
+                            className="w-full cursor-pointer"
                         >
-                            <Upload className="size-3.5" />
-                            <span>Choose JSON File From Computer</span>
+                            <Upload className="size-3" /> Choose File
                         </Button>
-
-                        <div className="relative">
-                            <textarea
-                                rows={6}
-                                value={importText}
-                                onChange={(e) => setImportText(e.target.value)}
-                                placeholder="Or paste JSON configuration here..."
-                                className="w-full rounded-lg border border-border/80 bg-muted/20 p-3 font-mono text-[11px] text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                            />
-                        </div>
+                        <textarea
+                            rows={5}
+                            value={importText}
+                            onChange={(e) => setImportText(e.target.value)}
+                            placeholder="Or paste JSON here..."
+                            className="w-full rounded-md border border-border/70 bg-muted/20 p-2.5 font-mono text-[11px] text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        />
                     </div>
-
-                    <DialogFooter className="gap-2 sm:gap-0">
+                    <DialogFooter>
                         <Button
                             type="button"
                             variant="outline"
@@ -327,30 +197,27 @@ export function DataSettings({
                         <Button
                             type="button"
                             size="sm"
-                            onClick={handleImportSubmit}
+                            onClick={handleImport}
                             className="font-semibold"
                         >
-                            <Check className="size-3.5" />
-                            <span>Apply Imported Settings</span>
+                            Apply Import
                         </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
 
-            {/* Modal: Confirm Clear History */}
             <Dialog open={isClearOpen} onOpenChange={setIsClearOpen}>
-                <DialogContent className="max-w-md">
+                <DialogContent>
                     <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2 text-sm font-bold text-rose-500">
-                            <Trash2 className="size-4" />
-                            <span>Clear Playground Chat History?</span>
+                        <DialogTitle className="text-sm font-bold text-rose-500">
+                            Clear Playground History?
                         </DialogTitle>
                         <DialogDescription className="text-xs">
-                            This will permanently delete all cached conversations from this browser.
-                            This action cannot be undone.
+                            This deletes all cached conversations from this browser. Cannot be
+                            undone.
                         </DialogDescription>
                     </DialogHeader>
-                    <DialogFooter className="gap-2 sm:gap-0 pt-3">
+                    <DialogFooter>
                         <Button
                             type="button"
                             variant="outline"
@@ -363,28 +230,30 @@ export function DataSettings({
                             type="button"
                             variant="destructive"
                             size="sm"
-                            onClick={handleConfirmClear}
+                            onClick={() => {
+                                clearPlaygroundHistory();
+                                setIsClearOpen(false);
+                                refresh();
+                            }}
                         >
-                            Yes, Clear All History
+                            Clear All
                         </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
 
-            {/* Modal: Confirm Reset Defaults */}
             <Dialog open={isResetOpen} onOpenChange={setIsResetOpen}>
-                <DialogContent className="max-w-md">
+                <DialogContent>
                     <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2 text-sm font-bold text-amber-500">
-                            <AlertTriangle className="size-4" />
-                            <span>Reset Settings to Defaults?</span>
+                        <DialogTitle className="text-sm font-bold text-amber-500">
+                            Reset to Defaults?
                         </DialogTitle>
                         <DialogDescription className="text-xs">
-                            All custom timeout limits, retry backoffs, and playground parameters
-                            will be reset to default factory values.
+                            Timeouts, retries, and playground parameters will be restored to factory
+                            values.
                         </DialogDescription>
                     </DialogHeader>
-                    <DialogFooter className="gap-2 sm:gap-0 pt-3">
+                    <DialogFooter>
                         <Button
                             type="button"
                             variant="outline"
@@ -396,14 +265,18 @@ export function DataSettings({
                         <Button
                             type="button"
                             size="sm"
-                            onClick={handleConfirmReset}
+                            onClick={() => {
+                                resetToDefaults();
+                                setIsResetOpen(false);
+                                refresh();
+                            }}
                             className="bg-amber-600 hover:bg-amber-700 text-white"
                         >
-                            Yes, Reset to Defaults
+                            Reset
                         </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-        </div>
+        </SettingsSection>
     );
 }

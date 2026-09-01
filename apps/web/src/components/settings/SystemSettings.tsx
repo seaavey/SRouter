@@ -1,26 +1,20 @@
 import { useState } from "react";
 import {
-    Cpu,
     Activity,
     ExternalLink,
-    Zap,
-    Layers,
-    Server,
-    Database,
-    Clock,
-    CheckCircle2,
     RefreshCw,
     Loader2,
-    ArrowUpCircle,
+    CheckCircle2,
     Copy,
     Check,
-    GitBranch,
-    Terminal
+    Terminal,
+    ArrowUpCircle
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { useVersion, GITHUB_REPO } from "@/hooks/useVersion";
+import { SettingsSection, SettingsRow } from "./settings-ui";
 
 interface SystemSettingsProps {
     apiBase: string;
@@ -31,7 +25,6 @@ export function SystemSettings({ apiBase }: SystemSettingsProps) {
     const [isPinging, setIsPinging] = useState(false);
     const [lastPingTime, setLastPingTime] = useState<string | null>(null);
     const [copiedCommand, setCopiedCommand] = useState(false);
-
     const {
         currentVersion,
         latestVersion,
@@ -48,8 +41,7 @@ export function SystemSettings({ apiBase }: SystemSettingsProps) {
         const start = performance.now();
         try {
             await api.get("/v1/settings");
-            const duration = Math.round(performance.now() - start);
-            setPingLatency(duration);
+            setPingLatency(Math.round(performance.now() - start));
             setLastPingTime(new Date().toLocaleTimeString());
         } catch {
             setPingLatency(-1);
@@ -59,270 +51,173 @@ export function SystemSettings({ apiBase }: SystemSettingsProps) {
         }
     };
 
-    const handleCheckUpdates = () => {
-        refetchVersion();
-        toast.info("Checking GitHub for the latest SRouter tags...");
-    };
-
-    const handleCopyUpdateCommand = async () => {
+    const handleCopy = async () => {
         try {
             await navigator.clipboard.writeText("git pull origin main && pnpm install");
             setCopiedCommand(true);
-            toast.success("Update command copied to clipboard");
+            toast.success("Command copied");
             setTimeout(() => setCopiedCommand(false), 2000);
         } catch {
-            toast.error("Failed to copy command");
+            toast.error("Failed to copy");
         }
     };
 
     return (
-        <div className="rounded-xl border border-border/80 bg-card p-5 space-y-6 shadow-2xs">
-            <div>
-                <div className="flex items-center gap-2">
-                    <Cpu className="size-4 text-cyan-500" />
-                    <h2 className="text-sm font-bold text-foreground tracking-tight">
-                        System Diagnostics & Runtime Architecture
-                    </h2>
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                    Inspect core runtime engine, database storage architecture, and gateway
-                    connection health.
-                </p>
-            </div>
-
-            {/* Diagnostic Specs Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                {/* Gateway Core Version & GitHub Tag Card */}
-                <div className="p-4 rounded-xl border border-border/80 bg-muted/20 space-y-2">
+        <SettingsSection
+            index="07"
+            title="System"
+            description="Runtime diagnostics, version info, and health checks."
+        >
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 py-2">
+                <div className="rounded-md border border-border/70 bg-muted/20 p-3 space-y-1.5">
                     <div className="flex items-center justify-between">
-                        <span className="text-[10.5px] font-bold uppercase tracking-wider text-muted-foreground">
-                            Gateway Core Version
+                        <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+                            Version
                         </span>
                         <button
                             type="button"
-                            onClick={handleCheckUpdates}
+                            onClick={() => {
+                                refetchVersion();
+                                toast.info("Checking GitHub...");
+                            }}
                             disabled={isChecking}
-                            className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                            title="Check for GitHub tag updates"
+                            className="text-[9px] text-muted-foreground hover:text-foreground cursor-pointer"
                         >
                             <RefreshCw
-                                className={`size-3 ${isChecking ? "animate-spin text-cyan-500" : ""}`}
-                            />
-                            <span>{isChecking ? "Checking..." : "Check update"}</span>
+                                className={`size-2.5 inline ${isChecking ? "animate-spin" : ""}`}
+                            />{" "}
+                            {isChecking ? "..." : "check"}
                         </button>
                     </div>
-
                     <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-bold text-foreground font-mono">
+                        <span className="font-bold font-mono text-xs text-foreground">
                             {currentVersion}
                         </span>
-                        <span className="inline-flex items-center rounded-md border border-cyan-500/30 bg-cyan-500/10 px-1.5 py-0.2 text-[9.5px] font-semibold text-cyan-500">
-                            Release Candidate
-                        </span>
-
-                        {/* GitHub Tag / Update Status Badge */}
-                        {isChecking ? (
-                            <span className="inline-flex items-center gap-1 rounded-md border border-border bg-muted px-1.5 py-0.2 text-[9.5px] text-muted-foreground animate-pulse">
-                                Checking GitHub...
-                            </span>
-                        ) : hasUpdate ? (
+                        {hasUpdate ? (
                             <a
                                 href={releaseUrl}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="inline-flex items-center gap-1 rounded-md border border-amber-500/40 bg-amber-500/15 hover:bg-amber-500/25 px-2 py-0.5 text-[10px] font-bold text-amber-500 transition-colors shadow-2xs"
-                                title={`New tag ${latestVersion} available on GitHub`}
+                                className="flex items-center gap-1 text-[9px] font-bold text-amber-500 border border-amber-500/30 rounded-sm px-1.5 py-0.5 hover:bg-amber-500/10"
                             >
-                                <ArrowUpCircle className="size-3 text-amber-500" />
-                                <span>Update Available: {latestVersion}</span>
-                                <ExternalLink className="size-2.5" />
+                                {latestVersion} <ExternalLink className="size-2" />
                             </a>
                         ) : latestVersion ? (
-                            <span className="inline-flex items-center gap-1 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.2 text-[9.5px] font-semibold text-emerald-600 dark:text-emerald-400">
-                                <CheckCircle2 className="size-3" />
-                                <span>Up to date ({latestVersion})</span>
+                            <span className="flex items-center gap-1 text-[9px] text-emerald-500">
+                                <CheckCircle2 className="size-2.5" /> up to date
                             </span>
                         ) : null}
                     </div>
-
                     {lastChecked && (
-                        <div className="text-[10px] font-mono text-muted-foreground/70">
-                            Checked with GitHub at {lastChecked.toLocaleTimeString()}
+                        <div className="text-[9px] font-mono text-muted-foreground/70">
+                            checked {lastChecked.toLocaleTimeString()}
                         </div>
                     )}
                 </div>
-
-                <div className="p-4 rounded-xl border border-border/80 bg-muted/20 space-y-1.5">
-                    <span className="text-[10.5px] font-bold uppercase tracking-wider text-muted-foreground">
-                        Persistence & Database Engine
+                <div className="rounded-md border border-border/70 bg-muted/20 p-3 space-y-1">
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+                        Stack
                     </span>
-                    <div className="font-bold text-foreground flex items-center gap-1.5">
-                        <Database className="size-3.5 text-amber-500" />
-                        <span>SQLite WAL Mode (srouter.db)</span>
-                    </div>
-                </div>
-
-                <div className="p-4 rounded-xl border border-border/80 bg-muted/20 space-y-1.5">
-                    <span className="text-[10.5px] font-bold uppercase tracking-wider text-muted-foreground">
-                        API Gateway Framework
-                    </span>
-                    <div className="font-bold text-foreground flex items-center gap-1.5">
-                        <Server className="size-3.5 text-blue-500" />
-                        <span>Hono Framework (Node.js / Bun)</span>
-                    </div>
-                </div>
-
-                <div className="p-4 rounded-xl border border-border/80 bg-muted/20 space-y-1.5">
-                    <span className="text-[10.5px] font-bold uppercase tracking-wider text-muted-foreground">
-                        Protocol Compatibility
-                    </span>
-                    <div className="font-bold text-emerald-500 flex items-center gap-1.5">
-                        <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
-                        <span>OpenAI v1 + Anthropic Messages SSE</span>
+                    <div className="text-xs font-bold text-foreground">
+                        SQLite WAL · Hono · Node.js
                     </div>
                 </div>
             </div>
 
-            {/* Update Notification Banner if update is available */}
             {hasUpdate && (
-                <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 space-y-3 shadow-xs">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 space-y-2">
+                    <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                            <ArrowUpCircle className="size-4 text-amber-500 shrink-0" />
-                            <div>
-                                <span className="text-xs font-bold text-foreground">
-                                    New SRouter Version Available ({latestVersion})
-                                </span>
-                                <p className="text-[11px] text-muted-foreground mt-0.5">
-                                    A newer release tag has been published on GitHub ({GITHUB_REPO}
-                                    ).
-                                </p>
-                            </div>
+                            <ArrowUpCircle className="size-3.5 text-amber-500" />
+                            <span className="text-xs font-bold text-foreground">
+                                Update {latestVersion} available
+                            </span>
                         </div>
-
                         <a
                             href={releaseUrl}
                             target="_blank"
                             rel="noreferrer"
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500 text-black px-3 py-1.5 text-xs font-bold hover:bg-amber-400 transition-colors shadow-2xs self-start sm:self-auto shrink-0"
+                            className="text-[10px] font-bold text-amber-500 border border-amber-500/30 rounded px-2 py-0.5 hover:bg-amber-500/10"
                         >
-                            <span>View Release</span>
-                            <ExternalLink className="size-3" />
+                            View <ExternalLink className="size-2 inline" />
                         </a>
                     </div>
-
-                    <div className="rounded-lg bg-background/80 border border-border/70 p-2.5 flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2 min-w-0 font-mono text-[11px] text-foreground overflow-x-auto">
-                            <Terminal className="size-3.5 text-muted-foreground shrink-0" />
-                            <code>git pull origin main && pnpm install</code>
-                        </div>
+                    <div className="flex items-center justify-between rounded-md bg-background/80 border border-border/70 p-2">
+                        <code className="text-[10px] font-mono text-foreground">
+                            git pull origin main && pnpm install
+                        </code>
                         <button
                             type="button"
-                            onClick={handleCopyUpdateCommand}
-                            className="flex items-center gap-1 px-2 py-1 rounded bg-muted hover:bg-muted/80 text-[10px] font-semibold text-foreground transition-colors shrink-0 cursor-pointer"
+                            onClick={handleCopy}
+                            className="flex items-center gap-1 text-[9px] text-muted-foreground hover:text-foreground cursor-pointer"
                         >
                             {copiedCommand ? (
-                                <Check className="size-3 text-emerald-500" />
+                                <Check className="size-2.5 text-emerald-500" />
                             ) : (
-                                <Copy className="size-3" />
-                            )}
-                            <span>{copiedCommand ? "Copied" : "Copy"}</span>
+                                <Copy className="size-2.5" />
+                            )}{" "}
+                            {copiedCommand ? "done" : "copy"}
                         </button>
                     </div>
                 </div>
             )}
 
-            {/* Live Gateway Health & Latency Test */}
-            <div className="rounded-xl border border-border/80 bg-muted/20 p-4 space-y-3">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="space-y-0.5">
-                        <div className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                            <Activity className="size-3.5 text-emerald-500" />
-                            <span>Live Gateway Latency Check</span>
-                        </div>
-                        <p className="text-[11px] text-muted-foreground">
-                            Measure roundtrip HTTP ping latency from browser to the SRouter local
-                            API daemon.
-                        </p>
+            <div className="rounded-md border border-border/70 bg-muted/20 p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <Activity className="size-3.5 text-emerald-500" />
+                        <span className="text-xs font-semibold text-foreground">
+                            Gateway Latency
+                        </span>
                     </div>
-
                     <Button
                         type="button"
                         variant="outline"
                         size="sm"
                         disabled={isPinging}
                         onClick={handlePing}
-                        className="self-start sm:self-auto font-semibold cursor-pointer shrink-0"
+                        className="cursor-pointer"
                     >
                         {isPinging ? (
-                            <Loader2 className="size-3.5 animate-spin" />
+                            <Loader2 className="size-3 animate-spin" />
                         ) : (
-                            <RefreshCw className="size-3.5" />
+                            <RefreshCw className="size-3" />
                         )}
-                        <span>{isPinging ? "Pinging..." : "Test Latency"}</span>
+                        {isPinging ? "pinging..." : "ping"}
                     </Button>
                 </div>
-
                 {pingLatency !== null && (
-                    <div className="flex items-center justify-between p-3 rounded-lg border border-border/70 bg-background text-xs">
-                        <div className="flex items-center gap-2">
-                            {pingLatency >= 0 ? (
-                                <span className="flex items-center gap-1.5 font-bold text-emerald-500">
-                                    <CheckCircle2 className="size-4" />
-                                    <span>Gateway Healthy & Online</span>
-                                </span>
-                            ) : (
-                                <span className="font-bold text-destructive">
-                                    Gateway Offline / Unreachable
-                                </span>
-                            )}
-                        </div>
-                        <div className="flex items-center gap-3 text-muted-foreground text-[11px] font-mono">
-                            {pingLatency >= 0 && (
-                                <span className="text-foreground font-bold tabular-nums">
-                                    Roundtrip:{" "}
-                                    <span className="text-emerald-500">{pingLatency}ms</span>
-                                </span>
-                            )}
-                            {lastPingTime && <span>Checked at {lastPingTime}</span>}
-                        </div>
+                    <div className="flex items-center justify-between text-[11px] font-mono">
+                        {pingLatency >= 0 ? (
+                            <span className="text-emerald-500 font-semibold">{pingLatency}ms</span>
+                        ) : (
+                            <span className="text-destructive font-semibold">offline</span>
+                        )}
+                        {lastPingTime && (
+                            <span className="text-muted-foreground">at {lastPingTime}</span>
+                        )}
                     </div>
                 )}
             </div>
 
-            {/* Quick Reference Links */}
-            <div className="space-y-3 pt-2">
-                <span className="text-xs font-bold text-foreground">
-                    Quick Reference & Resources
-                </span>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <a
-                        href={`https://github.com/${GITHUB_REPO}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex items-center justify-between p-3 rounded-lg border border-border/80 bg-background hover:bg-muted/40 text-xs font-medium text-foreground transition-colors group"
-                    >
-                        <span className="flex items-center gap-2">
-                            <Layers className="size-3.5 text-muted-foreground group-hover:text-foreground" />
-                            <span>SRouter GitHub Repository</span>
-                        </span>
-                        <ExternalLink className="size-3 text-muted-foreground group-hover:text-foreground" />
-                    </a>
-
-                    <a
-                        href={tagsUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex items-center justify-between p-3 rounded-lg border border-border/80 bg-background hover:bg-muted/40 text-xs font-medium text-foreground transition-colors group"
-                    >
-                        <span className="flex items-center gap-2">
-                            <GitBranch className="size-3.5 text-muted-foreground group-hover:text-foreground" />
-                            <span>GitHub Releases & Tags</span>
-                        </span>
-                        <ExternalLink className="size-3 text-muted-foreground group-hover:text-foreground" />
-                    </a>
-                </div>
+            <div className="flex gap-2 pt-2">
+                <a
+                    href={`https://github.com/${GITHUB_REPO}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-1.5 rounded-md border border-border/70 px-2.5 py-1.5 text-[11px] text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
+                >
+                    GitHub <ExternalLink className="size-2.5" />
+                </a>
+                <a
+                    href={tagsUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-1.5 rounded-md border border-border/70 px-2.5 py-1.5 text-[11px] text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
+                >
+                    Releases <ExternalLink className="size-2.5" />
+                </a>
             </div>
-        </div>
+        </SettingsSection>
     );
 }
