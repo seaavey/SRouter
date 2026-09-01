@@ -86,6 +86,7 @@ export function useCatalog() {
         const categories: Record<string, ProviderDefinition[]> = {
             oauth: allProviders.filter((p) => p.category === "oauth"),
             api_key: allProviders.filter((p) => p.category === "api_key"),
+            custom_provider: allProviders.filter((p) => p.category === "custom_provider"),
             free_tier: allProviders.filter((p) => p.category === "free_tier")
         };
         return {

@@ -26,6 +26,7 @@ export interface GroupedCatalog {
     oauth: ProviderDefinition[];
     free_tier: ProviderDefinition[];
     api_key: ProviderDefinition[];
+    custom_provider: ProviderDefinition[];
 }
 
 export interface CatalogSummary {
@@ -156,7 +157,8 @@ export class ProvidersLogic {
         const Categories: GroupedCatalog = {
             oauth: Catalog.filter((P) => P.category === "oauth"),
             free_tier: Catalog.filter((P) => P.category === "free_tier"),
-            api_key: Catalog.filter((P) => P.category === "api_key")
+            api_key: Catalog.filter((P) => P.category === "api_key"),
+            custom_provider: Catalog.filter((P) => P.category === "custom_provider")
         };
 
         return {
@@ -259,8 +261,8 @@ export class ProvidersLogic {
             }
         }
         const ApiKey = Payload.api_key?.trim();
-        if (Category === "api_key" && !ApiKey)
-            throw new Error("API key is required for API key providers");
+        if ((Category === "api_key" || Category === "custom_provider") && !ApiKey)
+            throw new Error("API key is required for API key and custom providers");
 
         const Config = {
             id: Id,

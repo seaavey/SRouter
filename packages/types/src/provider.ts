@@ -6,7 +6,7 @@ import type {
 } from "./openai.js";
 
 // --- Provider Spectrum & Catalog Types ---
-export type ProviderCategory = "oauth" | "free_tier" | "api_key";
+export type ProviderCategory = "oauth" | "free_tier" | "api_key" | "custom_provider";
 
 export type ProviderProtocol = "openai" | "anthropic" | "gemini" | "custom";
 

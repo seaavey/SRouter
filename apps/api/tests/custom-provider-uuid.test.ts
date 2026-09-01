@@ -17,7 +17,7 @@ afterEach(() => {
 test("AddProvider generates a UUID v4 as immutable internal ID", () => {
     const result = ProvidersLogic.AddProvider({
         name: "My Gateway",
-        category: "api_key",
+        category: "custom_provider",
         protocol: "openai",
         base_url: "https://api.example.com/v1",
         api_key: "sk-test-key"
@@ -45,7 +45,7 @@ test("AddProvider generates a UUID v4 as immutable internal ID", () => {
 test("UUID provider appears in catalog as its own entry", () => {
     const result = ProvidersLogic.AddProvider({
         name: "Custom Gateway",
-        category: "api_key",
+        category: "custom_provider",
         protocol: "openai",
         base_url: "https://api.gateway.dev/v1",
         api_key: "sk-custom-key"
@@ -53,20 +53,20 @@ test("UUID provider appears in catalog as its own entry", () => {
     createdIds.push(result.id);
 
     const catalog = ProvidersLogic.GetCatalog();
-    const apiKeyProviders = catalog.categories.api_key;
+    const apiKeyProviders = catalog.categories.custom_provider;
     const found = apiKeyProviders.find((p) => p.id === result.id);
 
-    // 5. Provider appears in catalog
+    // 5. Provider appears in catalog under custom_provider category
     assert.ok(found, "Custom provider must appear in catalog");
     assert.equal(found?.name, "Custom Gateway");
-    assert.equal(found?.category, "api_key");
+    assert.equal(found?.category, "custom_provider");
     assert.equal(found?.protocol, "openai");
 });
 
 test("UUID provider is found by GetProviderById", async () => {
     const result = ProvidersLogic.AddProvider({
         name: "Searchable Provider",
-        category: "api_key",
+        category: "custom_provider",
         protocol: "openai",
         base_url: "https://search.example.com/v1",
         api_key: "sk-search-key"
@@ -106,7 +106,7 @@ test("built-in provider IDs are unchanged by the UUID migration", () => {
 test("ListProviders lists UUID provider", () => {
     const result = ProvidersLogic.AddProvider({
         name: "Listed Provider",
-        category: "api_key",
+        category: "custom_provider",
         protocol: "openai",
         base_url: "https://listme.example.com/v1",
         api_key: "sk-list-key"
@@ -123,7 +123,7 @@ test("ListProviders lists UUID provider", () => {
 test("UUID persists across GetCatalog calls (no re-generation)", () => {
     const result = ProvidersLogic.AddProvider({
         name: "Stable UUID",
-        category: "api_key",
+        category: "custom_provider",
         protocol: "openai",
         base_url: "https://stable.example.com/v1",
         api_key: "sk-stable-key"
@@ -138,6 +138,7 @@ test("UUID persists across GetCatalog calls (no re-generation)", () => {
     const findIn = (data: typeof ids1) => {
         const all = [
             ...data.categories.api_key,
+            ...data.categories.custom_provider,
             ...data.categories.oauth,
             ...data.categories.free_tier
         ];
@@ -166,7 +167,7 @@ test("custom provider with UUID does not collide with seed provider IDs", () => 
     // 10. UUID custom provider should not conflict with seed IDs
     const result = ProvidersLogic.AddProvider({
         name: "No Collision",
-        category: "api_key",
+        category: "custom_provider",
         protocol: "openai",
         base_url: "https://nocollide.example.com/v1",
         api_key: "sk-nocollide-key"
@@ -186,7 +187,7 @@ test("custom provider with UUID does not collide with seed provider IDs", () => 
 test("duplicate names are allowed for different UUID providers", () => {
     const first = ProvidersLogic.AddProvider({
         name: "Duplicate Name",
-        category: "api_key",
+        category: "custom_provider",
         protocol: "openai",
         base_url: "https://first.dup.com/v1",
         api_key: "sk-first-dup"
@@ -195,7 +196,7 @@ test("duplicate names are allowed for different UUID providers", () => {
 
     const second = ProvidersLogic.AddProvider({
         name: "Duplicate Name",
-        category: "api_key",
+        category: "custom_provider",
         protocol: "openai",
         base_url: "https://second.dup.com/v1",
         api_key: "sk-second-dup"
@@ -215,7 +216,7 @@ test("duplicate names are allowed for different UUID providers", () => {
 test("delete provider by UUID works", () => {
     const result = ProvidersLogic.AddProvider({
         name: "Delete Me",
-        category: "api_key",
+        category: "custom_provider",
         protocol: "openai",
         base_url: "https://deleteme.example.com/v1",
         api_key: "sk-delete-key"

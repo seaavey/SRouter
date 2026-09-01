@@ -121,7 +121,7 @@ export function CustomProviderDialog({ open, onOpenChange }: CustomProviderDialo
         // Backend generates a UUID v4 as the immutable provider ID
         saveMutation.mutate({
             name: trimmedName,
-            category: "api_key",
+            category: "custom_provider",
             protocol,
             base_url: baseUrl.trim(),
             api_key: apiKey.trim()
