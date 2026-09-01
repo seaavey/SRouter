@@ -1,4 +1,5 @@
 import type {
+    AnalyticsWindow,
     ModelUsageSummaryRow,
     RequestLogEntry,
     UsageByModelRow,
@@ -251,5 +252,127 @@ function mapLogRow(row: RequestLogRow): RequestLogEntry {
         fallbackReason: optStr(row.fallback_reason),
         resolvedModel: optStr(row.resolved_model),
         createdAt: num(row.created_at)
+    };
+}
+
+// --- Analytics ---
+
+export interface AnalyticsDBResult {
+    buckets: AnalyticsBucketRow[];
+    topModels: AnalyticsTopModelRow[];
+    providers: AnalyticsProviderRow[];
+    p95LatencyMs: number;
+    rps: number;
+}
+
+interface AnalyticsBucketRow {
+    bucket: number;
+    totalRequests: number;
+    successRequests: number;
+    errorRequests: number;
+    avgLatencyMs: number;
+    totalTokens: number;
+}
+
+interface AnalyticsTopModelRow {
+    model: string;
+    totalRequests: number;
+    totalTokens: number;
+    estCost: number;
+}
+
+interface AnalyticsProviderRow {
+    providerId: string;
+    totalRequests: number;
+}
+
+export function getBucketSizeMs(window: AnalyticsWindow): number {
+    switch (window) {
+        case "1h":
+            return 60_000;
+        case "24h":
+            return 3_600_000;
+        case "7d":
+            return 21_600_000;
+        case "30d":
+            return 86_400_000;
+    }
+}
+
+export function getBucketCount(window: AnalyticsWindow): number {
+    switch (window) {
+        case "1h":
+            return 60;
+        case "24h":
+            return 24;
+        case "7d":
+            return 28;
+        case "30d":
+            return 30;
+    }
+}
+
+export function getAnalyticsDB(window: AnalyticsWindow): AnalyticsDBResult {
+    const Now = Date.now();
+    const BucketSizeMs = getBucketSizeMs(window);
+    const Since = Now - BucketSizeMs * getBucketCount(window);
+
+    // A. Time buckets
+    const BucketsSql = `
+        SELECT
+            (created_at / ?) * ? AS bucket,
+            COUNT(*)                                             AS totalRequests,
+            SUM(CASE WHEN status_code >= 200 AND status_code < 300 THEN 1 ELSE 0 END) AS successRequests,
+            SUM(CASE WHEN status_code >= 400 THEN 1 ELSE 0 END)  AS errorRequests,
+            AVG(latency_ms)                                      AS avgLatencyMs,
+            SUM(total_tokens)                                    AS totalTokens
+        FROM request_logs
+        WHERE created_at >= ?
+        GROUP BY bucket ORDER BY bucket ASC
+    `;
+    const Buckets = db
+        .prepare(BucketsSql)
+        .all(BucketSizeMs, BucketSizeMs, Since) as unknown as AnalyticsBucketRow[];
+
+    // B. Top models (limit 10)
+    const ModelsSql = `
+        SELECT model, COUNT(*) AS totalRequests, SUM(total_tokens) AS totalTokens,
+               SUM(estimated_cost) AS estCost
+        FROM request_logs WHERE created_at >= ?
+        GROUP BY model ORDER BY totalRequests DESC LIMIT 10
+    `;
+    const TopModels = db
+        .prepare(ModelsSql)
+        .all(Since) as unknown as AnalyticsTopModelRow[];
+
+    // C. Provider split
+    const ProviderSql = `
+        SELECT provider_id AS providerId, COUNT(*) AS totalRequests
+        FROM request_logs WHERE created_at >= ?
+        GROUP BY providerId ORDER BY totalRequests DESC
+    `;
+    const Providers = db.prepare(ProviderSql).all(Since) as unknown as AnalyticsProviderRow[];
+
+    // D. p95 latency — keep the sort in SQLite, return a single row
+    const P95Sql = `
+        SELECT latency_ms FROM request_logs
+        WHERE created_at >= ?
+        ORDER BY latency_ms
+        LIMIT 1 OFFSET (SELECT CAST(COUNT(*) * 0.95 AS INTEGER) - 1 FROM request_logs WHERE created_at >= ?)
+    `;
+    const P95Row = db.prepare(P95Sql).get(Since, Since) as { latency_ms: number } | undefined;
+    const P95LatencyMs = P95Row ? num(P95Row.latency_ms) : 0;
+
+    // E. RPS (last 60s rolling average)
+    const RpsSql = `SELECT COUNT(*) AS count FROM request_logs WHERE created_at >= ?`;
+    const RpsRow = db.prepare(RpsSql).get(Now - 60_000) as { count: number } | undefined;
+    const Rps = RpsRow ? Math.round((num(RpsRow.count) / 60) * 100) / 100 : 0;
+
+    return {
+        buckets: Buckets,
+        topModels: TopModels,
+        providers: Providers,
+        p95LatencyMs: P95LatencyMs,
+        rps: Rps
     };
 }
