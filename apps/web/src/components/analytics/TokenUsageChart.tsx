@@ -1,4 +1,5 @@
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import type { TooltipValueType } from "recharts";
 import type { AnalyticsBucket } from "@srouter/types";
 
 interface Props {
@@ -85,8 +86,8 @@ export function TokenUsageChart({ buckets, bucketSizeMs }: Props) {
                                 borderRadius: "8px",
                                 fontSize: "12px"
                             }}
-                            formatter={(value: any, name: any) => [
-                                `${Number(value).toLocaleString()} tokens`,
+                            formatter={(value: TooltipValueType | undefined, name: string | number | undefined) => [
+                                `${Number(value ?? 0).toLocaleString()} tokens`,
                                 name
                             ]}
                         />
