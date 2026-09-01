@@ -73,6 +73,9 @@ export interface AnalyticsBucket {
     errorRequests: number;
     avgLatencyMs: number;
     totalTokens: number;
+    promptTokens: number;
+    completionTokens: number;
+    cachedTokens: number;
 }
 
 export interface AnalyticsTopModel {

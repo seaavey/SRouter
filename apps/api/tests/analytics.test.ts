@@ -127,6 +127,9 @@ test("GET /v1/logs/analytics reflects seeded traffic and orders top models", asy
             totalRequests: number;
             successRequests: number;
             errorRequests: number;
+            promptTokens: number;
+            completionTokens: number;
+            cachedTokens: number;
         }>;
         topModels: Array<{ model: string; totalRequests: number }>;
         providers: Array<{ providerId: string; totalRequests: number }>;
@@ -135,6 +138,11 @@ test("GET /v1/logs/analytics reflects seeded traffic and orders top models", asy
     assert.ok(body.totalRequests >= 3);
     assert.ok(body.errorRate > 0);
     assert.ok(body.buckets.length > 0);
+    const activeBucket = body.buckets.find((b) => b.totalRequests > 0);
+    assert.ok(activeBucket);
+    assert.ok(typeof activeBucket.promptTokens === "number");
+    assert.ok(typeof activeBucket.completionTokens === "number");
+    assert.ok(typeof activeBucket.cachedTokens === "number");
 
     // Top model ordering: most requests first
     const testModels = body.topModels.filter((m) => m.model.startsWith("analytics-test-"));

@@ -53,7 +53,10 @@ export class LogsLogic {
                 successRequests: num(b.successRequests),
                 errorRequests: num(b.errorRequests),
                 avgLatencyMs: num(b.avgLatencyMs),
-                totalTokens: num(b.totalTokens)
+                totalTokens: num(b.totalTokens),
+                promptTokens: num(b.promptTokens),
+                completionTokens: num(b.completionTokens),
+                cachedTokens: num(b.cachedTokens)
             });
         }
         while (Cursor < End) {
@@ -67,7 +70,10 @@ export class LogsLogic {
                     successRequests: 0,
                     errorRequests: 0,
                     avgLatencyMs: 0,
-                    totalTokens: 0
+                    totalTokens: 0,
+                    promptTokens: 0,
+                    completionTokens: 0,
+                    cachedTokens: 0
                 });
             }
             Cursor += BucketSizeMs;

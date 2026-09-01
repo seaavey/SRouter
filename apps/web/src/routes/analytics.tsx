@@ -7,6 +7,7 @@ import {
     AnalyticsStatCards,
     TrafficChart,
     LatencyChart,
+    TokenUsageChart,
     TopModelsCard,
     ProviderSplitCard
 } from "@/components/analytics";
@@ -36,7 +37,9 @@ function AnalyticsPage() {
     const hasData = data.totalRequests > 0;
 
     return (
-        <div className={`flex flex-col gap-6 font-mono transition-opacity duration-200 ${isPlaceholderData ? "opacity-60" : "opacity-100"}`}>
+        <div
+            className={`flex flex-col gap-6 font-mono transition-opacity duration-200 ${isPlaceholderData ? "opacity-60" : "opacity-100"}`}
+        >
             <AnalyticsHeader
                 window={window}
                 onWindowChange={setWindow}
@@ -60,6 +63,7 @@ function AnalyticsPage() {
                         <TrafficChart buckets={data.buckets} bucketSizeMs={data.bucketSizeMs} />
                         <LatencyChart buckets={data.buckets} />
                     </div>
+                    <TokenUsageChart buckets={data.buckets} bucketSizeMs={data.bucketSizeMs} />
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                         <TopModelsCard models={data.topModels} totalRequests={data.totalRequests} />
                         <ProviderSplitCard

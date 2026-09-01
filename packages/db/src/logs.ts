@@ -272,6 +272,9 @@ interface AnalyticsBucketRow {
     errorRequests: number;
     avgLatencyMs: number;
     totalTokens: number;
+    promptTokens: number;
+    completionTokens: number;
+    cachedTokens: number;
 }
 
 interface AnalyticsTopModelRow {
@@ -326,7 +329,10 @@ export function getAnalyticsDB(window: AnalyticsWindow): AnalyticsDBResult {
             SUM(CASE WHEN status_code >= 200 AND status_code < 300 THEN 1 ELSE 0 END) AS successRequests,
             SUM(CASE WHEN status_code >= 400 THEN 1 ELSE 0 END)  AS errorRequests,
             AVG(latency_ms)                                      AS avgLatencyMs,
-            SUM(total_tokens)                                    AS totalTokens
+            SUM(total_tokens)                                    AS totalTokens,
+            SUM(prompt_tokens)                                   AS promptTokens,
+            SUM(completion_tokens)                               AS completionTokens,
+            SUM(cached_tokens)                                   AS cachedTokens
         FROM request_logs
         WHERE created_at >= ?
         GROUP BY bucket ORDER BY bucket ASC
