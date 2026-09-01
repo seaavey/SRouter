@@ -21,6 +21,7 @@ import {
     DialogHeader,
     DialogTitle
 } from "@/components/ui/dialog";
+import { SettingsSection, SettingsRow } from "./settings-ui";
 import type { StorageStats } from "@/hooks/useSettings";
 
 interface DataSettingsProps {
@@ -70,13 +71,10 @@ export function DataSettings({
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
-
         const reader = new FileReader();
         reader.onload = (event) => {
             const content = event.target?.result as string;
-            if (content) {
-                setImportText(content);
-            }
+            if (content) setImportText(content);
         };
         reader.readAsText(file);
     };
@@ -86,7 +84,6 @@ export function DataSettings({
             toast.error("Please provide valid JSON configuration");
             return;
         }
-
         const success = importSettings(importText);
         if (success) {
             setIsImportOpen(false);
@@ -108,82 +105,66 @@ export function DataSettings({
     };
 
     return (
-        <div className="rounded-xl border border-border/80 bg-card p-5 space-y-6 shadow-2xs">
-            <div>
-                <div className="flex items-center gap-2">
-                    <Database className="size-4 text-emerald-500" />
-                    <h2 className="text-sm font-bold text-foreground tracking-tight">
-                        Data, Backup & Local Storage
-                    </h2>
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                    Inspect local storage footprint, export portability backups, or purge local
-                    session cache.
-                </p>
-            </div>
-
-            {/* Storage Usage Meter */}
-            <div className="rounded-xl border border-border/70 bg-muted/20 p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        <HardDrive className="size-4 text-muted-foreground" />
-                        <span className="text-xs font-bold text-foreground">
-                            Browser LocalStorage Allocation
+        <div className="space-y-5">
+            <SettingsSection
+                title="Data, Backup & Local Storage"
+                description="Inspect local storage footprint, export portability backups, or purge local session cache."
+                icon={<Database className="size-4" />}
+            >
+                {/* Storage Usage Meter */}
+                <div className="rounded-xl border border-border/60 bg-muted/20 p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <HardDrive className="size-4 text-muted-foreground" />
+                            <span className="text-xs font-bold text-foreground">
+                                Browser LocalStorage
+                            </span>
+                        </div>
+                        <span className="text-xs font-mono font-bold tabular-nums text-foreground">
+                            {formatBytes(stats.totalBytes)} ({stats.itemsCount} keys)
                         </span>
                     </div>
-                    <span className="text-xs font-mono font-bold text-foreground tabular-nums">
-                        {formatBytes(stats.totalBytes)} ({stats.itemsCount} stored keys)
-                    </span>
-                </div>
 
-                {/* Storage breakdown bar */}
-                <div className="space-y-1.5">
-                    <div className="h-2 w-full rounded-full bg-muted overflow-hidden flex">
-                        <div
-                            className="h-full bg-blue-500 transition-all duration-300"
-                            style={{
-                                width: `${stats.totalBytes > 0 ? (stats.playgroundBytes / stats.totalBytes) * 100 : 0}%`
-                            }}
-                            title={`Playground: ${formatBytes(stats.playgroundBytes)}`}
-                        />
-                        <div
-                            className="h-full bg-amber-500 transition-all duration-300"
-                            style={{
-                                width: `${stats.totalBytes > 0 ? (stats.settingsBytes / stats.totalBytes) * 100 : 0}%`
-                            }}
-                            title={`Settings: ${formatBytes(stats.settingsBytes)}`}
-                        />
-                    </div>
-                    <div className="flex items-center justify-between text-[10px] font-mono text-muted-foreground">
-                        <div className="flex items-center gap-3">
+                    <div className="space-y-1.5">
+                        <div className="h-2 w-full rounded-full bg-muted overflow-hidden flex">
+                            <div
+                                className="h-full bg-blue-500 transition-all duration-300"
+                                style={{
+                                    width: `${stats.totalBytes > 0 ? (stats.playgroundBytes / stats.totalBytes) * 100 : 0}%`
+                                }}
+                                title={`Playground: ${formatBytes(stats.playgroundBytes)}`}
+                            />
+                            <div
+                                className="h-full bg-amber-500 transition-all duration-300"
+                                style={{
+                                    width: `${stats.totalBytes > 0 ? (stats.settingsBytes / stats.totalBytes) * 100 : 0}%`
+                                }}
+                                title={`Settings: ${formatBytes(stats.settingsBytes)}`}
+                            />
+                        </div>
+                        <div className="flex items-center gap-3 text-[10px] font-mono text-muted-foreground">
                             <span className="flex items-center gap-1">
                                 <span className="size-2 rounded-full bg-blue-500" />
-                                <span>
-                                    Playground Sessions: {formatBytes(stats.playgroundBytes)}
-                                </span>
+                                Playground: {formatBytes(stats.playgroundBytes)}
                             </span>
                             <span className="flex items-center gap-1">
                                 <span className="size-2 rounded-full bg-amber-500" />
-                                <span>Preferences: {formatBytes(stats.settingsBytes)}</span>
+                                Preferences: {formatBytes(stats.settingsBytes)}
                             </span>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            {/* Action Cards */}
-            <div className="space-y-3">
-                {/* Export & Import Row */}
+                {/* Action Cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="flex flex-col justify-between p-4 rounded-xl border border-border/80 bg-background space-y-3">
+                    <div className="flex flex-col justify-between p-4 rounded-xl border border-border/70 bg-background space-y-3">
                         <div className="space-y-1">
                             <div className="text-xs font-bold text-foreground flex items-center gap-1.5">
                                 <Download className="size-3.5 text-blue-500" />
-                                <span>Export Configuration Backup</span>
+                                <span>Export Configuration</span>
                             </div>
                             <p className="text-[11px] text-muted-foreground">
-                                Download all preferences and timeout rules as an offline JSON
-                                archive.
+                                Download all preferences as an offline JSON archive.
                             </p>
                         </div>
                         <Button
@@ -194,19 +175,17 @@ export function DataSettings({
                             className="w-full font-semibold cursor-pointer"
                         >
                             <Download className="size-3.5" />
-                            <span>Export Backup JSON</span>
+                            Export Backup JSON
                         </Button>
                     </div>
-
-                    <div className="flex flex-col justify-between p-4 rounded-xl border border-border/80 bg-background space-y-3">
+                    <div className="flex flex-col justify-between p-4 rounded-xl border border-border/70 bg-background space-y-3">
                         <div className="space-y-1">
                             <div className="text-xs font-bold text-foreground flex items-center gap-1.5">
                                 <Upload className="size-3.5 text-emerald-500" />
                                 <span>Import Configuration</span>
                             </div>
                             <p className="text-[11px] text-muted-foreground">
-                                Restore preferences from a previously saved SRouter settings JSON
-                                file.
+                                Restore preferences from a saved SRouter settings JSON file.
                             </p>
                         </div>
                         <Button
@@ -217,14 +196,13 @@ export function DataSettings({
                             className="w-full font-semibold cursor-pointer"
                         >
                             <Upload className="size-3.5" />
-                            <span>Import Backup JSON</span>
+                            Import Backup JSON
                         </Button>
                     </div>
                 </div>
 
-                {/* Clear & Reset Row */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                    <div className="flex flex-col justify-between p-4 rounded-xl border border-border/80 bg-background space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="flex flex-col justify-between p-4 rounded-xl border border-border/70 bg-background space-y-3">
                         <div className="space-y-1">
                             <div className="text-xs font-bold text-foreground flex items-center gap-1.5">
                                 <Trash2 className="size-3.5 text-rose-500" />
@@ -243,15 +221,14 @@ export function DataSettings({
                             className="w-full font-semibold cursor-pointer"
                         >
                             <Trash2 className="size-3.5" />
-                            <span>Clear Playground Sessions</span>
+                            Clear Sessions
                         </Button>
                     </div>
-
-                    <div className="flex flex-col justify-between p-4 rounded-xl border border-border/80 bg-background space-y-3">
+                    <div className="flex flex-col justify-between p-4 rounded-xl border border-border/70 bg-background space-y-3">
                         <div className="space-y-1">
                             <div className="text-xs font-bold text-foreground flex items-center gap-1.5">
                                 <RotateCcw className="size-3.5 text-amber-500" />
-                                <span>Factory Reset Settings</span>
+                                <span>Factory Reset</span>
                             </div>
                             <p className="text-[11px] text-muted-foreground">
                                 Restore all client gateway parameters and UI themes to factory
@@ -266,25 +243,24 @@ export function DataSettings({
                             className="w-full text-amber-500 hover:text-amber-600 font-semibold cursor-pointer"
                         >
                             <RotateCcw className="size-3.5" />
-                            <span>Reset All to Defaults</span>
+                            Reset All to Defaults
                         </Button>
                     </div>
                 </div>
-            </div>
+            </SettingsSection>
 
-            {/* Modal: Import Configuration */}
+            {/* Modals */}
             <Dialog open={isImportOpen} onOpenChange={setIsImportOpen}>
                 <DialogContent className="max-w-lg">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2 text-sm font-bold">
                             <FileJson className="size-4 text-emerald-500" />
-                            <span>Import Settings Configuration</span>
+                            Import Settings
                         </DialogTitle>
                         <DialogDescription className="text-xs">
                             Select a JSON file or paste exported JSON settings content below.
                         </DialogDescription>
                     </DialogHeader>
-
                     <div className="space-y-3 py-2">
                         <input
                             type="file"
@@ -301,20 +277,18 @@ export function DataSettings({
                             className="w-full font-semibold cursor-pointer"
                         >
                             <Upload className="size-3.5" />
-                            <span>Choose JSON File From Computer</span>
+                            Choose JSON File
                         </Button>
-
                         <div className="relative">
                             <textarea
                                 rows={6}
                                 value={importText}
                                 onChange={(e) => setImportText(e.target.value)}
                                 placeholder="Or paste JSON configuration here..."
-                                className="w-full rounded-lg border border-border/80 bg-muted/20 p-3 font-mono text-[11px] text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                className="w-full rounded-xl border border-border/70 bg-muted/20 p-3 font-mono text-[11px] text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"
                             />
                         </div>
                     </div>
-
                     <DialogFooter className="gap-2 sm:gap-0">
                         <Button
                             type="button"
@@ -331,19 +305,18 @@ export function DataSettings({
                             className="font-semibold"
                         >
                             <Check className="size-3.5" />
-                            <span>Apply Imported Settings</span>
+                            Apply Imported Settings
                         </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
 
-            {/* Modal: Confirm Clear History */}
             <Dialog open={isClearOpen} onOpenChange={setIsClearOpen}>
                 <DialogContent className="max-w-md">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2 text-sm font-bold text-rose-500">
                             <Trash2 className="size-4" />
-                            <span>Clear Playground Chat History?</span>
+                            Clear Playground History?
                         </DialogTitle>
                         <DialogDescription className="text-xs">
                             This will permanently delete all cached conversations from this browser.
@@ -371,17 +344,16 @@ export function DataSettings({
                 </DialogContent>
             </Dialog>
 
-            {/* Modal: Confirm Reset Defaults */}
             <Dialog open={isResetOpen} onOpenChange={setIsResetOpen}>
                 <DialogContent className="max-w-md">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2 text-sm font-bold text-amber-500">
                             <AlertTriangle className="size-4" />
-                            <span>Reset Settings to Defaults?</span>
+                            Reset Settings to Defaults?
                         </DialogTitle>
                         <DialogDescription className="text-xs">
                             All custom timeout limits, retry backoffs, and playground parameters
-                            will be reset to default factory values.
+                            will be reset to factory values.
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter className="gap-2 sm:gap-0 pt-3">

@@ -10,6 +10,7 @@ import {
     RotateCcw,
     Server,
     Shield,
+    SlidersHorizontal,
     Terminal,
     ArrowUpCircle
 } from "lucide-react";
@@ -19,6 +20,7 @@ import { useTheme } from "@/context/Theme";
 import { useSettings } from "@/hooks/useSettings";
 import { useVersion } from "@/hooks/useVersion";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 import { SecuritySettings } from "@/components/settings/SecuritySettings";
 import { GatewaySettings } from "@/components/settings/GatewaySettings";
@@ -107,47 +109,66 @@ function SettingsPage() {
         updateServerMutation.mutate(value);
     };
 
-    const tabs: { id: SettingsTab; label: string; icon: typeof Palette; hasBadge?: boolean }[] = [
-        { id: "security", label: "Security & API Key", icon: KeyRound },
-        { id: "gateway", label: "Gateway & Proxy", icon: Server },
-        { id: "appearance", label: "Appearance", icon: Palette },
-        { id: "logging", label: "Logging & Privacy", icon: Shield },
-        { id: "playground", label: "Playground Defaults", icon: Terminal },
-        { id: "data", label: "Data & Storage", icon: Database },
-        { id: "system", label: "System Diagnostics", icon: Cpu, hasBadge: hasUpdate }
+    const tabs: {
+        id: SettingsTab;
+        label: string;
+        hint: string;
+        icon: typeof Palette;
+        hasBadge?: boolean;
+    }[] = [
+        { id: "security", label: "Security", hint: "API keys & password", icon: KeyRound },
+        { id: "gateway", label: "Gateway", hint: "Timeouts & retries", icon: Server },
+        { id: "appearance", label: "Appearance", hint: "Theme & density", icon: Palette },
+        { id: "logging", label: "Logging", hint: "Privacy & retention", icon: Shield },
+        { id: "playground", label: "Playground", hint: "Defaults & presets", icon: Terminal },
+        { id: "data", label: "Data", hint: "Backup & storage", icon: Database },
+        {
+            id: "system",
+            label: "System",
+            hint: "Runtime diagnostics",
+            icon: Cpu,
+            hasBadge: hasUpdate
+        }
     ];
+
+    const activeMeta = tabs.find((t) => t.id === activeTab)!;
 
     if (isLoadingServerSettings) {
         return <SettingsSkeleton />;
     }
 
     return (
-        <div className="mx-auto w-full max-w-5xl flex flex-col gap-6 font-mono">
+        <div className="mx-auto w-full max-w-6xl flex flex-col gap-6 font-mono">
             {/* Header */}
-            <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end border-b border-border/80 pb-5">
-                <div className="min-w-0">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/80">
-                        Control Plane
-                    </p>
-                    <div className="flex items-center gap-2 flex-wrap mt-1.5">
-                        <h1 className="text-2xl font-bold tracking-tight text-foreground">
-                            Settings & Operations
-                        </h1>
-                        {hasUpdate && latestVersion && (
-                            <button
-                                type="button"
-                                onClick={() => setActiveTab("system")}
-                                className="inline-flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-bold text-amber-500 hover:bg-amber-500/20 transition-colors cursor-pointer"
-                            >
-                                <ArrowUpCircle className="size-3 text-amber-500" />
-                                <span>Update {latestVersion} available</span>
-                            </button>
-                        )}
+            <header className="flex flex-col justify-between gap-5 border-b border-border/70 pb-6 sm:flex-row sm:items-start">
+                <div className="flex items-start gap-3.5">
+                    <div className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-border/70 bg-secondary/40 text-foreground shadow-2xs">
+                        <SlidersHorizontal className="size-5" />
                     </div>
-                    <p className="mt-1 max-w-2xl text-xs text-muted-foreground leading-relaxed">
-                        Manage gateway routing rules, authentication requirements, telemetry
-                        logging, and UI preferences.
-                    </p>
+                    <div className="min-w-0">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/80">
+                            Control Plane
+                        </p>
+                        <div className="mt-1 flex items-center gap-2.5 flex-wrap">
+                            <h1 className="text-2xl font-bold tracking-tight text-foreground">
+                                Settings
+                            </h1>
+                            {hasUpdate && latestVersion && (
+                                <button
+                                    type="button"
+                                    onClick={() => setActiveTab("system")}
+                                    className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-bold text-amber-500 transition-colors hover:bg-amber-500/20 cursor-pointer"
+                                >
+                                    <ArrowUpCircle className="size-3" />
+                                    Update {latestVersion} available
+                                </button>
+                            )}
+                        </div>
+                        <p className="mt-1.5 max-w-xl text-xs leading-relaxed text-muted-foreground">
+                            Configure gateway routing, authentication, telemetry logging, and UI
+                            preferences.
+                        </p>
+                    </div>
                 </div>
 
                 <div className="flex shrink-0 items-center gap-2">
@@ -156,99 +177,117 @@ function SettingsPage() {
                         variant="outline"
                         size="sm"
                         onClick={exportSettings}
-                        className="h-8 text-xs font-medium cursor-pointer gap-1.5 border-border/80 bg-card hover:bg-secondary/60 transition-colors shadow-2xs"
+                        className="h-8 cursor-pointer gap-1.5 border-border/70 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
                     >
-                        <Download className="size-3.5 text-muted-foreground" />
-                        <span>Export Config</span>
+                        <Download className="size-3.5" />
+                        Export
                     </Button>
                     <Button
                         type="button"
                         variant="outline"
                         size="sm"
                         onClick={resetToDefaults}
-                        className="h-8 text-xs font-medium text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 border-border/80 bg-card transition-colors cursor-pointer shadow-2xs gap-1.5"
+                        className="h-8 cursor-pointer gap-1.5 border-border/70 text-xs font-medium text-rose-500 transition-colors hover:bg-rose-500/10 hover:text-rose-600"
                     >
                         <RotateCcw className="size-3.5" />
-                        <span>Reset</span>
+                        Reset
                     </Button>
                 </div>
             </header>
 
             {/* Layout: Sidebar Tabs + Content Panel */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-start">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-[16rem_1fr] items-start">
                 {/* Navigation Tabs */}
                 <nav
                     aria-label="Settings sections"
-                    className="flex md:flex-col gap-1 overflow-x-auto md:overflow-visible pb-2 md:pb-0 md:sticky md:top-0 z-10"
+                    className="flex gap-1 overflow-x-auto pb-1 md:sticky md:top-4 md:flex-col md:overflow-visible"
                 >
-                    {tabs.map(({ id, label, icon: Icon, hasBadge }) => {
+                    {tabs.map(({ id, label, hint, icon: Icon, hasBadge }) => {
                         const isActive = activeTab === id;
                         return (
                             <button
                                 key={id}
                                 type="button"
                                 onClick={() => setActiveTab(id)}
-                                className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-semibold transition-all text-left whitespace-nowrap cursor-pointer ${
+                                className={cn(
+                                    "flex items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-all cursor-pointer whitespace-nowrap shrink-0",
                                     isActive
-                                        ? "bg-foreground text-background shadow-xs"
-                                        : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
-                                }`}
-                            >
-                                <Icon className="size-3.5 shrink-0" />
-                                <span>{label}</span>
-                                {hasBadge && (
-                                    <span className="ml-auto inline-flex items-center rounded-full bg-amber-500/20 text-amber-500 border border-amber-500/40 px-1.5 py-0.2 text-[9px] font-bold">
-                                        Update
-                                    </span>
+                                        ? "bg-secondary/60 ring-1 ring-border/70 text-foreground shadow-2xs"
+                                        : "text-muted-foreground hover:bg-secondary/40 hover:text-foreground"
                                 )}
+                            >
+                                <Icon
+                                    className={cn(
+                                        "size-4 shrink-0",
+                                        isActive ? "text-foreground" : "text-muted-foreground/70"
+                                    )}
+                                />
+                                <span className="min-w-0">
+                                    <span className="block text-xs font-bold leading-tight">
+                                        {label}
+                                        {hasBadge && (
+                                            <span className="ml-1.5 inline-flex rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[8px] font-bold text-amber-500 align-middle">
+                                                Update
+                                            </span>
+                                        )}
+                                    </span>
+                                    <span className="block text-[10px] leading-tight text-muted-foreground/70">
+                                        {hint}
+                                    </span>
+                                </span>
                             </button>
                         );
                     })}
                 </nav>
 
                 {/* Main Settings Panel */}
-                <main className="md:col-span-3 space-y-4">
-                    {activeTab === "security" && (
-                        <SecuritySettings
-                            requireApiKey={requireApiKey}
-                            onToggleRequireApiKey={handleToggleRequireApiKey}
-                            isUpdating={updateServerMutation.isPending}
-                            apiBase={apiBase}
-                        />
-                    )}
+                <main className="min-w-0 space-y-4">
+                    <div key={activeTab} className="animate-fade-in">
+                        {activeTab === "security" && (
+                            <SecuritySettings
+                                requireApiKey={requireApiKey}
+                                onToggleRequireApiKey={handleToggleRequireApiKey}
+                                isUpdating={updateServerMutation.isPending}
+                                apiBase={apiBase}
+                            />
+                        )}
 
-                    {activeTab === "gateway" && (
-                        <GatewaySettings settings={settings} updateSetting={updateSetting} />
-                    )}
+                        {activeTab === "gateway" && (
+                            <GatewaySettings settings={settings} updateSetting={updateSetting} />
+                        )}
 
-                    {activeTab === "appearance" && (
-                        <AppearanceSettings
-                            theme={theme}
-                            toggleTheme={toggleTheme}
-                            settings={settings}
-                            updateSetting={updateSetting}
-                        />
-                    )}
+                        {activeTab === "appearance" && (
+                            <AppearanceSettings
+                                theme={theme}
+                                toggleTheme={toggleTheme}
+                                settings={settings}
+                                updateSetting={updateSetting}
+                            />
+                        )}
 
-                    {activeTab === "logging" && (
-                        <LoggingSettings settings={settings} updateSetting={updateSetting} />
-                    )}
+                        {activeTab === "logging" && (
+                            <LoggingSettings settings={settings} updateSetting={updateSetting} />
+                        )}
 
-                    {activeTab === "playground" && (
-                        <PlaygroundSettings settings={settings} updateSetting={updateSetting} />
-                    )}
+                        {activeTab === "playground" && (
+                            <PlaygroundSettings settings={settings} updateSetting={updateSetting} />
+                        )}
 
-                    {activeTab === "data" && (
-                        <DataSettings
-                            exportSettings={exportSettings}
-                            importSettings={importSettings}
-                            clearPlaygroundHistory={clearPlaygroundHistory}
-                            resetToDefaults={resetToDefaults}
-                            getStorageStats={getStorageStats}
-                        />
-                    )}
+                        {activeTab === "data" && (
+                            <DataSettings
+                                exportSettings={exportSettings}
+                                importSettings={importSettings}
+                                clearPlaygroundHistory={clearPlaygroundHistory}
+                                resetToDefaults={resetToDefaults}
+                                getStorageStats={getStorageStats}
+                            />
+                        )}
 
-                    {activeTab === "system" && <SystemSettings apiBase={apiBase} />}
+                        {activeTab === "system" && <SystemSettings apiBase={apiBase} />}
+                    </div>
+                    <p className="text-center text-[10px] text-muted-foreground/60">
+                        {activeMeta.label} — {activeMeta.hint}
+                    </p>
                 </main>
             </div>
         </div>
