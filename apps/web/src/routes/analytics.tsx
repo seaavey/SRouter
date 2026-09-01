@@ -62,7 +62,10 @@ function AnalyticsPage() {
                     </div>
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                         <TopModelsCard models={data.topModels} totalRequests={data.totalRequests} />
-                        <ProviderSplitCard providers={data.providers} totalRequests={data.totalRequests} />
+                        <ProviderSplitCard
+                            providers={data.providers}
+                            totalRequests={data.totalRequests}
+                        />
                     </div>
                 </>
             )}

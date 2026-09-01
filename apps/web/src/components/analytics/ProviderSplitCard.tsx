@@ -35,7 +35,9 @@ export function ProviderSplitCard({ providers, totalRequests }: Props) {
                         <ProviderIcon providerId={d.name} className="size-5 shrink-0" />
                         <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between gap-2">
-                                <span className="text-xs font-medium text-foreground capitalize">{d.name}</span>
+                                <span className="text-xs font-medium text-foreground capitalize">
+                                    {d.name}
+                                </span>
                                 <span className="text-[10px] font-mono text-muted-foreground whitespace-nowrap">
                                     {d.requests} req
                                 </span>

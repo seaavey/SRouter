@@ -7,7 +7,10 @@ interface Props {
 
 export function LatencyChart({ buckets }: Props) {
     const data = buckets.map((b) => ({
-        time: new Date(b.bucketStart).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        time: new Date(b.bucketStart).toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit"
+        }),
         latency: Math.round(b.avgLatencyMs)
     }));
 

@@ -8,12 +8,16 @@ interface Props {
 
 export function TrafficChart({ buckets, bucketSizeMs }: Props) {
     const data = buckets.map((b) => ({
-        time: new Date(b.bucketStart).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        time: new Date(b.bucketStart).toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit"
+        }),
         success: b.successRequests,
         error: b.errorRequests
     }));
 
-    const bucketLabel = bucketSizeMs >= 86_400_000 ? "day" : bucketSizeMs >= 3_600_000 ? "hour" : "min";
+    const bucketLabel =
+        bucketSizeMs >= 86_400_000 ? "day" : bucketSizeMs >= 3_600_000 ? "hour" : "min";
 
     return (
         <div className="rounded-xl border border-border/60 bg-secondary/10 p-4">

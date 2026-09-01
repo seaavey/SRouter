@@ -20,7 +20,9 @@ export function AnalyticsHeader({ window, onWindowChange, lastUpdated }: Props) 
                 <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/80">
                     Monitoring & Analytics
                 </p>
-                <h1 className="mt-1.5 text-2xl font-bold tracking-tight text-foreground">Analytics</h1>
+                <h1 className="mt-1.5 text-2xl font-bold tracking-tight text-foreground">
+                    Analytics
+                </h1>
             </div>
             <div className="flex items-center gap-2">
                 <div className="flex items-center gap-1.5 rounded-lg border border-border/60 bg-secondary/30 p-0.5">

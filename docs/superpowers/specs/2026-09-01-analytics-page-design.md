@@ -72,7 +72,16 @@ FROM request_logs WHERE created_at >= :since
 GROUP BY providerId ORDER BY totalRequests DESC;
 ```
 
-p95 latency: computed in `LogsLogic` from the per-bucket `avgLatencyMs` series plus a single ordered `latency_ms` fetch capped at the window (`PERCENTILE` is not available in `node:sqlite`); keep it simple — one extra query `SELECT latency_ms FROM request_logs WHERE created_at >= :since ORDER BY latency_ms` and index-pick the 95th percentile in JS. Window row counts are small enough (logs table is bounded by `LOG_RETENTION_DAYS` setting).
+p95 latency: computed in `LogsLogic` from the per-bucket `avgLatencyMs` series plus a single p95 read (`PERCENTILE` is not available in `node:sqlite`). Keep the sort in SQLite and return one row so the 30d window does not ship every `latency_ms` row to JS:
+
+```sql
+SELECT latency_ms FROM request_logs
+WHERE created_at >= :since
+ORDER BY latency_ms
+LIMIT 1 OFFSET (SELECT CAST(COUNT(*) * 0.95 AS INTEGER) - 1 FROM request_logs WHERE created_at >= :since);
+```
+
+O(1) transfer instead of O(window rows). The logs table is bounded by the `logRetentionDays` setting.
 
 RPS (last 60s): `SELECT COUNT(*) FROM request_logs WHERE created_at >= :nowMinus60s` → `count / 60`.
 
@@ -204,6 +213,8 @@ Recharts colors are read from the OKLCH theme tokens in `styles.css` (via CSS va
 ```
 
 Error envelope unchanged (`{ error: { message, type } }` via global `onError`). Invalid `window` → 400 from Zod validator.
+
+Wire-format casing is camelCase (`totalRequests`, `bucketStart`, `p95LatencyMs`...) to match the sibling `/v1/logs` + `/v1/logs/stats` responses (`RequestLogEntry`, `UsageStats` are camelCase) — the `/logs` family is the one gateway surface that stays camelCase.
 
 ---
 

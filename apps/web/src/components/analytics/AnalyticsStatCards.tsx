@@ -5,7 +5,12 @@ interface Props {
     p95LatencyMs: number;
 }
 
-export function AnalyticsStatCards({ requestsPerSecond, totalRequests, errorRate, p95LatencyMs }: Props) {
+export function AnalyticsStatCards({
+    requestsPerSecond,
+    totalRequests,
+    errorRate,
+    p95LatencyMs
+}: Props) {
     const cards = [
         { label: "RPS (60s)", value: requestsPerSecond.toFixed(2), unit: "req/s" },
         { label: "Total Requests", value: totalRequests.toLocaleString(), unit: "" },
@@ -25,7 +30,11 @@ export function AnalyticsStatCards({ requestsPerSecond, totalRequests, errorRate
                     </p>
                     <p className="mt-1 text-2xl font-bold tracking-tight text-foreground font-mono">
                         {card.value}
-                        {card.unit && <span className="ml-1 text-xs font-normal text-muted-foreground">{card.unit}</span>}
+                        {card.unit && (
+                            <span className="ml-1 text-xs font-normal text-muted-foreground">
+                                {card.unit}
+                            </span>
+                        )}
                     </p>
                 </div>
             ))}

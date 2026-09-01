@@ -1,5 +1,18 @@
-import { getAnalyticsDB, getBucketSizeMs, getBucketCount, getRecentLogsDB, getUsageByModelDB, getUsageSummaryDB } from "@srouter/db";
-import type { AnalyticsReport, AnalyticsBucket, AnalyticsWindow, RequestLogEntry, UsageStats } from "@srouter/types";
+import {
+    getAnalyticsDB,
+    getBucketSizeMs,
+    getBucketCount,
+    getRecentLogsDB,
+    getUsageByModelDB,
+    getUsageSummaryDB
+} from "@srouter/db";
+import type {
+    AnalyticsReport,
+    AnalyticsBucket,
+    AnalyticsWindow,
+    RequestLogEntry,
+    UsageStats
+} from "@srouter/types";
 import { formatCost } from "@srouter/pricing";
 import { num } from "@srouter/db";
 
@@ -62,7 +75,8 @@ export class LogsLogic {
 
         const TotalRequests = Buckets.reduce((acc, b) => acc + b.totalRequests, 0);
         const TotalErrors = Buckets.reduce((acc, b) => acc + b.errorRequests, 0);
-        const ErrorRate = TotalRequests > 0 ? Math.round((TotalErrors / TotalRequests) * 1000) / 1000 : 0;
+        const ErrorRate =
+            TotalRequests > 0 ? Math.round((TotalErrors / TotalRequests) * 1000) / 1000 : 0;
 
         return {
             object: "analytics",

@@ -342,9 +342,7 @@ export function getAnalyticsDB(window: AnalyticsWindow): AnalyticsDBResult {
         FROM request_logs WHERE created_at >= ?
         GROUP BY model ORDER BY totalRequests DESC LIMIT 10
     `;
-    const TopModels = db
-        .prepare(ModelsSql)
-        .all(Since) as unknown as AnalyticsTopModelRow[];
+    const TopModels = db.prepare(ModelsSql).all(Since) as unknown as AnalyticsTopModelRow[];
 
     // C. Provider split
     const ProviderSql = `

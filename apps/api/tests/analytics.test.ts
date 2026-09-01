@@ -94,9 +94,27 @@ test("GET /v1/logs/analytics?window=bad returns 400", async () => {
 });
 
 test("GET /v1/logs/analytics reflects seeded traffic and orders top models", async () => {
-    seedLog({ providerId: "openai", model: "analytics-test-model-a", statusCode: 200, latencyMs: 100, totalTokens: 30 });
-    seedLog({ providerId: "openai", model: "analytics-test-model-a", statusCode: 200, latencyMs: 150, totalTokens: 40 });
-    seedLog({ providerId: "anthropic", model: "analytics-test-model-b", statusCode: 500, latencyMs: 2000, totalTokens: 50 });
+    seedLog({
+        providerId: "openai",
+        model: "analytics-test-model-a",
+        statusCode: 200,
+        latencyMs: 100,
+        totalTokens: 30
+    });
+    seedLog({
+        providerId: "openai",
+        model: "analytics-test-model-a",
+        statusCode: 200,
+        latencyMs: 150,
+        totalTokens: 40
+    });
+    seedLog({
+        providerId: "anthropic",
+        model: "analytics-test-model-b",
+        statusCode: 500,
+        latencyMs: 2000,
+        totalTokens: 50
+    });
 
     const app = createTestApp();
     const res = await authedRequest(app, "/v1/logs/analytics?window=1h");
@@ -104,7 +122,12 @@ test("GET /v1/logs/analytics reflects seeded traffic and orders top models", asy
     const body = (await res.json()) as {
         totalRequests: number;
         errorRate: number;
-        buckets: Array<{ bucketStart: number; totalRequests: number; successRequests: number; errorRequests: number }>;
+        buckets: Array<{
+            bucketStart: number;
+            totalRequests: number;
+            successRequests: number;
+            errorRequests: number;
+        }>;
         topModels: Array<{ model: string; totalRequests: number }>;
         providers: Array<{ providerId: string; totalRequests: number }>;
     };
