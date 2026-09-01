@@ -20,7 +20,7 @@ export interface ApiKeyAuthOptions {
     getClientAddress?: (c: Context) => string | undefined;
 }
 
-function GetDirectClientAddress(c: Context): string | undefined {
+export function GetDirectClientAddress(c: Context): string | undefined {
     try {
         const Addr = getConnInfo(c).remote.address;
         if (Addr) return Addr;

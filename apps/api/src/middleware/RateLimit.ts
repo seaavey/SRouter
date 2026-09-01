@@ -1,6 +1,7 @@
 import type { Context, MiddlewareHandler } from "hono";
 import type { APIKeyZod } from "@srouter/types";
 import { Err } from "@/utils/response.js";
+import { GetDirectClientAddress } from "@/middleware/ApiKeyAuth.js";
 
 const WINDOW_MS = 60_000;
 const MAX_TRACKED_KEYS = 10_000;
@@ -62,4 +63,6 @@ export function CreateRateLimitMiddleware(Options: RateLimitOptions = {}): Middl
     };
 }
 
-export const EnforceRateLimit = CreateRateLimitMiddleware();
+export const EnforceRateLimit = CreateRateLimitMiddleware({
+    getClientAddress: GetDirectClientAddress
+});
