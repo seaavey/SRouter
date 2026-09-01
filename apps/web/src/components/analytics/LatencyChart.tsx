@@ -6,13 +6,15 @@ interface Props {
 }
 
 export function LatencyChart({ buckets }: Props) {
-    const data = buckets.map((b) => ({
-        time: new Date(b.bucketStart).toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit"
-        }),
-        latency: Math.round(b.avgLatencyMs)
-    }));
+    const data = buckets
+        .filter((b) => b.totalRequests > 0)
+        .map((b) => ({
+            time: new Date(b.bucketStart).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit"
+            }),
+            latency: Math.round(b.avgLatencyMs)
+        }));
 
     return (
         <div className="rounded-xl border border-border/60 bg-secondary/10 p-4">
@@ -28,7 +30,7 @@ export function LatencyChart({ buckets }: Props) {
                         </linearGradient>
                     </defs>
                     <XAxis dataKey="time" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
-                    <YAxis tick={{ fontSize: 10 }} />
+                    <YAxis tick={{ fontSize: 10 }} domain={["auto", "auto"]} />
                     <Tooltip
                         contentStyle={{
                             backgroundColor: "var(--background)",
