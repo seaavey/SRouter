@@ -19,9 +19,9 @@ export const Route = createFileRoute("/analytics")({
 
 function AnalyticsPage() {
     const [window, setWindow] = useState<AnalyticsWindow>("24h");
-    const { data, isLoading, error } = useAnalytics(window);
+    const { data, isLoading, isPlaceholderData, error } = useAnalytics(window);
 
-    if (isLoading) {
+    if (isLoading && !data) {
         return <AnalyticsSkeleton />;
     }
 
@@ -36,7 +36,7 @@ function AnalyticsPage() {
     const hasData = data.totalRequests > 0;
 
     return (
-        <div className="flex flex-col gap-6 font-mono">
+        <div className={`flex flex-col gap-6 font-mono transition-opacity duration-200 ${isPlaceholderData ? "opacity-60" : "opacity-100"}`}>
             <AnalyticsHeader
                 window={window}
                 onWindowChange={setWindow}
