@@ -128,3 +128,25 @@ test("SSRF: private, loopback, link-local, CGNAT, and multicast addresses are bl
         assert.equal(IsPrivateIpAddress(Address), false, `${Address} should be allowed`);
     }
 });
+
+test("messages route rejects chunked oversized bodies with 413 (no Content-Length trust)", async () => {
+    const { setRequireApiKeyDB } = await import("@srouter/db");
+    setRequireApiKeyDB(false);
+    const { MessagesRouter } = await import("../src/routes/v1/messages.js");
+    const app = new Hono();
+    app.route("/v1", MessagesRouter);
+
+    const Padding = "a".repeat(MAX_BODY_BYTES + 64);
+    const res = await app.request("/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            model: "claude-test",
+            max_tokens: 8,
+            messages: [{ role: "user", content: Padding }]
+        })
+    });
+    assert.equal(res.status, 413);
+    const payload = (await res.json()) as { error: { message: string } };
+    assert.match(payload.error.message, /too large/i);
+});

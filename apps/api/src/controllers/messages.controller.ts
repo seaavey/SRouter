@@ -9,11 +9,21 @@ import { AnthropicMessageRequestSchema, type AnthropicMessageRequest } from "@sr
 import { ChatLogic } from "@/logic/chat.logic.js";
 import { AnthropicErr, FormatAnthropicErrorPayload, Ok } from "@/utils/response.js";
 import { GetApiKeyRow, IsModelAllowed } from "@/middleware/ModelAccess.js";
+import { MAX_BODY_BYTES } from "@/middleware/BodyLimit.js";
 
 export class MessagesController {
     public static async CreateMessage(c: Context): Promise<Response> {
         const startTime = Date.now();
-        const rawBody = await c.req.json().catch(() => null);
+        const Raw = await c.req.text().catch(() => "");
+        if (Buffer.byteLength(Raw) > MAX_BODY_BYTES) {
+            return AnthropicErr(c, "Request body too large", 413, "invalid_request_error");
+        }
+        let rawBody: unknown = null;
+        try {
+            rawBody = JSON.parse(Raw);
+        } catch {
+            rawBody = null;
+        }
         if (!rawBody || typeof rawBody !== "object") {
             return AnthropicErr(c, "Invalid JSON request body", 400);
         }
