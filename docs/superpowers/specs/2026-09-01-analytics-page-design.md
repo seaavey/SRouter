@@ -8,17 +8,22 @@
 
 ## 1. Overview & Goals
 
-Add a dedicated **Analytics** page to the web dashboard that answers operational questions the current dashboard cannot: *how much traffic is the gateway handling right now, which models are actually being used, and how healthy is the traffic over time*.
+Add a dedicated **Analytics** page to the web dashboard that answers operational questions the current dashboard cannot: _how much traffic is the gateway handling right now, which models are actually being used, and how healthy is the traffic over time_.
 
 ### Key Capabilities
+
 1. **Requests-per-second view**: live RPS estimate for the last 60 seconds plus a time-bucketed throughput chart (req/min and req/hour) over a selectable window.
 2. **Top models leaderboard**: models ranked by request count within the selected window (share %, tokens, estimated cost).
 3. **Traffic health over time**: stacked success/error request buckets and latency trend (avg + p95) per bucket.
 4. **Provider split**: request distribution across `provider_id` for the window.
 5. **Window selector**: `1h` / `24h` / `7d` / `30d`, default `24h`.
 
+### Charting Library
+
+- **Recharts** (`recharts@^3`, React 19 compatible) is added as the charting library for `apps/web`. It brings tooltips, axes, legends, and responsive containers out of the box, which hand-rolled SVG would otherwise re-implement poorly. This is the one approved new dependency for this feature.
+
 ### Non-Goals (YAGNI)
-- No new npm chart dependency — charts are hand-rolled SVG/CSS bars, consistent with `ModelUsageOverview.tsx` which already renders bar visuals without a library.
+
 - No per-API-key analytics, no CSV export, no real-time WebSocket push (poll via TanStack Query `refetchInterval` instead).
 - No changes to the existing `/v1/logs/stats` endpoint or the home dashboard — analytics is purely additive.
 
@@ -77,7 +82,7 @@ RPS (last 60s): `SELECT COUNT(*) FROM request_logs WHERE created_at >= :nowMinus
 export type AnalyticsWindow = "1h" | "24h" | "7d" | "30d";
 
 export interface AnalyticsBucket {
-    bucketStart: number;      // epoch ms, aligned to bucket size
+    bucketStart: number; // epoch ms, aligned to bucket size
     totalRequests: number;
     successRequests: number;
     errorRequests: number;
@@ -102,9 +107,9 @@ export interface AnalyticsReport {
     window: AnalyticsWindow;
     bucketSizeMs: number;
     generatedAt: number;
-    requestsPerSecond: number;   // rolling 60s average
+    requestsPerSecond: number; // rolling 60s average
     totalRequests: number;
-    errorRate: number;           // 0..1 over the window
+    errorRate: number; // 0..1 over the window
     p95LatencyMs: number;
     buckets: AnalyticsBucket[];
     topModels: AnalyticsTopModel[];
@@ -121,19 +126,19 @@ Zod: `AnalyticsQuerySchema = z.object({ window: z.enum(["1h","24h","7d","30d"]).
 - **Logic** (`LogsLogic.getAnalytics`): map window → `since` + `bucketSizeMs`:
 
 | window | bucket size | buckets |
-| --- | --- | --- |
-| 1h  | 1 min   | 60 |
-| 24h | 1 hour  | 24 |
-| 7d  | 6 hours | 28 |
-| 30d | 1 day   | 30 |
+| ------ | ----------- | ------- |
+| 1h     | 1 min       | 60      |
+| 24h    | 1 hour      | 24      |
+| 7d     | 6 hours     | 28      |
+| 30d    | 1 day       | 30      |
 
-  Zero-fill missing buckets in JS so the chart axis is always continuous.
+Zero-fill missing buckets in JS so the chart axis is always continuous.
 
 ### 2.4 Web Dashboard (`apps/web`)
 
 **Route** — `routes/analytics.tsx` (`createFileRoute("/analytics")`), thin: renders `<AnalyticsPage />`.
 
-**Sidebar** — add `{ to: "/analytics", label: "Analytics", icon: ChartColumn }` to `routingNavItems` in `components/layout/AppSidebar.tsx` (placed before *Quotas & Limits*).
+**Sidebar** — add `{ to: "/analytics", label: "Analytics", icon: ChartColumn }` to `routingNavItems` in `components/layout/AppSidebar.tsx` (placed before _Quotas & Limits_).
 
 **Hook** — `hooks/useAnalytics.ts`:
 
@@ -149,16 +154,16 @@ useQuery({
 
 **Components** (`components/analytics/`, co-location law):
 
-| Component | Content |
-| --- | --- |
-| `AnalyticsHeader.tsx` | Window selector chips (`1h/24h/7d/30d`) + last-updated label. |
-| `AnalyticsStatCards.tsx` | 4 KPI cards: RPS (60s), total requests, error rate %, p95 latency. Reuses card primitives from `components/ui`. |
-| `TrafficChart.tsx` | SVG column chart of buckets; success portion in `--primary`, error portion overlaid in `--destructive`; tooltip on hover shows bucket time + counts. |
-| `LatencyChart.tsx` | SVG line/area chart of `avgLatencyMs` per bucket. |
-| `TopModelsCard.tsx` | Ranked list: model name (via `parseModelIdentifier` pattern + `ProviderIcon`), request count, share bar, tokens, cost label. |
-| `ProviderSplitCard.tsx` | Horizontal proportional bars per provider. |
+| Component                | Content                                                                                                                                                                                                                        |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `AnalyticsHeader.tsx`    | Window selector chips (`1h/24h/7d/30d`) + last-updated label.                                                                                                                                                                  |
+| `AnalyticsStatCards.tsx` | 4 KPI cards: RPS (60s), total requests, error rate %, p95 latency. Reuses card primitives from `components/ui`.                                                                                                                |
+| `TrafficChart.tsx`       | Recharts `<BarChart>` of buckets inside `<ResponsiveContainer>`; stacked `<Bar>` success (`--primary`) + error (`--destructive`); shared `<Tooltip>` shows bucket time + counts; `<XAxis>` time labels per window granularity. |
+| `LatencyChart.tsx`       | Recharts `<AreaChart>` of `avgLatencyMs` per bucket with gradient fill from theme tokens.                                                                                                                                      |
+| `TopModelsCard.tsx`      | Ranked list: model name (via `parseModelIdentifier` pattern + `ProviderIcon`), request count, share bar, tokens, cost label.                                                                                                   |
+| `ProviderSplitCard.tsx`  | Recharts horizontal `<BarChart layout="vertical">` proportional bars per provider.                                                                                                                                             |
 
-All colors from OKLCH theme tokens in `styles.css`; dark mode inherits automatically. Loading state uses skeletons from `components/skeletons` convention; empty window (no traffic) renders an explicit "No requests in this window" state.
+Recharts colors are read from the OKLCH theme tokens in `styles.css` (via CSS variables on the chart series), so dark mode inherits automatically. Loading state uses skeletons from `components/skeletons` convention; empty window (no traffic) renders an explicit "No requests in this window" state.
 
 ---
 
@@ -168,17 +173,33 @@ All colors from OKLCH theme tokens in `styles.css`; dark mode inherits automatic
 
 ```json
 {
-  "object": "analytics",
-  "window": "24h",
-  "bucketSizeMs": 3600000,
-  "generatedAt": 1756723200000,
-  "requestsPerSecond": 0.42,
-  "totalRequests": 3612,
-  "errorRate": 0.021,
-  "p95LatencyMs": 4120,
-  "buckets": [ { "bucketStart": 1756720000000, "totalRequests": 150, "successRequests": 147, "errorRequests": 3, "avgLatencyMs": 980, "totalTokens": 412000 } ],
-  "topModels": [ { "model": "openai/gpt-4o-mini", "totalRequests": 1200, "totalTokens": 980000, "estCost": 0.42 } ],
-  "providers": [ { "providerId": "openai", "totalRequests": 2100 } ]
+    "object": "analytics",
+    "window": "24h",
+    "bucketSizeMs": 3600000,
+    "generatedAt": 1756723200000,
+    "requestsPerSecond": 0.42,
+    "totalRequests": 3612,
+    "errorRate": 0.021,
+    "p95LatencyMs": 4120,
+    "buckets": [
+        {
+            "bucketStart": 1756720000000,
+            "totalRequests": 150,
+            "successRequests": 147,
+            "errorRequests": 3,
+            "avgLatencyMs": 980,
+            "totalTokens": 412000
+        }
+    ],
+    "topModels": [
+        {
+            "model": "openai/gpt-4o-mini",
+            "totalRequests": 1200,
+            "totalTokens": 980000,
+            "estCost": 0.42
+        }
+    ],
+    "providers": [{ "providerId": "openai", "totalRequests": 2100 }]
 }
 ```
 
@@ -189,9 +210,9 @@ Error envelope unchanged (`{ error: { message, type } }` via global `onError`). 
 ## 4. Testing & Verification Plan
 
 1. **API tests** (`apps/api/tests/analytics.test.ts`, `node:test` via tsx):
-   - Seed `request_logs` rows across two buckets; assert `GET /v1/logs/analytics?window=1h` returns zero-filled buckets, correct `totalRequests`, `errorRate`, and top-model ordering.
-   - Assert invalid `window=bad` → 400.
-   - Assert route requires auth like sibling `/logs` endpoints.
+    - Seed `request_logs` rows across two buckets; assert `GET /v1/logs/analytics?window=1h` returns zero-filled buckets, correct `totalRequests`, `errorRate`, and top-model ordering.
+    - Assert invalid `window=bad` → 400.
+    - Assert route requires auth like sibling `/logs` endpoints.
 2. **DB unit check**: `getAnalyticsDB` bucket math on a temp SQLite file.
 3. **Build gate** (per AGENTS.md, targeted only): `pnpm run build` in `packages/types`, `apps/api`, `apps/web`.
 4. **Smoke test**: run API locally, `curl "http://localhost:<port>/v1/logs/analytics?window=24h"` with API key, then load `/analytics` in the dashboard and confirm charts render with seeded traffic.
@@ -204,5 +225,6 @@ Error envelope unchanged (`{ error: { message, type } }` via global `onError`). 
 - [ ] `packages/db/src/logs.ts` — `getAnalyticsDB(window)`
 - [ ] `apps/api` — route + controller + logic wiring
 - [ ] `apps/api/tests/analytics.test.ts`
-- [ ] `apps/web` — `lib/api.ts` client fn, `hooks/useAnalytics.ts`, `routes/analytics.tsx`, `components/analytics/*`, sidebar entry
+- [ ] `apps/web/package.json` — add `recharts` dependency (`pnpm add recharts` in `apps/web`)
+- [ ] `apps/web` — `lib/api.ts` client fn, `hooks/useAnalytics.ts`, `routes/analytics.tsx`, `components/analytics/*` (Recharts), sidebar entry
 - [ ] Builds green: types → api → web; smoke curl passes
