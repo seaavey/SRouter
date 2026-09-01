@@ -52,17 +52,22 @@ export class TunnelController {
                     } catch {}
                 };
 
-                Send({ ...getTunnelStatus(), tokenConfigured: Boolean(getTunnelToken()) });
+                try {
+                    Send({ ...getTunnelStatus(), tokenConfigured: Boolean(getTunnelToken()) });
 
-                Unsubscribe = onTunnelUpdate((Status) => {
-                    Send({ ...Status, tokenConfigured: Boolean(getTunnelToken()) });
-                });
+                    Unsubscribe = onTunnelUpdate((Status) => {
+                        Send({ ...Status, tokenConfigured: Boolean(getTunnelToken()) });
+                    });
 
-                Heartbeat = setInterval(() => {
-                    try {
-                        controller.enqueue(Encoder.encode(`: ping\n\n`));
-                    } catch {}
-                }, 25_000);
+                    Heartbeat = setInterval(() => {
+                        try {
+                            controller.enqueue(Encoder.encode(`: ping\n\n`));
+                        } catch {}
+                    }, 25_000);
+                } catch (SetupError) {
+                    Release();
+                    throw SetupError;
+                }
             },
             cancel() {
                 Release();
