@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 export interface RequestLogEntry {
     id: string;
     apiKeyId?: string;
@@ -59,3 +61,47 @@ export interface UsageStats extends UsageSummary {
     estimated: boolean;
     byModel: UsageByModelRow[];
 }
+
+// --- Analytics ---
+
+export type AnalyticsWindow = "1h" | "24h" | "7d" | "30d";
+
+export interface AnalyticsBucket {
+    bucketStart: number; // epoch ms, aligned to bucket size
+    totalRequests: number;
+    successRequests: number;
+    errorRequests: number;
+    avgLatencyMs: number;
+    totalTokens: number;
+}
+
+export interface AnalyticsTopModel {
+    model: string;
+    totalRequests: number;
+    totalTokens: number;
+    estCost: number;
+}
+
+export interface AnalyticsProviderSlice {
+    providerId: string;
+    totalRequests: number;
+}
+
+export interface AnalyticsReport {
+    object: "analytics";
+    window: AnalyticsWindow;
+    bucketSizeMs: number;
+    generatedAt: number;
+    requestsPerSecond: number; // rolling 60s average
+    totalRequests: number;
+    errorRate: number; // 0..1 over the window
+    p95LatencyMs: number;
+    buckets: AnalyticsBucket[];
+    topModels: AnalyticsTopModel[];
+    providers: AnalyticsProviderSlice[];
+}
+
+export const AnalyticsQuerySchema = z.object({
+    window: z.enum(["1h", "24h", "7d", "30d"]).default("24h")
+});
+export type AnalyticsQuery = z.infer<typeof AnalyticsQuerySchema>;
