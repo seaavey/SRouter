@@ -36,3 +36,9 @@ export const AddCustomModelSchema = z.object({
 });
 
 export type AddCustomModelZod = z.infer<typeof AddCustomModelSchema>;
+
+export const ToggleRoundRobinSchema = z.object({
+    enabled: z.boolean()
+});
+
+export type ToggleRoundRobinZod = z.infer<typeof ToggleRoundRobinSchema>;

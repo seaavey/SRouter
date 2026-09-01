@@ -58,6 +58,21 @@ export function useProvider(providerId: string) {
         }
     });
 
+    const toggleRoundRobinMutation = useMutation({
+        mutationFn: (enabled: boolean) =>
+            api.patch<ProviderDefinition>(`/v1/providers/${providerId}/round-robin`, { enabled }),
+        onSuccess: (data) => {
+            void queryClient.invalidateQueries({ queryKey: ["providers", providerId] });
+            void queryClient.invalidateQueries({ queryKey: ["providers", "catalog"] });
+            toast.success(
+                data.roundRobin ? "Round-robin load balancing enabled" : "Round-robin load balancing disabled"
+            );
+        },
+        onError: (err: Error) => {
+            toast.error(err.message || "Failed to update round-robin mode");
+        }
+    });
+
     const addModelMutation = useMutation({
         mutationFn: (modelId: string) =>
             api.post<ModelObject>(`/v1/providers/${providerId}/models`, { model_id: modelId }),
@@ -86,5 +101,12 @@ export function useProvider(providerId: string) {
         }
     });
 
-    return { ...query, addMutation, deleteMutation, addModelMutation, deleteModelMutation };
+    return {
+        ...query,
+        addMutation,
+        deleteMutation,
+        toggleRoundRobinMutation,
+        addModelMutation,
+        deleteModelMutation
+    };
 }

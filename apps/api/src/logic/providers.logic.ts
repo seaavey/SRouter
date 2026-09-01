@@ -18,6 +18,8 @@ import {
     deleteCustomModelDB,
     getAllProvidersDB,
     getCustomModelsByProviderDB,
+    getRoundRobinDB,
+    setRoundRobinDB,
     upsertProviderDB
 } from "@srouter/db";
 import { loadSavedProvidersFromDB, registry } from "@/services/registry.js";
@@ -113,6 +115,7 @@ function CatalogWithSavedProviders(): ProviderDefinition[] {
             requires_api_key: Seed ? Seed.requires_api_key : Boolean(Connection.apiKey),
             requires_oauth: Seed?.requires_oauth,
             supports_custom_url: Seed ? (Seed.supports_custom_url ?? true) : true,
+            roundRobin: getRoundRobinDB(BaseId),
             status: {
                 state: ConnectedCount > 0 ? "connected" : "no_connections",
                 message: Seed?.status_message,
@@ -135,6 +138,7 @@ function CatalogWithSavedProviders(): ProviderDefinition[] {
             requires_api_key: Seed.requires_api_key,
             requires_oauth: Seed.requires_oauth,
             supports_custom_url: Seed.supports_custom_url ?? true,
+            roundRobin: getRoundRobinDB(Seed.id),
             status: {
                 state: "no_connections",
                 message: Seed.status_message,
@@ -312,6 +316,23 @@ export class ProvidersLogic {
         const Deleted = deleteCustomModelDB(ProviderId.toLowerCase(), ModelId);
         if (!Deleted) throw new Error(`Custom model '${ModelId}' not found for '${ProviderId}'`);
         registry.clearModelsCache();
+    }
+
+    public static async SetRoundRobin(ProviderId: string, Enabled: boolean): Promise<ProviderDefinition> {
+        const Id = ProviderId.toLowerCase();
+        const Exists =
+            DEFAULT_PROVIDER_MAP[Id] !== undefined ||
+            getAllProvidersDB().some((P) => BaseIdOf(P.providerId || P.id) === Id);
+        if (!Exists) {
+            throw new Error(`Provider '${ProviderId}' not found`);
+        }
+
+        setRoundRobinDB(Id, Enabled);
+        // Keep the in-memory registry flag in sync — loadSavedProvidersFromDB only runs at boot
+        registry.setRoundRobin(Id, Enabled);
+        const Provider = await ProvidersLogic.GetProviderById(Id);
+        if (!Provider) throw new Error(`Provider '${ProviderId}' not found`);
+        return Provider;
     }
 
     public static ListCustomModels(ProviderId: string): ModelObject[] {

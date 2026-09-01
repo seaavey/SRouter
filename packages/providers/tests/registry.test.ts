@@ -283,6 +283,49 @@ test("ProviderRegistry coalesces concurrent forced refreshes", async () => {
     assert.equal(callCount, 2);
 });
 
+test("round-robin rotation cycles healthy candidates across requests", async () => {
+    const registry = new ProviderRegistry();
+    const acc1: AIProvider = {
+        id: "openai_acc1",
+        name: "OpenAI Account 1",
+        listModels: async () => [{ id: "openai/gpt-4o", object: "model" }],
+        chatCompletion: async () => {
+            throw new Error("not used");
+        },
+        chatCompletionStream: async function* () {
+            throw new Error("not used");
+        }
+    };
+    const acc2: AIProvider = {
+        id: "openai_acc2",
+        name: "OpenAI Account 2",
+        listModels: async () => [{ id: "openai/gpt-4o", object: "model" }],
+        chatCompletion: async () => {
+            throw new Error("not used");
+        },
+        chatCompletionStream: async function* () {
+            throw new Error("not used");
+        }
+    };
+
+    registry.registerProvider(acc1);
+    registry.registerProvider(acc2);
+    registry.setRoundRobin("openai", true);
+
+    const first = await registry.getProviderForModel("openai/gpt-4o");
+    const second = await registry.getProviderForModel("openai/gpt-4o");
+    const third = await registry.getProviderForModel("openai/gpt-4o");
+
+    assert.notEqual(first.id, second.id, "consecutive requests should rotate accounts");
+    assert.equal(first.id, third.id, "rotation should cycle back after 2 candidates");
+
+    // Disabling round-robin pins to the first healthy candidate again
+    registry.setRoundRobin("openai", false);
+    const pinned = await registry.getProviderForModel("openai/gpt-4o");
+    const pinned2 = await registry.getProviderForModel("openai/gpt-4o");
+    assert.equal(pinned.id, pinned2.id, "disabled round-robin should not rotate");
+});
+
 test("CircuitBreaker tracks provider health and handles cooldown recovery", async () => {
     const registry = new ProviderRegistry();
     const cb = registry.getCircuitBreaker();

@@ -83,6 +83,8 @@ export class ProviderRegistry {
     private modelsRefreshPending = false;
     private modelsTtlMs: number = 5 * 60 * 1000; // 5 minutes default TTL
     private modelsFetchTimeoutMs: number = DEFAULT_MODELS_FETCH_TIMEOUT_MS;
+    private roundRobinEnabled: Map<string, boolean> = new Map();
+    private roundRobinIndex: Map<string, number> = new Map();
 
     constructor(
         defaultProvider?: AIProvider,
@@ -121,6 +123,10 @@ export class ProviderRegistry {
 
     setModelsTtlMs(ttlMs: number): void {
         this.modelsTtlMs = ttlMs;
+    }
+
+    setRoundRobin(baseId: string, enabled: boolean): void {
+        this.roundRobinEnabled.set(baseId, enabled);
     }
 
     setModelsFetchTimeoutMs(timeoutMs: number): void {
@@ -337,7 +343,6 @@ export class ProviderRegistry {
 
     async getCandidateProvidersForModel(modelId: string): Promise<AIProvider[]> {
         const candidates: AIProvider[] = [];
-
         // 1. Direct match from registered providers' listModels() (cached)
         const activeProviders = Array.from(this.providers.values()).filter(
             (p) => p.id !== "default"
@@ -388,8 +393,18 @@ export class ProviderRegistry {
         }
 
         if (candidates.length > 0) {
-            // Sort by circuit breaker health and apply round-robin shuffle among healthy candidates
-            return this.circuitBreaker.sortCandidatesByHealth(candidates);
+            // Apply round-robin rotation among healthy candidates when enabled
+            const sorted = this.circuitBreaker.sortCandidatesByHealth(candidates);
+            // Determine baseId for round-robin state lookup
+            const baseId = providerBaseId(candidates[0]!.id);
+            if (this.roundRobinEnabled.get(baseId) && sorted.length > 1) {
+                const idx = this.roundRobinIndex.get(baseId) ?? 0;
+                this.roundRobinIndex.set(baseId, (idx + 1) % sorted.length);
+                // Rotate so the next index becomes first (preserves health order within rotation)
+                const rotated = [...sorted.slice(idx), ...sorted.slice(0, idx)];
+                return rotated;
+            }
+            return sorted;
         }
 
         if (this.defaultProvider.id !== "default") {

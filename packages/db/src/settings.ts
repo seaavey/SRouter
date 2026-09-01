@@ -39,3 +39,11 @@ export function getRequireApiKeyDB(): boolean {
 export function setRequireApiKeyDB(required: boolean): void {
     setSettingDB("require_api_key", required ? "true" : "false");
 }
+
+export function getRoundRobinDB(providerId: string): boolean {
+    return getSettingDB(`round_robin_${providerId}`, "false") === "true";
+}
+
+export function setRoundRobinDB(providerId: string, enabled: boolean): void {
+    setSettingDB(`round_robin_${providerId}`, enabled ? "true" : "false");
+}

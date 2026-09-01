@@ -11,12 +11,13 @@ import {
     isSeedProvider,
     NEOSANTARA_BASE_URL,
     OPENCODE_ZEN_BASE_URL,
+    providerBaseId,
     SEED_MARKER,
     SEEKAI_BASE_URL,
     TABITOKEN_BASE_URL,
     TOKENROUTER_BASE_URL
 } from "@srouter/constants";
-import { deleteProviderDB, getAllProvidersDB, upsertProviderDB } from "@srouter/db";
+import { deleteProviderDB, getAllProvidersDB, getRoundRobinDB, upsertProviderDB } from "@srouter/db";
 import {
     AntigravityExecutor,
     AnthropicExecutor,
@@ -102,6 +103,7 @@ export function loadSavedProvidersFromDB(): void {
 
         const providerType = p.providerId || p.id;
         const baseUrl = p.base_url;
+        registry.setRoundRobin(providerBaseId(p.id), getRoundRobinDB(providerBaseId(p.id)));
 
         switch (true) {
             case isProviderBaseId(p.id, "kiro"):

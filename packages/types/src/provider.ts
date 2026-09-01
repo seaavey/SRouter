@@ -31,6 +31,7 @@ export interface ProviderDefinition {
     requires_api_key: boolean;
     requires_oauth?: boolean;
     supports_custom_url?: boolean;
+    roundRobin?: boolean;
     status: ProviderStatus;
     models: ModelObject[];
     connections?: ProviderConfig[];

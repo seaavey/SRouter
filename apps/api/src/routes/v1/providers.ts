@@ -25,3 +25,10 @@ ProvidersRouter.delete(
     RequireAdmin,
     ProvidersController.DeleteCustomModel
 );
+
+// Round-robin load balancing toggle
+ProvidersRouter.patch(
+    "/providers/:providerId/round-robin",
+    RequireAdmin,
+    ProvidersController.ToggleRoundRobin
+);

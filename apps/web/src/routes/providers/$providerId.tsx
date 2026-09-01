@@ -41,13 +41,13 @@ function ProviderDetailPage() {
         refetch,
         addMutation,
         deleteMutation,
+        toggleRoundRobinMutation,
         addModelMutation,
         deleteModelMutation
     } = useProvider(providerId);
 
     const [modelSearch, setModelSearch] = useState("");
     const [viewMode, setViewMode] = useState<"table" | "grid">("table");
-    const [roundRobin, setRoundRobin] = useState(false);
     const [isAddOpen, setIsAddOpen] = useState(false);
     const [isOAuthModalOpen, setIsOAuthModalOpen] = useState(false);
     const [isAddModelOpen, setIsAddModelOpen] = useState(false);
@@ -327,9 +327,11 @@ function ProviderDetailPage() {
             <ConnectionCard
                 providerName={provider.name}
                 connections={connections}
-                roundRobin={roundRobin}
+                roundRobin={provider.roundRobin ?? false}
                 isDeleting={deleteMutation.isPending}
-                onToggleRoundRobin={() => setRoundRobin(!roundRobin)}
+                onToggleRoundRobin={() =>
+                    toggleRoundRobinMutation.mutate(!(provider.roundRobin ?? false))
+                }
                 onRefresh={() => void refetch()}
                 onAdd={handleAddConnection}
                 onDelete={(connectionId) =>
