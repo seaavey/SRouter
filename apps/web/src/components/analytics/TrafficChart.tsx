@@ -1,3 +1,4 @@
+import { formatBucketLabel } from "./formatBucketLabel";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import type { AnalyticsBucket } from "@srouter/types";
 
@@ -16,8 +17,7 @@ export function TrafficChart({ buckets, bucketSizeMs }: Props) {
         error: b.errorRequests
     }));
 
-    const bucketLabel =
-        bucketSizeMs >= 86_400_000 ? "day" : bucketSizeMs >= 3_600_000 ? "hour" : "min";
+    const bucketLabel = formatBucketLabel(bucketSizeMs);
 
     return (
         <div className="flex flex-col rounded-xl border border-border/60 bg-secondary/10 p-4">

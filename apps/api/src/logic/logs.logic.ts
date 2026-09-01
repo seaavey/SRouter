@@ -4,7 +4,8 @@ import {
     getBucketCount,
     getRecentLogsDB,
     getUsageByModelDB,
-    getUsageSummaryDB
+    getUsageSummaryDB,
+    num
 } from "@srouter/db";
 import type {
     AnalyticsReport,
@@ -14,7 +15,6 @@ import type {
     UsageStats
 } from "@srouter/types";
 import { formatCost } from "@srouter/pricing";
-import { num } from "@srouter/db";
 
 export class LogsLogic {
     public static getRecentLogs(limit: number = 50): RequestLogEntry[] {

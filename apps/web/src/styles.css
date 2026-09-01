@@ -125,6 +125,11 @@ samp,
     --hover-2: oklch(0.91 0 0);
     --green: #1f7a5f;
     --green-tint: rgba(31, 122, 95, 0.12);
+
+    /* Analytics chart hues — theme-independent data-viz colors */
+    --chart-input: oklch(0.65 0.18 245);
+    --chart-output: oklch(0.72 0.18 150);
+    --chart-cached: oklch(0.78 0.16 75);
 }
 
 .dark {

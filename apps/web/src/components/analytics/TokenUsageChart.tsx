@@ -1,3 +1,4 @@
+import { formatBucketLabel } from "./formatBucketLabel";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import type { TooltipValueType } from "recharts";
 import type { AnalyticsBucket } from "@srouter/types";
@@ -18,8 +19,7 @@ export function TokenUsageChart({ buckets, bucketSizeMs }: Props) {
         cached: b.cachedTokens ?? 0
     }));
 
-    const bucketLabel =
-        bucketSizeMs >= 86_400_000 ? "day" : bucketSizeMs >= 3_600_000 ? "hour" : "min";
+    const bucketLabel = formatBucketLabel(bucketSizeMs);
 
     return (
         <div className="flex flex-col rounded-xl border border-border/60 bg-secondary/10 p-4">
@@ -33,36 +33,36 @@ export function TokenUsageChart({ buckets, bucketSizeMs }: Props) {
                             <linearGradient id="inputTokenGradient" x1="0" y1="0" x2="0" y2="1">
                                 <stop
                                     offset="0%"
-                                    stopColor="oklch(0.65 0.18 245)"
+                                    stopColor="var(--chart-input)"
                                     stopOpacity={0.35}
                                 />
                                 <stop
                                     offset="100%"
-                                    stopColor="oklch(0.65 0.18 245)"
+                                    stopColor="var(--chart-input)"
                                     stopOpacity={0.02}
                                 />
                             </linearGradient>
                             <linearGradient id="outputTokenGradient" x1="0" y1="0" x2="0" y2="1">
                                 <stop
                                     offset="0%"
-                                    stopColor="oklch(0.72 0.18 150)"
+                                    stopColor="var(--chart-output)"
                                     stopOpacity={0.35}
                                 />
                                 <stop
                                     offset="100%"
-                                    stopColor="oklch(0.72 0.18 150)"
+                                    stopColor="var(--chart-output)"
                                     stopOpacity={0.02}
                                 />
                             </linearGradient>
                             <linearGradient id="cachedTokenGradient" x1="0" y1="0" x2="0" y2="1">
                                 <stop
                                     offset="0%"
-                                    stopColor="oklch(0.78 0.16 75)"
+                                    stopColor="var(--chart-cached)"
                                     stopOpacity={0.35}
                                 />
                                 <stop
                                     offset="100%"
-                                    stopColor="oklch(0.78 0.16 75)"
+                                    stopColor="var(--chart-cached)"
                                     stopOpacity={0.02}
                                 />
                             </linearGradient>
@@ -86,17 +86,17 @@ export function TokenUsageChart({ buckets, bucketSizeMs }: Props) {
                                 borderRadius: "8px",
                                 fontSize: "12px"
                             }}
-                            formatter={(value: TooltipValueType | undefined, name: string | number | undefined) => [
-                                `${Number(value ?? 0).toLocaleString()} tokens`,
-                                name
-                            ]}
+                            formatter={(
+                                value: TooltipValueType | undefined,
+                                name: string | number | undefined
+                            ) => [`${Number(value ?? 0).toLocaleString()} tokens`, name]}
                         />
                         <Legend wrapperStyle={{ fontSize: "11px" }} />
                         <Area
                             type="monotone"
                             dataKey="input"
                             stackId="tokens"
-                            stroke="oklch(0.65 0.18 245)"
+                            stroke="var(--chart-input)"
                             fill="url(#inputTokenGradient)"
                             strokeWidth={2}
                             name="Input (Prompt)"
@@ -105,7 +105,7 @@ export function TokenUsageChart({ buckets, bucketSizeMs }: Props) {
                             type="monotone"
                             dataKey="output"
                             stackId="tokens"
-                            stroke="oklch(0.72 0.18 150)"
+                            stroke="var(--chart-output)"
                             fill="url(#outputTokenGradient)"
                             strokeWidth={2}
                             name="Output (Completion)"
@@ -114,7 +114,7 @@ export function TokenUsageChart({ buckets, bucketSizeMs }: Props) {
                             type="monotone"
                             dataKey="cached"
                             stackId="tokens"
-                            stroke="oklch(0.78 0.16 75)"
+                            stroke="var(--chart-cached)"
                             fill="url(#cachedTokenGradient)"
                             strokeWidth={2}
                             name="Cached"
