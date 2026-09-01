@@ -231,14 +231,21 @@ export class ProvidersLogic {
         if (!isProviderCategory(Payload.category)) throw new Error("Invalid provider category");
         if (!isProviderProtocol(Payload.protocol)) throw new Error("Invalid provider protocol");
         const RawId = Payload.id?.trim();
-        const BaseId = RawId
-            ? RawId.toLowerCase().replace(/[^a-z0-9_-]/g, "")
-            : Payload.category;
-        const Id = RawId ? BaseId : `${BaseId}_${Date.now()}`;
-        if (!Id)
-            throw new Error("Provider ID must contain letters, numbers, underscores, or hyphens");
-        if (getAllProvidersDB().some((Provider) => Provider.id === Id))
-            throw new Error(`Provider ID '${Id}' already exists`);
+        let Id: string;
+
+        if (RawId) {
+            // Explicit ID provided (OAuth flows, imports): sanitize as before
+            Id = RawId.toLowerCase().replace(/[^a-z0-9_-]/g, "");
+            if (!Id)
+                throw new Error(
+                    "Provider ID must contain letters, numbers, underscores, or hyphens"
+                );
+            if (getAllProvidersDB().some((Provider) => Provider.id === Id))
+                throw new Error(`Provider ID '${Id}' already exists`);
+        } else {
+            // Custom provider: generate UUID v4 as immutable internal ID
+            Id = crypto.randomUUID();
+        }
         const Category = Payload.category;
         const Protocol = Payload.protocol;
         const BaseUrl = Payload.base_url?.trim();

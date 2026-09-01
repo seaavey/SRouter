@@ -25,14 +25,6 @@ const PROTOCOLS: { value: ProviderProtocol; label: string }[] = [
     { value: "anthropic", label: "Anthropic" }
 ];
 
-function SlugifyName(Name: string): string {
-    return Name
-        .toLowerCase()
-        .trim()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-+|-+$/g, "");
-}
-
 interface CustomProviderDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -126,9 +118,8 @@ export function CustomProviderDialog({ open, onOpenChange }: CustomProviderDialo
             return;
         }
         setFormError("");
-        const Slug = SlugifyName(trimmedName);
+        // Backend generates a UUID v4 as the immutable provider ID
         saveMutation.mutate({
-            id: Slug || undefined,
             name: trimmedName,
             category: "api_key",
             protocol,

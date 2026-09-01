@@ -55,7 +55,13 @@ export function isKnownProvider(Id: string): boolean {
     return Id in KNOWN_PROVIDER_MAP;
 }
 
+const UUID_RE =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export function providerBaseId(Id: string): string {
+    // Custom providers carry a UUID v4 as their immutable ID — never
+    // truncate it; a UUID is its own base identity.
+    if (UUID_RE.test(Id)) return Id;
     return (
         KNOWN_PROVIDER_IDS_DESC.find(
             (Candidate) =>
