@@ -92,21 +92,24 @@ export function useFallbacks() {
         }
     }, []);
 
-    const deleteFallback = useCallback(async (id: string) => {
-        setDeletingId(id);
-        try {
-            await api.delete(`/v1/settings/fallbacks/${id}`);
-            setFallbacks((prev) => prev.filter((r) => r.id !== id));
-            toast.success("Fallback rule deleted");
-            return true;
-        } catch (err) {
-            const msg = err instanceof Error ? err.message : "Failed to delete fallback rule";
-            toast.error(msg);
-            return false;
-        } finally {
-            setDeletingId(null);
-        }
-    }, []);
+    const deleteFallback = useCallback(
+        async (id: string, opts?: { silent?: boolean }) => {
+            setDeletingId(id);
+            try {
+                await api.delete(`/v1/settings/fallbacks/${id}`);
+                setFallbacks((prev) => prev.filter((r) => r.id !== id));
+                if (!opts?.silent) toast.success("Fallback rule deleted");
+                return true;
+            } catch (err) {
+                const msg = err instanceof Error ? err.message : "Failed to delete fallback rule";
+                if (!opts?.silent) toast.error(msg);
+                return false;
+            } finally {
+                setDeletingId(null);
+            }
+        },
+        []
+    );
 
     return {
         fallbacks,

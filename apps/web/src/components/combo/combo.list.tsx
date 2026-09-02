@@ -34,7 +34,7 @@ interface ComboListProps {
     loading: boolean;
     deletingId: string | null;
     onUpdate: (id: string, updates: Partial<FallbackRule>) => Promise<unknown>;
-    onDelete: (id: string) => Promise<unknown>;
+    onDelete: (id: string, opts?: { silent?: boolean }) => Promise<unknown>;
     onAddClick: () => void;
     onEditClick?: (comboName: string, models: string[]) => void;
 }
@@ -424,8 +424,9 @@ export function ComboList({
     const handleDeleteAllInGroup = async (group: GroupedCombo) => {
         if (!window.confirm(`Delete entire combo cascade "${group.sourceModel}" (${group.rules.length} steps)?`)) return;
         for (const rule of group.rules) {
-            await onDelete(rule.id);
+            await onDelete(rule.id, { silent: true });
         }
+        toast.success(`Combo "${group.sourceModel}" and all ${group.rules.length} steps deleted`);
     };
 
     const activeCount = groupedCombos.filter((g) => g.anyEnabled).length;
