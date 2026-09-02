@@ -89,13 +89,18 @@ Provider authentication and OAuth callbacks are also mounted under the `/v1` API
 
 The app reads these gateway-level environment variables:
 
-| Variable        | Default         | Description             |
-| --------------- | --------------- | ----------------------- |
-| `PORT`          | `3000`          | HTTP server port        |
-| `OAUTH_PORT`    | `1455`          | OAuth callback listener |
-| `DATABASE_PATH` | `srouter.db`    | SQLite database path    |
-| `NODE_ENV`      | `development`   | Runtime environment     |
-| `WEB_DIST_PATH` | `apps/web/dist` | Built dashboard path    |
+| Variable            | Default         | Description                                                            |
+| ------------------- | --------------- | ---------------------------------------------------------------------- |
+| `PORT`              | `3000`          | HTTP server port                                                       |
+| `OAUTH_PORT`        | `1455`          | Local OAuth callback listener (skipped when `SROUTER_PUBLIC_URL` set)  |
+| `SROUTER_PUBLIC_URL`| —               | Public origin (e.g. `https://app.herokuapp.com`); rewrites OAuth callback URLs to `/v1/auth/.../callback` on the main server |
+| `DATABASE_PATH`     | `srouter.db`    | SQLite database path                                                   |
+| `NODE_ENV`          | `development`   | Runtime environment                                                    |
+| `WEB_DIST_PATH`     | `apps/web/dist` | Built dashboard path                                                   |
+
+When `SROUTER_PUBLIC_URL` is configured the local `OAUTH_PORT` listener is
+not bound — callback routes are served by the main listener, so the gateway
+runs on platforms that expose only one port (Heroku).
 
 For local development, the repository root `.env.example` can be copied to `.env`.
 

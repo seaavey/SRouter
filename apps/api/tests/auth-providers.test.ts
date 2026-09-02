@@ -6,6 +6,12 @@ import { registry } from "../src/services/registry.js";
 import { AuthLogic } from "../src/logic/auth.logic.js";
 import { AuthHandlers } from "../src/services/authHandlers.js";
 import type { AuthProviderHandler } from "@srouter/types";
+import { GetPublicUrlBase, ResolveCallbackUrl } from "../src/utils/callbackUrl.js";
+
+// CI has no SROUTER_PUBLIC_URL, so redirect URIs resolve to the local
+// listener (127.0.0.1:1455) exactly as the handlers default.
+const LOCAL_REDIRECT = "http://localhost:1455/auth/callback";
+const LOCAL_REDIRECT_ANTIGRAVITY = "http://localhost:1455/auth/antigravity/callback";
 
 const createdIds: string[] = [];
 
@@ -63,7 +69,7 @@ test("generic logic (initiatePKCEFor) produces an authorizeUrl with expected sta
     assert.ok(authorizeUrl.includes("code_challenge_method=S256"));
     assert.ok(authorizeUrl.includes(`state=${encodeURIComponent(state)}`));
     assert.ok(codeVerifier.length > 0);
-    assert.equal(redirectUri, "http://localhost:1455/auth/callback");
+    assert.equal(redirectUri, LOCAL_REDIRECT);
 });
 
 test("auth provider handlers carry preserved per-provider messages", async () => {
@@ -96,4 +102,41 @@ test("processTokenImport registers a live executor in the registry", async () =>
     const instance = registry.getProvider(config.id) as AIProvider | undefined;
     assert.ok(instance, "expected a registered executor");
     assert.equal(instance.id, config.id);
+});
+
+test("ResolveCallbackUrl rewrites localhost to SROUTER_PUBLIC_URL and passes custom URIs through", () => {
+    const original = process.env.SROUTER_PUBLIC_URL;
+    try {
+        process.env.SROUTER_PUBLIC_URL = "https://srouter.example.com/";
+        assert.equal(
+            ResolveCallbackUrl("http://localhost:1455/auth/callback"),
+            "https://srouter.example.com/v1/auth/callback"
+        );
+        assert.equal(
+            ResolveCallbackUrl("http://127.0.0.1:1455/auth/antigravity/callback"),
+            "https://srouter.example.com/v1/auth/antigravity/callback"
+        );
+        // User-supplied custom callback must pass through untouched.
+        assert.equal(
+            ResolveCallbackUrl("https://myapp.example.com/cb"),
+            "https://myapp.example.com/cb"
+        );
+        assert.equal(GetPublicUrlBase(), "https://srouter.example.com");
+    } finally {
+        if (original === undefined) {
+            delete process.env.SROUTER_PUBLIC_URL;
+        } else {
+            process.env.SROUTER_PUBLIC_URL = original;
+        }
+    }
+});
+
+test("ResolveCallbackUrl is a no-op without SROUTER_PUBLIC_URL", () => {
+    const original = process.env.SROUTER_PUBLIC_URL;
+    try {
+        delete process.env.SROUTER_PUBLIC_URL;
+        assert.equal(ResolveCallbackUrl("http://localhost:1455/auth/callback"), LOCAL_REDIRECT);
+    } finally {
+        if (original !== undefined) process.env.SROUTER_PUBLIC_URL = original;
+    }
 });

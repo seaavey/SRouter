@@ -5,6 +5,9 @@ import type { AIProvider } from "@srouter/types";
 import { registry } from "../src/services/registry.js";
 import { AuthLogic } from "../src/logic/auth.logic.js";
 
+// CI has no SROUTER_PUBLIC_URL, so redirect URIs resolve to the local listener.
+const LOCAL_REDIRECT_ANTIGRAVITY = "http://localhost:1455/auth/antigravity/callback";
+
 const createdIds: string[] = [];
 
 afterEach(async () => {
@@ -47,5 +50,5 @@ test("initiateAntigravityOAuth generates valid Antigravity authorization paramet
     assert.ok(authorizeUrl.includes("code_challenge_method=S256"));
     assert.ok(authorizeUrl.includes(`state=${encodeURIComponent(state)}`));
     assert.ok(codeVerifier.length > 0);
-    assert.equal(redirectUri, "http://localhost:1455/auth/antigravity/callback");
+    assert.equal(redirectUri, LOCAL_REDIRECT_ANTIGRAVITY);
 });

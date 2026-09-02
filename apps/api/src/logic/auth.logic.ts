@@ -24,6 +24,7 @@ import {
     type TokenImportParams
 } from "@srouter/types";
 import { AuthHandlers } from "@/services/authHandlers.js";
+import { ResolveCallbackUrl } from "@/utils/callbackUrl.js";
 
 export type { OAuthLoginParams, OAuthLoginResult, TokenImportParams } from "@srouter/types";
 
@@ -38,7 +39,8 @@ function ResolveClientId(handler: AuthProviderHandler, params: OAuthLoginParams)
 }
 
 function ResolveRedirectUri(handler: AuthProviderHandler, params: OAuthLoginParams): string {
-    return params.redirectUri || handler.defaultRedirectUri || "";
+    const redirectUri = params.redirectUri || handler.defaultRedirectUri || "";
+    return redirectUri ? ResolveCallbackUrl(redirectUri) : "";
 }
 
 function ExtractEmailFromToken(token?: string): string | undefined {

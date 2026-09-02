@@ -23,6 +23,7 @@ import { resolveWebDistPath } from "@/services/webDist.js";
 import { warmModelRegistry, startProviderRegistry } from "@/services/registry.js";
 import { bootstrapAdminAccountFromEnv } from "@/services/adminAuth.js";
 import { autostartTunnelIfEnabled } from "@/services/cloudflareTunnel.js";
+import { GetPublicUrlBase } from "@/utils/callbackUrl.js";
 import { adminAuthStore, initDatabase, isPostgres } from "@srouter/db";
 
 import { HTTPException } from "hono/http-exception";
@@ -207,22 +208,27 @@ async function boot(): Promise<void> {
         }
     );
 
-    // Secondary listener on Port 1455 for OAuth callbacks and local Anthropic proxy
-    try {
-        serve(
-            {
-                fetch: oauthApp.fetch,
-                port: oauthPort,
-                hostname: oauthHost
-            },
-            (info) => {
-                console.log(
-                    `🔑 OAuth Callback Server running at http://${info.address}:${info.port}/auth/callback & /auth/antigravity/callback & /auth/claude/callback`
-                );
-            }
-        );
-    } catch (err) {
-        console.warn(`Could not start OAuth server on port ${oauthPort}:`, err);
+    // Secondary listener on Port 1455 for OAuth callbacks and local Anthropic proxy.
+    // When SROUTER_PUBLIC_URL is set (Heroku/public deploys) the OAuth callback
+    // routes already live on the main server, so binding an extra port would
+    // fail on platforms that expose only $PORT.
+    if (!GetPublicUrlBase()) {
+        try {
+            serve(
+                {
+                    fetch: oauthApp.fetch,
+                    port: oauthPort,
+                    hostname: oauthHost
+                },
+                (info) => {
+                    console.log(
+                        `🔑 OAuth Callback Server running at http://${info.address}:${info.port}/auth/callback & /auth/antigravity/callback & /auth/claude/callback`
+                    );
+                }
+            );
+        } catch (err) {
+            console.warn(`Could not start OAuth server on port ${oauthPort}:`, err);
+        }
     }
 
     // Start background OAuth token refresh sweeper
