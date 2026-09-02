@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { ArrowUpRight, CheckCircle2, Cpu, Layers } from "lucide-react";
 import type { ProviderDefinition } from "@srouter/types";
-import { ProviderIcon } from "@/components/providers/providers.icon";
+import { ProviderIcon } from "@/components/providers";
 import { getConnectedCount } from "@/utils/provider.utils";
 import { CATEGORY_LABELS } from "@srouter/constants";
 

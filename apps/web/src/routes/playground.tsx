@@ -4,10 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import type { ModelListResponse } from "@srouter/types";
 import { usePlayground } from "@/hooks/usePlayground";
-import { CodeSheet } from "@/components/playground/playground.code-sheet";
-import { ChatHistoryModal } from "@/components/playground/playground.chat-history-modal";
-import { ConversationViewport } from "@/components/playground/playground.conversation-viewport";
-import { MessageComposer } from "@/components/playground/playground.message-composer";
+import { ChatHistoryModal, CodeSheet, ConversationViewport, MessageComposer } from "@/components/playground";
 
 export const Route = createFileRoute("/playground")({
     staticData: { title: "Playground" },

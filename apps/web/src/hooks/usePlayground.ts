@@ -6,7 +6,7 @@ import type {
     PlaygroundMessage,
     PlaygroundModel,
     PlaygroundSession
-} from "@/components/playground/playground.types";
+} from "@/components/playground";
 import { getGatewayBaseUrl } from "@/lib/api";
 import { safeJsonParse } from "@/lib/utils";
 import { generatePlaygroundCodeSnippet } from "@/utils/codeSnippetGenerator";

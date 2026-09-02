@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { ArrowDown, ArrowUp, Cpu, Layers, BarChart2 } from "lucide-react";
 import type { UsageStats } from "@srouter/types";
-import { ProviderIcon } from "@/components/providers/providers.icon";
+import { ProviderIcon } from "@/components/providers";
 import { formatCompactNumber } from "@/lib/utils";
 
 type ModelUsageOverviewProps = {

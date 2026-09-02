@@ -3,7 +3,7 @@ import { Check, Cloud, Code2, Copy, Network, ArrowUpRight } from "lucide-react";
 import { toast } from "sonner";
 import { getGatewayBaseUrl } from "@/lib/api";
 import { useTunnelStatus, useTunnelActions } from "@/hooks/useTunnel";
-import { TunnelModal } from "@/components/dashboard/dashboard.tunnel-modal";
+import { TunnelModal } from "@/components/dashboard";
 
 export function NetworkStatus() {
     const apiBase = getGatewayBaseUrl();

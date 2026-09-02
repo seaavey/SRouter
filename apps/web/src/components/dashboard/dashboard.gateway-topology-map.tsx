@@ -32,7 +32,7 @@ import {
 } from "lucide-react";
 import { useCatalog } from "@/hooks/useCatalog";
 import { useTokenSaver } from "@/hooks/useTokenSaver";
-import { ProviderIcon } from "@/components/providers/providers.icon";
+import { ProviderIcon } from "@/components/providers";
 import { api, getGatewayBaseUrl } from "@/lib/api";
 import { isProviderConnected, getConnectedCount } from "@/utils/provider.utils";
 import type { RequestLogEntry } from "@srouter/types";

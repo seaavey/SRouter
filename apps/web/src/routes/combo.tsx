@@ -1,10 +1,7 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useFallbacks } from "@/hooks/useFallbacks";
-import { ComboHeader } from "@/components/combo/combo.header";
-import { ComboArchitecture } from "@/components/combo/combo.architecture";
-import ComboForm from "@/components/combo/combo.form";
-import { ComboList } from "@/components/combo/combo.list";
+import { ComboArchitecture, ComboForm, ComboHeader, ComboList } from "@/components/combo";
 
 export const Route = createFileRoute("/combo")({
     staticData: { title: "Model Combo" },

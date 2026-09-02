@@ -1,10 +1,9 @@
 import { createRootRouteWithContext, Outlet } from "@tanstack/react-router";
 import type { QueryClient } from "@tanstack/react-query";
-import { AppSidebar } from "@/components/layout/AppSidebar";
-import { Topbar } from "@/components/layout/Topbar";
+import { AppSidebar, Topbar } from "@/components/layout";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { AdminAuthGate } from "@/components/auth/AdminAuthGate";
+import { AdminAuthGate } from "@/components/auth";
 
 interface RouterContext {
     queryClient: QueryClient;
