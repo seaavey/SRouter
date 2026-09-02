@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, ChevronUp, Cpu, KeyRound, Network, ShieldCheck, Zap } from "lucide-react";
+import { ChevronDown, ChevronUp, Cpu, KeyRound, Network, Zap } from "lucide-react";
 
 export function ComboArchitecture() {
     const [expanded, setExpanded] = useState(false);

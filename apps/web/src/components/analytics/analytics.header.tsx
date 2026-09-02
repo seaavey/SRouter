@@ -1,4 +1,4 @@
-import { type AnalyticsWindow } from "@srouter/types";
+import type { AnalyticsWindow } from "@srouter/types";
 
 const windows: { value: AnalyticsWindow; label: string }[] = [
     { value: "1h", label: "1h" },
