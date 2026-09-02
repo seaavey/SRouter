@@ -17,9 +17,9 @@ import {
     X,
     Zap
 } from "lucide-react";
-import { ModelPickerDropdown } from "./ModelPickerDropdown";
-import { PlaygroundSettingsPopover } from "./PlaygroundSettingsPopover";
-import type { PlaygroundModel } from "./types";
+import { ModelPickerDropdown } from "./playground.model-picker-dropdown";
+import { PlaygroundSettingsPopover } from "./playground.settings-popover";
+import type { PlaygroundModel } from "./playground.types";
 
 interface PromptBarProps {
     input: string;

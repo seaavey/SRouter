@@ -1,4 +1,4 @@
-import { formatBucketLabel } from "./formatBucketLabel";
+import { formatBucketLabel } from "./analytics.format-bucket-label";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import type { AnalyticsBucket } from "@srouter/types";
 

@@ -10,7 +10,7 @@ import {
     DialogHeader,
     DialogTitle
 } from "@/components/ui/dialog";
-import { SettingsSection, SettingsRow, ValueBadge } from "./settings-ui";
+import { SettingsSection, SettingsRow, ValueBadge } from "./settings.ui";
 import type { StorageStats } from "@/hooks/useSettings";
 
 interface DataSettingsProps {

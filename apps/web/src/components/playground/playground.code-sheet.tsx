@@ -2,7 +2,7 @@ import React from "react";
 import { Check, Code2, Copy, FileCode, Terminal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import type { ExportLanguage, PlaygroundModel } from "./types";
+import type { ExportLanguage, PlaygroundModel } from "./playground.types";
 
 interface CodeSheetProps {
     open: boolean;

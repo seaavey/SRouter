@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { ArrowUpRight, Cpu, Layers } from "lucide-react";
 import type { ProviderDefinition } from "@srouter/types";
-import { ProviderIcon } from "@/components/ProviderIcon";
+import { ProviderIcon } from "@/components/providers/providers.icon";
 import { getConnectedCount } from "@/utils/provider.utils";
 
 const protocolLabels: Record<string, string> = {

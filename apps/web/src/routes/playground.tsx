@@ -4,10 +4,10 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import type { ModelListResponse } from "@srouter/types";
 import { usePlayground } from "@/hooks/usePlayground";
-import { CodeSheet } from "@/components/playground/CodeSheet";
-import { ChatHistoryModal } from "@/components/playground/ChatHistoryModal";
-import { ConversationViewport } from "@/components/playground/ConversationViewport";
-import { MessageComposer } from "@/components/playground/MessageComposer";
+import { CodeSheet } from "@/components/playground/playground.code-sheet";
+import { ChatHistoryModal } from "@/components/playground/playground.chat-history-modal";
+import { ConversationViewport } from "@/components/playground/playground.conversation-viewport";
+import { MessageComposer } from "@/components/playground/playground.message-composer";
 
 export const Route = createFileRoute("/playground")({
     staticData: { title: "Playground" },

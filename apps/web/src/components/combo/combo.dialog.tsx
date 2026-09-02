@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Brain, Eye, Info, Layers, Search, X } from "lucide-react";
 import { api } from "@/lib/api";
-import { ProviderIcon } from "@/components/ProviderIcon";
+import { ProviderIcon } from "@/components/providers/providers.icon";
 import { ANTIGRAVITY_MODELS, KNOWN_PROVIDERS } from "@srouter/constants";
 import type { ModelListResponse } from "@srouter/types";
 

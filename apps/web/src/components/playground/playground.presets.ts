@@ -1,4 +1,4 @@
-import type { StarterPrompt } from "./types";
+import type { StarterPrompt } from "./playground.types";
 
 export const STARTER_PROMPTS: StarterPrompt[] = [
     {

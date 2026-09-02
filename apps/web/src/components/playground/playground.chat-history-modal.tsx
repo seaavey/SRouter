@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { Bot, Check, Copy, MessageSquare, Plus, Search, Trash2, X } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import type { PlaygroundSession } from "./types";
+import type { PlaygroundSession } from "./playground.types";
 
 interface ChatHistoryModalProps {
     open: boolean;

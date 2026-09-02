@@ -7,8 +7,8 @@ import type { RequestLogEntry } from "@srouter/types";
 import type { ListResponse } from "@/lib/types";
 import { LogsSkeleton } from "@/components/skeletons";
 import { useLogs } from "@/hooks/useLogs";
-import { LogTable } from "@/components/logs/LogTable";
-import { LogDetailSheet } from "@/components/logs/LogDetailSheet";
+import { LogTable } from "@/components/logs/logs.table";
+import { LogDetailSheet } from "@/components/logs/logs.detail-sheet";
 
 export const Route = createFileRoute("/logs")({
     staticData: { title: "Logs" },

@@ -18,10 +18,10 @@ import {
     User,
     Zap
 } from "lucide-react";
-import { MarkdownRenderer } from "./MarkdownRenderer";
-import LoadingState from "./LoadingState";
-import { ThinkingState } from "./ThinkingState";
-import type { PlaygroundMessage, PlaygroundModel } from "./types";
+import { MarkdownRenderer } from "./playground.markdown-renderer";
+import LoadingState from "./playground.loading-state";
+import { ThinkingState } from "./playground.thinking-state";
+import type { PlaygroundMessage, PlaygroundModel } from "./playground.types";
 
 interface ConversationViewportProps {
     messages: PlaygroundMessage[];

@@ -14,7 +14,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { useVersion, GITHUB_REPO } from "@/hooks/useVersion";
-import { SettingsSection, SettingsRow } from "./settings-ui";
+import { SettingsSection, SettingsRow } from "./settings.ui";
 
 interface SystemSettingsProps {
     apiBase: string;

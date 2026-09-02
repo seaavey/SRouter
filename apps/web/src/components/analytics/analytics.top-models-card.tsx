@@ -1,4 +1,4 @@
-import { ProviderIcon } from "@/components/ProviderIcon";
+import { ProviderIcon } from "@/components/providers/providers.icon";
 import type { AnalyticsTopModel } from "@srouter/types";
 
 interface Props {

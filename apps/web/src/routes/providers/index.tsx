@@ -3,9 +3,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { RefreshCw, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCatalog } from "@/hooks/useCatalog";
-import { Catalog } from "@/components/providers/Catalog";
-import { CatalogToolbar } from "@/components/providers/CatalogToolbar";
-import { CustomProviderDialog } from "@/components/providers/CustomProviderDialog";
+import { Catalog } from "@/components/providers/providers.catalog";
+import { CatalogToolbar } from "@/components/providers/providers.catalog-toolbar";
+import { CustomProviderDialog } from "@/components/providers/providers.custom-provider-dialog";
 import { ProvidersSkeleton } from "@/components/skeletons";
 
 export const Route = createFileRoute("/providers/")({

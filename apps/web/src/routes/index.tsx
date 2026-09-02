@@ -15,10 +15,10 @@ import {
 import { api } from "@/lib/api";
 import { formatCompactNumber } from "@/lib/utils";
 import type { UsageStats } from "@srouter/types";
-import { ModelUsageOverview } from "@/components/dashboard/ModelUsageOverview";
-import { NetworkStatus } from "@/components/dashboard/NetworkStatus";
-import { GatewayTopologyMap } from "@/components/dashboard/GatewayTopologyMap";
-import { UsageByModelTable } from "@/components/dashboard/UsageByModelTable";
+import { ModelUsageOverview } from "@/components/dashboard/dashboard.model-usage-overview";
+import { NetworkStatus } from "@/components/dashboard/dashboard.network-status";
+import { GatewayTopologyMap } from "@/components/dashboard/dashboard.gateway-topology-map";
+import { UsageByModelTable } from "@/components/dashboard/dashboard.usage-by-model-table";
 import { Button } from "@/components/ui/button";
 import { DashboardSkeleton } from "@/components/skeletons";
 

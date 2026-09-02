@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { api, ApiError } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { SettingsSection, SettingsRow, SegmentedControl } from "./settings-ui";
+import { SettingsSection, SettingsRow, SegmentedControl } from "./settings.ui";
 
 interface SecuritySettingsProps {
     requireApiKey: boolean;

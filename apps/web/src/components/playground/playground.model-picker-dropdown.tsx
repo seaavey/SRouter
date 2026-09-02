@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Bot, Check, Search, Star } from "lucide-react";
 import { useFavorites } from "@/hooks/useFavorites";
-import type { PlaygroundModel } from "./types";
+import type { PlaygroundModel } from "./playground.types";
 
 interface ModelPickerDropdownProps {
     isOpen: boolean;

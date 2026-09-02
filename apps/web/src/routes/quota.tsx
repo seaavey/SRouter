@@ -16,7 +16,7 @@ import {
 import { toast } from "sonner";
 import { QuotaSkeleton } from "@/components/skeletons";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { ProviderIcon } from "@/components/ProviderIcon";
+import { ProviderIcon } from "@/components/providers/providers.icon";
 import { cn } from "@/lib/utils";
 import { useQuota } from "@/hooks/useQuota";
 import type { LiveModelQuotaItem, ProviderUsageMetric } from "@srouter/types";

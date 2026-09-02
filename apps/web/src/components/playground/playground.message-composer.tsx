@@ -1,4 +1,4 @@
-import { PromptBar } from "./PromptBar";
+import { PromptBar } from "./playground.prompt-bar";
 
 export { PromptBar };
 export const MessageComposer = PromptBar;

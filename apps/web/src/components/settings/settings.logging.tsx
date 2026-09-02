@@ -1,7 +1,7 @@
 import { Check } from "lucide-react";
 import type { AppSettings } from "@/hooks/useSettings";
 import { Switch } from "@/components/ui/switch";
-import { SettingsSection, SettingsRow, SegmentedControl, ValueBadge } from "./settings-ui";
+import { SettingsSection, SettingsRow, SegmentedControl, ValueBadge } from "./settings.ui";
 
 interface LoggingSettingsProps {
     settings: AppSettings;

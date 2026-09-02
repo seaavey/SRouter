@@ -22,7 +22,7 @@ import {
     DialogTitle
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { ProviderIcon } from "@/components/ProviderIcon";
+import { ProviderIcon } from "@/components/providers/providers.icon";
 
 interface ConnectOAuthModalProps {
     provider: ProviderDefinition | null;

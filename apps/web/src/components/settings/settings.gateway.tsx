@@ -1,6 +1,6 @@
 import { Switch } from "@/components/ui/switch";
 import type { AppSettings } from "@/hooks/useSettings";
-import { SettingsSection, SettingsRow, SegmentedControl, ValueBadge } from "./settings-ui";
+import { SettingsSection, SettingsRow, SegmentedControl, ValueBadge } from "./settings.ui";
 
 interface GatewaySettingsProps {
     settings: AppSettings;

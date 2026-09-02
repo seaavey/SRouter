@@ -1,6 +1,6 @@
 import { Check, Moon, Sun } from "lucide-react";
 import type { AppSettings } from "@/hooks/useSettings";
-import { SettingsSection, SettingsRow, SegmentedControl } from "./settings-ui";
+import { SettingsSection, SettingsRow, SegmentedControl } from "./settings.ui";
 
 interface AppearanceSettingsProps {
     theme: "light" | "dark";
