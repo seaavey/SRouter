@@ -25,7 +25,9 @@ export function ResolveCallbackUrl(redirectUri: string): string {
         const url = new URL(redirectUri);
         const isLocalhost = url.hostname === "localhost" || url.hostname === "127.0.0.1";
         if (isLocalhost) {
-            return `${publicBase}/v1${url.pathname}`;
+            // Already a main-server /v1 path — don't double-prefix.
+            const path = url.pathname.startsWith("/v1") ? url.pathname : `/v1${url.pathname}`;
+            return `${publicBase}${path}`;
         }
     } catch {
         // Malformed URI: leave as-is and let the caller surface the error.

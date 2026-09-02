@@ -121,6 +121,11 @@ test("ResolveCallbackUrl rewrites localhost to SROUTER_PUBLIC_URL and passes cus
             ResolveCallbackUrl("https://myapp.example.com/cb"),
             "https://myapp.example.com/cb"
         );
+        // A localhost URI already on the main /v1 path must not double up.
+        assert.equal(
+            ResolveCallbackUrl("http://localhost:3000/v1/auth/callback"),
+            "https://srouter.example.com/v1/auth/callback"
+        );
         assert.equal(GetPublicUrlBase(), "https://srouter.example.com");
     } finally {
         if (original === undefined) {
