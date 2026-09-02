@@ -1,4 +1,4 @@
-import { formatBucketLabel } from "./analytics.format-bucket-label";
+import { formatTimeUnit } from "@/utils/format";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import type { TooltipValueType } from "recharts";
 import type { AnalyticsBucket } from "@srouter/types";
@@ -19,7 +19,7 @@ export function TokenUsageChart({ buckets, bucketSizeMs }: Props) {
         cached: b.cachedTokens ?? 0
     }));
 
-    const bucketLabel = formatBucketLabel(bucketSizeMs);
+    const bucketLabel = formatTimeUnit(bucketSizeMs);
 
     return (
         <div className="flex flex-col rounded-xl border border-border/60 bg-secondary/10 p-4">
