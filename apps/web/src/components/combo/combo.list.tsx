@@ -20,6 +20,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
+import { ConfirmDialog } from "./combo.confirm-dialog";
 import { ProviderIcon } from "@/components/providers";
 import { formatModelDisplayName, getModelCapabilities } from "./combo.dialog";
 import { useCopy } from "@/hooks/useCopy";
@@ -355,6 +356,7 @@ export function ComboList({
     const [search, setSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
     const [viewMode, setViewMode] = useState<"grouped" | "flat">("grouped");
+    const [pendingDelete, setPendingDelete] = useState<GroupedCombo | null>(null);
 
     const { copied, copy } = useCopy();
 
@@ -422,7 +424,6 @@ export function ComboList({
     };
 
     const handleDeleteAllInGroup = async (group: GroupedCombo) => {
-        if (!window.confirm(`Delete entire combo cascade "${group.sourceModel}" (${group.rules.length} steps)?`)) return;
         for (const rule of group.rules) {
             await onDelete(rule.id, { silent: true });
         }
@@ -506,7 +507,7 @@ export function ComboList({
                                         onEdit={onEditClick}
                                         onCopyCurl={handleCopyCurl}
                                         onToggle={(val) => void handleToggleAllInGroup(group, val)}
-                                        onDeleteGroup={() => void handleDeleteAllInGroup(group)}
+                                        onDeleteGroup={() => setPendingDelete(group)}
                                     />
 
                                     <div className="p-4 overflow-x-auto">
@@ -596,6 +597,23 @@ export function ComboList({
                     })}
                 </div>
             )}
+
+            <ConfirmDialog
+                open={pendingDelete !== null}
+                onOpenChange={(open) => {
+                    if (!open) setPendingDelete(null);
+                }}
+                title="Delete entire combo cascade?"
+                description={
+                    pendingDelete
+                        ? `This permanently removes "${pendingDelete.sourceModel}" and its ${pendingDelete.rules.length} steps from the failover pipeline.`
+                        : ""
+                }
+                confirmLabel="Delete combo"
+                onConfirm={() => {
+                    if (pendingDelete) void handleDeleteAllInGroup(pendingDelete);
+                }}
+            />
         </section>
     );
 }
