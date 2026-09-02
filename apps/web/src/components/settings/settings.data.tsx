@@ -16,7 +16,7 @@ import type { StorageStats } from "@/hooks/useSettings";
 interface DataSettingsProps {
     exportSettings: () => void;
     importSettings: (json: string) => boolean;
-    clearPlaygroundHistory: () => void;
+    clearStorage: () => void;
     resetToDefaults: () => void;
     getStorageStats: () => StorageStats;
 }
@@ -33,14 +33,13 @@ export function DataSettings(props: DataSettingsProps) {
     const {
         exportSettings,
         importSettings,
-        clearPlaygroundHistory,
+        clearStorage,
         resetToDefaults,
         getStorageStats
     } = props;
     const [stats, setStats] = useState<StorageStats>({
         totalBytes: 0,
         itemsCount: 0,
-        playgroundBytes: 0,
         settingsBytes: 0
     });
     const [isImportOpen, setIsImportOpen] = useState(false);
@@ -88,30 +87,6 @@ export function DataSettings(props: DataSettingsProps) {
                     {formatBytes(stats.totalBytes)} ({stats.itemsCount} keys)
                 </span>
             </div>
-            <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden flex mb-2">
-                <div
-                    className="h-full bg-blue-500"
-                    style={{
-                        width: `${stats.totalBytes > 0 ? (stats.playgroundBytes / stats.totalBytes) * 100 : 0}%`
-                    }}
-                />
-                <div
-                    className="h-full bg-amber-500"
-                    style={{
-                        width: `${stats.totalBytes > 0 ? (stats.settingsBytes / stats.totalBytes) * 100 : 0}%`
-                    }}
-                />
-            </div>
-            <div className="flex gap-3 text-[10px] font-mono text-muted-foreground pb-2">
-                <span className="flex items-center gap-1">
-                    <span className="size-1.5 rounded-full bg-blue-500" /> Playground:{" "}
-                    {formatBytes(stats.playgroundBytes)}
-                </span>
-                <span className="flex items-center gap-1">
-                    <span className="size-1.5 rounded-full bg-amber-500" /> Settings:{" "}
-                    {formatBytes(stats.settingsBytes)}
-                </span>
-            </div>
 
             <div className="flex flex-wrap gap-2 py-2">
                 <Button
@@ -139,7 +114,7 @@ export function DataSettings(props: DataSettingsProps) {
                     onClick={() => setIsClearOpen(true)}
                     className="text-[11px] cursor-pointer"
                 >
-                    <Trash2 className="size-3" /> Clear
+                    <Trash2 className="size-3" /> Clear Cache
                 </Button>
                 <Button
                     type="button"
@@ -210,11 +185,11 @@ export function DataSettings(props: DataSettingsProps) {
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle className="text-sm font-bold text-rose-500">
-                            Clear Playground History?
+                            Clear cached browser data?
                         </DialogTitle>
                         <DialogDescription className="text-xs">
-                            This deletes all cached conversations from this browser. Cannot be
-                            undone.
+                            Removes cached conversations and temporary data from this browser.
+                            Settings are preserved. Cannot be undone.
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter>
@@ -231,7 +206,7 @@ export function DataSettings(props: DataSettingsProps) {
                             variant="destructive"
                             size="sm"
                             onClick={() => {
-                                clearPlaygroundHistory();
+                                clearStorage();
                                 setIsClearOpen(false);
                                 refresh();
                             }}
@@ -249,7 +224,7 @@ export function DataSettings(props: DataSettingsProps) {
                             Reset to Defaults?
                         </DialogTitle>
                         <DialogDescription className="text-xs">
-                            Timeouts, retries, and playground parameters will be restored to factory
+                            Timeouts, retries, and gateway parameters will be restored to factory
                             values.
                         </DialogDescription>
                     </DialogHeader>

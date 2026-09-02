@@ -8,7 +8,7 @@ import { useSettings } from "@/hooks/useSettings";
 import { useVersion } from "@/hooks/useVersion";
 import { Button } from "@/components/ui/button";
 
-import { AppearanceSettings, DataSettings, GatewaySettings, LoggingSettings, PlaygroundSettings, SecuritySettings, SystemSettings } from "@/components/settings";
+import { AppearanceSettings, DataSettings, GatewaySettings, LoggingSettings, SecuritySettings, SystemSettings } from "@/components/settings";
 import { SettingsSkeleton } from "@/components/skeletons";
 
 export const Route = createFileRoute("/settings")({
@@ -31,7 +31,7 @@ function SettingsPage() {
         resetToDefaults,
         exportSettings,
         importSettings,
-        clearPlaygroundHistory,
+        clearStorage,
         getStorageStats
     } = useSettings();
     const { hasUpdate, latestVersion } = useVersion();
@@ -130,12 +130,10 @@ function SettingsPage() {
 
                 <LoggingSettings settings={settings} updateSetting={updateSetting} />
 
-                <PlaygroundSettings settings={settings} updateSetting={updateSetting} />
-
                 <DataSettings
                     exportSettings={exportSettings}
                     importSettings={importSettings}
-                    clearPlaygroundHistory={clearPlaygroundHistory}
+                    clearStorage={clearStorage}
                     resetToDefaults={resetToDefaults}
                     getStorageStats={getStorageStats}
                 />

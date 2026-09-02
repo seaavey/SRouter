@@ -1,5 +1,4 @@
-import { Link } from "@tanstack/react-router";
-import { Bot, Check, Copy, Play, Star, Trash2 } from "lucide-react";
+import { Bot, Check, Copy, Star, Trash2 } from "lucide-react";
 import type { ModelObject } from "@srouter/types";
 import { useFavorites } from "@/hooks/useFavorites";
 
@@ -105,15 +104,6 @@ export function ProviderModelCard({ model, copied, onCopy, onDelete }: ProviderM
                         </span>
                     )}
                 </div>
-
-                <Link
-                    to="/playground"
-                    search={{ model: model.id }}
-                    className="inline-flex items-center gap-1 rounded-[4px] bg-[var(--field)] hover:bg-[var(--ink)] hover:text-[var(--canvas)] px-2 py-0.5 font-semibold text-[var(--ink)] transition-colors border border-[var(--line)] cursor-pointer"
-                >
-                    <Play className="size-2.5" />
-                    <span>Test</span>
-                </Link>
             </div>
         </div>
     );

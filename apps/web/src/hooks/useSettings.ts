@@ -16,18 +16,11 @@ export interface AppSettings {
     logRetentionDays: number;
     recordTokenUsage: boolean;
     maskSensitiveHeaders: boolean;
-    // Playground Defaults
-    defaultTemperature: number;
-    defaultTopP: number;
-    defaultMaxTokens: number;
-    systemPromptDefault: string;
-    streamResponse: boolean;
 }
 
 export interface StorageStats {
     totalBytes: number;
     itemsCount: number;
-    playgroundBytes: number;
     settingsBytes: number;
 }
 
@@ -41,12 +34,7 @@ const DEFAULT_SETTINGS: AppSettings = {
     loggingLevel: "full",
     logRetentionDays: 30,
     recordTokenUsage: true,
-    maskSensitiveHeaders: true,
-    defaultTemperature: 0.7,
-    defaultTopP: 0.95,
-    defaultMaxTokens: 4096,
-    systemPromptDefault: "You are a helpful and versatile AI assistant.",
-    streamResponse: true
+    maskSensitiveHeaders: true
 };
 
 const STORAGE_KEY = "srouter_app_settings";
@@ -114,7 +102,6 @@ export function useSettings() {
             const importedSettings =
                 parsed.settings && typeof parsed.settings === "object" ? parsed.settings : parsed;
 
-            // Merge with defaults to ensure all required keys exist
             const validated: AppSettings = {
                 ...DEFAULT_SETTINGS,
                 ...importedSettings
@@ -131,37 +118,12 @@ export function useSettings() {
         }
     }, []);
 
-    const clearPlaygroundHistory = useCallback(() => {
-        try {
-            const keysToRemove: string[] = [];
-            for (let i = 0; i < localStorage.length; i++) {
-                const k = localStorage.key(i);
-                if (
-                    k &&
-                    (k.startsWith("srouter_playground_") ||
-                        k.startsWith("srouter_chat_") ||
-                        k.startsWith("srouter_messages_") ||
-                        k.startsWith("srouter-playground-"))
-                ) {
-                    keysToRemove.push(k);
-                }
-            }
-            for (const k of keysToRemove) {
-                localStorage.removeItem(k);
-            }
-            toast.success(`Cleared ${keysToRemove.length} playground chat sessions`);
-        } catch {
-            toast.error("Failed to clear playground history");
-        }
-    }, []);
-
     const getStorageStats = useCallback((): StorageStats => {
         if (typeof window === "undefined") {
-            return { totalBytes: 0, itemsCount: 0, playgroundBytes: 0, settingsBytes: 0 };
+            return { totalBytes: 0, itemsCount: 0, settingsBytes: 0 };
         }
 
         let totalBytes = 0;
-        let playgroundBytes = 0;
         let settingsBytes = 0;
         const itemsCount = localStorage.length;
 
@@ -169,17 +131,10 @@ export function useSettings() {
             const key = localStorage.key(i);
             if (!key) continue;
             const val = localStorage.getItem(key) || "";
-            const byteSize = (key.length + val.length) * 2; // UTF-16 byte estimation
+            const byteSize = (key.length + val.length) * 2;
             totalBytes += byteSize;
 
-            if (
-                key.startsWith("srouter_playground_") ||
-                key.startsWith("srouter_chat_") ||
-                key.startsWith("srouter_messages_") ||
-                key.startsWith("srouter-playground-")
-            ) {
-                playgroundBytes += byteSize;
-            } else if (key === STORAGE_KEY) {
+            if (key === STORAGE_KEY) {
                 settingsBytes += byteSize;
             }
         }
@@ -187,9 +142,21 @@ export function useSettings() {
         return {
             totalBytes,
             itemsCount,
-            playgroundBytes,
             settingsBytes
         };
+    }, []);
+
+    const clearStorage = useCallback(() => {
+        if (typeof window === "undefined") return;
+        let removed = 0;
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+            const k = localStorage.key(i);
+            if (k && k !== STORAGE_KEY) {
+                localStorage.removeItem(k);
+                removed++;
+            }
+        }
+        toast.success(`Cleared ${removed} cached items`);
     }, []);
 
     return {
@@ -198,7 +165,7 @@ export function useSettings() {
         resetToDefaults,
         exportSettings,
         importSettings,
-        clearPlaygroundHistory,
-        getStorageStats
+        getStorageStats,
+        clearStorage
     };
 }

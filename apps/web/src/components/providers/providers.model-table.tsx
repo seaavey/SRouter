@@ -1,5 +1,4 @@
 import { useState, useMemo, useEffect } from "react";
-import { Link } from "@tanstack/react-router";
 import {
     type ColumnDef,
     type SortingState,
@@ -19,7 +18,6 @@ import {
     ChevronLeft,
     ChevronRight,
     Copy,
-    Play,
     Star,
     Trash2,
     X
@@ -289,15 +287,6 @@ export function ProviderModelTable({
                     const model = row.original;
                     return (
                         <div className="flex items-center justify-end gap-2">
-                            <Link
-                                to="/playground"
-                                search={{ model: model.id }}
-                                className="inline-flex items-center gap-1 rounded-[4px] bg-[var(--field)] hover:bg-[var(--ink)] hover:text-[var(--canvas)] px-2 py-1 font-semibold text-[10.5px] text-[var(--ink)] transition-colors border border-[var(--line)] cursor-pointer"
-                            >
-                                <Play className="size-2.5" />
-                                <span>Test</span>
-                            </Link>
-
                             {onDelete && (
                                 <button
                                     type="button"

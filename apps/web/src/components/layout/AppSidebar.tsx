@@ -9,7 +9,6 @@ import {
     LayoutDashboard,
     ScrollText,
     Settings,
-    Terminal,
     Zap,
     BarChart2
 } from "lucide-react";
@@ -29,7 +28,6 @@ import {
 
 const mainNavItems = [
     { to: "/", label: "Dashboard", icon: LayoutDashboard },
-    { to: "/playground", label: "Playground", icon: Terminal },
     { to: "/keys", label: "API Keys", icon: KeyRound }
 ] as const;
 
