@@ -384,7 +384,7 @@ export class ProviderRegistry {
             for (const [id, provider] of this.providers.entries()) {
                 if (id === "default") continue;
                 const baseId = providerBaseId(id);
-                const alias = providerAlias(baseId);
+                const alias = providerAliasFor(provider);
                 if (
                     isProviderBaseId(id, prefix) ||
                     isProviderBaseId(id, targetBaseId) ||

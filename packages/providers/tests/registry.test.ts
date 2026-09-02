@@ -67,6 +67,27 @@ test("Qoder uses qd model prefix alias", () => {
     assert.equal(getProviderAlias("qoder_456"), "qd");
 });
 
+test("custom provider alias matches via prefix matching when models not yet cached", async () => {
+    const registry = new ProviderRegistry();
+    const customProvider: AIProvider = {
+        id: "7f3a2c1e-9b6d-4a5e-8f2c-1d4e5a6b7c8d",
+        name: "My Gateway",
+        alias: "mygw",
+        listModels: async () => [],
+        chatCompletion: async () => {
+            throw new Error("not used");
+        },
+        chatCompletionStream: async function* () {
+            throw new Error("not used");
+        }
+    };
+    registry.registerProvider(customProvider);
+
+    // Custom alias prefix should resolve even with empty model list
+    const p = await registry.getProviderForModel("mygw/gpt-4o");
+    assert.equal(p.id, customProvider.id);
+});
+
 test("getProviderForModel resolves provider with alias and full name prefixes", async () => {
     const registry = new ProviderRegistry();
     const qoderProvider: AIProvider = {
