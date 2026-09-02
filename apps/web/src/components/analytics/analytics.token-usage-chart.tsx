@@ -1,4 +1,4 @@
-import { formatTimeUnit } from "@/utils/format";
+import { formatTime, formatTimeUnit } from "@/utils/format";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import type { TooltipValueType } from "recharts";
 import type { AnalyticsBucket } from "@srouter/types";
@@ -10,10 +10,7 @@ interface Props {
 
 export function TokenUsageChart({ buckets, bucketSizeMs }: Props) {
     const data = buckets.map((b) => ({
-        time: new Date(b.bucketStart).toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit"
-        }),
+        time: formatTime(b.bucketStart),
         input: b.promptTokens ?? 0,
         output: b.completionTokens ?? 0,
         cached: b.cachedTokens ?? 0

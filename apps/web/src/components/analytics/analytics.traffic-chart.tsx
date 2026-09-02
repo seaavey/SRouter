@@ -1,4 +1,4 @@
-import { formatTimeUnit } from "@/utils/format";
+import { formatTime, formatTimeUnit } from "@/utils/format";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import type { AnalyticsBucket } from "@srouter/types";
 
@@ -9,10 +9,7 @@ interface Props {
 
 export function TrafficChart({ buckets, bucketSizeMs }: Props) {
     const data = buckets.map((b) => ({
-        time: new Date(b.bucketStart).toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit"
-        }),
+        time: formatTime(b.bucketStart),
         success: b.successRequests,
         error: b.errorRequests
     }));

@@ -1,3 +1,4 @@
+import { formatTime } from "@/utils/format";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import type { AnalyticsBucket } from "@srouter/types";
 
@@ -9,10 +10,7 @@ export function LatencyChart({ buckets }: Props) {
     const data = buckets
         .filter((b) => b.totalRequests > 0)
         .map((b) => ({
-            time: new Date(b.bucketStart).toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit"
-            }),
+            time: formatTime(b.bucketStart),
             latency: Math.round(b.avgLatencyMs)
         }));
 

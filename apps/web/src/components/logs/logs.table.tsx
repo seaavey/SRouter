@@ -28,14 +28,7 @@ import {
     TableRow,
     TableCell
 } from "@/components/ui/table";
-
-function formatTime(ms: number): string {
-    return new Date(ms).toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit"
-    });
-}
+import { formatTime } from "@/utils/format";
 
 function formatDate(ms: number): string {
     return new Date(ms).toLocaleDateString();
@@ -79,7 +72,7 @@ export function LogTable({ logs, onSelect }: LogTableProps) {
                 cell: ({ row }) => (
                     <div className="whitespace-nowrap">
                         <div className="font-mono text-xs font-medium text-foreground">
-                            {formatTime(row.original.createdAt)}
+                            {formatTime(row.original.createdAt, true)}
                         </div>
                         <div className="text-[10px] text-muted-foreground">
                             {formatDate(row.original.createdAt)}
