@@ -88,17 +88,6 @@ function ComboPage() {
                 onEditClick={(comboName, models) => {
                     setEditingCombo({ name: comboName, models });
                 }}
-                onApplyTemplate={async (comboName, models) => {
-                    for (let i = 0; i < models.length; i++) {
-                        await createFallback({
-                            sourceModel: comboName.trim(),
-                            targetModel: models[i]!,
-                            priority: i + 1,
-                            enabled: true,
-                            triggerOnStatus: [429, 403, 500, 502, 503, 504]
-                        });
-                    }
-                }}
             />
         </div>
     );
