@@ -9,6 +9,8 @@ import {
     type Node,
     type Edge,
     type NodeProps,
+    type NodeMouseHandler,
+    type NodeTypes,
     BackgroundVariant
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
@@ -35,19 +37,32 @@ import { useTokenSaver } from "@/hooks/useTokenSaver";
 import { ProviderIcon } from "@/components/providers";
 import { api, getGatewayBaseUrl } from "@/lib/api";
 import { isProviderConnected, getConnectedCount } from "@/utils/provider.utils";
-import type { RequestLogEntry } from "@srouter/types";
+import type { ProviderDefinition, TokenSaverSettings, RequestLogEntry } from "@srouter/types";
 import type { ListResponse } from "@/lib/types";
 
-type SelectedNodeInfo = {
-    type: "core" | "provider";
-    id: string;
-    data: Record<string, any>;
+type CoreNodeData = {
+    tokenSaverEnabled?: boolean;
+    hasActiveTraffic?: boolean;
 };
 
-// ==========================================
-// 1. CENTRAL SROUTER CORE HUB NODE
-// ==========================================
-function CentralCoreHubNode({ data, selected }: NodeProps) {
+type ProviderNodeData = {
+    id: string;
+    name: string;
+    isOnline: boolean;
+    isReceivingRequest: boolean;
+    lastLatency: number | null;
+    count: number;
+    modelCount: number;
+    handlePos: Position;
+};
+
+type TopologyNode = Node<CoreNodeData, "centralCore"> | Node<ProviderNodeData, "orbitProvider">;
+
+type SelectedNodeInfo =
+    | { type: "core"; id: string; data: CoreNodeData }
+    | { type: "provider"; id: string; data: ProviderNodeData };
+
+function CentralCoreHubNode({ data, selected }: NodeProps<Node<CoreNodeData, "centralCore">>) {
     const isTokenSaverActive = Boolean(data.tokenSaverEnabled);
     const hasActiveTraffic = Boolean(data.hasActiveTraffic);
 
@@ -61,7 +76,6 @@ function CentralCoreHubNode({ data, selected }: NodeProps) {
                       : "border-border/90 hover:border-foreground/40"
             }`}
         >
-            {/* 4 Multi-directional handles facing North, East, South, West */}
             <Handle
                 type="source"
                 position={Position.Top}
@@ -144,16 +158,8 @@ function CentralCoreHubNode({ data, selected }: NodeProps) {
     );
 }
 
-// ==========================================
-// 2. ORBITING PROVIDER NODE (CLEAN MINIMAL)
-// ==========================================
-function OrbitProviderNode({ data, selected }: NodeProps) {
-    const id = (data.id as string) || "provider";
-    const name = (data.name as string) || "Provider";
-    const isOnline = Boolean(data.isOnline);
-    const isReceivingRequest = Boolean(data.isReceivingRequest);
-    const lastLatency = typeof data.lastLatency === "number" ? data.lastLatency : null;
-    const handlePos = (data.handlePos as Position) || Position.Left;
+function OrbitProviderNode({ data, selected }: NodeProps<Node<ProviderNodeData, "orbitProvider">>) {
+    const { id, name, isOnline, isReceivingRequest, lastLatency, handlePos } = data;
 
     return (
         <div
@@ -167,7 +173,6 @@ function OrbitProviderNode({ data, selected }: NodeProps) {
                         : "border-border/50 opacity-70 hover:opacity-100"
             }`}
         >
-            {/* Dynamic handle directed toward the center core */}
             <Handle
                 type="target"
                 position={handlePos}
@@ -208,14 +213,11 @@ function OrbitProviderNode({ data, selected }: NodeProps) {
     );
 }
 
-const nodeTypes = {
+const nodeTypes: NodeTypes = {
     centralCore: CentralCoreHubNode,
     orbitProvider: OrbitProviderNode
 };
 
-// ==========================================
-// TACTICAL INSPECTOR DRAWER
-// ==========================================
 function NodeDetailInspector({
     selectedNode,
     onClose,
@@ -224,7 +226,7 @@ function NodeDetailInspector({
 }: {
     selectedNode: SelectedNodeInfo | null;
     onClose: () => void;
-    tokenSaverSettings: any;
+    tokenSaverSettings: TokenSaverSettings;
     onTriggerTestRequest?: (providerId: string) => void;
 }) {
     if (!selectedNode) return null;
@@ -277,7 +279,7 @@ function NodeDetailInspector({
                                 <div className="flex justify-between">
                                     <span className="text-muted-foreground">Token Compression:</span>
                                     <span className="font-semibold text-foreground">
-                                        {tokenSaverSettings?.enabled ? "Active" : "Disabled"}
+                                        {tokenSaverSettings.enabled ? "Active" : "Disabled"}
                                     </span>
                                 </div>
                                 <div className="flex justify-between">
@@ -297,11 +299,11 @@ function NodeDetailInspector({
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
                                     <ProviderIcon
-                                        providerId={selectedNode.data.id || "provider"}
+                                        providerId={selectedNode.data.id}
                                         className="size-3.5"
                                     />
                                     <span className="text-xs font-bold text-foreground">
-                                        {selectedNode.data.name || "Provider Node"}
+                                        {selectedNode.data.name}
                                     </span>
                                 </div>
                                 {onTriggerTestRequest && (
@@ -330,13 +332,13 @@ function NodeDetailInspector({
                                 <div className="flex justify-between">
                                     <span className="text-muted-foreground">Connected Keys:</span>
                                     <span className="font-bold text-foreground">
-                                        {selectedNode.data.count ?? 0}
+                                        {selectedNode.data.count}
                                     </span>
                                 </div>
                                 <div className="flex justify-between">
                                     <span className="text-muted-foreground">Supported Models:</span>
                                     <span className="font-bold text-foreground">
-                                        {selectedNode.data.modelCount ?? 0}
+                                        {selectedNode.data.modelCount}
                                     </span>
                                 </div>
                             </div>
@@ -369,9 +371,6 @@ function NodeDetailInspector({
     );
 }
 
-// ==========================================
-// CANVAS CONTROLS & AUTO-CENTER COMPONENT
-// ==========================================
 function AutoCenterOnMount({ providerCount }: { providerCount: number }) {
     const { fitView } = useReactFlow();
 
@@ -426,15 +425,12 @@ function CanvasControls() {
     );
 }
 
-// ==========================================
-// PROVIDER MATRIX VIEW (CLEAN ALTERNATIVE)
-// ==========================================
 function ProviderMatrixView({
     displayedProviders,
     isTokenSaverActive,
     activeProviderIds
 }: {
-    displayedProviders: any[];
+    displayedProviders: ProviderDefinition[];
     isTokenSaverActive: boolean;
     activeProviderIds: Set<string>;
 }) {
@@ -442,7 +438,6 @@ function ProviderMatrixView({
 
     return (
         <div className="p-3 font-mono space-y-3">
-            {/* Gateway Hub Summary Banner */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-lg border border-border/70 bg-secondary/30 p-3">
                 <div className="flex items-center gap-2.5">
                     <div className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border/80 bg-card text-foreground">
@@ -470,7 +465,6 @@ function ProviderMatrixView({
                 </div>
             </div>
 
-            {/* Providers Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5">
                 {displayedProviders.map((p) => {
                     const isOnline = isProviderConnected(p) || p.id === "opencode_zen" || p.id === "opencode";
@@ -520,14 +514,10 @@ function ProviderMatrixView({
     );
 }
 
-// ==========================================
-// 360-DEGREE RADIAL MESH CANVAS (CENTER-ALIGNED)
-// ==========================================
 function GatewayTopologyCanvas() {
     const { allProviders } = useCatalog();
     const { settings: tokenSaverSettings } = useTokenSaver();
 
-    // Fast-polling recent logs (800ms) with background polling enabled for ultra-responsive live detection
     const { data: logsData } = useQuery({
         queryKey: ["recent-logs-topology"],
         queryFn: () => api.get<ListResponse<RequestLogEntry>>("/v1/logs?limit=10"),
@@ -538,13 +528,11 @@ function GatewayTopologyCanvas() {
 
     const [selectedNode, setSelectedNode] = useState<SelectedNodeInfo | null>(null);
     const [viewMode, setViewMode] = useState<"graph" | "matrix">("graph");
-    
-    // Store active 5-second pulse states per provider: { [providerId]: { latency, expiresAt } }
+
     const [activePings, setActivePings] = useState<Record<string, { latency: number; expiresAt: number }>>({});
     const seenLogIdsRef = useRef<Set<string>>(new Set());
     const isFirstMountRef = useRef(true);
 
-    // Watch for new incoming request logs and trigger instant 5-second pulse
     useEffect(() => {
         if (!logsData?.data) return;
 
@@ -555,27 +543,25 @@ function GatewayTopologyCanvas() {
 
         if (isFirstMountRef.current) {
             isFirstMountRef.current = false;
-            // On initial load, only ping if created within the last 3 seconds
             for (const log of logs) {
                 seenLogIdsRef.current.add(log.id);
                 if (now - log.createdAt < 3000) {
                     const normId = log.providerId.toLowerCase();
                     newPings[normId] = {
                         latency: log.latencyMs,
-                        expiresAt: log.createdAt + 5000 // Exactly 5 seconds
+                        expiresAt: log.createdAt + 5000
                     };
                     hasNew = true;
                 }
             }
         } else {
-            // Check for brand new logs
             for (const log of logs) {
                 if (!seenLogIdsRef.current.has(log.id)) {
                     seenLogIdsRef.current.add(log.id);
                     const normId = log.providerId.toLowerCase();
                     newPings[normId] = {
                         latency: log.latencyMs,
-                        expiresAt: log.createdAt + 5000 // Exactly 5 seconds
+                        expiresAt: log.createdAt + 5000
                     };
                     hasNew = true;
                 }
@@ -587,7 +573,6 @@ function GatewayTopologyCanvas() {
         }
     }, [logsData]);
 
-    // Fast-tick timer to prune expired pings every 250ms
     useEffect(() => {
         const interval = setInterval(() => {
             const now = Date.now();
@@ -613,7 +598,6 @@ function GatewayTopologyCanvas() {
 
     const hasAnyActiveTraffic = activeProviderIdsSet.size > 0;
 
-    // All connected providers + ensure opencode_zen is always present by default
     const connectedProviders = useMemo(() => {
         const list = allProviders.filter(
             (p) =>
@@ -647,21 +631,18 @@ function GatewayTopologyCanvas() {
             ...prev,
             [providerId.toLowerCase()]: {
                 latency: Math.floor(Math.random() * 150 + 50),
-                expiresAt: Date.now() + 5000 // Exactly 5 seconds
+                expiresAt: Date.now() + 5000
             }
         }));
     }, []);
 
-    // Build the 360-degree Radial Constellation centered exactly at (0, 0)
     const { nodes, edges } = useMemo(() => {
-        const nodeList: Node[] = [];
+        const nodeList: TopologyNode[] = [];
         const edgeList: Edge[] = [];
 
-        // Exact origin (0, 0) for perfect symmetrical bounding box
         const centerX = 0;
         const centerY = 0;
 
-        // 1. Central SRouter Core Hub at exact dead center
         nodeList.push({
             id: "node-core",
             type: "centralCore",
@@ -672,10 +653,8 @@ function GatewayTopologyCanvas() {
             }
         });
 
-        // 2. Surround SRouter Core with ALL Providers in a 360-degree circle
         const providerCount = displayedProviders.length;
-        
-        // Calibrated radius so all nodes fit comfortably
+
         const radiusX = Math.max(300, Math.min(420, 260 + providerCount * 10));
         const radiusY = Math.max(190, Math.min(280, 160 + providerCount * 8));
 
@@ -684,12 +663,10 @@ function GatewayTopologyCanvas() {
             const isZen = provider.id === "opencode_zen" || provider.id === "opencode" || (!provider.requires_api_key && !provider.requires_oauth);
             const isOnline = isZen || isProviderConnected(provider);
             const connCount = getConnectedCount(provider) || (isZen ? 1 : 0);
-            
-            // Check if this provider has an active 5-second pulse
+
             const activeTraffic = activePings[provider.id.toLowerCase()];
             const isReceivingRequest = Boolean(activeTraffic);
 
-            // Distribute angles evenly across the full 360-degree circle (starting from top)
             const angle =
                 providerCount === 1
                     ? 0
@@ -698,14 +675,12 @@ function GatewayTopologyCanvas() {
             const posX = Math.round(centerX + radiusX * Math.cos(angle) - 88);
             const posY = Math.round(centerY + radiusY * Math.sin(angle) - 25);
 
-            // Determine handle position on provider and source handle on central core
             const cosA = Math.cos(angle);
             const sinA = Math.sin(angle);
 
             let handlePos: Position = Position.Left;
             let sourceHandleId = "core-out-right";
 
-            // Determine which quadrant the provider is in
             if (Math.abs(cosA) >= Math.abs(sinA)) {
                 if (cosA > 0) {
                     handlePos = Position.Left;
@@ -731,17 +706,15 @@ function GatewayTopologyCanvas() {
                 data: {
                     id: provider.id,
                     name: provider.name,
-                    status: provider.status?.state,
                     isOnline,
                     isReceivingRequest,
-                    lastLatency: activeTraffic?.latency,
+                    lastLatency: activeTraffic?.latency ?? null,
                     count: connCount,
                     modelCount: provider.models?.length ?? 0,
                     handlePos
                 }
             });
 
-            // Glowing edge when request is active
             edgeList.push({
                 id: `edge-core-${provider.id}`,
                 source: "node-core",
@@ -765,15 +738,12 @@ function GatewayTopologyCanvas() {
         return { nodes: nodeList, edges: edgeList };
     }, [displayedProviders, tokenSaverSettings?.enabled, activePings, hasAnyActiveTraffic]);
 
-    const handleNodeClick = useCallback((_: any, node: Node) => {
-        let nodeType: SelectedNodeInfo["type"] = "core";
-        if (node.type === "orbitProvider") nodeType = "provider";
-
-        setSelectedNode({
-            type: nodeType,
-            id: node.id,
-            data: node.data
-        });
+    const handleNodeClick = useCallback<NodeMouseHandler>((_, node) => {
+        if (node.type === "orbitProvider") {
+            setSelectedNode({ type: "provider", id: node.id, data: node.data as ProviderNodeData });
+        } else if (node.type === "centralCore") {
+            setSelectedNode({ type: "core", id: node.id, data: node.data as CoreNodeData });
+        }
     }, []);
 
     const handlePaneClick = useCallback(() => {
@@ -785,7 +755,6 @@ function GatewayTopologyCanvas() {
             aria-label="Gateway Architecture Topology"
             className="rounded-xl border border-border/80 bg-card/60 p-4 font-mono shadow-2xs relative"
         >
-            {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/60 pb-3 mb-4">
                 <div className="flex items-center gap-2.5">
                     <div className="flex size-7 items-center justify-center rounded-md border border-border/70 bg-secondary/50 text-foreground shadow-2xs">
@@ -809,7 +778,6 @@ function GatewayTopologyCanvas() {
                     </div>
                 </div>
 
-                {/* View Switcher Controls */}
                 <div className="flex items-center gap-1.5 rounded-lg border border-border/60 bg-secondary/30 p-1">
                     <button
                         type="button"
@@ -838,7 +806,6 @@ function GatewayTopologyCanvas() {
                 </div>
             </div>
 
-            {/* View Body */}
             {viewMode === "graph" ? (
                 <div className="h-[500px] w-full rounded-lg border border-border/60 bg-background/50 overflow-hidden relative">
                     <ReactFlow
