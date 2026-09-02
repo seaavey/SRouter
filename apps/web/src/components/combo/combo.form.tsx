@@ -118,7 +118,7 @@ export default function ComboForm({
     return (
         <>
             <div
-                className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-md p-4"
+                className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm p-4"
                 onClick={onCancel}
             >
                 <div
