@@ -6,6 +6,10 @@ export const ProviderProtocolSchema = z.enum(["openai", "anthropic", "gemini", "
 export const CreateProviderSchema = z.object({
     id: z.string().optional(),
     provider_id: z.string().optional(),
+    alias: z
+        .string()
+        .regex(/^[a-z0-9_-]{1,32}$/, "Alias must be 1-32 chars: lowercase letters, numbers, - or _")
+        .optional(),
     name: z
         .string({ required_error: "Field 'name' is required" })
         .min(1, "Field 'name' is required"),

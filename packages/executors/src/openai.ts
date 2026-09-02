@@ -18,6 +18,7 @@ function stripProviderPrefix(model: string): string {
 export interface OpenAIExecutorOptions {
     id?: string;
     name?: string;
+    alias?: string;
     baseUrl?: string;
     apiKey?: string;
     accessToken?: string;
@@ -26,6 +27,7 @@ export interface OpenAIExecutorOptions {
 export class OpenAIExecutor implements AIProvider {
     id: string;
     name: string;
+    alias?: string;
     private baseUrl: string;
     private apiKey: string;
     private accessToken: string;
@@ -33,6 +35,7 @@ export class OpenAIExecutor implements AIProvider {
     constructor(options: OpenAIExecutorOptions = {}) {
         this.id = options.id ?? "openai";
         this.name = options.name ?? "OpenAI Provider";
+        this.alias = options.alias;
         this.baseUrl = (options.baseUrl ?? OPENAI_BASE_URL).replace(/\/$/, "");
         this.apiKey = options.apiKey ?? "";
         this.accessToken = options.accessToken ?? "";
@@ -78,7 +81,7 @@ export class OpenAIExecutor implements AIProvider {
             if (!data.data || !Array.isArray(data.data)) {
                 return [];
             }
-            const baseId = this.id.split("_")[0]?.split("-")[0] ?? this.id;
+            const baseId = (this.alias || this.id.split("_")[0]?.split("-")[0]) ?? this.id;
             return data.data.map((m) => ({
                 id: `${baseId}/${m.id}`,
                 object: "model",

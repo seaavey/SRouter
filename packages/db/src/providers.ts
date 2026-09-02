@@ -6,6 +6,7 @@ interface ProviderRow {
     id: string;
     provider_id: string;
     name: string;
+    alias: string | null;
     category: string | null;
     protocol: string | null;
     base_url: string | null;
@@ -43,15 +44,16 @@ export async function upsertProviderDB(
 ): Promise<ProviderConfig> {
     await db.prepare(`
         INSERT INTO providers (
-            id, provider_id, name, category, protocol, base_url, api_key,
+            id, provider_id, name, alias, category, protocol, base_url, api_key,
             access_token, refresh_token, account_id, organization_id,
             token_expires_at, last_refreshed_at, custom_headers,
             provider_specific_data, enabled, created_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
             provider_id = excluded.provider_id,
             name = excluded.name,
+            alias = excluded.alias,
             category = excluded.category,
             protocol = excluded.protocol,
             base_url = excluded.base_url,
@@ -70,6 +72,7 @@ export async function upsertProviderDB(
         config.id,
         config.providerId,
         config.name,
+        config.alias ?? null,
         config.category,
         config.protocol,
         config.base_url ?? null,
@@ -138,6 +141,7 @@ function mapProviderRow(row: ProviderRow): ProviderConfig {
         id: str(row.id),
         providerId: str(row.provider_id),
         name: str(row.name),
+        alias: optStr(row.alias),
         category: optStr(row.category) as ProviderCategory | undefined,
         protocol: optStr(row.protocol) as ProviderProtocol | undefined,
         base_url: optStr(row.base_url),

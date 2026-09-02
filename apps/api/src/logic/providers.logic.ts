@@ -273,6 +273,7 @@ export class ProvidersLogic {
             id: Id,
             providerId: Payload.provider_id || Id,
             name: Name,
+            alias: Payload.alias,
             category: Category,
             protocol: Protocol,
             base_url: BaseUrl,

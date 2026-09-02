@@ -18,6 +18,10 @@ export function getProviderAlias(providerId: string): string {
     return providerAlias(providerBaseId(providerId));
 }
 
+export function providerAliasFor(provider: AIProvider): string {
+    return provider.alias || getProviderAlias(provider.id);
+}
+
 // Strip any {alias}/ or {providerId}/ prefix from a model id, returning the bare id.
 function stripModelPrefix(modelId: string, alias: string, providerId: string): string {
     if (modelId.startsWith(`${alias}/`)) return modelId.slice(alias.length + 1);
@@ -258,7 +262,7 @@ export class ProviderRegistry {
 
                 results[index] = {
                     providerId: provider.id,
-                    alias: getProviderAlias(provider.id),
+                    alias: providerAliasFor(provider),
                     models: await this.getProviderModels(provider, forceRefresh)
                 };
             }
@@ -356,7 +360,7 @@ export class ProviderRegistry {
         );
 
         for (const { provider, models } of modelLists) {
-            const alias = getProviderAlias(provider.id);
+            const alias = providerAliasFor(provider);
             const baseId = providerBaseId(provider.id);
             if (
                 models.some((m) => {

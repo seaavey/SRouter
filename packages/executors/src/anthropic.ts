@@ -17,6 +17,7 @@ import { parseDataLine, streamLines } from "./base.js";
 export interface AnthropicExecutorOptions {
     id?: string;
     name?: string;
+    alias?: string;
     baseUrl?: string;
     apiKey?: string;
     accessToken?: string;
@@ -64,6 +65,7 @@ const CLAUDE_CLI_SPOOF_HEADERS: Record<string, string> = {
 export class AnthropicExecutor implements AIProvider {
     id: string;
     name: string;
+    alias?: string;
     category: "api_key" | "oauth" = "api_key";
     protocol: "anthropic" = "anthropic";
     private baseUrl: string;
@@ -75,6 +77,7 @@ export class AnthropicExecutor implements AIProvider {
     constructor(options: AnthropicExecutorOptions = {}) {
         this.id = options.id ?? "anthropic";
         this.name = options.name ?? "Anthropic Provider";
+        this.alias = options.alias;
         this.baseUrl = (options.baseUrl ?? ANTHROPIC_BASE_URL).replace(/\/$/, "");
         this.apiKey = options.apiKey ?? process.env.ANTHROPIC_API_KEY ?? "";
         this.accessToken = options.accessToken ?? process.env.ANTHROPIC_ACCESS_TOKEN ?? "";
@@ -139,13 +142,14 @@ export class AnthropicExecutor implements AIProvider {
             };
 
             if (json.data && Array.isArray(json.data)) {
+                const baseId = this.alias || "anthropic";
                 return json.data.map((m) => ({
-                    id: m.id,
+                    id: `${baseId}/${m.id}`,
                     object: "model",
                     created: m.created_at
                         ? Math.floor(new Date(m.created_at).getTime() / 1000)
                         : Math.floor(Date.now() / 1000),
-                    owned_by: "anthropic"
+                    owned_by: baseId
                 }));
             }
 

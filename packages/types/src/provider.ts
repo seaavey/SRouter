@@ -41,6 +41,7 @@ export interface ProviderConfig {
     id: string;
     providerId: string;
     name: string;
+    alias?: string;
     category?: ProviderCategory;
     protocol?: ProviderProtocol;
     base_url?: string;
@@ -60,6 +61,7 @@ export interface ProviderConfig {
 export interface AIProvider {
     id: string;
     name: string;
+    alias?: string;
     category?: ProviderCategory;
     protocol?: ProviderProtocol;
     listModels(): Promise<ModelObject[]>;

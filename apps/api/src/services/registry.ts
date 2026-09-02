@@ -290,6 +290,7 @@ export async function loadSavedProvidersFromDB(): Promise<void> {
                     new OpenAIExecutor({
                         id: p.id || p.providerId,
                         name: p.name,
+                        alias: p.alias,
                         baseUrl,
                         apiKey: p.apiKey,
                         accessToken: p.accessToken
@@ -316,6 +317,7 @@ export async function loadSavedProvidersFromDB(): Promise<void> {
                     new AnthropicExecutor({
                         id: p.id || p.providerId,
                         name: p.name,
+                        alias: p.alias,
                         baseUrl,
                         apiKey: p.apiKey,
                         accessToken: p.accessToken

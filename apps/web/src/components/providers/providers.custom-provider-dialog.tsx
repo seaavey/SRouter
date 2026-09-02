@@ -33,6 +33,7 @@ interface CustomProviderDialogProps {
 export function CustomProviderDialog({ open, onOpenChange }: CustomProviderDialogProps) {
     const queryClient = useQueryClient();
     const [name, setName] = useState("");
+    const [alias, setAlias] = useState("");
     const [baseUrl, setBaseUrl] = useState("");
     const [apiKey, setApiKey] = useState("");
     const [protocol, setProtocol] = useState<ProviderProtocol>("openai");
@@ -43,6 +44,7 @@ export function CustomProviderDialog({ open, onOpenChange }: CustomProviderDialo
     useEffect(() => {
         if (open) {
             setName("");
+            setAlias("");
             setBaseUrl("");
             setApiKey("");
             setProtocol("openai");
@@ -109,6 +111,11 @@ export function CustomProviderDialog({ open, onOpenChange }: CustomProviderDialo
             setFormError("Provider name is required");
             return;
         }
+        const trimmedAlias = alias.trim().toLowerCase();
+        if (!/^[a-z0-9_-]{1,32}$/.test(trimmedAlias)) {
+            setFormError("Alias must be 1-32 chars: lowercase letters, numbers, - or _");
+            return;
+        }
         if (!baseUrl.trim()) {
             setFormError("Base URL is required");
             return;
@@ -118,9 +125,10 @@ export function CustomProviderDialog({ open, onOpenChange }: CustomProviderDialo
             return;
         }
         setFormError("");
-        // Backend generates a UUID v4 as the immutable provider ID
+        // Backend generates a UUID v4 as the immutable provider ID; alias is the short model prefix
         saveMutation.mutate({
             name: trimmedName,
+            alias: trimmedAlias,
             category: "custom_provider",
             protocol,
             base_url: baseUrl.trim(),
@@ -179,6 +187,27 @@ export function CustomProviderDialog({ open, onOpenChange }: CustomProviderDialo
                             required
                             className="w-full rounded-[8px] border border-[var(--line)] bg-[var(--field)] px-3 py-2 text-xs text-[var(--ink)] placeholder:text-[var(--ink-3)] focus:outline-none focus:ring-1 focus:ring-[var(--ink)]"
                         />
+                    </div>
+
+                    <div className="space-y-1.5">
+                        <label htmlFor="cp-alias" className="font-medium text-[var(--ink)] block">
+                            Alias (model prefix) *
+                        </label>
+                        <input
+                            id="cp-alias"
+                            type="text"
+                            placeholder="e.g. mygateway"
+                            value={alias}
+                            onChange={(e) => {
+                                setAlias(e.target.value);
+                                if (formError) setFormError("");
+                            }}
+                            className="w-full rounded-[8px] border border-[var(--line)] bg-[var(--field)] px-3 py-2 text-xs text-[var(--ink)] placeholder:text-[var(--ink-3)] focus:outline-none focus:ring-1 focus:ring-[var(--ink)]"
+                        />
+                        <p className="text-[10px] text-[var(--ink-3)]">
+                            Short prefix for model IDs (e.g. <code className="text-[var(--ink)]">mygateway/gpt-4</code>).
+                            1-32 chars, lowercase, numbers, hyphens, underscores.
+                        </p>
                     </div>
 
                     <div className="space-y-1.5">

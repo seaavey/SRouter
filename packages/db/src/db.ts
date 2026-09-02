@@ -135,6 +135,7 @@ const TABLES: TableDef[] = [
             { name: "id", definition: "TEXT PRIMARY KEY" },
             { name: "provider_id", definition: "TEXT NOT NULL" },
             { name: "name", definition: "TEXT NOT NULL" },
+            { name: "alias", definition: "TEXT" },
             { name: "category", definition: "TEXT NOT NULL" },
             { name: "protocol", definition: "TEXT NOT NULL" },
             { name: "base_url", definition: "TEXT" },
@@ -323,6 +324,7 @@ function initSqliteSchemaSync(): void {
     };
 
     ensureSync("providers", [
+        { name: "alias", definition: "alias TEXT" },
         { name: "refresh_token", definition: "refresh_token TEXT" },
         { name: "account_id", definition: "account_id TEXT" },
         { name: "provider_specific_data", definition: "provider_specific_data TEXT" },
@@ -357,6 +359,7 @@ async function initPostgresSchema(): Promise<void> {
     }
     await client.exec(ADMIN_TABLES(true));
     await ensureColumns("providers", [
+        { name: "alias", definition: "alias TEXT" },
         { name: "refresh_token", definition: "refresh_token TEXT" },
         { name: "account_id", definition: "account_id TEXT" },
         { name: "provider_specific_data", definition: "provider_specific_data TEXT" },
