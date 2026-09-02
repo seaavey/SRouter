@@ -44,7 +44,12 @@ const KNOWN_PROVIDER_IDS_DESC = Object.freeze(
 
 const LEGACY_ALIAS_MAP: Readonly<Record<string, string>> = Object.freeze({
     claude: "claude",
-    cbai: "codebuddy"
+    cbai: "codebuddy",
+    // OpenCode Zen's executor registers with base id "opencode_zen"; its
+    // listModels splits on "_" and produces "opencode/<model>" ids, while
+    // alias-prefixed connections produce "zen/<model>". Map both so log
+    // attribution and routing resolve to the registered base id.
+    opencode: "opencode_zen"
 });
 
 export function providerById(Id: string): ProviderMetadata | undefined {

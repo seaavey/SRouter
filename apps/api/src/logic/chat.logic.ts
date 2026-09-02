@@ -5,6 +5,7 @@ import {
     incrementAPIKeyUsageDB
 } from "@srouter/db";
 import { applyTokenSaver, estimateCostForUsage, extractUsageBreakdown } from "@srouter/translator";
+import { providerTypeForAlias } from "@srouter/constants";
 import type {
     ChatCompletionChunk,
     ChatCompletionRequest,
@@ -102,7 +103,13 @@ async function LogCompletion(
         apiKeyId?: string;
     }
 ): Promise<void> {
-    const breakdown = extractUsageBreakdown(providerId, options.usage as JSONValue | undefined);
+    // Normalize alias/bare provider id to the registered base id so quota
+    // attribution matches. e.g. "zen" / "opencode" -> "opencode_zen".
+    const normalizedProviderId = providerTypeForAlias(providerId) ?? providerId;
+    const breakdown = extractUsageBreakdown(
+        normalizedProviderId,
+        options.usage as JSONValue | undefined
+    );
     const effectiveModel = model;
     const effectiveProvider = effectiveModel.includes("/")
         ? effectiveModel.split("/")[0]!
@@ -118,7 +125,7 @@ async function LogCompletion(
 
     logRequestDB({
         apiKeyId: options.apiKeyId,
-        providerId,
+        providerId: normalizedProviderId,
         model,
         promptTokens: options.statusCode === 200 ? breakdown.prompt_tokens : 0,
         completionTokens: options.statusCode === 200 ? breakdown.completion_tokens : 0,
