@@ -27,6 +27,10 @@ export class ChatController {
             "127.0.0.1";
 
         if (Body.stream) {
+            c.header("Content-Type", "text/event-stream");
+            c.header("Cache-Control", "no-cache, no-transform");
+            c.header("Connection", "keep-alive");
+            c.header("X-Accel-Buffering", "no");
             return streamSSE(c, async (stream) => {
                 try {
                     const Generator = ChatLogic.ProcessStreamingCompletion(

@@ -62,8 +62,9 @@ export class MessagesController {
 
         if (body.stream) {
             c.header("Content-Type", "text/event-stream");
-            c.header("Cache-Control", "no-cache");
+            c.header("Cache-Control", "no-cache, no-transform");
             c.header("Connection", "keep-alive");
+            c.header("X-Accel-Buffering", "no");
 
             return streamSSE(c, async (stream) => {
                 try {

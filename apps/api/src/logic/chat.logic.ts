@@ -18,15 +18,9 @@ import type {
 } from "@srouter/types";
 import { registry } from "@/services/registry.js";
 import { ensureFreshToken } from "@/services/tokenRefresh.js";
-import { executeInterceptedSearch, shouldInterceptToolCall } from "@/services/toolInterceptor.js";
+import { executeInterceptedSearch } from "@/services/toolInterceptor.js";
 
 const MAX_INTERCEPT_DEPTH = 3;
-
-interface AssembledStreamingToolCall {
-    id: string;
-    name: string;
-    arguments: string;
-}
 
 interface CandidateModel {
     model: string;
@@ -313,11 +307,6 @@ export class ChatLogic {
                 await ensureFreshToken(providerId);
                 const generator = registry.chatCompletionStream(currentReq);
 
-                const bufferedChunks: ChatCompletionChunk[] = [];
-                const toolCallsMap = new Map<number, AssembledStreamingToolCall>();
-                let hasToolCalls = false;
-                let assistantContent = "";
-
                 for await (const chunk of generator) {
                     if (!yieldedAny) {
                         yieldedAny = true;
@@ -331,94 +320,6 @@ export class ChatLogic {
                         usage = chunk.usage;
                     }
 
-                    const choice = chunk.choices?.[0];
-                    const delta = choice?.delta;
-
-                    if (delta?.content) {
-                        assistantContent += delta.content;
-                    }
-
-                    if (Array.isArray(delta?.tool_calls) && delta.tool_calls.length > 0) {
-                        hasToolCalls = true;
-                        for (const tc of delta.tool_calls) {
-                            const idx = tc.index ?? toolCallsMap.size;
-                            const existing = toolCallsMap.get(idx) || {
-                                id: tc.id || `call_${Date.now()}_${idx}`,
-                                name: tc.function?.name || "",
-                                arguments: ""
-                            };
-                            if (tc.id) existing.id = tc.id;
-                            if (tc.function?.name) existing.name = tc.function.name;
-                            if (tc.function?.arguments) existing.arguments += tc.function.arguments;
-                            toolCallsMap.set(idx, existing);
-                        }
-                    }
-
-                    if (hasToolCalls) {
-                        bufferedChunks.push(chunk);
-                    } else {
-                        yield chunk;
-                    }
-                }
-
-                const assembledToolCalls = Array.from(toolCallsMap.values());
-                const hasInterceptableCall =
-                    depth < MAX_INTERCEPT_DEPTH &&
-                    assembledToolCalls.some((tc) =>
-                        shouldInterceptToolCall(tc.name, effectiveBody.tools)
-                    );
-
-                if (hasInterceptableCall) {
-                    const assistantToolCalls: ToolCall[] = assembledToolCalls.map((tc) => ({
-                        id: tc.id,
-                        type: "function",
-                        function: {
-                            name: tc.name,
-                            arguments: tc.arguments
-                        }
-                    }));
-
-                    const assistantMessage: ChatMessage = {
-                        role: "assistant",
-                        content: assistantContent || null,
-                        tool_calls: assistantToolCalls
-                    };
-
-                    const updatedMessages: ChatMessage[] = [
-                        ...effectiveBody.messages,
-                        assistantMessage
-                    ];
-
-                    for (const tc of assembledToolCalls) {
-                        if (shouldInterceptToolCall(tc.name, effectiveBody.tools)) {
-                            const { toolCallId, result } = await executeInterceptedSearch({
-                                id: tc.id,
-                                function: { name: tc.name, arguments: tc.arguments }
-                            });
-                            updatedMessages.push({
-                                role: "tool",
-                                tool_call_id: toolCallId,
-                                content: JSON.stringify(result)
-                            });
-                        }
-                    }
-
-                    const followUpRequest: ChatCompletionRequest = {
-                        ...currentReq,
-                        messages: updatedMessages
-                    };
-                    yield* this.ProcessStreamingCompletion(
-                        followUpRequest,
-                        startTime,
-                        depth + 1,
-                        apiKeyId,
-                        ipAddress,
-                        userAgent
-                    );
-                    return;
-                }
-
-                for (const chunk of bufferedChunks) {
                     yield chunk;
                 }
 
