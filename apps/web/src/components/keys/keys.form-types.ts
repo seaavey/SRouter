@@ -41,7 +41,7 @@ export interface ModelSelectorProps {
 }
 
 export interface KeyTelemetryCardProps {
-    apiKey: APIKeyZod;
+    api_key: APIKeyZod;
 }
 
 export function maskKey(key: string): string {

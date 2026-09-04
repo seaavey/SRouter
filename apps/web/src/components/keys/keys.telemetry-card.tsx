@@ -3,11 +3,11 @@ import { formatCompactNumber } from "@/lib/utils";
 import { useCopy } from "@/hooks/useCopy";
 import type { KeyTelemetryCardProps } from "./keys.form-types";
 
-export function KeyTelemetryCard({ apiKey }: KeyTelemetryCardProps) {
+export function KeyTelemetryCard({ api_key }: KeyTelemetryCardProps) {
     const { copied, copy } = useCopy();
     const remaining_credit =
-        (apiKey.credit_limit ?? 0) > 0
-            ? Math.max(0, (apiKey.credit_limit ?? 0) - (apiKey.usage_cost ?? 0))
+        (api_key.credit_limit ?? 0) > 0
+            ? Math.max(0, (api_key.credit_limit ?? 0) - (api_key.usage_cost ?? 0))
             : null;
 
     return (
@@ -15,12 +15,12 @@ export function KeyTelemetryCard({ apiKey }: KeyTelemetryCardProps) {
             <div className="flex items-center justify-between gap-2">
                 <span className="text-[11px] font-medium text-muted-foreground">Bearer Token</span>
                 <code
-                    onClick={() => void copy(apiKey.key, "API key copied to clipboard")}
+                    onClick={() => void copy(api_key.key, "API key copied to clipboard")}
                     className="inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-background/90 px-2 py-0.5 font-mono text-[11px] text-foreground hover:bg-secondary hover:border-border cursor-pointer transition-colors"
                     title="Click to copy full key"
                 >
-                    {apiKey.key}
-                    {copied === apiKey.key ? (
+                    {api_key.key}
+                    {copied === api_key.key ? (
                         <Check className="size-3 text-emerald-500" />
                     ) : (
                         <Copy className="size-3 opacity-60" />
@@ -34,7 +34,7 @@ export function KeyTelemetryCard({ apiKey }: KeyTelemetryCardProps) {
                         Usage
                     </span>
                     <span className="text-xs font-semibold text-foreground tabular-nums">
-                        {formatCompactNumber(apiKey.usage_tokens ?? 0)}{" "}
+                        {formatCompactNumber(api_key.usage_tokens ?? 0)}{" "}
                         <span className="text-[10px] font-normal text-muted-foreground">tok</span>
                     </span>
                 </div>
@@ -43,7 +43,7 @@ export function KeyTelemetryCard({ apiKey }: KeyTelemetryCardProps) {
                         Spent
                     </span>
                     <span className="text-xs font-semibold text-foreground tabular-nums">
-                        ${(apiKey.usage_cost ?? 0).toFixed(2)}
+                        ${(api_key.usage_cost ?? 0).toFixed(2)}
                     </span>
                 </div>
                 <div className="px-2">

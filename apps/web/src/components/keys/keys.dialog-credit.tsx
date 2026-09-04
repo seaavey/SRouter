@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { quick_amounts } from "./keys.form-types";
 
 export type AddCreditDialogProps = {
-    apiKey: APIKeyZod | null;
+    api_key: APIKeyZod | null;
     open: boolean;
     loading: boolean;
     onOpenChange: (open: boolean) => void;
@@ -22,22 +22,22 @@ export type AddCreditDialogProps = {
 };
 
 export function AddCreditDialog({
-    apiKey,
+    api_key,
     open,
     loading,
     onOpenChange,
     onSubmit
 }: AddCreditDialogProps) {
     const [amount, setAmount] = useState("");
-    const [cachedKey, setCachedKey] = useState<APIKeyZod | null>(apiKey);
+    const [cachedKey, setCachedKey] = useState<APIKeyZod | null>(api_key);
 
     useEffect(() => {
-        if (apiKey) {
-            setCachedKey(apiKey);
+        if (api_key) {
+            setCachedKey(api_key);
         }
-    }, [apiKey]);
+    }, [api_key]);
 
-    const active_key = apiKey ?? cachedKey;
+    const active_key = api_key ?? cachedKey;
 
     const current_limit = active_key?.credit_limit ?? 0;
     const current_cost = active_key?.usage_cost ?? 0;

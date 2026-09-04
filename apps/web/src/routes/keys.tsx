@@ -109,7 +109,7 @@ function KeysPage() {
             />
 
             <EditKeyDialog
-                apiKey={keyToEdit}
+                api_key={keyToEdit}
                 open={Boolean(keyToEdit)}
                 updating={Boolean(updatingId)}
                 onOpenChange={(open) => !open && setKeyToEdit(null)}

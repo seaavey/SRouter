@@ -25,7 +25,7 @@ export interface KeyFormDialogProps {
     onOpenChange: (open: boolean) => void;
     title: string;
     description: string;
-    apiKey?: APIKeyZod | null;
+    api_key?: APIKeyZod | null;
     submitLabel: string;
     submittingLabel: string;
     isSubmitting: boolean;
@@ -37,14 +37,14 @@ export function KeyFormDialog({
     onOpenChange,
     title,
     description,
-    apiKey = null,
+    api_key = null,
     submitLabel,
     submittingLabel,
     isSubmitting,
     onSubmit
 }: KeyFormDialogProps) {
-    const { form, updateField, toggleModel, resetForm, getPayload } = useKeyForm(apiKey, open);
-    const IDPrefix = apiKey ? "edit-" : "create-";
+    const { form, updateField, toggleModel, resetForm, getPayload } = useKeyForm(api_key, open);
+    const IDPrefix = api_key ? "edit-" : "create-";
 
     const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -52,7 +52,7 @@ export function KeyFormDialog({
         if (!payload.name) return;
 
         await onSubmit(payload);
-        if (!apiKey) {
+        if (!api_key) {
             resetForm();
         } else {
             onOpenChange(false);
@@ -76,7 +76,7 @@ export function KeyFormDialog({
                     </DialogDescription>
                 </DialogHeader>
 
-                {apiKey ? <KeyTelemetryCard apiKey={apiKey} /> : null}
+                {api_key ? <KeyTelemetryCard api_key={api_key} /> : null}
 
                 <form onSubmit={handleSubmit} className="space-y-4 pt-1">
                     <div className="flex items-start gap-3">
@@ -91,7 +91,7 @@ export function KeyFormDialog({
                                 id={`${IDPrefix}key-name`}
                                 type="text"
                                 required
-                                autoFocus={!apiKey}
+                                autoFocus={!api_key}
                                 value={form.name}
                                 onChange={(e) => updateField("name", e.target.value)}
                                 placeholder="e.g. production-backend"

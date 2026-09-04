@@ -3,7 +3,7 @@ import type { APIKeyZod, UpdateAPIKeyZod } from "@srouter/types";
 import { KeyFormDialog } from "./keys.dialog-form";
 
 export type EditKeyDialogProps = {
-    apiKey: APIKeyZod | null;
+    api_key: APIKeyZod | null;
     open: boolean;
     updating: boolean;
     onOpenChange: (open: boolean) => void;
@@ -11,21 +11,21 @@ export type EditKeyDialogProps = {
 };
 
 export function EditKeyDialog({
-    apiKey,
+    api_key,
     open,
     updating,
     onOpenChange,
     onSubmit
 }: EditKeyDialogProps) {
-    const [cachedKey, setCachedKey] = useState<APIKeyZod | null>(apiKey);
+    const [cachedKey, setCachedKey] = useState<APIKeyZod | null>(api_key);
 
     useEffect(() => {
-        if (apiKey) {
-            setCachedKey(apiKey);
+        if (api_key) {
+            setCachedKey(api_key);
         }
-    }, [apiKey]);
+    }, [api_key]);
 
-    const active_key = apiKey ?? cachedKey;
+    const active_key = api_key ?? cachedKey;
 
     return (
         <KeyFormDialog
@@ -33,7 +33,7 @@ export function EditKeyDialog({
             onOpenChange={onOpenChange}
             title="API Key Details & Settings"
             description="View telemetry and configure rate limits, quotas, and model scopes."
-            apiKey={active_key}
+            api_key={active_key}
             submitLabel="Save Changes"
             submittingLabel="Saving…"
             isSubmitting={updating}
