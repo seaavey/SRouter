@@ -7,12 +7,15 @@ import {
     Plus,
     RefreshCw
 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { QuotaSkeleton } from "@/components/skeletons";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Empty, EmptyContent, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
 import { cn } from "@/lib/utils";
 import { useQuota } from "@/hooks/useQuota";
+import { api } from "@/lib/api";
+import type { QuotaResponse } from "@srouter/types";
 import { QuotaSummaryMetrics, QuotaProviderCard, type QuotaAccountItem } from "@/components/quota";
 
 export const Route = createFileRoute("/quota")({
@@ -21,7 +24,8 @@ export const Route = createFileRoute("/quota")({
 });
 
 function QuotaPage() {
-    const { data, isLoading, isFetching, error, refetch } = useQuota();
+    const queryClient = useQueryClient();
+    const { data, isLoading, isFetching, error } = useQuota();
     const [collapsedMap, setCollapsedMap] = useState<Record<string, boolean>>({});
     const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
     const [isManualRefreshing, setIsManualRefreshing] = useState(false);
@@ -36,7 +40,8 @@ function QuotaPage() {
     const handleRefresh = async (accountName?: string) => {
         setIsManualRefreshing(true);
         try {
-            await refetch();
+            const freshData = await api.get<QuotaResponse>("/v1/quota?force=true");
+            queryClient.setQueryData(["quota", { forceRefresh: false }], freshData);
             setLastUpdated(new Date());
             toast.success(
                 accountName ? `Quota refreshed for ${accountName}` : "Quotas & limits updated",

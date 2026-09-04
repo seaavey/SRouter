@@ -3,32 +3,62 @@ import { fetchLiveOAuthQuota, isOAuthQuotaSupported } from "@srouter/providers";
 import type { ProviderQuotaAccount, QuotaResponse } from "@srouter/types";
 
 export class QuotaLogic {
-    public static async getQuotaInfo(): Promise<QuotaResponse> {
-        const dbProviders = await QuotaLogic.getOAuthProviders();
-        const providerAccounts: ProviderQuotaAccount[] = [];
+    private static cachedQuota: QuotaResponse | null = null;
+    private static cacheExpiresAt = 0;
+    private static inFlightPromise: Promise<QuotaResponse> | null = null;
+    private static readonly CACHE_TTL_MS = 60_000; // 60 seconds
 
-        for (const p of dbProviders) {
-            try {
-                const account = await fetchLiveOAuthQuota({
-                    id: p.id,
-                    providerId: p.providerId,
-                    name: p.name,
-                    accessToken: p.accessToken,
-                    enabled: p.enabled
-                });
-                if (account) {
-                    providerAccounts.push(account);
-                }
-            } catch {
-                // Skip providers whose live quota fails or is temporarily unavailable
-            }
+    public static async getQuotaInfo(forceRefresh = false): Promise<QuotaResponse> {
+        const now = Date.now();
+
+        if (!forceRefresh && QuotaLogic.cachedQuota && now < QuotaLogic.cacheExpiresAt) {
+            return QuotaLogic.cachedQuota;
         }
 
-        return {
-            object: "quota",
-            totalAccounts: providerAccounts.length,
-            providers: providerAccounts
-        };
+        if (QuotaLogic.inFlightPromise) {
+            return QuotaLogic.inFlightPromise;
+        }
+
+        QuotaLogic.inFlightPromise = (async () => {
+            try {
+                const dbProviders = await QuotaLogic.getOAuthProviders();
+                const providerAccounts: ProviderQuotaAccount[] = [];
+
+                // Fetch quota concurrently across accounts with individual timeout protection
+                await Promise.allSettled(
+                    dbProviders.map(async (p) => {
+                        try {
+                            const account = await fetchLiveOAuthQuota({
+                                id: p.id,
+                                providerId: p.providerId,
+                                name: p.name,
+                                accessToken: p.accessToken,
+                                enabled: p.enabled
+                            });
+                            if (account) {
+                                providerAccounts.push(account);
+                            }
+                        } catch {
+                            // Skip providers whose live quota fails or is temporarily unavailable
+                        }
+                    })
+                );
+
+                const response: QuotaResponse = {
+                    object: "quota",
+                    totalAccounts: providerAccounts.length,
+                    providers: providerAccounts
+                };
+
+                QuotaLogic.cachedQuota = response;
+                QuotaLogic.cacheExpiresAt = Date.now() + QuotaLogic.CACHE_TTL_MS;
+                return response;
+            } finally {
+                QuotaLogic.inFlightPromise = null;
+            }
+        })();
+
+        return QuotaLogic.inFlightPromise;
     }
 
     private static async getOAuthProviders() {

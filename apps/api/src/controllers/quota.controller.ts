@@ -4,6 +4,7 @@ import { Ok } from "@/utils/response.js";
 
 export class QuotaController {
     public static async GetQuota(c: Context): Promise<Response> {
-        return Ok(c, await QuotaLogic.getQuotaInfo());
+        const force = c.req.query("refresh") === "true" || c.req.query("force") === "true";
+        return Ok(c, await QuotaLogic.getQuotaInfo(force));
     }
 }
