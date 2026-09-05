@@ -144,13 +144,7 @@ async function ProcessOAuthCallbackFor(
         expiresIn: rawTokens.expiresIn
     };
 
-    const rawTokensRecord = rawTokens as unknown as Record<string, unknown>;
-    const idToken =
-        typeof rawTokensRecord.idToken === "string"
-            ? rawTokensRecord.idToken
-            : typeof rawTokensRecord.id_token === "string"
-              ? rawTokensRecord.id_token
-              : undefined;
+    const idToken = rawTokens.idToken || rawTokens.id_token;
 
     const timestamp = Date.now();
     const { accountId, accountName } = BuildAccountIdentity(handler, timestamp, {

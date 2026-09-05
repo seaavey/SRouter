@@ -34,6 +34,8 @@ export interface OAuthTokens {
     accountId?: string;
     organizationId?: string;
     expiresIn?: number;
+    id_token?: string;
+    idToken?: string;
 }
 
 export type ExecutorFactory = (args: {
