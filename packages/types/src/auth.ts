@@ -1,4 +1,4 @@
-import type { AIProvider, ProviderCategory, ProviderProtocol } from "./provider.js";
+import type { AIProvider, ProviderCategory, ProviderConfig, ProviderProtocol } from "./provider.js";
 
 export interface OAuthLoginParams {
     clientId?: string;
@@ -80,14 +80,12 @@ export interface OAuthClientClass {
     new (options?: OAuthClientOptions): OAuthClientInstance;
 }
 
-export interface ImportTokenMapping {
-    accessToken?: string;
-    refreshToken?: string;
-    accountId?: string;
-    organizationId?: string;
+export type ImportTokenMapping = Pick<
+    ProviderConfig,
+    "accessToken" | "refreshToken" | "accountId" | "organizationId" | "apiKey"
+> & {
     baseUrl?: string;
-    apiKey?: string;
-}
+};
 
 export interface AuthProviderHandler {
     providerId: string;

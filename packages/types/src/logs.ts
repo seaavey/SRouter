@@ -90,19 +90,20 @@ export interface AnalyticsBucket {
     cachedTokens: number;
 }
 
-export interface AnalyticsTopModel {
-    model: string;
-    totalRequests: number;
+export type AnalyticsTopModel = Pick<
+    UsageByModelRow,
+    "model" | "totalRequests" | "estCost"
+> & {
     totalTokens: number;
-    estCost: number;
-}
+};
 
-export interface AnalyticsTopAgent {
+export type AnalyticsTopAgent = Pick<
+    UsageSummary,
+    "totalRequests" | "totalTokens"
+> & {
     agent: string;
     rawUserAgent: string;
-    totalRequests: number;
-    totalTokens: number;
-}
+};
 
 export interface AnalyticsProviderSlice {
     providerId: string;

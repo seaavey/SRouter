@@ -1,35 +1,5 @@
 import { z } from "zod";
 
-export interface CompressToolOutputSettings {
-    enabled: boolean;
-    compressGit: boolean;
-    compressGrep: boolean;
-    compressFileLists: boolean;
-    compressLogs: boolean;
-    stripAnsiAndWhitespace: boolean;
-    minCharacterThreshold: number;
-}
-
-export interface LazySeniorDevSettings {
-    enabled: boolean;
-    mode: "balanced" | "strict";
-    customInstructions?: string;
-}
-
-export interface CompressLlmOutputSettings {
-    enabled: boolean;
-    mode: "terse" | "ultra_terse";
-    stripPleasantries: boolean;
-    customPrompt?: string;
-}
-
-export interface TokenSaverSettings {
-    enabled: boolean;
-    compressToolOutput: CompressToolOutputSettings;
-    lazySeniorDev: LazySeniorDevSettings;
-    compressLlmOutput: CompressLlmOutputSettings;
-}
-
 export const CompressToolOutputSchema = z.object({
     enabled: z.boolean(),
     compressGit: z.boolean(),
@@ -40,11 +10,15 @@ export const CompressToolOutputSchema = z.object({
     minCharacterThreshold: z.number().min(0).default(50)
 });
 
+export type CompressToolOutputSettings = z.infer<typeof CompressToolOutputSchema>;
+
 export const LazySeniorDevSchema = z.object({
     enabled: z.boolean(),
     mode: z.enum(["balanced", "strict"]),
     customInstructions: z.string().optional()
 });
+
+export type LazySeniorDevSettings = z.infer<typeof LazySeniorDevSchema>;
 
 export const CompressLlmOutputSchema = z.object({
     enabled: z.boolean(),
@@ -53,12 +27,16 @@ export const CompressLlmOutputSchema = z.object({
     customPrompt: z.string().optional()
 });
 
+export type CompressLlmOutputSettings = z.infer<typeof CompressLlmOutputSchema>;
+
 export const TokenSaverSettingsSchema = z.object({
     enabled: z.boolean(),
     compressToolOutput: CompressToolOutputSchema,
     lazySeniorDev: LazySeniorDevSchema,
     compressLlmOutput: CompressLlmOutputSchema
 });
+
+export type TokenSaverSettings = z.infer<typeof TokenSaverSettingsSchema>;
 
 export interface TokenSaverPreviewRequest {
     type: "tool_output" | "prompt";
