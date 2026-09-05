@@ -296,15 +296,15 @@ export function UsageByModelTable({ models }: UsageByModelTableProps) {
     const endRow = Math.min((currentPage + 1) * pageSize, totalRows);
 
     return (
-        <Card className="min-w-0 gap-0 overflow-hidden p-0 shadow-none">
-            <CardHeader className="flex flex-col justify-between gap-3 border-b border-border/60 px-4 py-3 sm:flex-row sm:items-center">
-                <div className="flex min-w-0 items-center gap-2">
-                    <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-secondary text-muted-foreground">
+        <Card className="min-w-0 gap-0 overflow-hidden p-0 border border-border/70 bg-card/50 shadow-xs">
+            <CardHeader className="flex flex-col justify-between gap-3 border-b border-border/60 px-4 py-3.5 sm:flex-row sm:items-center">
+                <div className="flex min-w-0 items-center gap-2.5">
+                    <div className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-muted/40 text-foreground">
                         <Database className="size-3.5" strokeWidth={1.75} />
                     </div>
                     <div className="min-w-0">
-                        <CardTitle className="text-sm">Usage by model</CardTitle>
-                        <CardDescription>
+                        <CardTitle className="text-sm font-semibold tracking-tight text-foreground">Usage by model</CardTitle>
+                        <CardDescription className="text-[11px] text-muted-foreground">
                             Exact token usage and estimated spend for every model.
                         </CardDescription>
                     </div>
@@ -317,7 +317,7 @@ export function UsageByModelTable({ models }: UsageByModelTableProps) {
                         placeholder="Search models…"
                         value={searchModel}
                         onChange={(event) => setSearchModel(event.target.value)}
-                        className="pl-8 pr-7 font-mono text-xs"
+                        className="h-8 pl-8 pr-7 font-mono text-xs bg-muted/20 border-border/60 focus-visible:ring-1"
                     />
                     {searchModel && (
                         <button
@@ -393,7 +393,7 @@ export function UsageByModelTable({ models }: UsageByModelTableProps) {
                         </Table>
 
                         {totalRows > 10 && (
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-border/60 px-4 py-2.5 text-xs text-muted-foreground font-mono">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-border/60 bg-muted/15 px-4 py-2.5 text-xs text-muted-foreground font-mono">
                                 <div className="flex items-center gap-2 text-[11px]">
                                     <span>Showing</span>
                                     <span className="font-semibold text-foreground">
@@ -411,19 +411,19 @@ export function UsageByModelTable({ models }: UsageByModelTableProps) {
                                         type="button"
                                         onClick={() => table.previousPage()}
                                         disabled={!table.getCanPreviousPage()}
-                                        className="flex size-6 items-center justify-center rounded-[4px] border border-border bg-secondary/30 text-foreground hover:bg-secondary disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                                        className="flex size-6 items-center justify-center rounded-md border border-border/70 bg-background text-foreground hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors shadow-2xs"
                                         title="Previous page"
                                     >
                                         <ChevronLeft className="size-3.5" />
                                     </button>
-                                    <span className="px-1 text-[11px] text-foreground">
+                                    <span className="px-1 text-[11px] text-foreground font-medium">
                                         {currentPage + 1} / {pageCount}
                                     </span>
                                     <button
                                         type="button"
                                         onClick={() => table.nextPage()}
                                         disabled={!table.getCanNextPage()}
-                                        className="flex size-6 items-center justify-center rounded-[4px] border border-border bg-secondary/30 text-foreground hover:bg-secondary disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                                        className="flex size-6 items-center justify-center rounded-md border border-border/70 bg-background text-foreground hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors shadow-2xs"
                                         title="Next page"
                                     >
                                         <ChevronRight className="size-3.5" />

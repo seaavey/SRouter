@@ -753,20 +753,20 @@ function GatewayTopologyCanvas() {
     return (
         <section
             aria-label="Gateway Architecture Topology"
-            className="rounded-xl border border-border/80 bg-card/60 p-4 font-mono shadow-2xs relative"
+            className="rounded-xl border border-border/70 bg-card/50 p-4 sm:p-5 font-mono shadow-xs relative"
         >
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/60 pb-3 mb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/60 pb-4 mb-4">
                 <div className="flex items-center gap-2.5">
-                    <div className="flex size-7 items-center justify-center rounded-md border border-border/70 bg-secondary/50 text-foreground shadow-2xs">
+                    <div className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-muted/40 text-foreground">
                         <Orbit className="size-3.5" strokeWidth={1.75} />
                     </div>
                     <div>
                         <div className="flex items-center gap-2">
-                            <h2 className="text-xs font-bold text-foreground">
+                            <h2 className="text-sm font-semibold tracking-tight text-foreground">
                                 Mesh routing topology
                             </h2>
                             {hasAnyActiveTraffic && (
-                                <span className="flex items-center gap-1 rounded bg-emerald-500/10 border border-emerald-500/30 px-1.5 py-0.2 text-[9px] font-mono text-emerald-500 font-bold">
+                                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[9px] font-mono text-emerald-500 font-semibold">
                                     <span className="size-1.5 rounded-full bg-emerald-500 animate-ping" />
                                     ROUTING TRAFFIC
                                 </span>
@@ -778,13 +778,13 @@ function GatewayTopologyCanvas() {
                     </div>
                 </div>
 
-                <div className="flex items-center gap-1.5 rounded-lg border border-border/60 bg-secondary/30 p-1">
+                <div className="flex items-center gap-1 rounded-lg border border-border/60 bg-muted/30 p-1">
                     <button
                         type="button"
                         onClick={() => setViewMode("graph")}
-                        className={`flex items-center gap-1.5 rounded-md px-2 py-1 text-[10.5px] font-semibold transition-colors cursor-pointer ${
+                        className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-medium transition-all cursor-pointer ${
                             viewMode === "graph"
-                                ? "bg-background text-foreground shadow-2xs"
+                                ? "bg-background text-foreground shadow-xs"
                                 : "text-muted-foreground hover:text-foreground"
                         }`}
                     >
@@ -794,9 +794,9 @@ function GatewayTopologyCanvas() {
                     <button
                         type="button"
                         onClick={() => setViewMode("matrix")}
-                        className={`flex items-center gap-1.5 rounded-md px-2 py-1 text-[10.5px] font-semibold transition-colors cursor-pointer ${
+                        className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-medium transition-all cursor-pointer ${
                             viewMode === "matrix"
-                                ? "bg-background text-foreground shadow-2xs"
+                                ? "bg-background text-foreground shadow-xs"
                                 : "text-muted-foreground hover:text-foreground"
                         }`}
                     >

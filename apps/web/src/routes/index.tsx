@@ -31,36 +31,48 @@ type StatCardProps = {
     icon: ComponentType<{ className?: string; strokeWidth?: number }>;
     tooltip?: string;
     subValue?: string;
+    badge?: string;
 };
 
-function StatCard({ label, value, detail, icon: Icon, tooltip, subValue }: StatCardProps) {
+function StatCard({ label, value, detail, icon: Icon, tooltip, subValue, badge }: StatCardProps) {
     return (
-        <article className="relative flex flex-col justify-between rounded-xl border border-border/80 bg-card/60 p-4 transition-all duration-150 hover:border-foreground/20 shadow-2xs font-mono">
-            <div className="flex items-center justify-between text-muted-foreground">
-                <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/80">
-                    {label}
-                </span>
-                <div className="flex size-6 items-center justify-center rounded-md border border-border/60 bg-secondary/50">
-                    <Icon className="size-3 text-foreground/70" strokeWidth={1.75} />
-                </div>
-            </div>
+        <article className="group relative flex flex-col justify-between overflow-hidden rounded-xl border border-border/70 bg-card/50 p-4.5 transition-all duration-200 hover:border-border hover:bg-card/80 hover:shadow-xs">
+            {/* Subtle ambient accent on hover */}
+            <div className="pointer-events-none absolute -top-12 -right-12 size-24 rounded-full bg-primary/5 blur-2xl transition-opacity duration-300 group-hover:opacity-100" />
 
-            <div className="mt-3">
-                <div
-                    className="text-2xl font-bold tracking-tight text-foreground cursor-default"
-                    title={tooltip ?? value}
-                >
-                    {value}
+            <div>
+                <div className="flex items-center justify-between gap-2">
+                    <span className="text-[11px] font-medium tracking-wider uppercase text-muted-foreground">
+                        {label}
+                    </span>
+                    <div className="flex size-7 items-center justify-center rounded-lg border border-border/60 bg-muted/40 transition-colors group-hover:bg-muted/80">
+                        <Icon className="size-3.5 text-foreground/80" strokeWidth={1.75} />
+                    </div>
                 </div>
+
+                <div className="mt-3 flex items-baseline gap-2">
+                    <div
+                        className="text-2xl font-semibold tracking-tight text-foreground cursor-default font-mono"
+                        title={tooltip ?? value}
+                    >
+                        {value}
+                    </div>
+                    {badge && (
+                        <span className="inline-flex items-center rounded-md border border-border/60 bg-secondary/50 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                            {badge}
+                        </span>
+                    )}
+                </div>
+
                 {subValue && (
-                    <div className="mt-0.5 text-[11px] font-medium text-foreground/70">
+                    <div className="mt-1 text-[11px] font-medium text-muted-foreground/90 font-mono">
                         {subValue}
                     </div>
                 )}
             </div>
 
             <p
-                className="mt-2 truncate text-[10.5px] text-muted-foreground border-t border-border/50 pt-2"
+                className="mt-3 truncate text-[11px] text-muted-foreground border-t border-border/40 pt-2.5"
                 title={detail}
             >
                 {detail}
@@ -118,15 +130,32 @@ function DashboardPage() {
     return (
         <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 font-mono">
             {/* Header */}
-            <header className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end border-b border-border/80 pb-5">
+            <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center border-b border-border/70 pb-5">
                 <div className="min-w-0">
-                    <h1 className="text-2xl font-bold tracking-tight text-foreground">
-                        Gateway Operations
-                    </h1>
+                    <div className="flex items-center gap-2.5">
+                        <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
+                            Gateway Operations
+                        </h1>
+                        <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-500 font-mono">
+                            <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            LIVE
+                        </span>
+                    </div>
                     <p className="mt-1 max-w-2xl text-xs text-muted-foreground leading-relaxed">
-                        Real-time inference telemetry, routed model usage analytics, and active
-                        provider node status.
+                        Real-time inference telemetry, routed model analytics, and active provider nodes.
                     </p>
+                </div>
+                <div className="flex items-center gap-2 self-start sm:self-auto">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-foreground border-border/70 cursor-pointer"
+                        onClick={() => void refetch()}
+                    >
+                        <RefreshCw className="size-3" />
+                        <span>Refresh</span>
+                    </Button>
                 </div>
             </header>
 
@@ -145,6 +174,7 @@ function DashboardPage() {
                     }
                     detail="All recorded requests"
                     icon={Activity}
+                    badge="Requests"
                 />
                 <StatCard
                     label="Total Tokens"
@@ -160,6 +190,7 @@ function DashboardPage() {
                             : "0 in · 0 out"
                     }
                     icon={Coins}
+                    badge="Volume"
                 />
                 <StatCard
                     label="Estimated Cost"
@@ -168,12 +199,14 @@ function DashboardPage() {
                         stats?.estimated ? "Calculated from pricing catalog" : "Recorded token cost"
                     }
                     icon={CircleDollarSign}
+                    badge="Est."
                 />
                 <StatCard
                     label="Models Routed"
                     value={stats ? stats.byModel.length.toLocaleString() : "0"}
                     detail="Active models with traffic"
                     icon={Boxes}
+                    badge="Models"
                 />
             </section>
 

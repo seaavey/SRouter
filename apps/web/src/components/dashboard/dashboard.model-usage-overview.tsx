@@ -53,13 +53,13 @@ export function ModelUsageOverview({ models }: ModelUsageOverviewProps) {
 
     return (
         <section
-            className="flex h-full min-w-0 flex-col justify-between rounded-xl border border-border/80 bg-card/60 p-4 sm:p-5 lg:p-6 shadow-2xs font-mono"
+            className="flex h-full min-w-0 flex-col rounded-xl border border-border/70 bg-card/50 p-4 sm:p-5 lg:p-6 shadow-xs"
             aria-labelledby="model-usage-title"
         >
             {/* Header */}
-            <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pb-3.5 border-b border-border/50">
+            <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pb-4 border-b border-border/60">
                 <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border/70 bg-secondary/50 text-foreground shadow-2xs">
+                    <div className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-muted/40 text-foreground">
                         <Cpu className="size-3.5" strokeWidth={1.75} />
                     </div>
                     <div className="min-w-0">
@@ -70,6 +70,11 @@ export function ModelUsageOverview({ models }: ModelUsageOverviewProps) {
                             >
                                 Model traffic
                             </h2>
+                            {topModels.length > 0 && (
+                                <span className="inline-flex items-center rounded-full border border-border/60 bg-secondary/40 px-1.5 py-0.2 text-[9px] font-mono text-muted-foreground">
+                                    Top {topModels.length}
+                                </span>
+                            )}
                         </div>
                         <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
                             Highest token volume in the current dataset
@@ -82,11 +87,11 @@ export function ModelUsageOverview({ models }: ModelUsageOverviewProps) {
                     <div className="flex items-center gap-3 text-[10px] text-muted-foreground font-mono shrink-0">
                         <span className="inline-flex items-center gap-1.5">
                             <span className="size-1.5 rounded-full bg-foreground/45 ring-1 ring-foreground/20" />
-                            Input (Prompt)
+                            Input
                         </span>
                         <span className="inline-flex items-center gap-1.5">
                             <span className="size-1.5 rounded-full bg-foreground ring-1 ring-foreground/40" />
-                            Output (Completion)
+                            Output
                         </span>
                     </div>
                 )}
@@ -123,12 +128,12 @@ export function ModelUsageOverview({ models }: ModelUsageOverviewProps) {
                         return (
                             <div
                                 key={model.model}
-                                className="group relative rounded-lg border border-border/20 bg-background/40 p-2.5 transition-all hover:border-border/60 hover:bg-secondary/25 shadow-2xs"
+                                className="group relative rounded-xl border border-border/50 bg-background/50 p-3 transition-all duration-200 hover:border-border hover:bg-muted/20 hover:shadow-xs"
                             >
                                 <div className="grid min-w-0 grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2">
                                     {/* Left: Rank, Icon, Provider & Model Name */}
-                                    <div className="flex min-w-0 items-center gap-2">
-                                        <span className="flex size-4.5 shrink-0 items-center justify-center rounded bg-secondary/70 font-mono text-[9px] font-semibold text-muted-foreground border border-border/50">
+                                    <div className="flex min-w-0 items-center gap-2.5">
+                                        <span className="flex size-5 shrink-0 items-center justify-center rounded-md bg-muted/60 font-mono text-[10px] font-medium text-muted-foreground border border-border/40">
                                             {index + 1}
                                         </span>
 
@@ -139,14 +144,14 @@ export function ModelUsageOverview({ models }: ModelUsageOverviewProps) {
 
                                         <div className="flex min-w-0 items-center gap-1.5 font-mono text-[11.5px]">
                                             <span
-                                                className="shrink-0 text-muted-foreground/70 font-normal truncate max-w-20 sm:max-w-24"
+                                                className="shrink-0 text-muted-foreground/80 font-normal truncate max-w-20 sm:max-w-24"
                                                 title={`Provider: ${provider}`}
                                             >
                                                 {provider}
                                                 <span className="opacity-40 ml-1">/</span>
                                             </span>
                                             <span
-                                                className="truncate font-semibold text-foreground"
+                                                className="truncate font-semibold text-foreground tracking-tight"
                                                 title={model.model}
                                             >
                                                 {name}
@@ -155,14 +160,14 @@ export function ModelUsageOverview({ models }: ModelUsageOverviewProps) {
                                     </div>
 
                                     {/* Right: Metrics Table */}
-                                    <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3 font-mono tabular-nums text-[10.5px]">
+                                    <div className="flex items-center justify-between sm:justify-end gap-2.5 sm:gap-3.5 font-mono tabular-nums text-[10.5px]">
                                         {/* Requests */}
                                         <span
-                                            className="text-left sm:w-14 sm:text-right text-[10px] text-muted-foreground"
+                                            className="text-left sm:w-16 sm:text-right text-[10.5px] text-muted-foreground"
                                             title={`Requests: ${model.totalRequests.toLocaleString()}`}
                                         >
                                             {formatCompactNumber(model.totalRequests)}{" "}
-                                            <span className="text-[9px] opacity-70">req</span>
+                                            <span className="text-[9.5px] opacity-70">req</span>
                                         </span>
 
                                         {/* Input Tokens */}
@@ -196,7 +201,7 @@ export function ModelUsageOverview({ models }: ModelUsageOverviewProps) {
                                             className="text-right sm:w-24 flex items-center justify-end gap-1.5"
                                             title={`Total Tokens: ${totalTokens.toLocaleString()} (${sharePercent}% of top models)`}
                                         >
-                                            <span className="text-[11px] font-bold text-foreground">
+                                            <span className="text-[11.5px] font-semibold text-foreground">
                                                 {formatCompactNumber(totalTokens)}
                                             </span>
                                             <span className="text-[9px] text-muted-foreground font-normal">
@@ -206,7 +211,7 @@ export function ModelUsageOverview({ models }: ModelUsageOverviewProps) {
                                     </div>
 
                                     {/* Bottom: Proportional Distribution Bar */}
-                                    <div className="col-span-1 sm:col-span-2 pt-0.5">
+                                    <div className="col-span-1 sm:col-span-2 pt-1">
                                         <div
                                             role="progressbar"
                                             aria-valuenow={totalTokens}
@@ -214,7 +219,7 @@ export function ModelUsageOverview({ models }: ModelUsageOverviewProps) {
                                             aria-valuemax={maxTokens}
                                             aria-label={`${model.model}: ${totalTokens.toLocaleString()} total tokens. ${breakdown}`}
                                             title={breakdown}
-                                            className="h-1.5 w-full rounded-full bg-secondary/50 overflow-hidden ring-1 ring-border/20"
+                                            className="h-1.5 w-full rounded-full bg-muted/40 overflow-hidden ring-1 ring-border/20"
                                         >
                                             <div
                                                 className="flex h-full transition-all duration-500 ease-out"
@@ -222,7 +227,7 @@ export function ModelUsageOverview({ models }: ModelUsageOverviewProps) {
                                             >
                                                 {/* Input / Prompt Segment */}
                                                 <span
-                                                    className="h-full bg-foreground/40 transition-colors group-hover:bg-foreground/55"
+                                                    className="h-full bg-foreground/35 transition-colors group-hover:bg-foreground/50"
                                                     style={{ width: `${inputRatio}%` }}
                                                     title={`Input: ${model.totalInputTokens.toLocaleString()}`}
                                                 />

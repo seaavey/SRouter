@@ -28,14 +28,14 @@ export function NetworkStatus() {
     return (
         <section
             aria-labelledby="api-integration-title"
-            className="flex h-full min-w-0 flex-col justify-between rounded-xl border border-border/80 bg-card/60 p-4 sm:p-5 lg:p-6 shadow-2xs font-mono"
+            className="flex h-full min-w-0 flex-col justify-between rounded-xl border border-border/70 bg-card/50 p-4 sm:p-5 lg:p-6 shadow-xs"
         >
             {/* Top: API Integration & Base URL */}
             <div className="flex flex-col gap-4">
                 {/* Header */}
-                <header className="flex items-center justify-between gap-3 pb-3.5 border-b border-border/50">
+                <header className="flex items-center justify-between gap-3 pb-4 border-b border-border/60">
                     <div className="flex min-w-0 items-center gap-2.5">
-                        <div className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border/70 bg-secondary/50 text-foreground shadow-2xs">
+                        <div className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-muted/40 text-foreground">
                             <Code2 className="size-3.5" strokeWidth={1.75} />
                         </div>
                         <div className="min-w-0">
@@ -54,9 +54,9 @@ export function NetworkStatus() {
 
                 {/* Base URL Card */}
                 <div className="space-y-1.5">
-                    <div className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/80">
+                    <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
                         <span>Base URL</span>
-                        <span className="text-[9px] font-normal lowercase tracking-normal text-muted-foreground/60">
+                        <span className="text-[10px] font-normal lowercase tracking-normal text-muted-foreground/70">
                             click to copy
                         </span>
                     </div>
@@ -71,10 +71,10 @@ export function NetworkStatus() {
                                 void handleCopy();
                             }
                         }}
-                        className="group flex items-center justify-between gap-2.5 rounded-lg border border-border/60 bg-secondary/25 px-3 py-2 transition-all hover:border-border hover:bg-secondary/45 cursor-pointer active:scale-[0.99]"
+                        className="group flex items-center justify-between gap-2.5 rounded-lg border border-border/60 bg-muted/30 px-3.5 py-2.5 transition-all duration-150 hover:border-border hover:bg-muted/50 cursor-pointer active:scale-[0.99]"
                     >
                         <div className="flex items-center gap-2 min-w-0">
-                            <code className="truncate font-mono text-[11.5px] text-foreground font-medium select-all">
+                            <code className="truncate font-mono text-[12px] text-foreground font-medium select-all">
                                 {apiBase}
                             </code>
                         </div>
@@ -82,7 +82,7 @@ export function NetworkStatus() {
                         <button
                             type="button"
                             aria-label="Copy base URL"
-                            className="inline-flex size-6 shrink-0 items-center justify-center rounded-md border border-border/60 bg-background/80 text-muted-foreground transition-colors group-hover:bg-secondary group-hover:text-foreground hover:border-border cursor-pointer"
+                            className="inline-flex size-6 shrink-0 items-center justify-center rounded-md border border-border/60 bg-background/90 text-muted-foreground transition-colors group-hover:text-foreground hover:border-border cursor-pointer"
                         >
                             {copied ? (
                                 <Check className="size-3 text-emerald-500" />
@@ -103,16 +103,16 @@ export function NetworkStatus() {
                             Secure routes for remote clients
                         </p>
                     </div>
-                    <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-muted-foreground/80 font-semibold">
+                    <span className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground font-medium">
                         Optional
                     </span>
                 </div>
 
-                <div className="space-y-1.5">
+                <div className="space-y-2">
                     {/* Cloudflare Tunnel Row */}
-                    <div className="group flex items-center justify-between gap-3 rounded-lg border border-border/40 bg-secondary/15 p-2.5 transition-all hover:border-border/70 hover:bg-secondary/35">
+                    <div className="group flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-background/50 p-2.5 transition-all duration-150 hover:border-border hover:bg-muted/25">
                         <div className="flex items-center gap-2.5 min-w-0">
-                            <div className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border/50 bg-secondary/50 text-muted-foreground group-hover:text-foreground transition-colors">
+                            <div className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border/60 bg-muted/50 text-muted-foreground group-hover:text-foreground transition-colors">
                                 <Cloud className="size-3.5" strokeWidth={1.75} />
                             </div>
                             <div className="min-w-0">
@@ -121,13 +121,13 @@ export function NetworkStatus() {
                                         Cloudflare Tunnel
                                     </p>
                                     {tunnel?.running && (
-                                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-1.5 py-0.2 text-[8.5px] font-semibold text-emerald-500">
+                                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-1.5 py-0.2 text-[8.5px] font-semibold text-emerald-500 font-mono">
                                             <span className="size-1 rounded-full bg-emerald-500 animate-pulse" />
                                             Live
                                         </span>
                                     )}
                                 </div>
-                                <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
+                                <p className="mt-0.5 truncate text-[10px] text-muted-foreground font-mono">
                                     {tunnel?.running
                                         ? tunnel.domain ?? "Active tunnel"
                                         : "Expose gateway without opening ports"}
@@ -138,17 +138,17 @@ export function NetworkStatus() {
                         <button
                             type="button"
                             onClick={() => setModalOpen(true)}
-                            className="inline-flex h-6.5 shrink-0 items-center gap-1 rounded-md border border-border/70 bg-background/80 px-2.5 font-mono text-[10px] font-semibold text-foreground transition-all hover:bg-secondary hover:border-border cursor-pointer active:translate-y-px"
+                            className="inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-border/70 bg-secondary/50 px-2.5 font-mono text-[10.5px] font-medium text-foreground transition-all hover:bg-secondary hover:border-border cursor-pointer active:translate-y-px"
                         >
                             <span>{tunnel?.running ? "Manage" : "Configure"}</span>
-                            <ArrowUpRight className="size-2.5 opacity-60" />
+                            <ArrowUpRight className="size-3 opacity-60" />
                         </button>
                     </div>
 
                     {/* Tailscale Row */}
-                    <div className="flex items-center justify-between gap-3 rounded-lg border border-border/30 bg-secondary/10 p-2.5 opacity-75 transition-opacity hover:opacity-100">
+                    <div className="flex items-center justify-between gap-3 rounded-lg border border-border/30 bg-muted/10 p-2.5 opacity-75 transition-opacity hover:opacity-100">
                         <div className="flex items-center gap-2.5 min-w-0">
-                            <div className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border/40 bg-secondary/40 text-muted-foreground">
+                            <div className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border/40 bg-muted/40 text-muted-foreground">
                                 <Network className="size-3.5" strokeWidth={1.75} />
                             </div>
                             <div className="min-w-0">
@@ -161,7 +161,7 @@ export function NetworkStatus() {
                             </div>
                         </div>
 
-                        <span className="flex shrink-0 items-center gap-1.5 rounded-full border border-border/40 bg-secondary/30 px-2 py-0.5 font-mono text-[8.5px] text-muted-foreground">
+                        <span className="flex shrink-0 items-center gap-1.5 rounded-full border border-border/40 bg-muted/30 px-2 py-0.5 font-mono text-[8.5px] text-muted-foreground">
                             <span
                                 className="size-1 rounded-full bg-muted-foreground/40"
                                 aria-hidden="true"
