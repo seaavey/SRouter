@@ -1,3 +1,5 @@
+import type { ModelUsageSummaryRow } from "./logs.js";
+
 export interface LiveModelQuotaItem {
     name: string;
     used: number;
@@ -9,14 +11,12 @@ export interface LiveModelQuotaItem {
     status: "ok" | "warning" | "exhausted";
 }
 
-export interface ProviderUsageMetric {
-    model: string;
-    totalRequests: number;
-    totalTokens: number;
-    promptTokens: number;
-    completionTokens: number;
+export type ProviderUsageMetric = Pick<
+    ModelUsageSummaryRow,
+    "model" | "totalRequests" | "totalTokens" | "promptTokens" | "completionTokens"
+> & {
     lastUsedAt: string | null;
-}
+};
 
 export interface ProviderQuotaAccount {
     id: string;

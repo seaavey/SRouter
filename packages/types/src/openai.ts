@@ -1,4 +1,5 @@
 import type { ChatRole, JSONValue } from "./chat.js";
+import type { ModelListResponseZod, ModelObjectZod } from "./schemas/models.js";
 
 export type FinishReason = "stop" | "length" | "tool_calls" | "content_filter" | null;
 
@@ -138,16 +139,6 @@ export interface ChatCompletionChunk {
     usage?: UsageInfo;
 }
 
-export interface ModelObject {
-    id: string;
-    object: "model";
-    created?: number;
-    owned_by: string;
-    /** True when the entry was manually added by the user (custom_models table). */
-    custom?: boolean;
-}
+export type ModelObject = ModelObjectZod;
 
-export interface ModelListResponse {
-    object: "list";
-    data: ModelObject[];
-}
+export type ModelListResponse = ModelListResponseZod;
