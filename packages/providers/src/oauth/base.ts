@@ -4,6 +4,7 @@ export interface OAuthTokenResponse {
     accessToken: string;
     refreshToken?: string;
     idToken?: string;
+    id_token?: string;
     expiresIn?: number;
     tokenType: string;
     /** Optional ChatGPT/OpenAI account identifier (for multi-account binding) */

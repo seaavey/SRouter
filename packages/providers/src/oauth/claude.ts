@@ -109,6 +109,7 @@ export class ClaudeOAuth {
             accessToken: data.access_token,
             refreshToken: data.refresh_token,
             idToken: data.id_token,
+            id_token: data.id_token,
             expiresIn: data.expires_in,
             tokenType: data.token_type ?? "Bearer",
             organizationId: data.organization_id
@@ -148,8 +149,9 @@ export class ClaudeOAuth {
 
         return {
             accessToken: data.access_token,
-            refreshToken: data.refresh_token ?? refreshToken,
+            refreshToken: data.refresh_token,
             idToken: data.id_token,
+            id_token: data.id_token,
             expiresIn: data.expires_in,
             tokenType: data.token_type ?? "Bearer",
             organizationId: data.organization_id

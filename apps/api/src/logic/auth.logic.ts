@@ -144,7 +144,7 @@ async function ProcessOAuthCallbackFor(
         expiresIn: rawTokens.expiresIn
     };
 
-    const idToken = rawTokens.idToken || rawTokens.id_token;
+    const idToken = rawTokens.id_token;
 
     const timestamp = Date.now();
     const { accountId, accountName } = BuildAccountIdentity(handler, timestamp, {
@@ -191,10 +191,9 @@ async function ProcessTokenImportFor(
 ): Promise<ProviderConfig> {
     const timestamp = Date.now();
     const accountId = params.id || `${handler.idPrefix}_${timestamp}`;
-    const token = params.access_token || params.accessToken || "";
-    const refreshToken = params.refresh_token || params.refreshToken;
-    const email =
-        ExtractEmailFromToken(token) || ExtractEmailFromToken(params.id_token || params.idToken);
+    const token = params.accessToken || "";
+    const refreshToken = params.refreshToken;
+    const email = ExtractEmailFromToken(token) || ExtractEmailFromToken(params.id_token);
     const providerName =
         params.name ||
         email ||
@@ -202,9 +201,9 @@ async function ProcessTokenImportFor(
     const mapping = handler.mapImportTokens?.(params) ?? {
         accessToken: token,
         refreshToken: refreshToken,
-        accountId: params.account_id || params.accountId
+        accountId: params.accountId
     };
-    const baseUrl = params.base_url || params.baseUrl || handler.baseUrl?.();
+    const baseUrl = params.baseUrl || handler.baseUrl?.();
 
     const providerConfig = await upsertProviderDB({
         id: accountId,

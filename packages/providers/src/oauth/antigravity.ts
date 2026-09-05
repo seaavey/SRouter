@@ -106,6 +106,7 @@ export class AntigravityOAuth {
             accessToken: data.access_token,
             refreshToken: data.refresh_token,
             idToken: data.id_token,
+            id_token: data.id_token,
             expiresIn: data.expires_in,
             tokenType: data.token_type ?? "Bearer"
         };
