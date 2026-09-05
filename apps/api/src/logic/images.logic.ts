@@ -12,44 +12,12 @@ import type {
 import { HTTPException } from "hono/http-exception";
 import { registry } from "@/services/registry.js";
 import { ensureFreshToken } from "@/services/tokenRefresh.js";
-
-interface CandidateModel {
-    model: string;
-    rule?: FallbackRule;
-}
-
-interface ErrorWithStatus {
-    status?: number;
-    statusCode?: number;
-    message?: string;
-}
-
-function ExtractStatusCode(
-    err: Error | ErrorWithStatus | string | null | undefined
-): number | undefined {
-    if (!err) return undefined;
-    if (typeof err === "object") {
-        if ("status" in err && typeof err.status === "number") {
-            return err.status;
-        }
-        if ("statusCode" in err && typeof err.statusCode === "number") {
-            return err.statusCode;
-        }
-    }
-    const msg = typeof err === "string" ? err : err.message || String(err);
-    if (/no active provider connection|not found|unknown model|invalid model|no provider found/i.test(msg)) {
-        return 404;
-    }
-    return undefined;
-}
-
-function ShouldTriggerFallback(rule: FallbackRule, error: Error | ErrorWithStatus | string): boolean {
-    const errorStatusCode = ExtractStatusCode(error);
-    if (!rule.triggerOnStatus || rule.triggerOnStatus.length === 0) {
-        return true;
-    }
-    return errorStatusCode !== undefined && rule.triggerOnStatus.includes(errorStatusCode);
-}
+import {
+    type CandidateModel,
+    type ErrorWithStatus,
+    ExtractStatusCode,
+    ShouldTriggerFallback
+} from "./fallback.policy.js";
 
 async function ResolveCandidates(model: string): Promise<CandidateModel[]> {
     const candidates: CandidateModel[] = [{ model }];
