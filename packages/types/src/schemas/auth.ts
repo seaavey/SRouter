@@ -29,7 +29,8 @@ export const TokenImportBodySchema = z
             .min(1, "Field 'access_token' is required"),
         refresh_token: z.string().optional(),
         base_url: z.string().url().optional(),
-        name: z.string().optional()
+        name: z.string().optional(),
+        id_token: z.string().optional()
     })
     .passthrough();
 
