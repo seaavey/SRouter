@@ -22,25 +22,17 @@ type StatCardProps = {
     detail: string;
     tooltip?: string;
     subValue?: string;
-    badge?: string;
 };
 
-function StatCard({ label, value, detail, tooltip, subValue, badge }: StatCardProps) {
+function StatCard({ label, value, detail, tooltip, subValue }: StatCardProps) {
     return (
         <article className="group relative flex flex-col justify-between overflow-hidden rounded-xl border border-border/70 bg-transparent p-4.5 transition-all duration-200 hover:border-border hover:bg-card/30 hover:shadow-xs">
             <div>
-                <div className="flex items-center justify-between gap-2">
-                    <span className="text-[11px] font-medium tracking-wider uppercase text-muted-foreground">
-                        {label}
-                    </span>
-                    {badge && (
-                        <span className="inline-flex items-center rounded-md border border-border/50 bg-secondary/30 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground font-mono">
-                            {badge}
-                        </span>
-                    )}
-                </div>
+                <span className="text-[11px] font-medium tracking-wider uppercase text-muted-foreground">
+                    {label}
+                </span>
 
-                <div className="mt-3 flex items-baseline gap-2">
+                <div className="mt-3">
                     <div
                         className="text-2xl font-semibold tracking-tight text-foreground cursor-default font-mono"
                         title={tooltip ?? value}
@@ -158,7 +150,6 @@ function DashboardPage() {
                             : undefined
                     }
                     detail="All recorded requests"
-                    badge="Requests"
                 />
                 <StatCard
                     label="Total Tokens"
@@ -173,7 +164,6 @@ function DashboardPage() {
                             ? `${formatCompactNumber(stats.totalInputTokens)} in · ${formatCompactNumber(stats.totalOutputTokens)} out`
                             : "0 in · 0 out"
                     }
-                    badge="Volume"
                 />
                 <StatCard
                     label="Estimated Cost"
@@ -181,13 +171,11 @@ function DashboardPage() {
                     detail={
                         stats?.estimated ? "Calculated from pricing catalog" : "Recorded token cost"
                     }
-                    badge="Est."
                 />
                 <StatCard
                     label="Models Routed"
                     value={stats ? stats.byModel.length.toLocaleString() : "0"}
                     detail="Active models with traffic"
-                    badge="Models"
                 />
             </section>
 
