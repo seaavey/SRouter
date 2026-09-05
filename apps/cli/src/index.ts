@@ -59,7 +59,7 @@ export function createCli(): Command {
 
     program
         .command("link <tool>")
-        .description("Configure a specific tool to use SRouter proxy (claude, opencode)")
+        .description("Configure a specific tool to use SRouter proxy (claude, opencode, hindsight)")
         .option("-u, --url <url>", "SRouter Gateway Base URL (e.g. http://localhost:3000/v1)")
         .option("-k, --key <key>", "SRouter API Key")
         .option("-m, --model <model>", "Model ID")
