@@ -99,9 +99,24 @@ export class CodeBuddyExecutor implements AIProvider {
             transformed.reasoning_summary = "auto";
         }
 
-        // CodeBuddy requires a leading system prompt and typed blocks for user content
+        // CodeBuddy requires a leading system prompt and typed blocks for user content.
+        // If the caller provided their own system/developer prompt, preserve it alongside CodeBuddy's identity.
         const source = Array.isArray(req.messages) ? req.messages : [];
-        const messages: unknown[] = [{ role: "system", content: "You are CodeBuddy Code." }];
+        const systemPrompts: string[] = [];
+        for (const m of source) {
+            if (m && typeof m === "object" && ["system", "developer"].includes((m as { role?: string }).role ?? "")) {
+                const content = (m as { content?: unknown }).content;
+                if (typeof content === "string" && content.trim()) {
+                    systemPrompts.push(content.trim());
+                }
+            }
+        }
+
+        const combinedSystem = systemPrompts.length > 0
+            ? `You are CodeBuddy Code.\n\n${systemPrompts.join("\n\n")}`
+            : "You are CodeBuddy Code.";
+
+        const messages: unknown[] = [{ role: "system", content: combinedSystem }];
 
         for (const message of source) {
             if (

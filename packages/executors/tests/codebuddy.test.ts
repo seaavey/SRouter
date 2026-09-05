@@ -98,7 +98,7 @@ test("CodeBuddy transforms chat request: forces stream, wraps user message in ty
 
     const messages = body?.messages as Array<{ role: string; content: unknown }>;
     assert.equal(messages.length, 2);
-    assert.deepEqual(messages[0], { role: "system", content: "You are CodeBuddy Code." });
+    assert.deepEqual(messages[0], { role: "system", content: "You are CodeBuddy Code.\n\nOriginal system message that should be filtered" });
     assert.deepEqual(messages[1], {
         role: "user",
         content: [{ type: "text", text: "Write some code" }]
