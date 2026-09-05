@@ -753,7 +753,7 @@ function GatewayTopologyCanvas() {
     return (
         <section
             aria-label="Gateway Architecture Topology"
-            className="rounded-xl border border-border/70 bg-card/50 p-4 sm:p-5 font-mono shadow-xs relative"
+            className="rounded-xl border border-border/70 bg-transparent p-4 sm:p-5 font-mono shadow-xs relative"
         >
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/60 pb-4 mb-4">
                 <div className="flex items-center gap-2.5">

@@ -53,7 +53,7 @@ export function ModelUsageOverview({ models }: ModelUsageOverviewProps) {
 
     return (
         <section
-            className="flex h-full min-w-0 flex-col rounded-xl border border-border/70 bg-card/50 p-4 sm:p-5 lg:p-6 shadow-xs"
+            className="flex h-full min-w-0 flex-col rounded-xl border border-border/70 bg-transparent p-4 sm:p-5 lg:p-6 shadow-xs"
             aria-labelledby="model-usage-title"
         >
             {/* Header */}

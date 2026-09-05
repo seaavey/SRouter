@@ -296,7 +296,7 @@ export function UsageByModelTable({ models }: UsageByModelTableProps) {
     const endRow = Math.min((currentPage + 1) * pageSize, totalRows);
 
     return (
-        <Card className="min-w-0 gap-0 overflow-hidden p-0 border border-border/70 bg-card/50 shadow-xs">
+        <Card className="min-w-0 gap-0 overflow-hidden p-0 border border-border/70 bg-transparent shadow-xs">
             <CardHeader className="flex flex-col justify-between gap-3 border-b border-border/60 px-4 py-3.5 sm:flex-row sm:items-center">
                 <div className="flex min-w-0 items-center gap-2.5">
                     <div className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-muted/40 text-foreground">

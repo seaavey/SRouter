@@ -28,7 +28,7 @@ export function NetworkStatus() {
     return (
         <section
             aria-labelledby="api-integration-title"
-            className="flex h-full min-w-0 flex-col justify-between rounded-xl border border-border/70 bg-card/50 p-4 sm:p-5 lg:p-6 shadow-xs"
+            className="flex h-full min-w-0 flex-col justify-between rounded-xl border border-border/70 bg-transparent p-4 sm:p-5 lg:p-6 shadow-xs"
         >
             {/* Top: API Integration & Base URL */}
             <div className="flex flex-col gap-4">

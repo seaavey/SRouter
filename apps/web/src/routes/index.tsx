@@ -1,16 +1,8 @@
-import type { ComponentType } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import {
-    Activity,
-    Boxes,
-    Coins,
-    CircleDollarSign,
-    Cpu,
-    Radio,
     RefreshCw,
-    TriangleAlert,
-    Zap
+    TriangleAlert
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { formatCompactNumber } from "@/lib/utils";
@@ -28,26 +20,24 @@ type StatCardProps = {
     label: string;
     value: string;
     detail: string;
-    icon: ComponentType<{ className?: string; strokeWidth?: number }>;
     tooltip?: string;
     subValue?: string;
     badge?: string;
 };
 
-function StatCard({ label, value, detail, icon: Icon, tooltip, subValue, badge }: StatCardProps) {
+function StatCard({ label, value, detail, tooltip, subValue, badge }: StatCardProps) {
     return (
-        <article className="group relative flex flex-col justify-between overflow-hidden rounded-xl border border-border/70 bg-card/50 p-4.5 transition-all duration-200 hover:border-border hover:bg-card/80 hover:shadow-xs">
-            {/* Subtle ambient accent on hover */}
-            <div className="pointer-events-none absolute -top-12 -right-12 size-24 rounded-full bg-primary/5 blur-2xl transition-opacity duration-300 group-hover:opacity-100" />
-
+        <article className="group relative flex flex-col justify-between overflow-hidden rounded-xl border border-border/70 bg-transparent p-4.5 transition-all duration-200 hover:border-border hover:bg-card/30 hover:shadow-xs">
             <div>
                 <div className="flex items-center justify-between gap-2">
                     <span className="text-[11px] font-medium tracking-wider uppercase text-muted-foreground">
                         {label}
                     </span>
-                    <div className="flex size-7 items-center justify-center rounded-lg border border-border/60 bg-muted/40 transition-colors group-hover:bg-muted/80">
-                        <Icon className="size-3.5 text-foreground/80" strokeWidth={1.75} />
-                    </div>
+                    {badge && (
+                        <span className="inline-flex items-center rounded-md border border-border/50 bg-secondary/30 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground font-mono">
+                            {badge}
+                        </span>
+                    )}
                 </div>
 
                 <div className="mt-3 flex items-baseline gap-2">
@@ -57,11 +47,6 @@ function StatCard({ label, value, detail, icon: Icon, tooltip, subValue, badge }
                     >
                         {value}
                     </div>
-                    {badge && (
-                        <span className="inline-flex items-center rounded-md border border-border/60 bg-secondary/50 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                            {badge}
-                        </span>
-                    )}
                 </div>
 
                 {subValue && (
@@ -173,7 +158,6 @@ function DashboardPage() {
                             : undefined
                     }
                     detail="All recorded requests"
-                    icon={Activity}
                     badge="Requests"
                 />
                 <StatCard
@@ -189,7 +173,6 @@ function DashboardPage() {
                             ? `${formatCompactNumber(stats.totalInputTokens)} in · ${formatCompactNumber(stats.totalOutputTokens)} out`
                             : "0 in · 0 out"
                     }
-                    icon={Coins}
                     badge="Volume"
                 />
                 <StatCard
@@ -198,14 +181,12 @@ function DashboardPage() {
                     detail={
                         stats?.estimated ? "Calculated from pricing catalog" : "Recorded token cost"
                     }
-                    icon={CircleDollarSign}
                     badge="Est."
                 />
                 <StatCard
                     label="Models Routed"
                     value={stats ? stats.byModel.length.toLocaleString() : "0"}
                     detail="Active models with traffic"
-                    icon={Boxes}
                     badge="Models"
                 />
             </section>
