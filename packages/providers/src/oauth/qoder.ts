@@ -134,20 +134,20 @@ export class QoderOAuth {
         const userInfo = await this.fetchUserInfo(poll.accessToken);
 
         return {
-            accessToken: poll.accessToken,
-            refreshToken: poll.refreshToken,
-            expiresIn: poll.expiresIn,
-            tokenType: "Bearer",
-            accountId: poll.userId || userInfo.id
+            access_token: poll.accessToken,
+            refresh_token: poll.refreshToken,
+            expires_in: poll.expiresIn,
+            token_type: "Bearer",
+            account_id: poll.userId || userInfo.id
         };
     }
 
     async refreshTokens(refreshToken: string): Promise<OAuthTokenResponse> {
         // Upstream refresh returns 403 for device tokens; return existing token
         return {
-            accessToken: refreshToken,
-            refreshToken,
-            tokenType: "Bearer"
+            access_token: refreshToken,
+            refresh_token: refreshToken,
+            token_type: "Bearer"
         };
     }
 }

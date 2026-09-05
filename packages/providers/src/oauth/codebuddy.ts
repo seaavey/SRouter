@@ -154,14 +154,14 @@ export class CodeBuddyOAuth {
     async exchangeCodeForTokens(code: string, _codeVerifier?: string): Promise<OAuthTokenResponse> {
         const poll = await this.pollToken(code);
         if (poll.status !== AuthPollStatus.OK || !poll.accessToken) {
-            throw new Error(poll.error || "CodeBuddy authorization is still pending or was denied");
+            throw new Error(`CodeBuddy token exchange failed: ${poll.error || "unknown"}`);
         }
 
         return {
-            accessToken: poll.accessToken,
-            refreshToken: poll.refreshToken,
-            expiresIn: poll.expiresIn,
-            tokenType: "Bearer"
+            access_token: poll.accessToken,
+            refresh_token: poll.refreshToken,
+            expires_in: poll.expiresIn,
+            token_type: "Bearer"
         };
     }
 
@@ -190,25 +190,25 @@ export class CodeBuddyOAuth {
                 };
                 if (data.code === 0 && data.data?.accessToken) {
                     return {
-                        accessToken: data.data.accessToken,
-                        refreshToken: data.data.refreshToken || refreshToken,
-                        expiresIn: data.data.expiresIn || 86400,
-                        tokenType: "Bearer"
+                        access_token: data.data.accessToken,
+                        refresh_token: data.data.refreshToken || refreshToken,
+                        expires_in: data.data.expiresIn || 86400,
+                        token_type: "Bearer"
                     };
                 }
             }
             if (this.refreshBearer) throw new Error("CodeBuddy token refresh failed");
         } catch (error) {
             if (this.refreshBearer) {
-                throw error instanceof Error ? error : new Error("CodeBuddy token refresh failed");
+                throw error;
             }
             // fallback to preserving refreshToken
         }
 
         return {
-            accessToken: refreshToken,
-            refreshToken,
-            tokenType: "Bearer"
+            access_token: refreshToken,
+            refresh_token: refreshToken,
+            token_type: "Bearer"
         };
     }
 }

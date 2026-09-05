@@ -106,13 +106,12 @@ export class ClaudeOAuth {
         };
 
         return {
-            accessToken: data.access_token,
-            refreshToken: data.refresh_token,
-            idToken: data.id_token,
+            access_token: data.access_token,
+            refresh_token: data.refresh_token,
             id_token: data.id_token,
-            expiresIn: data.expires_in,
-            tokenType: data.token_type ?? "Bearer",
-            organizationId: data.organization_id
+            expires_in: data.expires_in,
+            token_type: data.token_type ?? "Bearer",
+            organization_id: data.organization_id
         };
     }
 
@@ -148,13 +147,12 @@ export class ClaudeOAuth {
         };
 
         return {
-            accessToken: data.access_token,
-            refreshToken: data.refresh_token,
-            idToken: data.id_token,
+            access_token: data.access_token,
+            refresh_token: data.refresh_token,
             id_token: data.id_token,
-            expiresIn: data.expires_in,
-            tokenType: data.token_type ?? "Bearer",
-            organizationId: data.organization_id
+            expires_in: data.expires_in,
+            token_type: data.token_type ?? "Bearer",
+            organization_id: data.organization_id
         };
     }
 }

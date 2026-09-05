@@ -54,10 +54,10 @@ const openaiCodex: AuthProviderHandler = {
         "OpenAI Codex Access Token registered and saved directly to SQLite database!",
     oauthClass: OpenAICodexOAuth,
     mapOAuthTokens: (tokens) => ({
-        accessToken: tokens.accessToken,
-        refreshToken: tokens.refreshToken,
-        accountId: tokens.accountId,
-        expiresIn: tokens.expiresIn
+        accessToken: tokens.access_token,
+        refreshToken: tokens.refresh_token,
+        accountId: tokens.account_id,
+        expiresIn: tokens.expires_in
     }),
     mapImportTokens: (params) => ({
         accessToken: params.access_token,
@@ -82,9 +82,9 @@ const antigravity: AuthProviderHandler = {
         "Antigravity Access Token registered and saved directly to SQLite database!",
     oauthClass: AntigravityOAuth,
     mapOAuthTokens: (tokens) => ({
-        accessToken: tokens.accessToken,
-        refreshToken: tokens.refreshToken,
-        expiresIn: tokens.expiresIn
+        accessToken: tokens.access_token,
+        refreshToken: tokens.refresh_token,
+        expiresIn: tokens.expires_in
     }),
     mapImportTokens: (params) => ({
         accessToken: params.access_token,
@@ -143,10 +143,10 @@ const claude: AuthProviderHandler = {
     tokenImportMessage: "Claude Code OAuth token registered and saved directly to SQLite database!",
     oauthClass: ClaudeOAuth,
     mapOAuthTokens: (tokens) => ({
-        accessToken: tokens.accessToken,
-        refreshToken: tokens.refreshToken,
-        organizationId: tokens.organizationId,
-        expiresIn: tokens.expiresIn
+        accessToken: tokens.access_token,
+        refreshToken: tokens.refresh_token,
+        organizationId: tokens.organization_id,
+        expiresIn: tokens.expires_in
     }),
     mapImportTokens: (params) => ({
         accessToken: params.access_token,
@@ -167,10 +167,10 @@ const qoder: AuthProviderHandler = {
         "Qoder Access Token / PAT registered and saved directly to SQLite database!",
     oauthClass: QoderOAuth,
     mapOAuthTokens: (tokens) => ({
-        accessToken: tokens.accessToken,
-        refreshToken: tokens.refreshToken,
-        accountId: tokens.accountId,
-        expiresIn: tokens.expiresIn
+        accessToken: tokens.access_token,
+        refreshToken: tokens.refresh_token,
+        accountId: tokens.account_id,
+        expiresIn: tokens.expires_in
     }),
     mapImportTokens: (params) => ({
         accessToken: params.access_token,
@@ -283,9 +283,9 @@ const codeBuddy: AuthProviderHandler = {
     tokenImportMessage: "CodeBuddy Access Token registered and saved directly to SQLite database!",
     oauthClass: CodeBuddyOAuth,
     mapOAuthTokens: (tokens) => ({
-        accessToken: tokens.accessToken,
-        refreshToken: tokens.refreshToken,
-        expiresIn: tokens.expiresIn
+        accessToken: tokens.access_token,
+        refreshToken: tokens.refresh_token,
+        expiresIn: tokens.expires_in
     }),
     mapImportTokens: (params) => ({
         accessToken: params.access_token,

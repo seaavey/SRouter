@@ -139,9 +139,9 @@ async function ProcessOAuthCallbackFor(
 
     const rawTokens = await oAuthInstance.exchangeCodeForTokens!(code, session.codeVerifier || "");
     const tokens = handler.mapOAuthTokens?.(rawTokens) ?? {
-        accessToken: rawTokens.accessToken,
-        refreshToken: rawTokens.refreshToken,
-        expiresIn: rawTokens.expiresIn
+        accessToken: rawTokens.access_token,
+        refreshToken: rawTokens.refresh_token,
+        expiresIn: rawTokens.expires_in
     };
 
     const idToken = rawTokens.id_token;

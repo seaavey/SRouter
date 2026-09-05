@@ -101,13 +101,12 @@ export class OpenAICodexOAuth {
         };
 
         return {
-            accessToken: data.access_token,
-            refreshToken: data.refresh_token,
-            idToken: data.id_token,
+            access_token: data.access_token,
+            refresh_token: data.refresh_token,
             id_token: data.id_token,
-            expiresIn: data.expires_in,
-            tokenType: data.token_type ?? "Bearer",
-            accountId:
+            expires_in: data.expires_in,
+            token_type: data.token_type ?? "Bearer",
+            account_id:
                 data.chatgpt_account_id ||
                 data.account_id ||
                 extractAccountIdFromIdToken(data.id_token)
@@ -143,10 +142,10 @@ export class OpenAICodexOAuth {
         };
 
         return {
-            accessToken: data.access_token,
-            refreshToken: data.refresh_token ?? refreshToken,
-            expiresIn: data.expires_in,
-            tokenType: data.token_type ?? "Bearer"
+            access_token: data.access_token,
+            refresh_token: data.refresh_token ?? refreshToken,
+            expires_in: data.expires_in,
+            token_type: data.token_type ?? "Bearer"
         };
     }
 }

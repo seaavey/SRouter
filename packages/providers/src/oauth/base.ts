@@ -1,16 +1,13 @@
 import crypto from "node:crypto";
 
 export interface OAuthTokenResponse {
-    accessToken: string;
-    refreshToken?: string;
-    idToken?: string;
+    access_token: string;
+    refresh_token?: string;
     id_token?: string;
-    expiresIn?: number;
-    tokenType: string;
-    /** Optional ChatGPT/OpenAI account identifier (for multi-account binding) */
-    accountId?: string;
-    /** Optional organization id (e.g. Claude OAuth) */
-    organizationId?: string;
+    expires_in?: number;
+    token_type: string;
+    account_id?: string;
+    organization_id?: string;
 }
 
 export interface PKCEPair {

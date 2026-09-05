@@ -20,11 +20,11 @@ export type TokenImportParams = TokenImportBody & {
 };
 
 export interface OAuthTokens {
-    accessToken: string;
-    refreshToken?: string;
-    accountId?: string;
-    organizationId?: string;
-    expiresIn?: number;
+    access_token: string;
+    refresh_token?: string;
+    account_id?: string;
+    organization_id?: string;
+    expires_in?: number;
     id_token?: string;
 }
 
