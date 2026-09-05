@@ -112,12 +112,12 @@ export function getClaudeConfigPath(): string {
         candidatePaths.push(path.join(process.env.CLAUDE_CONFIG_DIR, "config.json"));
     }
 
+    // Standard ~/.claude.json across all platforms (check first if it contains config)
+    candidatePaths.push(path.join(home, ".claude.json"));
+
     // Claude Code v2 settings.json
     candidatePaths.push(path.join(home, ".claude", "settings.json"));
     candidatePaths.push(path.join(home, ".config", "claude", "settings.json"));
-
-    // Standard ~/.claude.json across all platforms
-    candidatePaths.push(path.join(home, ".claude.json"));
 
     // Platform-specific secondary paths
     if (isWindows()) {

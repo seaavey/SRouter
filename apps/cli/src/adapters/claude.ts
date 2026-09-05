@@ -49,66 +49,89 @@ export class ClaudeAdapter extends AbstractToolAdapter {
         const configPath = this.getConfigPath();
         const installed = await this.isInstalled();
 
-        try {
-            const raw = await fs.readFile(configPath, "utf-8");
-            const parsed = parseJsonSafe(raw);
-            const baseUrl =
-                parsed.env?.ANTHROPIC_BASE_URL ||
-                parsed.ANTHROPIC_BASE_URL ||
-                parsed.baseUrl ||
-                undefined;
-            const model =
-                parsed.env?.ANTHROPIC_DEFAULT_MODEL ||
-                parsed.env?.ANTHROPIC_MODEL ||
-                parsed.model ||
-                parsed.ANTHROPIC_MODEL ||
-                undefined;
-            const opusModel =
-                parsed.env?.ANTHROPIC_DEFAULT_OPUS_MODEL ||
-                parsed.ANTHROPIC_DEFAULT_OPUS_MODEL ||
-                parsed.env?.ANTHROPIC_OPUS_MODEL ||
-                parsed.ANTHROPIC_OPUS_MODEL ||
-                undefined;
-            const sonnetModel =
-                parsed.env?.ANTHROPIC_DEFAULT_SONNET_MODEL ||
-                parsed.ANTHROPIC_DEFAULT_SONNET_MODEL ||
-                parsed.env?.ANTHROPIC_SONNET_MODEL ||
-                parsed.ANTHROPIC_SONNET_MODEL ||
-                undefined;
-            const haikuModel =
-                parsed.env?.ANTHROPIC_DEFAULT_HAIKU_MODEL ||
-                parsed.ANTHROPIC_DEFAULT_HAIKU_MODEL ||
-                parsed.env?.ANTHROPIC_HAIKU_MODEL ||
-                parsed.ANTHROPIC_HAIKU_MODEL ||
-                undefined;
-            const linked = Boolean(
-                baseUrl &&
-                (baseUrl.includes("localhost") ||
-                    baseUrl.includes("127.0.0.1") ||
-                    baseUrl.includes("srouter"))
-            );
-
-            return {
-                id: this.id,
-                name: this.name,
-                installed,
-                linked,
-                configPath,
-                currentBaseUrl: baseUrl,
-                currentModel: model,
-                currentOpusModel: opusModel,
-                currentSonnetModel: sonnetModel,
-                currentHaikuModel: haikuModel
-            };
-        } catch {
-            return {
-                id: this.id,
-                name: this.name,
-                installed,
-                linked: false,
-                configPath
-            };
+        // Check primary configPath. If customConfigPath is not set, also check fallback candidate paths.
+        const candidatePaths = [configPath];
+        if (!this.customConfigPath) {
+            const homeClaudeJson = path.join(os.homedir(), ".claude.json");
+            const homeClaudeSettings = path.join(os.homedir(), ".claude", "settings.json");
+            if (!candidatePaths.includes(homeClaudeJson)) candidatePaths.push(homeClaudeJson);
+            if (!candidatePaths.includes(homeClaudeSettings)) candidatePaths.push(homeClaudeSettings);
         }
+
+        let unlinkedModel: string | undefined;
+        let unlinkedBaseUrl: string | undefined;
+
+        for (const targetPath of candidatePaths) {
+            try {
+                const raw = await fs.readFile(targetPath, "utf-8");
+                const parsed = parseJsonSafe(raw);
+                const baseUrl =
+                    parsed.env?.ANTHROPIC_BASE_URL ||
+                    parsed.ANTHROPIC_BASE_URL ||
+                    parsed.baseUrl ||
+                    undefined;
+                const model =
+                    parsed.env?.ANTHROPIC_DEFAULT_MODEL ||
+                    parsed.env?.ANTHROPIC_MODEL ||
+                    parsed.model ||
+                    parsed.ANTHROPIC_MODEL ||
+                    undefined;
+                const opusModel =
+                    parsed.env?.ANTHROPIC_DEFAULT_OPUS_MODEL ||
+                    parsed.ANTHROPIC_DEFAULT_OPUS_MODEL ||
+                    parsed.env?.ANTHROPIC_OPUS_MODEL ||
+                    parsed.ANTHROPIC_OPUS_MODEL ||
+                    undefined;
+                const sonnetModel =
+                    parsed.env?.ANTHROPIC_DEFAULT_SONNET_MODEL ||
+                    parsed.ANTHROPIC_DEFAULT_SONNET_MODEL ||
+                    parsed.env?.ANTHROPIC_SONNET_MODEL ||
+                    parsed.ANTHROPIC_SONNET_MODEL ||
+                    undefined;
+                const haikuModel =
+                    parsed.env?.ANTHROPIC_DEFAULT_HAIKU_MODEL ||
+                    parsed.ANTHROPIC_DEFAULT_HAIKU_MODEL ||
+                    parsed.env?.ANTHROPIC_HAIKU_MODEL ||
+                    parsed.ANTHROPIC_HAIKU_MODEL ||
+                    undefined;
+                const linked = Boolean(
+                    baseUrl &&
+                    (baseUrl.includes("localhost") ||
+                        baseUrl.includes("127.0.0.1") ||
+                        baseUrl.includes("srouter"))
+                );
+
+                if (linked) {
+                    return {
+                        id: this.id,
+                        name: this.name,
+                        installed,
+                        linked: true,
+                        configPath: targetPath,
+                        currentBaseUrl: baseUrl,
+                        currentModel: model,
+                        currentOpusModel: opusModel,
+                        currentSonnetModel: sonnetModel,
+                        currentHaikuModel: haikuModel
+                    };
+                }
+
+                if (!unlinkedModel && model) unlinkedModel = model;
+                if (!unlinkedBaseUrl && baseUrl) unlinkedBaseUrl = baseUrl;
+            } catch {
+                // check next candidate
+            }
+        }
+
+        return {
+            id: this.id,
+            name: this.name,
+            installed,
+            linked: false,
+            configPath,
+            currentBaseUrl: unlinkedBaseUrl,
+            currentModel: unlinkedModel
+        };
     }
 
     async link(context: ToolConfigContext): Promise<LinkResult> {
