@@ -9,9 +9,7 @@ export interface OpenCodeZenModelDefinition {
 
 export const OPENCODE_ZEN_MODELS: OpenCodeZenModelDefinition[] = [
     { id: "big-pickle", name: "Big Pickle (Free)" },
-    { id: "laguna-s-2.1-free", name: "Poolside Laguna S 2.1 (Free)" },
     { id: "nemotron-3.5-lightning-free", name: "Nemotron 3.5 Lightning (Free)" },
-    { id: "nemotron-3-ultra-free", name: "Nemotron 3 Ultra (Free)" },
     { id: "mimo-v2.5-free", name: "Xiaomi MiMo V2.5 (Free)" }
 ];
 
