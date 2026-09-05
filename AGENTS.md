@@ -1,6 +1,6 @@
 # AGENTS.md — Engineering Guide
 
-> **MANDATORY**: For any task in SRouter, always check and follow notes in `$HOME/Obsidian/SRouter/SRouter` (`RULES.md`, `CODING-STYLE.md`, and `DESIGN.md`). Never run whole-monorepo build, lint, or broad test suites. Only test/build specifically edited packages/files.
+> **MANDATORY**: For any task in SRouter, always check and follow notes in `$HOME/Obsidian/SRouter` (`RULES.md`, `CODING-STYLE.md`, and `DESIGN.md`). Never run whole-monorepo build, lint, or broad test suites. Only test/build specifically edited packages/files.
 
 How to write, change, and review code in this repository. Applies to every coding task — feature, fix, refactor, or upgrade — by any contributor, human or AI agent. Deeper per-area workflows live in `.agents/skills/` (API, App, CLI).
 

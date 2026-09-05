@@ -55,9 +55,9 @@ export function AddCreditDialog({
 
     return (
         <Dialog open={open && Boolean(active_key)} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-md bg-card border-border p-6">
-                <DialogHeader className="space-y-1 text-left">
-                    <DialogTitle className="text-base font-semibold text-foreground">
+            <DialogContent className="sm:max-w-md bg-card border-border/80 p-0 overflow-hidden flex flex-col shadow-2xl">
+                <DialogHeader className="px-5 py-4 border-b border-border/60 bg-secondary/10 shrink-0 text-left">
+                    <DialogTitle className="text-sm font-semibold tracking-tight text-foreground">
                         Add Credit
                     </DialogTitle>
                     <DialogDescription className="text-xs text-muted-foreground leading-relaxed">
@@ -69,74 +69,77 @@ export function AddCreditDialog({
                     </DialogDescription>
                 </DialogHeader>
 
-                <div className="rounded-lg border border-border/70 bg-secondary/30 p-3 my-2 text-xs space-y-1.5">
-                    <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground">Current Balance:</span>
-                        <span className="font-mono font-semibold text-foreground">
-                            {remaining_balance !== null
-                                ? `$${remaining_balance.toFixed(2)} USD`
-                                : "Unlimited"}
-                        </span>
-                    </div>
-                    <div className="flex justify-between items-center text-[11px] text-muted-foreground">
-                        <span>Lifetime Spent:</span>
-                        <span className="font-mono">${current_cost.toFixed(3)} USD</span>
-                    </div>
-                </div>
-
-                <form onSubmit={handleSubmit} className="space-y-4 pt-1">
-                    <div className="space-y-2">
-                        <Label
-                            htmlFor="add-amount"
-                            className="block text-xs font-medium text-foreground"
-                        >
-                            Amount to add ($ USD) <span className="text-destructive">*</span>
-                        </Label>
-                        <Input
-                            id="add-amount"
-                            type="number"
-                            min="0.01"
-                            step="0.01"
-                            required
-                            autoFocus
-                            value={amount}
-                            onChange={(e) => setAmount(e.target.value)}
-                            placeholder="e.g. 10.00"
-                            className="h-9 font-mono text-xs rounded-md bg-background border-input"
-                        />
-
-                        <div className="flex items-center gap-1.5 pt-1">
-                            {quick_amounts.map((val) => (
-                                <button
-                                    key={val}
-                                    type="button"
-                                    onClick={() => setAmount(String(val))}
-                                    className="rounded-md border border-border/70 bg-background px-2.5 py-1 font-mono text-[11px] text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors cursor-pointer"
-                                >
-                                    +${val}
-                                </button>
-                            ))}
+                <div className="p-5 space-y-4">
+                    <div className="rounded-lg border border-border/70 bg-secondary/20 p-3 text-xs space-y-1.5 font-mono">
+                        <div className="flex justify-between items-center">
+                            <span className="text-muted-foreground font-sans">Current Balance:</span>
+                            <span className="font-semibold text-foreground">
+                                {remaining_balance !== null
+                                    ? `$${remaining_balance.toFixed(2)} USD`
+                                    : "Unlimited"}
+                            </span>
+                        </div>
+                        <div className="flex justify-between items-center text-[11px] text-muted-foreground font-mono">
+                            <span className="font-sans">Lifetime Spent:</span>
+                            <span>${current_cost.toFixed(3)} USD</span>
                         </div>
                     </div>
 
-                    <DialogFooter className="pt-3 gap-2">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => onOpenChange(false)}
-                            className="h-8.5 text-xs font-medium cursor-pointer"
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            type="submit"
-                            disabled={loading || !amount || parseFloat(amount) <= 0}
-                            className="h-8.5 text-xs font-semibold cursor-pointer shadow-xs"
-                        >
-                            {loading ? "Adding…" : "Add Credit"}
-                        </Button>
-                    </DialogFooter>
-                </form>
+                    <form id="add-credit-form" onSubmit={handleSubmit} className="space-y-3">
+                        <div className="space-y-1.5">
+                            <Label
+                                htmlFor="add-amount"
+                                className="block text-xs font-medium text-foreground"
+                            >
+                                Amount to add ($ USD) <span className="text-destructive font-mono">*</span>
+                            </Label>
+                            <Input
+                                id="add-amount"
+                                type="number"
+                                min="0.01"
+                                step="0.01"
+                                required
+                                autoFocus
+                                value={amount}
+                                onChange={(e) => setAmount(e.target.value)}
+                                placeholder="e.g. 10.00"
+                                className="h-8.5 font-mono text-xs rounded-md bg-background border-input"
+                            />
+
+                            <div className="flex items-center gap-1.5 pt-1">
+                                {quick_amounts.map((val) => (
+                                    <button
+                                        key={val}
+                                        type="button"
+                                        onClick={() => setAmount(String(val))}
+                                        className="rounded border border-border/70 bg-background px-2.5 py-1 font-mono text-[11px] text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors cursor-pointer"
+                                    >
+                                        +${val}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </form>
+                </div>
+
+                <DialogFooter className="px-5 py-3 border-t border-border/60 bg-secondary/15 shrink-0 flex items-center justify-end gap-2 mt-0">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => onOpenChange(false)}
+                        className="h-8 text-xs font-medium cursor-pointer"
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        type="submit"
+                        form="add-credit-form"
+                        disabled={loading || !amount || parseFloat(amount) <= 0}
+                        className="h-8 text-xs font-semibold cursor-pointer shadow-xs"
+                    >
+                        {loading ? "Adding…" : "Add Credit"}
+                    </Button>
+                </DialogFooter>
             </DialogContent>
         </Dialog>
     );
