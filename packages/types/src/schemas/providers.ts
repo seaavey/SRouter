@@ -25,10 +25,12 @@ export const CreateProviderSchema = z.object({
 
 export type CreateProviderZod = z.infer<typeof CreateProviderSchema>;
 
-export const VerifyProviderSchema = z.object({
-    protocol: ProviderProtocolSchema.optional().default("openai"),
-    base_url: z.string().url().optional(),
-    api_key: z.string().optional()
+export const VerifyProviderSchema = CreateProviderSchema.pick({
+    protocol: true,
+    base_url: true,
+    api_key: true
+}).extend({
+    protocol: ProviderProtocolSchema.optional().default("openai")
 });
 
 export type VerifyProviderZod = z.infer<typeof VerifyProviderSchema>;

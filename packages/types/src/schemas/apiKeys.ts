@@ -31,14 +31,7 @@ export const CreateAPIKeySchema = z.object({
 
 export type CreateAPIKeyZod = z.infer<typeof CreateAPIKeySchema>;
 
-export const UpdateAPIKeySchema = z.object({
-    name: z.string().min(1, "Field 'name' cannot be empty").optional(),
-    enabled: z.boolean().optional(),
-    rate_limit: z.number().int().nonnegative().optional(),
-    quota_limit: z.number().int().nonnegative().optional(),
-    credit_limit: z.number().nonnegative().optional(),
-    allowed_models: z.array(z.string().min(1)).nullable().optional()
-});
+export const UpdateAPIKeySchema = CreateAPIKeySchema.partial();
 
 export type UpdateAPIKeyZod = z.infer<typeof UpdateAPIKeySchema>;
 
