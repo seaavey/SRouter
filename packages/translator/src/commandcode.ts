@@ -466,13 +466,17 @@ export function accumulateChunks(
     model: string
 ): ChatCompletionResponse {
     let content = "";
+    let reasoningContent = "";
     const toolCalls: ToolCall[] = [];
     const toolCallMap = new Map<number, { id: string; name: string; args: string }>();
 
     for (const chunk of chunks) {
-        const delta = chunk.choices[0]?.delta;
+        const delta = chunk.choices?.[0]?.delta;
         if (!delta) continue;
         if (typeof delta.content === "string") content += delta.content;
+        const reasoning = (delta as { reasoning_content?: string; reasoning?: string }).reasoning_content ||
+            (delta as { reasoning_content?: string; reasoning?: string }).reasoning;
+        if (typeof reasoning === "string") reasoningContent += reasoning;
         if (Array.isArray(delta.tool_calls)) {
             for (const tc of delta.tool_calls) {
                 const idx = tc.index ?? 0;
@@ -493,8 +497,12 @@ export function accumulateChunks(
         });
     }
 
-    const finishReason: FinishReason = chunks.at(-1)?.choices[0]?.finish_reason ?? "stop";
+    const finishReason: FinishReason = chunks.at(-1)?.choices?.[0]?.finish_reason ?? "stop";
     const usage = [...chunks].reverse().find((c) => c.usage)?.usage;
+
+    // Fallback: If content is empty but reasoning_content exists (e.g. reasoning models like glm-5.3 / kimi-k3),
+    // supply reasoning_content so downstream callers expecting text content don't crash with None/null.
+    const effectiveContent = content || reasoningContent || null;
 
     return {
         id: `chatcmpl-${Date.now()}`,
@@ -506,7 +514,8 @@ export function accumulateChunks(
                 index: 0,
                 message: {
                     role: "assistant",
-                    content: content || null,
+                    content: effectiveContent,
+                    ...(reasoningContent ? { reasoning_content: reasoningContent } : {}),
                     ...(toolCalls.length ? { tool_calls: toolCalls } : {})
                 },
                 finish_reason: finishReason

@@ -13,7 +13,8 @@ import type {
     ChatMessageContentPart,
     FinishReason,
     ToolCall,
-    ToolDefinition
+    ToolDefinition,
+    JSONObject
 } from "@srouter/types";
 
 function mapSystemPrompt(system: AnthropicMessageRequest["system"]): ChatMessage | null {
@@ -241,12 +242,9 @@ export function OpenAIToAnthropicResponse(
 
         if (Array.isArray(msg.tool_calls)) {
             for (const tc of msg.tool_calls) {
-                let parsedInput: Record<string, unknown> = {};
+                let parsedInput: JSONObject = {};
                 try {
-                    parsedInput = JSON.parse(tc.function.arguments || "{}") as Record<
-                        string,
-                        unknown
-                    >;
+                    parsedInput = JSON.parse(tc.function.arguments || "{}") as JSONObject;
                 } catch {
                     parsedInput = { raw: tc.function.arguments };
                 }
