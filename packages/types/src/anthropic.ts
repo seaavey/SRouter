@@ -1,4 +1,4 @@
-import type { AnthropicRole } from "./chat.js";
+import type { AnthropicRole, JSONObject, JSONValue } from "./chat.js";
 import type { ToolDefinition } from "./openai.js";
 
 export interface AnthropicContentBlock {
@@ -14,7 +14,7 @@ export interface AnthropicContentBlock {
     };
     id?: string;
     name?: string;
-    input?: Record<string, unknown>;
+    input?: JSONObject;
     tool_use_id?: string;
     content?: string | AnthropicContentBlock[];
     is_error?: boolean;
@@ -31,9 +31,9 @@ export interface AnthropicTool {
     description?: string;
     input_schema: {
         type?: "object" | string;
-        properties?: Record<string, unknown>;
+        properties?: Record<string, JSONValue>;
         required?: string[];
-        [key: string]: unknown;
+        [key: string]: JSONValue | undefined;
     };
     cache_control?: { type: "ephemeral" };
 }
@@ -43,7 +43,7 @@ export interface AnthropicMessageRequest {
     messages: AnthropicMessage[];
     system?: string | AnthropicContentBlock[];
     max_tokens: number;
-    metadata?: Record<string, unknown>;
+    metadata?: JSONObject;
     stop_sequences?: string[];
     stream?: boolean;
     temperature?: number;
@@ -102,7 +102,7 @@ export type AnthropicStreamEvent =
           content_block:
               | { type: "text"; text: string }
               | { type: "thinking"; thinking: string }
-              | { type: "tool_use"; id: string; name: string; input: Record<string, unknown> };
+              | { type: "tool_use"; id: string; name: string; input: JSONObject };
       }
     | {
           type: "content_block_delta";

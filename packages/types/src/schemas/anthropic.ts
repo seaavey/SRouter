@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { AnthropicContentBlock } from "../anthropic.js";
+import { JSONSchemaValue } from "./chat.js";
 
 const AnthropicCacheControlSchema = z.object({ type: z.literal("ephemeral") });
 
@@ -18,7 +19,7 @@ export const AnthropicContentBlockSchema: z.ZodType<AnthropicContentBlock> = z.o
         .optional(),
     id: z.string().optional(),
     name: z.string().optional(),
-    input: z.record(z.unknown()).optional(),
+    input: z.record(JSONSchemaValue).optional(),
     tool_use_id: z.string().optional(),
     content: z.union([z.string(), z.lazy(() => z.array(AnthropicContentBlockSchema))]).optional(),
     is_error: z.boolean().optional(),
@@ -36,7 +37,7 @@ export const AnthropicToolSchema = z.object({
     input_schema: z
         .object({
             type: z.string().optional(),
-            properties: z.record(z.unknown()).optional(),
+            properties: z.record(JSONSchemaValue).optional(),
             required: z.array(z.string()).optional()
         })
         .passthrough(),
@@ -61,7 +62,7 @@ export const AnthropicMessageRequestSchema = z.object({
         .positive()
         .max(1_000_000, "Parameter 'max_tokens' exceeds the gateway maximum")
         .optional(),
-    metadata: z.record(z.unknown()).optional(),
+    metadata: z.record(JSONSchemaValue).optional(),
     stop_sequences: z.array(z.string().max(1000)).max(100).optional(),
     stream: z.boolean().optional(),
     temperature: z.number().min(0).max(1).optional(),
