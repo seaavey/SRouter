@@ -28,16 +28,20 @@ export interface OAuthTokens {
     id_token?: string;
 }
 
-export type ExecutorFactory = (args: {
-    id: string;
-    name: string;
-    accountId?: string;
-    organizationId?: string;
-    baseUrl?: string;
-    apiKey?: string;
-    accessToken?: string;
-    refreshToken?: string;
-}) => AIProvider;
+export type ExecutorFactory = (
+    args: Pick<
+        ProviderConfig,
+        | "id"
+        | "name"
+        | "accountId"
+        | "organizationId"
+        | "apiKey"
+        | "accessToken"
+        | "refreshToken"
+    > & {
+        baseUrl?: string;
+    }
+) => AIProvider;
 
 export interface OAuthClientOptions {
     clientId?: string;
@@ -88,13 +92,8 @@ export interface AuthProviderHandler {
     baseUrl?: () => string | undefined;
     oauthSuccessMessage: string;
     tokenImportMessage: string;
-    mapOAuthTokens?: (tokens: OAuthTokens) => {
-        accessToken: string;
-        refreshToken?: string;
-        accountId?: string;
-        organizationId?: string;
+    mapOAuthTokens?: (tokens: OAuthTokens) => ImportTokenMapping & {
         expiresIn?: number;
-        baseUrl?: string;
     };
     mapImportTokens?: (params: TokenImportParams) => ImportTokenMapping;
     buildExecutor: ExecutorFactory;
