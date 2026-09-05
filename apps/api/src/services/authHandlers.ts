@@ -60,9 +60,9 @@ const openaiCodex: AuthProviderHandler = {
         expiresIn: tokens.expiresIn
     }),
     mapImportTokens: (params) => ({
-        accessToken: params.accessToken,
-        refreshToken: params.refreshToken,
-        accountId: params.accountId
+        accessToken: params.access_token,
+        refreshToken: params.refresh_token,
+        accountId: params.account_id
     }),
     buildExecutor: ({ id, name, accessToken, refreshToken, accountId }) =>
         new CodexExecutor({ id, name, accessToken, refreshToken, accountId })
@@ -87,9 +87,9 @@ const antigravity: AuthProviderHandler = {
         expiresIn: tokens.expiresIn
     }),
     mapImportTokens: (params) => ({
-        accessToken: params.accessToken,
-        refreshToken: params.refreshToken,
-        baseUrl: params.baseUrl
+        accessToken: params.access_token,
+        refreshToken: params.refresh_token,
+        baseUrl: params.base_url
     }),
     buildExecutor: ({ id, name, baseUrl, accessToken, refreshToken }) =>
         new AntigravityExecutor({ id, name, baseUrl, accessToken, refreshToken })
@@ -105,9 +105,9 @@ const commandCode: AuthProviderHandler = {
     oauthSuccessMessage: "",
     tokenImportMessage: "Command Code API Key registered and saved directly to SQLite database!",
     mapImportTokens: (params) => ({
-        apiKey: params.accessToken,
-        refreshToken: params.refreshToken,
-        baseUrl: params.baseUrl
+        apiKey: params.access_token,
+        refreshToken: params.refresh_token,
+        baseUrl: params.base_url
     }),
     buildExecutor: ({ id, name, baseUrl, apiKey }) =>
         new CommandCodeExecutor({ id, name, baseUrl, apiKey })
@@ -123,9 +123,9 @@ const anthropic: AuthProviderHandler = {
     oauthSuccessMessage: "",
     tokenImportMessage: "Anthropic API Key registered and saved directly to SQLite database!",
     mapImportTokens: (params) => ({
-        apiKey: params.accessToken,
-        refreshToken: params.refreshToken,
-        baseUrl: params.baseUrl
+        apiKey: params.access_token,
+        refreshToken: params.refresh_token,
+        baseUrl: params.base_url
     }),
     buildExecutor: ({ id, name, baseUrl, apiKey }) =>
         new AnthropicExecutor({ id, name, baseUrl, apiKey })
@@ -149,8 +149,8 @@ const claude: AuthProviderHandler = {
         expiresIn: tokens.expiresIn
     }),
     mapImportTokens: (params) => ({
-        accessToken: params.accessToken,
-        refreshToken: params.refreshToken
+        accessToken: params.access_token,
+        refreshToken: params.refresh_token
     }),
     buildExecutor: ({ id, name, accessToken, refreshToken, organizationId }) =>
         new AnthropicExecutor({ id, name, accessToken, refreshToken, organizationId })
@@ -173,10 +173,10 @@ const qoder: AuthProviderHandler = {
         expiresIn: tokens.expiresIn
     }),
     mapImportTokens: (params) => ({
-        accessToken: params.accessToken,
-        refreshToken: params.refreshToken,
-        accountId: params.accountId,
-        baseUrl: params.baseUrl
+        accessToken: params.access_token,
+        refreshToken: params.refresh_token,
+        accountId: params.account_id,
+        baseUrl: params.base_url
     }),
     buildExecutor: ({ id, name, baseUrl, apiKey, accessToken, refreshToken }) =>
         new QoderExecutor({ id, name, baseUrl, apiKey, accessToken, refreshToken })
@@ -192,9 +192,9 @@ const goRouter: AuthProviderHandler = {
     oauthSuccessMessage: "",
     tokenImportMessage: "GoRouter API Key registered and saved directly to SQLite database!",
     mapImportTokens: (params) => ({
-        apiKey: params.accessToken,
-        refreshToken: params.refreshToken,
-        baseUrl: params.baseUrl
+        apiKey: params.access_token,
+        refreshToken: params.refresh_token,
+        baseUrl: params.base_url
     }),
     buildExecutor: ({ id, name, baseUrl, apiKey }) =>
         new GoRouterExecutor({ id, name, baseUrl: baseUrl || GOROUTER_BASE_URL, apiKey })
@@ -210,9 +210,9 @@ const bluesMinds: AuthProviderHandler = {
     oauthSuccessMessage: "",
     tokenImportMessage: "BluesMinds API Key registered and saved directly to SQLite database!",
     mapImportTokens: (params) => ({
-        apiKey: params.accessToken,
-        refreshToken: params.refreshToken,
-        baseUrl: params.baseUrl
+        apiKey: params.access_token,
+        refreshToken: params.refresh_token,
+        baseUrl: params.base_url
     }),
     buildExecutor: ({ id, name, baseUrl, apiKey }) =>
         new BluesMindsExecutor({ id, name, baseUrl: baseUrl || BLUESMINDS_BASE_URL, apiKey })
@@ -228,9 +228,9 @@ const seekAI: AuthProviderHandler = {
     oauthSuccessMessage: "",
     tokenImportMessage: "SeekAI API Key registered and saved directly to SQLite database!",
     mapImportTokens: (params) => ({
-        apiKey: params.accessToken,
-        refreshToken: params.refreshToken,
-        baseUrl: params.baseUrl
+        apiKey: params.access_token,
+        refreshToken: params.refresh_token,
+        baseUrl: params.base_url
     }),
     buildExecutor: ({ id, name, baseUrl, apiKey }) =>
         new SeekAIExecutor({ id, name, baseUrl: baseUrl || SEEKAI_BASE_URL, apiKey })
@@ -246,9 +246,9 @@ const tabiToken: AuthProviderHandler = {
     oauthSuccessMessage: "",
     tokenImportMessage: "TabiToken API Key registered and saved directly to SQLite database!",
     mapImportTokens: (params) => ({
-        apiKey: params.accessToken,
-        refreshToken: params.refreshToken,
-        baseUrl: params.baseUrl
+        apiKey: params.access_token,
+        refreshToken: params.refresh_token,
+        baseUrl: params.base_url
     }),
     buildExecutor: ({ id, name, baseUrl, apiKey }) =>
         new TabiTokenExecutor({ id, name, baseUrl: baseUrl || TABITOKEN_BASE_URL, apiKey })
@@ -264,9 +264,9 @@ const tokenRouter: AuthProviderHandler = {
     oauthSuccessMessage: "",
     tokenImportMessage: "TokenRouter API Key registered and saved directly to SQLite database!",
     mapImportTokens: (params) => ({
-        apiKey: params.accessToken,
-        refreshToken: params.refreshToken,
-        baseUrl: params.baseUrl
+        apiKey: params.access_token,
+        refreshToken: params.refresh_token,
+        baseUrl: params.base_url
     }),
     buildExecutor: ({ id, name, baseUrl, apiKey }) =>
         new TokenRouterExecutor({ id, name, baseUrl: baseUrl || TOKENROUTER_BASE_URL, apiKey })
@@ -288,9 +288,9 @@ const codeBuddy: AuthProviderHandler = {
         expiresIn: tokens.expiresIn
     }),
     mapImportTokens: (params) => ({
-        accessToken: params.accessToken,
-        refreshToken: params.refreshToken,
-        baseUrl: params.baseUrl
+        accessToken: params.access_token,
+        refreshToken: params.refresh_token,
+        baseUrl: params.base_url
     }),
     buildExecutor: ({ id, name, baseUrl, accessToken, apiKey }) =>
         new CodeBuddyExecutor({
@@ -337,9 +337,9 @@ const bai: AuthProviderHandler = {
     oauthSuccessMessage: "",
     tokenImportMessage: "B.AI API Key registered and saved directly to SQLite database!",
     mapImportTokens: (params) => ({
-        apiKey: params.accessToken,
-        refreshToken: params.refreshToken,
-        baseUrl: params.baseUrl
+        apiKey: params.access_token,
+        refreshToken: params.refresh_token,
+        baseUrl: params.base_url
     }),
     buildExecutor: ({ id, name, baseUrl, apiKey }) =>
         new BAIExecutor({ id, name, baseUrl: baseUrl || BAI_BASE_URL, apiKey })

@@ -1,4 +1,5 @@
 import type { AIProvider, ProviderCategory, ProviderConfig, ProviderProtocol } from "./provider.js";
+import type { TokenImportBody } from "./schemas/auth.js";
 
 export interface OAuthLoginParams {
     clientId?: string;
@@ -13,15 +14,10 @@ export interface OAuthLoginResult {
     redirectUri: string;
 }
 
-export interface TokenImportParams {
+export type TokenImportParams = TokenImportBody & {
     id?: string;
-    accessToken?: string;
-    refreshToken?: string;
-    accountId?: string;
-    baseUrl?: string;
-    name?: string;
-    id_token?: string;
-}
+    account_id?: string;
+};
 
 export interface OAuthTokens {
     accessToken: string;

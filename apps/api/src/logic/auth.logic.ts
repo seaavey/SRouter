@@ -191,8 +191,8 @@ async function ProcessTokenImportFor(
 ): Promise<ProviderConfig> {
     const timestamp = Date.now();
     const accountId = params.id || `${handler.idPrefix}_${timestamp}`;
-    const token = params.accessToken || "";
-    const refreshToken = params.refreshToken;
+    const token = params.access_token || "";
+    const refreshToken = params.refresh_token;
     const email = ExtractEmailFromToken(token) || ExtractEmailFromToken(params.id_token);
     const providerName =
         params.name ||
@@ -201,9 +201,9 @@ async function ProcessTokenImportFor(
     const mapping = handler.mapImportTokens?.(params) ?? {
         accessToken: token,
         refreshToken: refreshToken,
-        accountId: params.accountId
+        accountId: params.account_id
     };
-    const baseUrl = params.baseUrl || handler.baseUrl?.();
+    const baseUrl = params.base_url || handler.baseUrl?.();
 
     const providerConfig = await upsertProviderDB({
         id: accountId,
