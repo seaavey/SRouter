@@ -59,7 +59,10 @@ function ExtractEmailFromToken(token?: string): string | undefined {
         if (typeof decoded.user_metadata?.email === "string") {
             return decoded.user_metadata.email;
         }
-        if (typeof decoded.preferred_username === "string" && decoded.preferred_username.includes("@")) {
+        if (
+            typeof decoded.preferred_username === "string" &&
+            decoded.preferred_username.includes("@")
+        ) {
             return decoded.preferred_username;
         }
         if (typeof decoded.unique_name === "string" && decoded.unique_name.includes("@")) {
@@ -76,7 +79,8 @@ function BuildAccountIdentity(
     now: number,
     tokens?: { accessToken?: string; idToken?: string }
 ): { accountId: string; accountName: string } {
-    const email = ExtractEmailFromToken(tokens?.idToken) || ExtractEmailFromToken(tokens?.accessToken);
+    const email =
+        ExtractEmailFromToken(tokens?.idToken) || ExtractEmailFromToken(tokens?.accessToken);
     const accountName = email || `${handler.displayName} (Account #${now.toString().slice(-4)})`;
     return {
         accountId: `${handler.idPrefix}_${now}`,
@@ -84,7 +88,10 @@ function BuildAccountIdentity(
     };
 }
 
-async function InitiatePKCEFor(handler: AuthProviderHandler, params: OAuthLoginParams): Promise<OAuthLoginResult> {
+async function InitiatePKCEFor(
+    handler: AuthProviderHandler,
+    params: OAuthLoginParams
+): Promise<OAuthLoginResult> {
     await CleanupExpiredSessions();
     const clientId = ResolveClientId(handler, params);
     const redirectUri = ResolveRedirectUri(handler, params);
@@ -137,10 +144,18 @@ async function ProcessOAuthCallbackFor(
         expiresIn: rawTokens.expiresIn
     };
 
+    const rawTokensRecord = rawTokens as unknown as Record<string, unknown>;
+    const idToken =
+        typeof rawTokensRecord.idToken === "string"
+            ? rawTokensRecord.idToken
+            : typeof rawTokensRecord.id_token === "string"
+              ? rawTokensRecord.id_token
+              : undefined;
+
     const timestamp = Date.now();
     const { accountId, accountName } = BuildAccountIdentity(handler, timestamp, {
         accessToken: tokens.accessToken,
-        idToken: (rawTokens as any).idToken || (rawTokens as any).id_token
+        idToken
     });
 
     const baseUrl = handler.baseUrl ? handler.baseUrl() : undefined;
@@ -184,9 +199,12 @@ async function ProcessTokenImportFor(
     const accountId = params.id || `${handler.idPrefix}_${timestamp}`;
     const token = params.access_token || params.accessToken || "";
     const refreshToken = params.refresh_token || params.refreshToken;
-    const email = ExtractEmailFromToken(token) || ExtractEmailFromToken(params.id_token || params.idToken);
+    const email =
+        ExtractEmailFromToken(token) || ExtractEmailFromToken(params.id_token || params.idToken);
     const providerName =
-        params.name || email || `${handler.displayName} (Account #${timestamp.toString().slice(-4)})`;
+        params.name ||
+        email ||
+        `${handler.displayName} (Account #${timestamp.toString().slice(-4)})`;
     const mapping = handler.mapImportTokens?.(params) ?? {
         accessToken: token,
         refreshToken: refreshToken,
@@ -508,7 +526,10 @@ export const AuthLogic = {
     processTokenImport: async (params: TokenImportParams): Promise<ProviderConfig> =>
         authProviderEntries.openai.importToken(params) as Promise<ProviderConfig>,
 
-    async initiateProviderOAuth(providerKey: string, params: OAuthLoginParams): Promise<OAuthLoginResult> {
+    async initiateProviderOAuth(
+        providerKey: string,
+        params: OAuthLoginParams
+    ): Promise<OAuthLoginResult> {
         const entry = authProviderEntries[providerKey];
         if (!entry?.initiate) throw new Error(`Unknown OAuth provider: ${providerKey}`);
         return entry.initiate(params) as Promise<OAuthLoginResult>;
@@ -524,7 +545,10 @@ export const AuthLogic = {
         return entry.callback(code, state);
     },
 
-    async processProviderTokenImport(providerKey: string, params: TokenImportParams): Promise<ProviderConfig> {
+    async processProviderTokenImport(
+        providerKey: string,
+        params: TokenImportParams
+    ): Promise<ProviderConfig> {
         const entry = authProviderEntries[providerKey];
         if (!entry) throw new Error(`Unknown auth provider: ${providerKey}`);
         return entry.importToken(params) as Promise<ProviderConfig>;
