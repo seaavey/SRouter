@@ -227,3 +227,86 @@ test("CodeBuddy upstream errors do not expose credentials", async () => {
             !error.message.includes(fixtureKey)
     );
 });
+
+test("CodeBuddy mirrors json_schema into last user message and drops response_format", async () => {
+    let body: Record<string, unknown> | undefined;
+    globalThis.fetch = async (_input, init) => {
+        body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+        const chunk = {
+            id: "chatcmpl-cb-3",
+            object: "chat.completion.chunk",
+            created: 1,
+            model: "glm-5.2",
+            choices: [{ index: 0, delta: { content: "{}" }, finish_reason: "stop" }]
+        };
+        const stream = new ReadableStream({
+            start(controller) {
+                controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(chunk)}\n\ndata: [DONE]\n\n`));
+                controller.close();
+            }
+        });
+        return new Response(stream, { headers: { "content-type": "text/event-stream" } });
+    };
+
+    const schema = {
+        type: "object",
+        properties: { answer: { type: "string" } },
+        required: ["answer"],
+        additionalProperties: false
+    };
+    await executor().chatCompletion(
+        request("codebuddy/glm-5.2", {
+            messages: [
+                { role: "system", content: "sys" },
+                { role: "user", content: [{ type: "text", text: "What is 2+2?" }] }
+            ],
+            response_format: { type: "json_schema", json_schema: { name: "response", strict: true, schema } }
+        })
+    );
+
+    const messages = body?.messages as Array<{ role: string; content: unknown }>;
+    const lastUser = messages[messages.length - 1];
+    assert.equal(lastUser.role, "user");
+    const parts = lastUser.content as Array<{ type: string; text: string }>;
+    const text = parts.find((p) => p.type === "text")?.text ?? "";
+    assert.match(text, /What is 2\+2\?/);
+    assert.match(text, /You must respond with valid JSON matching this schema:/);
+    assert.match(text, /"additionalProperties": false/);
+    assert.equal(body?.response_format, undefined);
+});
+
+test("CodeBuddy mirrors json_object directive into last string user message and drops response_format", async () => {
+    let body: Record<string, unknown> | undefined;
+    globalThis.fetch = async (_input, init) => {
+        body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+        const chunk = {
+            id: "chatcmpl-cb-4",
+            object: "chat.completion.chunk",
+            created: 1,
+            model: "glm-5.2",
+            choices: [{ index: 0, delta: { content: "{}" }, finish_reason: "stop" }]
+        };
+        const stream = new ReadableStream({
+            start(controller) {
+                controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(chunk)}\n\ndata: [DONE]\n\n`));
+                controller.close();
+            }
+        });
+        return new Response(stream, { headers: { "content-type": "text/event-stream" } });
+    };
+
+    await executor().chatCompletion(
+        request("codebuddy/glm-5.2", {
+            messages: [{ role: "user", content: "Say hi" }],
+            response_format: { type: "json_object" }
+        })
+    );
+
+    const messages = body?.messages as Array<{ role: string; content: unknown }>;
+    const lastUser = messages[messages.length - 1];
+    const parts = lastUser.content as Array<{ type: string; text: string }>;
+    const text = parts.find((p) => p.type === "text")?.text ?? "";
+    assert.match(text, /Say hi/);
+    assert.match(text, /Respond only in valid JSON/);
+    assert.equal(body?.response_format, undefined);
+});

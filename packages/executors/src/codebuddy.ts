@@ -140,6 +140,46 @@ export class CodeBuddyExecutor implements AIProvider {
         }
 
         transformed.messages = messages;
+
+        // CodeBuddy upstream is stream-only and ignores/breaks on response_format
+        // (models answer in prose when it is present, even with the schema in the
+        // user turn — verified empirically). So: drop response_format entirely and
+        // mirror the schema/directive into the last user text instead, which is the
+        // only lever these models actually follow.
+        const rf = req.response_format as
+            | { type?: string; json_schema?: { schema?: unknown } | Record<string, unknown> }
+            | undefined;
+        if (rf?.type === "json_schema" || rf?.type === "json_object") {
+            delete transformed.response_format;
+            let directive = rf.type === "json_object" ? "Respond only in valid JSON." : "";
+            if (rf.type === "json_schema") {
+                const schemaObj = (rf.json_schema as { schema?: unknown } | undefined)?.schema ?? rf.json_schema;
+                if (schemaObj) {
+                    directive =
+                        `You must respond with valid JSON matching this schema:\n` +
+                        JSON.stringify(schemaObj, null, 2);
+                }
+            }
+            if (directive) {
+                for (let i = messages.length - 1; i >= 0; i--) {
+                    const content = (messages[i] as { role?: string; content?: unknown }).content;
+                    if ((messages[i] as { role?: string }).role !== "user") continue;
+                    if (Array.isArray(content)) {
+                        const parts = content as { type?: string; text?: string }[];
+                        for (let j = parts.length - 1; j >= 0; j--) {
+                            if (parts[j]?.type === "text" && typeof parts[j].text === "string") {
+                                parts[j] = { type: "text", text: `${parts[j].text}\n\n${directive}` };
+                                break;
+                            }
+                        }
+                    } else if (typeof content === "string") {
+                        (messages[i] as { content: string }).content = `${content}\n\n${directive}`;
+                    }
+                    break;
+                }
+            }
+        }
+
         return transformed;
     }
 
