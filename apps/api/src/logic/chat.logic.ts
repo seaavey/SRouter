@@ -11,7 +11,6 @@ import type {
     ChatCompletionRequest,
     ChatCompletionResponse,
     ChatMessage,
-    FallbackRule,
     JSONValue,
     ToolCall,
     UsageInfo
@@ -19,6 +18,12 @@ import type {
 import { registry } from "@/services/registry.js";
 import { ensureFreshToken } from "@/services/tokenRefresh.js";
 import { executeInterceptedSearch, shouldInterceptToolCall } from "@/services/toolInterceptor.js";
+import {
+    type CandidateModel,
+    type ErrorWithStatus,
+    ExtractStatusCode,
+    ShouldTriggerFallback
+} from "./fallback.policy.js";
 
 const MAX_INTERCEPT_DEPTH = 3;
 
@@ -28,55 +33,19 @@ interface AssembledStreamingToolCall {
     arguments: string;
 }
 
-interface CandidateModel {
-    model: string;
-    rule?: FallbackRule;
+interface RequestContext {
+    startTime: number;
+    depth: number;
+    apiKeyId?: string;
+    ipAddress?: string;
+    userAgent?: string;
 }
 
-interface ErrorWithStatus {
-    status?: number;
-    statusCode?: number;
-    message?: string;
-}
-
-function ExtractStatusCode(
-    err: Error | ErrorWithStatus | string | null | undefined
-): number | undefined {
-    if (!err) return undefined;
-    if (typeof err === "object") {
-        if ("status" in err && typeof err.status === "number") {
-            return err.status;
-        }
-        if ("statusCode" in err && typeof err.statusCode === "number") {
-            return err.statusCode;
-        }
-    }
-    const msg = typeof err === "string" ? err : err.message || String(err);
-    if (/no active provider connection|not found|unknown model|invalid model|no provider found/i.test(msg)) {
-        return 404;
-    }
-    const match = msg.match(/\b(400|401|402|403|404|408|409|422|429|500|502|503|504)\b/);
-    if (match) return parseInt(match[1]!, 10);
-    return undefined;
-}
-
-function ShouldTriggerFallback(
-    rule: FallbackRule,
-    err: Error | ErrorWithStatus | string | null | undefined
-): boolean {
-    if (!rule.enabled) return false;
-    if (!rule.triggerOnStatus || rule.triggerOnStatus.length === 0) return true;
-    const status = ExtractStatusCode(err);
-    if (status && rule.triggerOnStatus.includes(status)) return true;
-    const msg = typeof err === "string" ? err : err ? err.message || String(err) : "";
-    if (
-        /rate\s*limit|too\s+many\s+requests|quota|exhausted|capacity|high\s+traffic|overloaded|no active provider connection|not found|unknown model|invalid model|no provider found|insufficient tokens|insufficient_quota|billing_error/i.test(
-            msg
-        )
-    ) {
-        return true;
-    }
-    return status === undefined;
+interface AttemptTracker {
+    fallbackPath: string[];
+    fallbackOccurred: boolean;
+    fallbackReason?: string;
+    lastError: Error | ErrorWithStatus | string | null;
 }
 
 async function ResolveCandidates(originalModel: string): Promise<CandidateModel[]> {
@@ -108,8 +77,6 @@ async function LogCompletion(
         userAgent?: string;
     }
 ): Promise<void> {
-    // Normalize alias/bare provider id to the registered base id so quota
-    // attribution matches. e.g. "zen" / "opencode" -> "opencode_zen".
     const normalizedProviderId = providerTypeForAlias(providerId) ?? providerId;
     const breakdown = extractUsageBreakdown(
         normalizedProviderId,
@@ -150,6 +117,43 @@ async function LogCompletion(
     });
 }
 
+function LogFailure(originalModel: string, ctx: RequestContext, tracker: AttemptTracker): void {
+    const provider = originalModel.split("/")[0] || "default";
+    const errorStatusCode = ExtractStatusCode(tracker.lastError) ?? 500;
+    LogCompletion(provider, originalModel, ctx.startTime, {
+        statusCode: errorStatusCode,
+        fallbackOccurred: tracker.fallbackOccurred,
+        fallbackPath: tracker.fallbackPath,
+        fallbackReason: tracker.fallbackReason,
+        apiKeyId: ctx.apiKeyId,
+        ipAddress: ctx.ipAddress,
+        userAgent: ctx.userAgent
+    });
+}
+
+async function BuildFollowUpSearchMessages(
+    baseMessages: ChatMessage[],
+    assistantMessage: ChatMessage,
+    toolCalls: Array<{ id: string; name: string; arguments: string }>,
+    clientTools?: ChatCompletionRequest["tools"]
+): Promise<ChatMessage[]> {
+    const updatedMessages: ChatMessage[] = [...baseMessages, assistantMessage];
+    for (const tc of toolCalls) {
+        if (shouldInterceptToolCall(tc.name, clientTools)) {
+            const { toolCallId, result } = await executeInterceptedSearch({
+                id: tc.id,
+                function: { name: tc.name, arguments: tc.arguments }
+            });
+            updatedMessages.push({
+                role: "tool",
+                tool_call_id: toolCallId,
+                content: JSON.stringify(result)
+            });
+        }
+    }
+    return updatedMessages;
+}
+
 export class ChatLogic {
     public static async ProcessNonStreamingCompletion(
         body: ChatCompletionRequest,
@@ -159,22 +163,25 @@ export class ChatLogic {
         ipAddress?: string,
         userAgent?: string
     ): Promise<ChatCompletionResponse> {
+        const ctx: RequestContext = { startTime, depth, apiKeyId, ipAddress, userAgent };
         const effectiveBody =
             depth === 0 ? applyTokenSaver(body, await getTokenSaverSettingsDB()).request : body;
         const originalModel = effectiveBody.model;
         const candidates = await ResolveCandidates(originalModel);
 
-        let lastError: Error | ErrorWithStatus | string | null = null;
-        const fallbackPath: string[] = [originalModel];
-        let fallbackOccurred = false;
-        let fallbackReason: string | undefined;
+        const tracker: AttemptTracker = {
+            fallbackPath: [originalModel],
+            fallbackOccurred: false,
+            fallbackReason: undefined,
+            lastError: null
+        };
 
         for (let i = 0; i < candidates.length; i++) {
             const candidate = candidates[i]!;
             const isFallbackAttempt = i > 0;
 
-            if (isFallbackAttempt && candidate.rule && lastError) {
-                if (!ShouldTriggerFallback(candidate.rule, lastError)) {
+            if (isFallbackAttempt && candidate.rule && tracker.lastError) {
+                if (!ShouldTriggerFallback(candidate.rule, tracker.lastError)) {
                     continue;
                 }
             }
@@ -188,8 +195,8 @@ export class ChatLogic {
                 const response = await registry.chatCompletion(currentReq);
 
                 if (isFallbackAttempt) {
-                    fallbackOccurred = true;
-                    fallbackPath.push(currentModel);
+                    tracker.fallbackOccurred = true;
+                    tracker.fallbackPath.push(currentModel);
                 }
 
                 const choice = response.choices?.[0];
@@ -203,22 +210,17 @@ export class ChatLogic {
                         shouldInterceptToolCall(tc.function.name, effectiveBody.tools)
                     )
                 ) {
-                    const updatedMessages: ChatMessage[] = [
-                        ...effectiveBody.messages,
-                        choice.message
-                    ];
-
-                    for (const tc of toolCalls) {
-                        if (shouldInterceptToolCall(tc.function.name, effectiveBody.tools)) {
-                            const { toolCallId, result } = await executeInterceptedSearch(tc);
-                            updatedMessages.push({
-                                role: "tool",
-                                tool_call_id: toolCallId,
-                                content: JSON.stringify(result)
-                            });
-                        }
-                    }
-
+                    const searchCalls = toolCalls.map((tc) => ({
+                        id: tc.id,
+                        name: tc.function.name,
+                        arguments: tc.function.arguments
+                    }));
+                    const updatedMessages = await BuildFollowUpSearchMessages(
+                        effectiveBody.messages,
+                        choice.message,
+                        searchCalls,
+                        effectiveBody.tools
+                    );
                     const followUpRequest: ChatCompletionRequest = {
                         ...currentReq,
                         messages: updatedMessages
@@ -236,9 +238,9 @@ export class ChatLogic {
                 await LogCompletion(providerId, currentModel, startTime, {
                     statusCode: 200,
                     usage: response.usage,
-                    fallbackOccurred,
-                    fallbackPath,
-                    fallbackReason,
+                    fallbackOccurred: tracker.fallbackOccurred,
+                    fallbackPath: tracker.fallbackPath,
+                    fallbackReason: tracker.fallbackReason,
                     apiKeyId,
                     ipAddress,
                     userAgent
@@ -246,9 +248,9 @@ export class ChatLogic {
 
                 return response;
             } catch (err) {
-                lastError = err instanceof Error ? err : (err as ErrorWithStatus);
-                if (!fallbackReason) {
-                    fallbackReason = err instanceof Error ? err.message : String(err);
+                tracker.lastError = err instanceof Error ? err : (err as ErrorWithStatus);
+                if (!tracker.fallbackReason) {
+                    tracker.fallbackReason = err instanceof Error ? err.message : String(err);
                 }
 
                 if (i < candidates.length - 1) {
@@ -257,19 +259,8 @@ export class ChatLogic {
             }
         }
 
-        const provider = originalModel.split("/")[0] || "default";
-        const errorStatusCode = ExtractStatusCode(lastError) ?? 500;
-        LogCompletion(provider, originalModel, startTime, {
-            statusCode: errorStatusCode,
-            fallbackOccurred,
-            fallbackPath,
-            fallbackReason,
-            apiKeyId,
-            ipAddress,
-            userAgent
-        });
-
-        throw lastError;
+        LogFailure(originalModel, ctx, tracker);
+        throw tracker.lastError;
     }
 
     public static processNonStreamingCompletion = ChatLogic.ProcessNonStreamingCompletion;
@@ -282,22 +273,25 @@ export class ChatLogic {
         ipAddress?: string,
         userAgent?: string
     ): AsyncGenerator<ChatCompletionChunk, void, void> {
+        const ctx: RequestContext = { startTime, depth, apiKeyId, ipAddress, userAgent };
         const effectiveBody =
             depth === 0 ? applyTokenSaver(body, await getTokenSaverSettingsDB()).request : body;
         const originalModel = effectiveBody.model;
         const candidates = await ResolveCandidates(originalModel);
 
-        let lastError: Error | ErrorWithStatus | string | null = null;
-        const fallbackPath: string[] = [originalModel];
-        let fallbackOccurred = false;
-        let fallbackReason: string | undefined;
+        const tracker: AttemptTracker = {
+            fallbackPath: [originalModel],
+            fallbackOccurred: false,
+            fallbackReason: undefined,
+            lastError: null
+        };
 
         for (let i = 0; i < candidates.length; i++) {
             const candidate = candidates[i]!;
             const isFallbackAttempt = i > 0;
 
-            if (isFallbackAttempt && candidate.rule && lastError) {
-                if (!ShouldTriggerFallback(candidate.rule, lastError)) {
+            if (isFallbackAttempt && candidate.rule && tracker.lastError) {
+                if (!ShouldTriggerFallback(candidate.rule, tracker.lastError)) {
                     continue;
                 }
             }
@@ -322,8 +316,8 @@ export class ChatLogic {
                     if (!yieldedAny) {
                         yieldedAny = true;
                         if (isFallbackAttempt) {
-                            fallbackOccurred = true;
-                            fallbackPath.push(currentModel);
+                            tracker.fallbackOccurred = true;
+                            tracker.fallbackPath.push(currentModel);
                         }
                     }
 
@@ -384,24 +378,12 @@ export class ChatLogic {
                         tool_calls: assistantToolCalls
                     };
 
-                    const updatedMessages: ChatMessage[] = [
-                        ...effectiveBody.messages,
-                        assistantMessage
-                    ];
-
-                    for (const tc of assembledToolCalls) {
-                        if (shouldInterceptToolCall(tc.name, effectiveBody.tools)) {
-                            const { toolCallId, result } = await executeInterceptedSearch({
-                                id: tc.id,
-                                function: { name: tc.name, arguments: tc.arguments }
-                            });
-                            updatedMessages.push({
-                                role: "tool",
-                                tool_call_id: toolCallId,
-                                content: JSON.stringify(result)
-                            });
-                        }
-                    }
+                    const updatedMessages = await BuildFollowUpSearchMessages(
+                        effectiveBody.messages,
+                        assistantMessage,
+                        assembledToolCalls,
+                        effectiveBody.tools
+                    );
 
                     const followUpRequest: ChatCompletionRequest = {
                         ...currentReq,
@@ -425,9 +407,9 @@ export class ChatLogic {
                 LogCompletion(providerId, currentModel, startTime, {
                     statusCode: 200,
                     usage,
-                    fallbackOccurred,
-                    fallbackPath,
-                    fallbackReason,
+                    fallbackOccurred: tracker.fallbackOccurred,
+                    fallbackPath: tracker.fallbackPath,
+                    fallbackReason: tracker.fallbackReason,
                     apiKeyId,
                     ipAddress,
                     userAgent
@@ -435,9 +417,9 @@ export class ChatLogic {
 
                 return;
             } catch (err) {
-                lastError = err instanceof Error ? err : (err as ErrorWithStatus);
-                if (!fallbackReason) {
-                    fallbackReason = err instanceof Error ? err.message : String(err);
+                tracker.lastError = err instanceof Error ? err : (err as ErrorWithStatus);
+                if (!tracker.fallbackReason) {
+                    tracker.fallbackReason = err instanceof Error ? err.message : String(err);
                 }
 
                 if (!yieldedAny && i < candidates.length - 1) {
@@ -448,9 +430,9 @@ export class ChatLogic {
                 const errorStatusCode = ExtractStatusCode(err) ?? 500;
                 LogCompletion(provider, currentModel, startTime, {
                     statusCode: errorStatusCode,
-                    fallbackOccurred,
-                    fallbackPath,
-                    fallbackReason,
+                    fallbackOccurred: tracker.fallbackOccurred,
+                    fallbackPath: tracker.fallbackPath,
+                    fallbackReason: tracker.fallbackReason,
                     apiKeyId,
                     ipAddress,
                     userAgent
@@ -459,7 +441,7 @@ export class ChatLogic {
             }
         }
 
-        if (lastError) throw lastError;
+        if (tracker.lastError) throw tracker.lastError;
     }
 
     public static processStreamingCompletion = ChatLogic.ProcessStreamingCompletion;
