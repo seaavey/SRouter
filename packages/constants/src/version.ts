@@ -1,6 +1,6 @@
-export const GLOBAL_VERSION = "0.1.5";
-export const APP_VERSION = "0.1.5";
-export const API_VERSION = "0.1.5";
+export const GLOBAL_VERSION = "0.1.6";
+export const APP_VERSION = "0.1.6";
+export const API_VERSION = "0.1.6";
 export const CLI_VERSION = "0.1.3-rc.3";
 
 // Backward-compat aliases
