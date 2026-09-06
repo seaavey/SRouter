@@ -1,7 +1,7 @@
 export const GLOBAL_VERSION = "0.1.6";
 export const APP_VERSION = "0.1.6";
 export const API_VERSION = "0.1.6";
-export const CLI_VERSION = "0.1.3-rc.3";
+export const CLI_VERSION = "0.1.3-rc.4";
 
 // Backward-compat aliases
 export const SROUTER_VERSION = GLOBAL_VERSION;
