@@ -12,7 +12,7 @@ import {
     ShieldCheck
 } from "lucide-react";
 import { api } from "@/lib/api";
-import type { APIKeyZod, RequestLogEntry } from "@srouter/types";
+import type { APIKeyZod, RequestLogEntry, UsageStats } from "@srouter/types";
 import type { ListResponse } from "@/lib/types";
 import { LogsSkeleton } from "@/components/skeletons";
 import { useLogs } from "@/hooks/useLogs";
@@ -57,11 +57,31 @@ function LogsPage() {
         refetchInterval: 10000
     });
 
+    const { data: globalStats, refetch: refetchStats } = useQuery<UsageStats>({
+        queryKey: ["stats"],
+        queryFn: () => api.get<UsageStats>("/v1/logs/stats"),
+        refetchInterval: 10000
+    });
+
     const logs: RequestLogEntry[] = data?.data ?? [];
     const filter = useLogs(logs);
 
-    // Calculate aggregated metrics from recent logs
+    // Calculate aggregated metrics from all-time stats, with fallback to loaded logs
     const stats = useMemo(() => {
+        if (globalStats) {
+            const totalRequests = globalStats.totalRequests;
+            const successRequests = globalStats.totalSuccessRequests ?? totalRequests;
+            const successRate = totalRequests > 0 ? (successRequests / totalRequests) * 100 : 100;
+            return {
+                totalRequests,
+                totalTokens: globalStats.totalTokens,
+                totalCost: globalStats.totalEstimatedCost,
+                cachedTokens: globalStats.totalCachedTokens,
+                successRate,
+                isGlobal: true
+            };
+        }
+
         let totalTokens = 0;
         let totalCost = 0;
         let cachedTokens = 0;
@@ -83,9 +103,10 @@ function LogsPage() {
             totalTokens,
             totalCost,
             cachedTokens,
-            successRate
+            successRate,
+            isGlobal: false
         };
-    }, [logs]);
+    }, [globalStats, logs]);
 
     if (isLoading) {
         return <LogsSkeleton />;
@@ -139,7 +160,10 @@ function LogsPage() {
                     <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
                         <button
                             type="button"
-                            onClick={() => void refetch()}
+                            onClick={() => {
+                                void refetch();
+                                void refetchStats();
+                            }}
                             disabled={isFetching}
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border/70 bg-secondary/40 hover:bg-secondary text-xs font-semibold text-muted-foreground hover:text-foreground cursor-pointer transition-all shadow-2xs disabled:opacity-50"
                         >
@@ -187,7 +211,7 @@ function LogsPage() {
                         ${stats.totalCost.toFixed(4)}
                     </div>
                     <span className="text-[11px] text-muted-foreground">
-                        Past 100 calls
+                        {stats.isGlobal ? "All-time total" : "Past 100 calls"}
                     </span>
                 </div>
 

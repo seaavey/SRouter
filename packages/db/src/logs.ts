@@ -33,6 +33,7 @@ interface RequestLogRow {
 
 interface UsageSummaryRow {
     totalRequests: number;
+    totalSuccessRequests?: number;
     totalTokens: number;
     totalPromptTokens: number;
     totalCompletionTokens: number;
@@ -108,8 +109,9 @@ export async function getRecentLogsDB(limit = 50): Promise<RequestLogEntry[]> {
 
 export async function getUsageSummaryDB(): Promise<UsageSummary> {
     const Result = (await db.prepare(`
-        SELECT 
+        SELECT
             COUNT(*) as "totalRequests",
+            COALESCE(SUM(CASE WHEN status_code >= 200 AND status_code < 300 THEN 1 ELSE 0 END), 0) as "totalSuccessRequests",
             COALESCE(SUM(total_tokens), 0) as "totalTokens",
             COALESCE(SUM(prompt_tokens), 0) as "totalPromptTokens",
             COALESCE(SUM(completion_tokens), 0) as "totalCompletionTokens",
@@ -122,6 +124,7 @@ export async function getUsageSummaryDB(): Promise<UsageSummary> {
 
     return {
         totalRequests: num(Result?.totalRequests),
+        totalSuccessRequests: num(Result?.totalSuccessRequests),
         totalTokens: num(Result?.totalTokens),
         totalPromptTokens: num(Result?.totalPromptTokens),
         totalCompletionTokens: num(Result?.totalCompletionTokens),

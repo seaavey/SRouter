@@ -35,6 +35,7 @@ export interface RequestLogEntry {
 
 export interface UsageSummary {
     totalRequests: number;
+    totalSuccessRequests?: number;
     totalTokens: number;
     totalPromptTokens: number;
     totalCompletionTokens: number;
