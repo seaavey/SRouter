@@ -15,4 +15,5 @@ export * from "./codebuddy.js";
 export * from "./qoder.js";
 export * from "./opencode.js";
 export * from "./bai.js";
+export * from "./freebuff.js";
 export * from "./catalog.js";

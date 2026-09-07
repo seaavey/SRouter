@@ -9,6 +9,7 @@ import { NEOSANTARA_PROVIDER } from "./neosantara.js";
 import { OPENAI_CODEX_PROVIDER } from "./openai.js";
 import { OPENCODE_ZEN_PROVIDER } from "./opencode.js";
 import { BAI_PROVIDER } from "./bai.js";
+import { FREEBUFF_PROVIDER } from "./freebuff.js";
 import { QODER_PROVIDER } from "./qoder.js";
 import { SEEKAI_PROVIDER } from "./seekai.js";
 import { TABITOKEN_PROVIDER } from "./tabitoken.js";
@@ -31,7 +32,8 @@ export const KNOWN_PROVIDERS = [
     CODEBUDDY_PROVIDER,
     CODEBUDDY_CN_PROVIDER,
     OPENCODE_ZEN_PROVIDER,
-    BAI_PROVIDER
+    BAI_PROVIDER,
+    FREEBUFF_PROVIDER
 ] as const satisfies readonly ProviderMetadata[];
 
 export const KNOWN_PROVIDER_MAP = Object.freeze(

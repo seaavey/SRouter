@@ -6,6 +6,7 @@ import {
     CODEBUDDY_CN_DOMAIN,
     CODEBUDDY_CN_USER_AGENT,
     DEFAULT_PROVIDERS,
+    FREEBUFF_BASE_URL,
     GOROUTER_BASE_URL,
     isProviderBaseId,
     isSeedProvider,
@@ -19,17 +20,18 @@ import {
 } from "@srouter/constants";
 import { deleteProviderDB, getAllProvidersDB, getRoundRobinDB, upsertProviderDB } from "@srouter/db";
 import {
-    AntigravityExecutor,
     AnthropicExecutor,
+    AntigravityExecutor,
     BAIExecutor,
     BluesMindsExecutor,
     CodeBuddyExecutor,
     CodexExecutor,
     CommandCodeExecutor,
+    FreebuffExecutor,
     GoRouterExecutor,
     KiroExecutor,
-    OpenCodeZenExecutor,
     OpenAIExecutor,
+    OpenCodeZenExecutor,
     QoderExecutor,
     SeekAIExecutor,
     TabiTokenExecutor,
@@ -263,6 +265,17 @@ export async function loadSavedProvidersFromDB(): Promise<void> {
                         id: p.id || p.providerId,
                         name: p.name,
                         baseUrl: baseUrl || BAI_BASE_URL,
+                        apiKey: p.apiKey,
+                        accessToken: p.accessToken
+                    })
+                );
+                break;
+            case isProviderBaseId(p.id, "freebuff") || providerType === "freebuff":
+                registry.registerProvider(
+                    new FreebuffExecutor({
+                        id: p.id || p.providerId,
+                        name: p.name,
+                        baseUrl: baseUrl || FREEBUFF_BASE_URL,
                         apiKey: p.apiKey,
                         accessToken: p.accessToken
                     })

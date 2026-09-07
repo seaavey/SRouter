@@ -10,6 +10,7 @@ export * from "./commandcode.js";
 export * from "./gorouter.js";
 export * from "./opencode.js";
 export * from "./openai.js";
+export * from "./freebuff.js";
 export * from "./qoder.js";
 export * from "./retry.js";
 export * from "./seekai.js";
