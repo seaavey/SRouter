@@ -24,7 +24,18 @@ const EMPTY_BREAKDOWN: UsageBreakdown = {
 };
 
 function ExtractNumber(value: unknown): number {
-    return typeof value === "number" && !Number.isNaN(value) ? value : 0;
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value === "string" && value.trim() !== "") {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : 0;
+    }
+    return 0;
+}
+
+function ReadRecord(value: unknown): Record<string, unknown> {
+    return value !== null && typeof value === "object" && !Array.isArray(value)
+        ? value as Record<string, unknown>
+        : {};
 }
 
 export function ExtractUsageBreakdown(
@@ -35,8 +46,9 @@ export function ExtractUsageBreakdown(
         return EMPTY_BREAKDOWN;
     }
 
-    const raw_usage = usage as Record<string, unknown>;
+    const raw_usage = ReadRecord(usage);
     const provider_key = provider?.toLowerCase() ?? "";
+    const usage_metadata = ReadRecord(raw_usage.usage_metadata ?? raw_usage.usageMetadata);
 
     if (provider_key.includes("anthropic")) {
         const input_tokens = ExtractNumber(raw_usage.input_tokens);
@@ -55,20 +67,35 @@ export function ExtractUsageBreakdown(
         };
     }
 
-    const prompt_details = raw_usage.prompt_tokens_details as
-        { cached_tokens?: unknown } | undefined;
-    const completion_details = raw_usage.completion_tokens_details as
-        { reasoning_tokens?: unknown } | undefined;
-    const prompt_tokens = ExtractNumber(raw_usage.prompt_tokens);
-    const completion_tokens = ExtractNumber(raw_usage.completion_tokens);
-    const total_tokens = ExtractNumber(raw_usage.total_tokens);
+    const prompt_details = ReadRecord(raw_usage.prompt_tokens_details);
+    const completion_details = ReadRecord(raw_usage.completion_tokens_details);
+    const prompt_tokens = ExtractNumber(
+        raw_usage.prompt_tokens ?? raw_usage.input_tokens ?? usage_metadata.promptTokenCount
+    );
+    const completion_tokens = ExtractNumber(
+        raw_usage.completion_tokens ?? raw_usage.output_tokens ?? usage_metadata.candidatesTokenCount
+    );
+    const cached_tokens = ExtractNumber(
+        prompt_details.cached_tokens ??
+            raw_usage.cache_read_input_tokens ??
+            usage_metadata.cachedContentTokenCount ??
+            usage_metadata.cached_tokens
+    );
+    const cache_creation_tokens = ExtractNumber(
+        raw_usage.cache_creation_input_tokens ?? usage_metadata.cacheCreationInputTokenCount
+    );
+    const total_tokens = ExtractNumber(
+        raw_usage.total_tokens ?? usage_metadata.totalTokenCount
+    );
 
     return {
         prompt_tokens,
         completion_tokens,
-        cached_tokens: ExtractNumber(prompt_details?.cached_tokens),
-        cache_creation_tokens: 0,
-        reasoning_tokens: ExtractNumber(completion_details?.reasoning_tokens),
+        cached_tokens,
+        cache_creation_tokens,
+        reasoning_tokens: ExtractNumber(
+            completion_details.reasoning_tokens ?? raw_usage.reasoning_tokens
+        ),
         total_tokens: total_tokens || prompt_tokens + completion_tokens
     };
 }

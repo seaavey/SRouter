@@ -118,7 +118,15 @@ export class OpenAIExecutor implements AIProvider {
 
         const res = await fetchWithRetry(
             `${this.baseUrl}/chat/completions`,
-            { ...req, model: targetModel, stream: true },
+            {
+                ...req,
+                model: targetModel,
+                stream: true,
+                stream_options: {
+                    ...req.stream_options,
+                    include_usage: true
+                }
+            },
             this.getHeaders("text/event-stream, application/json, */*")
         );
 

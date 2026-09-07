@@ -70,6 +70,9 @@ export interface ChatCompletionRequest {
     top_p?: number;
     n?: number;
     stream?: boolean;
+    stream_options?: {
+        include_usage?: boolean;
+    };
     stop?: string | string[];
     max_tokens?: number;
     presence_penalty?: number;

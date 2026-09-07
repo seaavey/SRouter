@@ -92,6 +92,11 @@ export const ChatCompletionRequestSchema = z.object({
     top_p: z.number().min(0).max(1).optional(),
     n: z.number().int().positive().max(8).optional(),
     stream: z.boolean().optional(),
+    stream_options: z
+        .object({
+            include_usage: z.boolean().optional()
+        })
+        .optional(),
     stop: z.union([z.string(), z.array(z.string().max(1000)).max(16)]).optional(),
     max_tokens: z
         .number()

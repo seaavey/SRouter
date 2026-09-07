@@ -43,6 +43,40 @@ describe("usage translator", () => {
         });
     });
 
+    it("extracts custom OpenAI-compatible usage and cache fields", () => {
+        const breakdown = ExtractUsageBreakdown("experientiallabs", {
+            input_tokens: "1000",
+            output_tokens: 500,
+            total_tokens: 1500,
+            cache_read_input_tokens: 200,
+            cache_creation_input_tokens: 50,
+            reasoning_tokens: 25
+        });
+        assert.deepEqual(breakdown, {
+            prompt_tokens: 1000,
+            completion_tokens: 500,
+            cached_tokens: 200,
+            cache_creation_tokens: 50,
+            reasoning_tokens: 25,
+            total_tokens: 1500
+        });
+    });
+
+    it("extracts Gemini-style usage metadata", () => {
+        const breakdown = ExtractUsageBreakdown("experientiallabs", {
+            usageMetadata: {
+                promptTokenCount: 1000,
+                candidatesTokenCount: 500,
+                totalTokenCount: 1500,
+                cachedContentTokenCount: 200
+            }
+        });
+        assert.equal(breakdown.prompt_tokens, 1000);
+        assert.equal(breakdown.completion_tokens, 500);
+        assert.equal(breakdown.cached_tokens, 200);
+        assert.equal(breakdown.total_tokens, 1500);
+    });
+
     it("handles undefined or invalid usage gracefully", () => {
         const breakdown = ExtractUsageBreakdown(undefined, undefined);
         assert.deepEqual(breakdown, {

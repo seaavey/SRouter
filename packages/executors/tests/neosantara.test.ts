@@ -119,6 +119,7 @@ test("Neosantara streaming preserves tools and yields tool-call deltas", async (
         output.push(item);
 
     assert.equal(body?.stream, true);
+    assert.deepEqual(body?.stream_options, { include_usage: true });
     assert.deepEqual(body?.tools, tools);
     assert.deepEqual(output, [chunk]);
 });
