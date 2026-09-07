@@ -38,6 +38,8 @@ export interface ModelSelectorProps {
     selected_models: string[];
     onToggleModel: (model_id: string) => void;
     isOpen: boolean;
+    isPickerOpen?: boolean;
+    onPickerOpenChange?: (open: boolean) => void;
 }
 
 export interface KeyTelemetryCardProps {

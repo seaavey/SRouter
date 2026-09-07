@@ -73,18 +73,24 @@ export function SecuritySettings({
                 description={
                     requireApiKey
                         ? "Unauthenticated requests are rejected with HTTP 401."
-                        : "Anyone can query without an API key."
+                        : "Open access mode — requests pass through without API key verification."
                 }
                 control={
                     <div className="flex items-center gap-2.5">
                         <span
                             className={[
-                                "hidden sm:inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-mono font-medium border",
+                                "hidden sm:inline-flex items-center gap-1.5 text-[11px] font-mono font-medium",
                                 requireApiKey
-                                    ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
-                                    : "bg-muted/50 text-muted-foreground border-border/60"
+                                    ? "text-emerald-600 dark:text-emerald-400"
+                                    : "text-muted-foreground"
                             ].join(" ")}
                         >
+                            <span
+                                className={[
+                                    "size-1.5 rounded-full",
+                                    requireApiKey ? "bg-emerald-500" : "bg-muted-foreground/40"
+                                ].join(" ")}
+                            />
                             {requireApiKey ? "Enforced" : "Permissive"}
                         </span>
                         <SegmentedControl
@@ -103,9 +109,9 @@ export function SecuritySettings({
             <div className="py-4">
                 <form
                     onSubmit={handleChangePassword}
-                    className="rounded-xl border border-border/70 bg-secondary/15 p-4 sm:p-4.5 space-y-4"
+                    className="rounded-lg border border-border/80 bg-secondary/15 p-4 space-y-4"
                 >
-                    <div className="flex items-center justify-between border-b border-border/50 pb-3">
+                    <div className="flex items-center justify-between border-b border-border/60 pb-3">
                         <div className="flex items-center gap-2">
                             <Lock className="size-3.5 text-muted-foreground" />
                             <div>

@@ -117,78 +117,73 @@ function SettingsPage() {
     return (
         <div className="mx-auto w-full max-w-5xl font-mono pb-16 space-y-6">
             {/* Header: Tactical Machined Dashboard Bar */}
-            <header className="rounded-2xl border border-border/80 bg-card p-5 sm:p-6 shadow-2xs">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="space-y-1.5">
-                        <div className="flex items-center gap-2.5 flex-wrap">
-                            <div className="flex size-7.5 items-center justify-center rounded-xl border border-border/80 bg-secondary/70 text-foreground shadow-2xs">
-                                <Sliders className="size-4" />
-                            </div>
-                            <h1 className="text-base font-bold tracking-tight text-foreground">
-                                Gateway Configuration
-                            </h1>
-                            <span className="rounded-md border border-border/70 bg-secondary/50 px-2 py-0.5 text-[9px] font-semibold text-muted-foreground uppercase tracking-widest">
-                                {currentVersion}
+            <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end border-b border-border/80 pb-5">
+                <div className="space-y-1 text-left min-w-0">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/80">
+                        System & Node Preferences
+                    </p>
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                        <h1 className="text-2xl font-bold tracking-tight text-foreground">
+                            Gateway Settings
+                        </h1>
+                        <span className="rounded border border-border/80 bg-secondary/60 px-1.5 py-0.2 text-[10px] font-semibold text-muted-foreground">
+                            v{currentVersion}
+                        </span>
+                        {hasUpdate && latestVersion && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                                <span className="size-1.5 rounded-full bg-emerald-500" />
+                                Update available: {latestVersion}
                             </span>
-                            {hasUpdate && latestVersion && (
-                                <span className="flex items-center gap-1 text-[9px] font-bold tracking-wider uppercase text-amber-500 bg-amber-500/10 border border-amber-500/30 rounded-md px-2 py-0.5">
-                                    <Sparkles className="size-2.5" />
-                                    Update: {latestVersion}
-                                </span>
-                            )}
-                        </div>
-                        <p className="text-xs text-muted-foreground max-w-2xl leading-relaxed">
-                            Fine-tune routing policies, security gates, logging pipelines, and client
-                            environment preferences across your SRouter mesh instance.
-                        </p>
+                        )}
                     </div>
-
-                    {/* Action Controls */}
-                    <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
-                        <button
-                            type="button"
-                            onClick={exportSettings}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-border/70 bg-secondary/40 hover:bg-secondary text-muted-foreground hover:text-foreground px-3 py-1.5 text-xs font-semibold cursor-pointer transition-all shadow-2xs"
-                        >
-                            <UploadCloud className="size-3.5" />
-                            <span>Export</span>
-                        </button>
-                        <button
-                            type="button"
-                            onClick={resetToDefaults}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-border/70 bg-secondary/40 hover:bg-rose-500/10 hover:border-rose-500/40 text-muted-foreground hover:text-rose-500 px-3 py-1.5 text-xs font-semibold cursor-pointer transition-all shadow-2xs"
-                        >
-                            <RotateCcw className="size-3.5" />
-                            <span>Reset</span>
-                        </button>
-                    </div>
+                    <p className="text-xs text-muted-foreground max-w-2xl leading-relaxed">
+                        Configure upstream routing policies, security gates, logging pipelines, and client
+                        preferences for this SRouter gateway node.
+                    </p>
                 </div>
 
-                {/* Section Quick Jump Filter Bar */}
-                <nav
-                    aria-label="Settings section tabs"
-                    className="mt-5 pt-4 border-t border-border/60 flex items-center gap-1.5 overflow-x-auto no-scrollbar"
-                >
-                    {SECTIONS.map(({ id, label, icon: Icon }) => {
-                        const isActive = activeSection === id;
-                        return (
-                            <button
-                                key={id}
-                                type="button"
-                                onClick={() => scrollToSection(id)}
-                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 cursor-pointer ${
-                                    isActive
-                                        ? "bg-foreground text-background shadow-2xs"
-                                        : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
-                                }`}
-                            >
-                                <Icon className="size-3.5" />
-                                <span>{label}</span>
-                            </button>
-                        );
-                    })}
-                </nav>
+                {/* Action Controls */}
+                <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+                    <button
+                        type="button"
+                        onClick={exportSettings}
+                        className="inline-flex items-center gap-1.5 rounded border border-border/80 bg-card hover:bg-secondary text-muted-foreground hover:text-foreground px-3 py-1.5 text-xs font-semibold cursor-pointer transition-colors shadow-2xs"
+                    >
+                        <UploadCloud className="size-3.5" />
+                        <span>Export</span>
+                    </button>
+                    <button
+                        type="button"
+                        onClick={resetToDefaults}
+                        className="inline-flex items-center gap-1.5 rounded border border-border/80 bg-card hover:bg-destructive/10 hover:border-destructive/40 text-muted-foreground hover:text-destructive px-3 py-1.5 text-xs font-semibold cursor-pointer transition-colors shadow-2xs"
+                    >
+                        <RotateCcw className="size-3.5" />
+                        <span>Reset</span>
+                    </button>
+                </div>
             </header>
+
+            {/* Sticky/Subnav Quick Jump Tabs */}
+            <div className="flex items-center gap-1 border border-border/80 p-1.5 bg-card/50 rounded-lg overflow-x-auto no-scrollbar">
+                {SECTIONS.map(({ id, label, icon: Icon }) => {
+                    const isActive = activeSection === id;
+                    return (
+                        <button
+                            key={id}
+                            type="button"
+                            onClick={() => scrollToSection(id)}
+                            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded text-xs font-mono font-medium transition-colors shrink-0 cursor-pointer ${
+                                isActive
+                                    ? "bg-foreground text-background font-semibold"
+                                    : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
+                            }`}
+                        >
+                            <Icon className="size-3.5" />
+                            <span>{label}</span>
+                        </button>
+                    );
+                })}
+            </div>
 
             {/* Main Settings Sections */}
             <main className="space-y-6">

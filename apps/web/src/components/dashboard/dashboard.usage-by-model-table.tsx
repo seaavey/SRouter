@@ -70,9 +70,9 @@ export function UsageByModelTable({ models }: UsageByModelTableProps) {
                         >
                             <span>Model</span>
                             {isSorted === "asc" ? (
-                                <ArrowUp className="size-3 text-amber-500" />
+                                <ArrowUp className="size-3 text-foreground" />
                             ) : isSorted === "desc" ? (
-                                <ArrowDown className="size-3 text-amber-500" />
+                                <ArrowDown className="size-3 text-foreground" />
                             ) : (
                                 <ArrowUpDown className="size-3 opacity-40 hover:opacity-100" />
                             )}
@@ -100,9 +100,9 @@ export function UsageByModelTable({ models }: UsageByModelTableProps) {
                         >
                             <span>Requests</span>
                             {isSorted === "asc" ? (
-                                <ArrowUp className="size-3 text-amber-500" />
+                                <ArrowUp className="size-3 text-foreground" />
                             ) : isSorted === "desc" ? (
-                                <ArrowDown className="size-3 text-amber-500" />
+                                <ArrowDown className="size-3 text-foreground" />
                             ) : (
                                 <ArrowUpDown className="size-3 opacity-40 hover:opacity-100" />
                             )}
@@ -130,9 +130,9 @@ export function UsageByModelTable({ models }: UsageByModelTableProps) {
                         >
                             <span>Input</span>
                             {isSorted === "asc" ? (
-                                <ArrowUp className="size-3 text-amber-500" />
+                                <ArrowUp className="size-3 text-foreground" />
                             ) : isSorted === "desc" ? (
-                                <ArrowDown className="size-3 text-amber-500" />
+                                <ArrowDown className="size-3 text-foreground" />
                             ) : (
                                 <ArrowUpDown className="size-3 opacity-40 hover:opacity-100" />
                             )}
@@ -160,9 +160,9 @@ export function UsageByModelTable({ models }: UsageByModelTableProps) {
                         >
                             <span>Output</span>
                             {isSorted === "asc" ? (
-                                <ArrowUp className="size-3 text-amber-500" />
+                                <ArrowUp className="size-3 text-foreground" />
                             ) : isSorted === "desc" ? (
-                                <ArrowDown className="size-3 text-amber-500" />
+                                <ArrowDown className="size-3 text-foreground" />
                             ) : (
                                 <ArrowUpDown className="size-3 opacity-40 hover:opacity-100" />
                             )}
@@ -190,9 +190,9 @@ export function UsageByModelTable({ models }: UsageByModelTableProps) {
                         >
                             <span>Cached</span>
                             {isSorted === "asc" ? (
-                                <ArrowUp className="size-3 text-amber-500" />
+                                <ArrowUp className="size-3 text-foreground" />
                             ) : isSorted === "desc" ? (
-                                <ArrowDown className="size-3 text-amber-500" />
+                                <ArrowDown className="size-3 text-foreground" />
                             ) : (
                                 <ArrowUpDown className="size-3 opacity-40 hover:opacity-100" />
                             )}
@@ -221,9 +221,9 @@ export function UsageByModelTable({ models }: UsageByModelTableProps) {
                         >
                             <span>Total</span>
                             {isSorted === "asc" ? (
-                                <ArrowUp className="size-3 text-amber-500" />
+                                <ArrowUp className="size-3 text-foreground" />
                             ) : isSorted === "desc" ? (
-                                <ArrowDown className="size-3 text-amber-500" />
+                                <ArrowDown className="size-3 text-foreground" />
                             ) : (
                                 <ArrowUpDown className="size-3 opacity-40 hover:opacity-100" />
                             )}
@@ -254,9 +254,9 @@ export function UsageByModelTable({ models }: UsageByModelTableProps) {
                         >
                             <span>Est. cost</span>
                             {isSorted === "asc" ? (
-                                <ArrowUp className="size-3 text-amber-500" />
+                                <ArrowUp className="size-3 text-foreground" />
                             ) : isSorted === "desc" ? (
-                                <ArrowDown className="size-3 text-amber-500" />
+                                <ArrowDown className="size-3 text-foreground" />
                             ) : (
                                 <ArrowUpDown className="size-3 opacity-40 hover:opacity-100" />
                             )}
@@ -296,16 +296,16 @@ export function UsageByModelTable({ models }: UsageByModelTableProps) {
     const endRow = Math.min((currentPage + 1) * pageSize, totalRows);
 
     return (
-        <Card className="min-w-0 gap-0 overflow-hidden p-0 border border-border/70 bg-transparent shadow-xs">
-            <CardHeader className="flex flex-col justify-between gap-3 border-b border-border/60 px-4 py-3.5 sm:flex-row sm:items-center">
+        <Card className="min-w-0 gap-0 overflow-hidden p-0 border border-border/80 bg-card">
+            <CardHeader className="flex flex-col justify-between gap-3 border-b border-border/60 px-4 py-3 sm:flex-row sm:items-center">
                 <div className="flex min-w-0 items-center gap-2.5">
-                    <div className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-muted/40 text-foreground">
+                    <div className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border/80 bg-secondary text-foreground">
                         <Database className="size-3.5" strokeWidth={1.75} />
                     </div>
                     <div className="min-w-0">
-                        <CardTitle className="text-sm font-semibold tracking-tight text-foreground">Usage by model</CardTitle>
+                        <CardTitle className="text-xs font-bold tracking-tight text-foreground uppercase">Usage By Model</CardTitle>
                         <CardDescription className="text-[11px] text-muted-foreground">
-                            Exact token usage and estimated spend for every model.
+                            Exact token usage and estimated spend for every model
                         </CardDescription>
                     </div>
                 </div>
@@ -317,7 +317,7 @@ export function UsageByModelTable({ models }: UsageByModelTableProps) {
                         placeholder="Search models…"
                         value={searchModel}
                         onChange={(event) => setSearchModel(event.target.value)}
-                        className="h-8 pl-8 pr-7 font-mono text-xs bg-muted/20 border-border/60 focus-visible:ring-1"
+                        className="h-8 pl-8 pr-7 font-mono text-xs bg-secondary/30 border-border/70 focus-visible:ring-1"
                     />
                     {searchModel && (
                         <button

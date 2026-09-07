@@ -35,10 +35,15 @@ export function ModelSelector({
     onScopeChange,
     selected_models,
     onToggleModel,
-    isOpen
+    isOpen,
+    isPickerOpen: externalPickerOpen,
+    onPickerOpenChange
 }: ModelSelectorProps) {
     const [model_search, setModelSearch] = useState("");
-    const [is_picker_open, setIsPickerOpen] = useState(false);
+    const [internalPickerOpen, setInternalPickerOpen] = useState(false);
+
+    const is_picker_open = externalPickerOpen !== undefined ? externalPickerOpen : internalPickerOpen;
+    const setIsPickerOpen = onPickerOpenChange || setInternalPickerOpen;
 
     const { data: model_data, isPending } = useQuery({
         queryKey: ["models"],
@@ -83,7 +88,7 @@ export function ModelSelector({
                 ) : null}
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {SCOPE_OPTIONS.map(({ value, title, desc }) => (
                     <button
                         key={value}
@@ -99,20 +104,20 @@ export function ModelSelector({
                                 </span>
                             ) : null}
                         </div>
-                        <span className="block text-[10px] font-normal opacity-70">{desc}</span>
+                        <span className="block text-[10px] font-normal opacity-70 mt-0.5">{desc}</span>
                     </button>
                 ))}
             </div>
 
             {scope === "restricted" ? (
-                <div className="flex items-center justify-between gap-2 rounded-md border border-border/70 bg-background/50 p-2.5 text-xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-md border border-border/70 bg-background/50 p-2.5 text-xs">
                     <div className="min-w-0">
                         <div className="font-mono text-xs text-foreground font-medium truncate">
                             {selected_models.length > 0
                                 ? `${selected_models.length} model${selected_models.length === 1 ? "" : "s"} whitelisted`
                                 : "No models selected (unrestricted)"}
                         </div>
-                        <div className="text-[10px] text-muted-foreground font-mono">
+                        <div className="text-[10px] text-muted-foreground font-mono mt-0.5">
                             {selected_models.length > 0
                                 ? "Downstream calls limited to this pool"
                                 : "Click choose models to restrict access"}
@@ -123,110 +128,113 @@ export function ModelSelector({
                         variant="outline"
                         size="sm"
                         onClick={() => setIsPickerOpen(true)}
-                        className="h-7.5 px-3 text-[11px] font-mono shrink-0 cursor-pointer shadow-2xs"
+                        className="h-7.5 px-3 text-[11px] font-mono shrink-0 cursor-pointer shadow-2xs w-full sm:w-auto"
                     >
                         Choose Models
                     </Button>
                 </div>
             ) : null}
 
-            <Dialog open={is_picker_open} onOpenChange={setIsPickerOpen}>
-                <DialogContent className="sm:max-w-md bg-card border-border p-4 sm:p-6 max-h-[calc(100dvh-2.5rem)] flex flex-col">
-                    <DialogHeader className="space-y-1 text-left shrink-0">
-                        <div className="flex items-center gap-2">
-                            <div className="flex size-7 items-center justify-center rounded-md bg-secondary text-foreground">
-                                <Cpu className="size-3.5" />
+            {/* Standalone fallback dialog only if NOT controlled by split card parent */}
+            {externalPickerOpen === undefined && is_picker_open ? (
+                <Dialog open={is_picker_open} onOpenChange={setIsPickerOpen}>
+                    <DialogContent className="sm:max-w-md bg-card border-border p-4 sm:p-6 max-h-[calc(100dvh-2.5rem)] flex flex-col font-mono">
+                        <DialogHeader className="space-y-1 text-left shrink-0">
+                            <div className="flex items-center gap-2">
+                                <div className="flex size-7 items-center justify-center rounded-md bg-secondary text-foreground">
+                                    <Cpu className="size-3.5" />
+                                </div>
+                                <DialogTitle className="text-base font-semibold text-foreground">
+                                    Select Allowed Models
+                                </DialogTitle>
                             </div>
-                            <DialogTitle className="text-base font-semibold text-foreground">
-                                Select Allowed Models
-                            </DialogTitle>
-                        </div>
-                        <DialogDescription className="text-xs text-muted-foreground leading-relaxed">
-                            Restrict this API key to specific models. If none selected, the key will allow all models.
-                        </DialogDescription>
-                    </DialogHeader>
+                            <DialogDescription className="text-xs text-muted-foreground leading-relaxed">
+                                Restrict this API key to specific models. If none selected, the key will allow all models.
+                            </DialogDescription>
+                        </DialogHeader>
 
-                    <div className="space-y-3 pt-2 flex-1 min-h-0 flex flex-col">
-                        <div className="relative shrink-0">
-                            <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
-                            <Input
-                                type="text"
-                                value={model_search}
-                                onChange={(e) => setModelSearch(e.target.value)}
-                                placeholder="Search models…"
-                                className="h-8.5 pl-8 pr-7 font-mono text-xs rounded-md bg-background"
-                                autoFocus
-                            />
-                            {model_search ? (
-                                <button
-                                    type="button"
-                                    onClick={() => setModelSearch("")}
-                                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xs p-0.5 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                                    aria-label="Clear search"
-                                >
-                                    <X className="size-3" />
-                                </button>
-                            ) : null}
+                        <div className="space-y-3 pt-2 flex-1 min-h-0 flex flex-col">
+                            <div className="relative shrink-0">
+                                <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+                                <Input
+                                    type="text"
+                                    value={model_search}
+                                    onChange={(e) => setModelSearch(e.target.value)}
+                                    placeholder="Search models…"
+                                    className="h-8.5 pl-8 pr-7 font-mono text-xs rounded-md bg-background"
+                                    autoFocus
+                                />
+                                {model_search ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => setModelSearch("")}
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xs p-0.5 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                                        aria-label="Clear search"
+                                    >
+                                        <X className="size-3" />
+                                    </button>
+                                ) : null}
+                            </div>
+
+                            <div className="flex-1 overflow-y-auto min-h-0 rounded-md border border-border/70 divide-y divide-border/40">
+                                {isPending ? (
+                                    <p className="py-8 text-center font-mono text-xs text-muted-foreground">
+                                        Loading models…
+                                    </p>
+                                ) : filteredModels.length === 0 ? (
+                                    <p className="py-8 text-center font-mono text-xs text-muted-foreground">
+                                        No models matched your search.
+                                    </p>
+                                ) : (
+                                    <ul className="divide-y divide-border/40">
+                                        {filteredModels.map((model) => {
+                                            const isSelected = selected_models.includes(model.id);
+                                            return (
+                                                <li key={model.id}>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => onToggleModel(model.id)}
+                                                        className={cn(
+                                                            "flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left font-mono text-xs transition-colors cursor-pointer",
+                                                            isSelected
+                                                                ? "bg-primary/10 text-foreground font-medium"
+                                                                : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
+                                                        )}
+                                                    >
+                                                        <span className="truncate">{model.id}</span>
+                                                        {isSelected ? (
+                                                            <Check className="size-3.5 shrink-0 text-primary" />
+                                                        ) : null}
+                                                    </button>
+                                                </li>
+                                            );
+                                        })}
+                                    </ul>
+                                )}
+                            </div>
+
+                            <div className="flex items-center justify-between text-[11px] text-muted-foreground font-mono shrink-0">
+                                <span>{selected_models.length} model(s) selected</span>
+                                {model_search ? (
+                                    <span>{filteredModels.length} shown</span>
+                                ) : (
+                                    <span>{models.length} total</span>
+                                )}
+                            </div>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto min-h-0 rounded-md border border-border/70 divide-y divide-border/40">
-                            {isPending ? (
-                                <p className="py-8 text-center font-mono text-xs text-muted-foreground">
-                                    Loading models…
-                                </p>
-                            ) : filteredModels.length === 0 ? (
-                                <p className="py-8 text-center font-mono text-xs text-muted-foreground">
-                                    No models matched your search.
-                                </p>
-                            ) : (
-                                <ul className="divide-y divide-border/40">
-                                    {filteredModels.map((model) => {
-                                        const isSelected = selected_models.includes(model.id);
-                                        return (
-                                            <li key={model.id}>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => onToggleModel(model.id)}
-                                                    className={cn(
-                                                        "flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left font-mono text-xs transition-colors cursor-pointer",
-                                                        isSelected
-                                                            ? "bg-primary/10 text-foreground font-medium"
-                                                            : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
-                                                    )}
-                                                >
-                                                    <span className="truncate">{model.id}</span>
-                                                    {isSelected ? (
-                                                        <Check className="size-3.5 shrink-0 text-primary" />
-                                                    ) : null}
-                                                </button>
-                                            </li>
-                                        );
-                                    })}
-                                </ul>
-                            )}
-                        </div>
-
-                        <div className="flex items-center justify-between text-[11px] text-muted-foreground font-mono shrink-0">
-                            <span>{selected_models.length} model(s) selected</span>
-                            {model_search ? (
-                                <span>{filteredModels.length} shown</span>
-                            ) : (
-                                <span>{models.length} total</span>
-                            )}
-                        </div>
-                    </div>
-
-                    <DialogFooter className="pt-3 border-t border-border/60 shrink-0 mt-2">
-                        <Button
-                            type="button"
-                            onClick={() => setIsPickerOpen(false)}
-                            className="h-8.5 text-xs font-semibold cursor-pointer w-full sm:w-auto"
-                        >
-                            Done
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+                        <DialogFooter className="pt-3 border-t border-border/60 shrink-0 mt-2">
+                            <Button
+                                type="button"
+                                onClick={() => setIsPickerOpen(false)}
+                                className="h-8.5 text-xs font-semibold cursor-pointer w-full sm:w-auto"
+                            >
+                                Done
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+            ) : null}
         </div>
     );
 }

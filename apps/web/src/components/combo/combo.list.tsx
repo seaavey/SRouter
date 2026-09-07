@@ -69,21 +69,30 @@ function StatusFilterTabs({
     ];
 
     return (
-        <div className="flex items-center gap-1 border-l border-border/60 pl-2">
+        <div className="flex items-center gap-1">
             {tabs.map((t) => (
                 <button
                     key={t.key}
                     type="button"
                     onClick={() => onChange(t.key)}
                     className={cn(
-                        "rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors cursor-pointer",
-                        value === t.key && t.key === "active" && "bg-emerald-500/20 text-emerald-500 font-bold",
-                        value === t.key && t.key === "disabled" && "bg-secondary text-foreground font-bold",
-                        value === t.key && t.key === "all" && "bg-foreground text-background",
-                        value !== t.key && "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
+                        "rounded px-2.5 py-1 text-[11px] font-mono transition-colors cursor-pointer flex items-center gap-1.5",
+                        value === t.key
+                            ? "bg-foreground text-background font-semibold"
+                            : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
                     )}
                 >
-                    {t.label} ({t.count})
+                    <span>{t.label}</span>
+                    <span
+                        className={cn(
+                            "rounded px-1 py-0.2 text-[9px] tabular-nums font-semibold",
+                            value === t.key
+                                ? "bg-background/20 text-background"
+                                : "bg-secondary text-muted-foreground"
+                        )}
+                    >
+                        {t.count}
+                    </span>
                 </button>
             ))}
         </div>
@@ -98,14 +107,14 @@ function ViewModeToggle({
     onChange: (m: "grouped" | "flat") => void;
 }) {
     return (
-        <div className="flex items-center rounded-lg border border-border/70 bg-secondary/30 p-0.5 text-[10px] font-semibold">
+        <div className="flex items-center rounded border border-border/80 bg-card p-0.5 text-[10.5px] font-mono shadow-2xs">
             <button
                 type="button"
                 onClick={() => onChange("grouped")}
                 className={cn(
-                    "px-2 py-1 rounded-md transition-all cursor-pointer",
+                    "px-2.5 py-0.5 rounded-xs transition-colors cursor-pointer",
                     mode === "grouped"
-                        ? "bg-background text-foreground shadow-2xs font-bold"
+                        ? "bg-foreground text-background font-semibold"
                         : "text-muted-foreground hover:text-foreground"
                 )}
             >
@@ -115,9 +124,9 @@ function ViewModeToggle({
                 type="button"
                 onClick={() => onChange("flat")}
                 className={cn(
-                    "px-2 py-1 rounded-md transition-all cursor-pointer",
+                    "px-2.5 py-0.5 rounded-xs transition-colors cursor-pointer",
                     mode === "flat"
-                        ? "bg-background text-foreground shadow-2xs font-bold"
+                        ? "bg-foreground text-background font-semibold"
                         : "text-muted-foreground hover:text-foreground"
                 )}
             >
@@ -175,43 +184,47 @@ function PipelineStep({
     const { hasVision, hasThinking } = getModelCapabilities(rule.targetModel, displayName);
 
     return (
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
             <div
                 className={cn(
-                    "flex items-center gap-2 rounded-xl border p-2.5 transition-all",
+                    "flex items-center gap-2 rounded-md border p-2 text-xs font-mono transition-colors",
                     rule.enabled
-                        ? "border-border/80 bg-secondary/30 text-foreground"
-                        : "border-border/40 bg-secondary/10 text-muted-foreground opacity-60"
+                        ? "border-border/80 bg-card text-foreground shadow-2xs"
+                        : "border-border/40 bg-secondary/30 text-muted-foreground opacity-60"
                 )}
             >
                 <span
                     className={cn(
-                        "flex size-5 items-center justify-center rounded-full text-[10px] font-bold",
+                        "flex size-4.5 items-center justify-center rounded text-[10px] font-bold border",
                         index === 0
-                            ? "bg-orange-500/20 text-orange-400 border border-orange-500/30"
-                            : "bg-secondary text-muted-foreground border border-border/60"
+                            ? "bg-secondary text-foreground border-border/80"
+                            : "bg-secondary/60 text-muted-foreground border-border/60"
                     )}
                 >
                     {index + 1}
                 </span>
 
-                <ProviderIcon providerId={targetProviderId} className="size-4" />
+                <ProviderIcon providerId={targetProviderId} className="size-3.5" />
 
-                <div className="flex flex-col text-left pr-1">
+                <div className="flex flex-col text-left pr-1 min-w-0">
                     <div className="flex items-center gap-1.5">
-                        <span className="text-xs font-bold text-foreground">{displayName}</span>
-                        {hasVision && <Eye className="size-3 text-sky-400" />}
-                        {hasThinking && <Brain className="size-3 text-amber-400" />}
+                        <span className="text-xs font-semibold text-foreground truncate max-w-[160px]">
+                            {displayName}
+                        </span>
+                        {hasVision && <Eye className="size-3 text-muted-foreground/80 shrink-0" />}
+                        {hasThinking && <Brain className="size-3 text-muted-foreground/80 shrink-0" />}
                     </div>
-                    <span className="text-[10px] text-muted-foreground font-mono">{rule.targetModel}</span>
+                    <span className="text-[10px] text-muted-foreground truncate max-w-[160px]">
+                        {rule.targetModel}
+                    </span>
                 </div>
 
-                <div className="flex items-center gap-1 pl-1 border-l border-border/50">
+                <div className="flex items-center pl-1 border-l border-border/60">
                     <button
                         type="button"
                         disabled={deletingId === rule.id}
                         onClick={() => onDelete(rule.id)}
-                        className="p-1 text-muted-foreground hover:text-rose-500 cursor-pointer"
+                        className="p-1 text-muted-foreground hover:text-destructive cursor-pointer rounded transition-colors"
                         title="Remove step"
                     >
                         <Trash2 className="size-3" />
@@ -220,9 +233,8 @@ function PipelineStep({
             </div>
 
             {index < total - 1 && (
-                <div className="flex flex-col items-center justify-center text-muted-foreground">
-                    <ArrowRight className="size-4 text-orange-400/80" />
-                    <span className="text-[9px] font-mono text-muted-foreground">on 429/5xx</span>
+                <div className="flex items-center px-1 text-muted-foreground/60">
+                    <ArrowRight className="size-3.5" />
                 </div>
             )}
         </div>
@@ -251,11 +263,10 @@ function ComboCardHeader({
     onDeleteGroup: () => void;
 }) {
     return (
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 px-4 py-3 border-b border-border/60 bg-secondary/20">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 px-4 py-2.5 border-b border-border/80 bg-secondary/30">
             <div className="flex items-center gap-2.5 flex-wrap">
                 <div className="flex items-center gap-1.5">
-                    <Layers className="size-4 text-orange-500" />
-                    <span className="font-bold text-xs text-foreground font-mono bg-secondary/80 border border-border/80 px-2 py-0.5 rounded-md">
+                    <span className="font-semibold text-xs text-foreground font-mono bg-card border border-border/80 px-2 py-0.5 rounded">
                         {group.sourceModel}
                     </span>
                 </div>
@@ -267,24 +278,24 @@ function ComboCardHeader({
                     title="Copy combo model ID"
                 >
                     {copied === group.sourceModel ? (
-                        <Check className="size-3 text-emerald-400" />
+                        <Check className="size-3 text-emerald-500" />
                     ) : (
                         <Copy className="size-3" />
                     )}
                 </button>
 
-                <span className="text-[11px] text-muted-foreground">
-                    &bull; {group.rules.length} {group.rules.length === 1 ? "step" : "steps"} in cascade
+                <span className="text-[11px] text-muted-foreground font-mono">
+                    · {group.rules.length} {group.rules.length === 1 ? "step" : "steps"}
                 </span>
 
                 {isEnabled ? (
-                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.2 rounded-full">
-                        <CheckCircle2 className="size-3" />
+                    <span className="inline-flex items-center gap-1.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400 font-mono">
+                        <span className="size-1.5 rounded-full bg-emerald-500" />
                         <span>Active</span>
                     </span>
                 ) : (
-                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-muted-foreground bg-secondary px-2 py-0.2 rounded-full">
-                        <AlertCircle className="size-3" />
+                    <span className="inline-flex items-center gap-1.5 text-[10px] text-muted-foreground font-medium font-mono">
+                        <span className="size-1.5 rounded-full bg-muted-foreground/40" />
                         <span>Paused</span>
                     </span>
                 )}
@@ -293,11 +304,10 @@ function ComboCardHeader({
             <div className="flex items-center gap-2 shrink-0">
                 {!isWildcard && (
                     <>
-
                         <button
                             type="button"
                             onClick={() => onCopyCurl(group.sourceModel)}
-                            className="inline-flex items-center gap-1 rounded-md border border-border/70 bg-secondary/40 hover:bg-secondary px-2.5 py-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground transition-all cursor-pointer shadow-2xs"
+                            className="inline-flex items-center gap-1 rounded border border-border/80 bg-card hover:bg-secondary px-2.5 py-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground transition-colors cursor-pointer shadow-2xs"
                             title="Copy cURL snippet"
                         >
                             <Terminal className="size-3" />
@@ -308,7 +318,7 @@ function ComboCardHeader({
                             <button
                                 type="button"
                                 onClick={() => onEdit(group.sourceModel, group.rules.map((r) => r.targetModel))}
-                                className="inline-flex items-center gap-1 rounded-md border border-border/70 bg-secondary/40 hover:bg-secondary px-2.5 py-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground transition-all cursor-pointer shadow-2xs"
+                                className="inline-flex items-center gap-1 rounded border border-border/80 bg-card hover:bg-secondary px-2.5 py-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground transition-colors cursor-pointer shadow-2xs"
                                 title="Edit combo models"
                             >
                                 <Pencil className="size-3" />
@@ -318,14 +328,14 @@ function ComboCardHeader({
                     </>
                 )}
 
-                <div className="flex items-center gap-1.5 pl-2 border-l border-border/60">
+                <div className="flex items-center gap-1.5 pl-2 border-l border-border/70">
                     <Switch checked={isEnabled} onCheckedChange={(val) => onToggle(val)} />
                 </div>
 
                 <button
                     type="button"
                     onClick={onDeleteGroup}
-                    className="p-1.5 text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 rounded transition-colors cursor-pointer"
+                    className="p-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded transition-colors cursor-pointer"
                     title="Delete entire combo cascade"
                 >
                     <Trash2 className="size-3.5" />
@@ -429,16 +439,8 @@ export function ComboList({
     return (
         <section className="space-y-4 font-mono text-left">
             {/* Toolbar */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-card p-3 rounded-xl border border-border/80 shadow-2xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-card p-2.5 rounded-lg border border-border/80 shadow-2xs">
                 <div className="flex items-center gap-2 flex-wrap">
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-foreground mr-1">
-                        <Layers className="size-3.5 text-muted-foreground" />
-                        <span>Configured Cascades</span>
-                        <span className="ml-1 rounded-full bg-secondary px-2 py-0.5 text-[10px] font-bold">
-                            {viewMode === "grouped" ? groupedCombos.length : fallbacks.length}
-                        </span>
-                    </div>
-
                     <StatusFilterTabs
                         value={statusFilter}
                         onChange={setStatusFilter}
@@ -456,8 +458,8 @@ export function ComboList({
                         <Input
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            placeholder="Search combos..."
-                            className="h-8 pl-8 text-xs font-mono bg-background"
+                            placeholder="Filter combos & models…"
+                            className="h-8 pl-8 text-xs font-mono bg-card border-border/80 rounded"
                         />
                     </div>
                 </div>
@@ -476,7 +478,7 @@ export function ComboList({
                             <EmptyTitle>No combos found matching &ldquo;{search}&rdquo;</EmptyTitle>
                         </Empty>
                 ) : (
-                    <div className="space-y-3.5">
+                    <div className="space-y-3">
                         {filteredGroups.map((group) => {
                             const isEnabled = group.anyEnabled;
                             const isWildcard = group.sourceModel === "*" || group.sourceModel.endsWith("/*");
@@ -485,9 +487,9 @@ export function ComboList({
                                 <div
                                     key={group.sourceModel}
                                     className={cn(
-                                        "rounded-xl border transition-all overflow-hidden",
+                                        "rounded-lg border transition-all overflow-hidden font-mono",
                                         isEnabled
-                                            ? "border-border/80 bg-card shadow-2xs hover:border-border"
+                                            ? "border-border/80 bg-card shadow-2xs hover:border-foreground/20"
                                             : "border-border/50 bg-secondary/15 opacity-75"
                                     )}
                                 >
@@ -503,8 +505,8 @@ export function ComboList({
                                         onDeleteGroup={() => setPendingDelete(group)}
                                     />
 
-                                    <div className="p-4 overflow-x-auto">
-                                        <div className="flex items-center gap-2.5 min-w-max">
+                                    <div className="p-3.5 overflow-x-auto">
+                                        <div className="flex items-center gap-2 min-w-max">
                                             {group.rules.map((rule, idx) => (
                                                 <PipelineStep
                                                     key={rule.id}
@@ -523,51 +525,48 @@ export function ComboList({
                     </div>
                 )
             ) : (
-                <div className="space-y-2.5">
+                <div className="space-y-2">
                     {filteredFlat.map((rule) => {
                         const isEnabled = rule.enabled;
                         return (
                             <div
                                 key={rule.id}
                                 className={cn(
-                                    "flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-xl border transition-all",
+                                    "flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 rounded-lg border transition-all font-mono",
                                     isEnabled
-                                        ? "border-border/80 bg-card shadow-2xs hover:border-border"
+                                        ? "border-border/80 bg-card shadow-2xs hover:border-foreground/20"
                                         : "border-border/50 bg-secondary/15 opacity-75"
                                 )}
                             >
-                                <div className="space-y-2 min-w-0">
+                                <div className="space-y-1.5 min-w-0">
                                     <div className="flex items-center gap-2 flex-wrap">
-                                        <span className="inline-flex items-center rounded-md bg-secondary px-2.5 py-1 text-xs font-bold text-foreground border border-border/70 shadow-2xs">
+                                        <span className="inline-flex items-center rounded bg-secondary px-2 py-0.5 text-xs font-semibold text-foreground border border-border/70">
                                             {rule.sourceModel}
                                         </span>
-                                        <ArrowRight className="size-3.5 text-muted-foreground shrink-0" />
-                                        <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-500/10 text-emerald-500 border border-emerald-500/30 px-2.5 py-1 text-xs font-bold shadow-2xs">
-                                            <Zap className="size-3" />
+                                        <ArrowRight className="size-3 text-muted-foreground shrink-0" />
+                                        <span className="inline-flex items-center gap-1.5 rounded bg-secondary/60 text-foreground border border-border/80 px-2 py-0.5 text-xs font-semibold">
+                                            <Zap className="size-3 text-muted-foreground" />
                                             {rule.targetModel}
                                         </span>
-                                        <span className="inline-flex items-center rounded-full bg-secondary/80 text-muted-foreground px-2 py-0.5 text-[10px] font-semibold border border-border/50">
+                                        <span className="inline-flex items-center rounded bg-secondary/50 text-muted-foreground px-1.5 py-0.2 text-[9.5px] font-medium border border-border/50">
                                             Priority #{rule.priority}
                                         </span>
                                         {isEnabled ? (
-                                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-500">
-                                                <CheckCircle2 className="size-3" />
+                                            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                                                <span className="size-1.5 rounded-full bg-emerald-500" />
                                                 <span>Active</span>
                                             </span>
                                         ) : (
-                                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-muted-foreground">
-                                                <AlertCircle className="size-3" />
+                                            <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground font-medium">
+                                                <span className="size-1.5 rounded-full bg-muted-foreground/40" />
                                                 <span>Paused</span>
                                             </span>
                                         )}
                                     </div>
                                 </div>
 
-                                <div className="flex items-center gap-4 self-end md:self-center shrink-0">
+                                <div className="flex items-center gap-3 self-end md:self-center shrink-0">
                                     <div className="flex items-center gap-2">
-                                        <span className="text-[11px] text-muted-foreground font-medium">
-                                            {isEnabled ? "Enabled" : "Disabled"}
-                                        </span>
                                         <Switch
                                             checked={isEnabled}
                                             onCheckedChange={(val) => onUpdate(rule.id, { enabled: val })}
@@ -579,7 +578,7 @@ export function ComboList({
                                         size="sm"
                                         disabled={deletingId === rule.id}
                                         onClick={() => onDelete(rule.id)}
-                                        className="h-8 w-8 p-0 text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 cursor-pointer"
+                                        className="size-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 cursor-pointer rounded"
                                         title="Delete rule"
                                     >
                                         <Trash2 className="size-3.5" />

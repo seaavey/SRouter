@@ -1,16 +1,8 @@
 import { Link } from "@tanstack/react-router";
-import { ArrowUpRight, CheckCircle2, Cpu, Layers } from "lucide-react";
+import { ArrowUpRight, Layers } from "lucide-react";
 import type { ProviderDefinition } from "@srouter/types";
 import { ProviderIcon } from "@/components/providers";
 import { getConnectedCount } from "@/utils/provider.utils";
-import { CATEGORY_LABELS } from "@srouter/constants";
-
-const protocolLabels: Record<string, string> = {
-    openai: "OpenAI v1",
-    anthropic: "Anthropic v1",
-    gemini: "Gemini v1",
-    custom: "Custom"
-};
 
 export function ProviderCard({ provider }: { provider: ProviderDefinition }) {
     const connectedCount = getConnectedCount(provider);
@@ -21,44 +13,43 @@ export function ProviderCard({ provider }: { provider: ProviderDefinition }) {
         <Link
             to="/providers/$providerId"
             params={{ providerId: provider.id }}
-            className="group relative flex flex-col justify-between rounded-xl border border-border/80 bg-card/60 p-4 transition-all duration-200 hover:border-foreground/30 hover:bg-card hover:shadow-xs active:scale-[0.99] font-mono cursor-pointer"
+            className="group relative flex flex-col justify-between rounded-lg border border-border/80 bg-card p-4 transition-all duration-150 hover:border-foreground/30 hover:bg-card/80 active:scale-[0.99] font-mono cursor-pointer shadow-2xs"
         >
             {/* Top: Icon + Name & Status */}
             <div>
                 <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
                         {/* Machine-bezel Icon Box */}
-                        <div className="relative flex size-10 shrink-0 items-center justify-center rounded-lg border border-border/80 bg-secondary/60 p-2 shadow-2xs group-hover:border-border transition-colors">
-                            <ProviderIcon providerId={provider.id} className="size-5.5" />
+                        <div className="relative flex size-9 shrink-0 items-center justify-center rounded-md border border-border/80 bg-secondary/40 p-1.5 shadow-2xs group-hover:border-foreground/20 transition-colors">
+                            <ProviderIcon providerId={provider.id} className="size-5" />
                         </div>
                         <div className="min-w-0">
-                            <h3 className="truncate text-xs font-bold text-foreground group-hover:text-foreground">
+                            <h3 className="truncate text-xs font-semibold text-foreground">
                                 {provider.name}
                             </h3>
                             <div className="flex items-center gap-1.5 mt-0.5">
-                                <span className="text-[10px] text-muted-foreground/80 font-medium">
+                                <span className="text-[10px] text-muted-foreground font-mono">
                                     {provider.id}
                                 </span>
                             </div>
                         </div>
                     </div>
 
-                    {/* Status Pill */}
-                    {isConnected ? (
-                        <div className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[9.5px] font-semibold text-emerald-600 dark:text-emerald-400">
-                            <span className="relative flex size-1.5">
-                                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                                <span className="relative inline-flex size-1.5 rounded-full bg-emerald-500" />
+                    {/* Status Dot / Clean Status Indicator (Anti-slop) */}
+                    <div className="shrink-0 flex items-center">
+                        {isConnected ? (
+                            <span className="inline-flex items-center gap-1.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                                <span className="size-1.5 rounded-full bg-emerald-500" />
+                                <span>{connectedCount} live</span>
                             </span>
-                            <span>{connectedCount} live</span>
-                        </div>
-                    ) : (
-                        <div className="shrink-0 rounded-full border border-border/60 bg-secondary/50 px-2 py-0.5 text-[9.5px] text-muted-foreground font-medium">
-                            Ready
-                        </div>
-                    )}
+                        ) : (
+                            <span className="inline-flex items-center gap-1.5 text-[10px] text-muted-foreground font-medium">
+                                <span className="size-1.5 rounded-full bg-muted-foreground/40" />
+                                <span>Ready</span>
+                            </span>
+                        )}
+                    </div>
                 </div>
-
             </div>
 
             {/* Bottom: Action & Model Telemetry */}
@@ -78,12 +69,10 @@ export function ProviderCard({ provider }: { provider: ProviderDefinition }) {
                     )}
                 </div>
 
-                {/* Button-in-Button Action */}
-                <div className="inline-flex items-center gap-1 text-[11px] font-bold text-foreground group-hover:text-foreground">
+                {/* Subtle Text Action */}
+                <div className="inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground group-hover:text-foreground transition-colors">
                     <span>{isConnected ? "Configure" : "Connect"}</span>
-                    <div className="flex size-5 items-center justify-center rounded-full bg-secondary text-muted-foreground transition-all duration-200 group-hover:bg-foreground group-hover:text-background group-hover:translate-x-0.5 group-hover:-translate-y-0.5">
-                        <ArrowUpRight className="size-3 stroke-[2.2]" />
-                    </div>
+                    <ArrowUpRight className="size-3.5 stroke-[2] transition-transform duration-150 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
                 </div>
             </div>
         </Link>

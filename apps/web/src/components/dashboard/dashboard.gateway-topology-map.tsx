@@ -68,55 +68,55 @@ function CentralCoreHubNode({ data, selected }: NodeProps<Node<CoreNodeData, "ce
 
     return (
         <div
-            className={`group relative rounded-2xl border bg-card p-4 font-mono text-left w-64 shadow-md transition-all duration-300 cursor-pointer ${
+            className={`group relative rounded-lg border bg-card p-3.5 font-mono text-left w-60 shadow-xs transition-colors cursor-pointer ${
                 selected
-                    ? "border-foreground ring-2 ring-foreground/20"
+                    ? "border-foreground ring-1 ring-foreground/20"
                     : hasActiveTraffic
-                      ? "border-emerald-500/80 shadow-[0_0_24px_rgba(16,185,129,0.25)] ring-1 ring-emerald-500/40"
-                      : "border-border/90 hover:border-foreground/40"
+                      ? "border-emerald-500/80 ring-1 ring-emerald-500/30"
+                      : "border-border/80 hover:border-foreground/30"
             }`}
         >
             <Handle
                 type="source"
                 position={Position.Top}
                 id="core-out-top"
-                className="!bg-foreground !w-2.5 !h-2.5 !border-2 !border-card"
+                className="!bg-foreground !w-2 !h-2 !border-2 !border-card"
             />
             <Handle
                 type="source"
                 position={Position.Right}
                 id="core-out-right"
-                className="!bg-foreground !w-2.5 !h-2.5 !border-2 !border-card"
+                className="!bg-foreground !w-2 !h-2 !border-2 !border-card"
             />
             <Handle
                 type="source"
                 position={Position.Bottom}
                 id="core-out-bottom"
-                className="!bg-foreground !w-2.5 !h-2.5 !border-2 !border-card"
+                className="!bg-foreground !w-2 !h-2 !border-2 !border-card"
             />
             <Handle
                 type="source"
                 position={Position.Left}
                 id="core-out-left"
-                className="!bg-foreground !w-2.5 !h-2.5 !border-2 !border-card"
+                className="!bg-foreground !w-2 !h-2 !border-2 !border-card"
             />
 
-            <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-border/60">
-                <div className="flex items-center gap-2.5 min-w-0">
+            <div className="flex items-center justify-between gap-2 pb-2 border-b border-border/60">
+                <div className="flex items-center gap-2 min-w-0">
                     <div
-                        className={`flex size-7 shrink-0 items-center justify-center rounded-lg border transition-colors shadow-2xs ${
+                        className={`flex size-6 shrink-0 items-center justify-center rounded border transition-colors ${
                             hasActiveTraffic
                                 ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-500"
                                 : "border-border/80 bg-secondary text-foreground"
                         }`}
                     >
                         <Zap
-                            className={`size-3.5 ${hasActiveTraffic ? "animate-pulse" : ""}`}
+                            className="size-3"
                             strokeWidth={2}
                         />
                     </div>
                     <div className="min-w-0">
-                        <span className="block text-[9px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                        <span className="block text-[8.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                             Central Hub
                         </span>
                         <h3 className="text-xs font-bold text-foreground truncate">
@@ -127,23 +127,23 @@ function CentralCoreHubNode({ data, selected }: NodeProps<Node<CoreNodeData, "ce
                 <span
                     className={`rounded border px-1.5 py-0.5 text-[8.5px] font-mono font-bold transition-colors ${
                         hasActiveTraffic
-                            ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-500"
-                            : "border-border/70 bg-secondary/80 text-foreground"
+                            ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-500"
+                            : "border-border/70 bg-secondary text-foreground"
                     }`}
                 >
                     {hasActiveTraffic ? "DISPATCHING" : "GATEWAY"}
                 </span>
             </div>
 
-            <div className="mt-3 space-y-1.5 text-[10px]">
-                <div className="flex items-center justify-between rounded-md bg-secondary/40 px-2 py-1">
+            <div className="mt-2.5 space-y-1.5 text-[10px]">
+                <div className="flex items-center justify-between rounded bg-secondary/40 px-2 py-1">
                     <span className="text-muted-foreground">Circuit Breaker</span>
                     <span className="flex items-center gap-1 font-semibold text-emerald-500">
                         <span className="size-1.5 rounded-full bg-emerald-500" />
                         Nominal
                     </span>
                 </div>
-                <div className="flex items-center justify-between rounded-md bg-secondary/40 px-2 py-1">
+                <div className="flex items-center justify-between rounded bg-secondary/40 px-2 py-1">
                     <span className="text-muted-foreground">Token Saver</span>
                     <span
                         className={`font-semibold ${
@@ -163,14 +163,14 @@ function OrbitProviderNode({ data, selected }: NodeProps<Node<ProviderNodeData, 
 
     return (
         <div
-            className={`group relative rounded-xl border bg-card p-2.5 font-mono text-left w-44 shadow-2xs transition-all duration-300 cursor-pointer ${
+            className={`group relative rounded-md border bg-card p-2 font-mono text-left w-40 shadow-2xs transition-colors cursor-pointer ${
                 selected
-                    ? "border-foreground ring-2 ring-foreground/20"
+                    ? "border-foreground ring-1 ring-foreground/20"
                     : isReceivingRequest
-                      ? "border-emerald-500 bg-card shadow-[0_0_20px_rgba(16,185,129,0.4)] ring-2 ring-emerald-500/50"
+                      ? "border-emerald-500 ring-1 ring-emerald-500/40"
                       : isOnline
-                        ? "border-border/90 hover:border-foreground/40"
-                        : "border-border/50 opacity-70 hover:opacity-100"
+                        ? "border-border/80 hover:border-foreground/30"
+                        : "border-border/40 opacity-70 hover:opacity-100"
             }`}
         >
             <Handle
@@ -184,27 +184,27 @@ function OrbitProviderNode({ data, selected }: NodeProps<Node<ProviderNodeData, 
             <div className="flex items-center justify-between gap-1.5">
                 <div className="flex items-center gap-2 min-w-0">
                     <div
-                        className={`flex size-7 shrink-0 items-center justify-center rounded-lg border p-1 transition-colors ${
+                        className={`flex size-6 shrink-0 items-center justify-center rounded border p-1 transition-colors ${
                             isReceivingRequest
                                 ? "border-emerald-500/50 bg-emerald-500/10"
                                 : "border-border/80 bg-secondary/50"
                         }`}
                     >
-                        <ProviderIcon providerId={id} className="size-4" />
+                        <ProviderIcon providerId={id} className="size-3.5" />
                     </div>
                     <div className="min-w-0">
-                        <span className="block text-[11.5px] font-bold text-foreground truncate">
+                        <span className="block text-[11px] font-bold text-foreground truncate">
                             {name}
                         </span>
-                        <span className="block text-[9px] text-muted-foreground uppercase truncate">
+                        <span className="block text-[8.5px] text-muted-foreground uppercase truncate">
                             {id}
                         </span>
                     </div>
                 </div>
 
                 {isReceivingRequest && (
-                    <span className="rounded px-1.5 py-0.5 text-[8px] font-mono font-bold flex items-center gap-1 bg-emerald-500 text-black shadow-[0_0_8px_rgba(16,185,129,0.6)]">
-                        <span className="size-1.5 rounded-full bg-black animate-ping" />
+                    <span className="rounded px-1 py-0.5 text-[8px] font-mono font-bold flex items-center gap-1 bg-emerald-500 text-black">
+                        <span className="size-1 rounded-full bg-black" />
                         {lastLatency !== null ? `${lastLatency}ms` : "ACTIVE"}
                     </span>
                 )}
@@ -236,20 +236,20 @@ function NodeDetailInspector({
     return (
         <aside
             aria-label="Node Inspector"
-            className="absolute right-3 top-3 bottom-3 z-30 w-80 max-w-[calc(100%-1.5rem)] rounded-xl border border-border/90 bg-card p-4 font-mono shadow-lg flex flex-col justify-between overflow-hidden"
+            className="absolute right-3 top-3 bottom-3 z-30 w-80 max-w-[calc(100%-1.5rem)] rounded-lg border border-border/80 bg-card p-4 font-mono shadow-md flex flex-col justify-between overflow-hidden"
         >
             <div>
                 <div className="flex items-center justify-between pb-3 border-b border-border/60">
                     <div className="flex items-center gap-2">
-                        <span className="size-2 rounded-full bg-emerald-500" />
-                        <h3 className="text-xs font-semibold uppercase tracking-[0.12em] text-foreground">
+                        <span className="size-1.5 rounded-full bg-emerald-500" />
+                        <h3 className="text-xs font-bold uppercase tracking-[0.12em] text-foreground">
                             Node Telemetry
                         </h3>
                     </div>
                     <button
                         type="button"
                         onClick={onClose}
-                        className="rounded-md p-1 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors cursor-pointer"
+                        className="rounded p-1 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors cursor-pointer"
                         title="Close Inspector"
                     >
                         <X className="size-3.5" />
@@ -269,7 +269,7 @@ function NodeDetailInspector({
                                 High-speed proxy middleware hub dispatching requests directly to surrounding upstream providers.
                             </p>
 
-                            <div className="space-y-1.5 rounded-lg border border-border/60 bg-secondary/30 p-2.5 text-[10.5px]">
+                            <div className="space-y-1.5 rounded border border-border/70 bg-secondary/30 p-2.5 text-[10.5px]">
                                 <div className="flex justify-between">
                                     <span className="text-muted-foreground">Base Gateway URL:</span>
                                     <code className="text-foreground font-bold text-[10px] truncate max-w-[120px]">
@@ -310,7 +310,7 @@ function NodeDetailInspector({
                                     <button
                                         type="button"
                                         onClick={() => onTriggerTestRequest(selectedNode.data.id)}
-                                        className="inline-flex items-center gap-1 rounded border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[9px] font-bold text-emerald-500 hover:bg-emerald-500/20 transition-colors cursor-pointer"
+                                        className="inline-flex items-center gap-1 rounded border border-border/80 bg-secondary px-2 py-0.5 text-[9px] font-bold text-foreground hover:bg-muted transition-colors cursor-pointer"
                                         title="Simulate 5-Second Request Glow"
                                     >
                                         <Play className="size-2.5" />
@@ -322,7 +322,7 @@ function NodeDetailInspector({
                                 Upstream inference endpoint orbiting the central gateway core.
                             </p>
 
-                            <div className="space-y-1.5 rounded-lg border border-border/60 bg-secondary/30 p-2.5 text-[10.5px]">
+                            <div className="space-y-1.5 rounded border border-border/70 bg-secondary/30 p-2.5 text-[10.5px]">
                                 <div className="flex justify-between">
                                     <span className="text-muted-foreground">Status:</span>
                                     <span className="font-bold text-foreground capitalize">
@@ -351,7 +351,7 @@ function NodeDetailInspector({
                 {selectedNode.type === "core" ? (
                     <Link
                         to="/settings"
-                        className="flex w-full items-center justify-center gap-1.5 rounded-md border border-border/80 bg-secondary/50 px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-secondary transition-colors"
+                        className="flex w-full items-center justify-center gap-1.5 rounded border border-border/80 bg-secondary px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted transition-colors"
                     >
                         <span>Configure Settings</span>
                         <ExternalLink className="size-3 text-muted-foreground" />
@@ -360,7 +360,7 @@ function NodeDetailInspector({
                     <Link
                         to="/providers/$providerId"
                         params={{ providerId: selectedNode.data.id }}
-                        className="flex w-full items-center justify-center gap-1.5 rounded-md border border-border/80 bg-secondary/50 px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-secondary transition-colors"
+                        className="flex w-full items-center justify-center gap-1.5 rounded border border-border/80 bg-secondary px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted transition-colors"
                     >
                         <span>Provider Settings</span>
                         <ExternalLink className="size-3 text-muted-foreground" />
@@ -476,28 +476,28 @@ function ProviderMatrixView({
                             key={p.id}
                             to="/providers/$providerId"
                             params={{ providerId: p.id }}
-                            className={`group flex flex-col justify-between rounded-lg border bg-card p-3 transition-all cursor-pointer ${
+                            className={`group flex flex-col justify-between rounded-md border bg-card p-3 transition-colors cursor-pointer ${
                                 isReceiving
-                                    ? "border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.3)] ring-1 ring-emerald-500"
+                                    ? "border-emerald-500 ring-1 ring-emerald-500/40"
                                     : "border-border/70 hover:border-foreground/30"
                             }`}
                         >
                             <div className="flex items-center justify-between gap-2">
                                 <div className="flex items-center gap-2 min-w-0">
-                                    <div className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border/80 bg-secondary/50 p-1">
-                                        <ProviderIcon providerId={p.id} className="size-4" />
+                                    <div className="flex size-6 shrink-0 items-center justify-center rounded border border-border/80 bg-secondary/50 p-1">
+                                        <ProviderIcon providerId={p.id} className="size-3.5" />
                                     </div>
                                     <div className="min-w-0">
                                         <h4 className="text-xs font-bold text-foreground truncate">
                                             {p.name}
                                         </h4>
-                                        <span className="text-[9px] text-muted-foreground uppercase">
+                                        <span className="text-[8.5px] text-muted-foreground uppercase">
                                             {p.id}
                                         </span>
                                     </div>
                                 </div>
                                 {isReceiving && (
-                                    <span className="rounded px-1.5 py-0.2 text-[8px] font-mono font-bold bg-emerald-500 text-black shadow-[0_0_6px_rgba(16,185,129,0.5)]">
+                                    <span className="rounded px-1.5 py-0.2 text-[8px] font-mono font-bold bg-emerald-500 text-black">
                                         ACTIVE
                                     </span>
                                 )}
@@ -721,16 +721,16 @@ function GatewayTopologyCanvas() {
                 sourceHandle: sourceHandleId,
                 target: nodeId,
                 type: "smoothstep",
-                animated: isReceivingRequest || isOnline,
+                animated: isReceivingRequest,
                 style: {
                     stroke: isReceivingRequest
                         ? "var(--color-emerald-500, #10b981)"
                         : isOnline
-                          ? "oklch(0.55 0 0)"
-                          : "oklch(0.35 0 0)",
-                    strokeWidth: isReceivingRequest ? 2.5 : 1.5,
-                    strokeDasharray: isReceivingRequest ? "6 3" : undefined,
-                    opacity: isReceivingRequest ? 1 : isOnline ? 0.9 : 0.4
+                          ? "var(--border)"
+                          : "var(--muted)",
+                    strokeWidth: isReceivingRequest ? 2 : 1,
+                    strokeDasharray: isReceivingRequest ? "4 3" : undefined,
+                    opacity: isReceivingRequest ? 1 : isOnline ? 0.8 : 0.35
                 }
             });
         });
@@ -753,38 +753,38 @@ function GatewayTopologyCanvas() {
     return (
         <section
             aria-label="Gateway Architecture Topology"
-            className="rounded-xl border border-border/70 bg-transparent p-4 sm:p-5 font-mono shadow-xs relative"
+            className="rounded-lg border border-border/80 bg-card p-4 sm:p-5 font-mono relative"
         >
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/60 pb-4 mb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/60 pb-3 mb-4">
                 <div className="flex items-center gap-2.5">
-                    <div className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-muted/40 text-foreground">
+                    <div className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border/80 bg-secondary text-foreground">
                         <Orbit className="size-3.5" strokeWidth={1.75} />
                     </div>
                     <div>
                         <div className="flex items-center gap-2">
-                            <h2 className="text-sm font-semibold tracking-tight text-foreground">
-                                Mesh routing topology
+                            <h2 className="text-xs font-bold tracking-tight text-foreground uppercase">
+                                Mesh Routing Topology
                             </h2>
                             {hasAnyActiveTraffic && (
-                                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[9px] font-mono text-emerald-500 font-semibold">
-                                    <span className="size-1.5 rounded-full bg-emerald-500 animate-ping" />
-                                    ROUTING TRAFFIC
+                                <span className="flex items-center gap-1 text-[10px] font-mono text-emerald-500 font-semibold">
+                                    <span className="size-1.5 rounded-full bg-emerald-500" />
+                                    Routing Traffic
                                 </span>
                             )}
                         </div>
                         <p className="text-[11px] text-muted-foreground mt-0.5">
-                            Hub-and-spoke radial constellation of SRouter Core dispatching directly to all connected providers.
+                            Hub-and-spoke radial constellation of SRouter Core dispatching directly to all connected providers
                         </p>
                     </div>
                 </div>
 
-                <div className="flex items-center gap-1 rounded-lg border border-border/60 bg-muted/30 p-1">
+                <div className="flex items-center gap-1 rounded-md border border-border/80 bg-secondary/30 p-1">
                     <button
                         type="button"
                         onClick={() => setViewMode("graph")}
-                        className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-medium transition-all cursor-pointer ${
+                        className={`flex items-center gap-1.5 rounded px-2.5 py-1 text-[11px] font-medium transition-colors cursor-pointer ${
                             viewMode === "graph"
-                                ? "bg-background text-foreground shadow-xs"
+                                ? "bg-background text-foreground shadow-2xs"
                                 : "text-muted-foreground hover:text-foreground"
                         }`}
                     >
@@ -794,9 +794,9 @@ function GatewayTopologyCanvas() {
                     <button
                         type="button"
                         onClick={() => setViewMode("matrix")}
-                        className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-medium transition-all cursor-pointer ${
+                        className={`flex items-center gap-1.5 rounded px-2.5 py-1 text-[11px] font-medium transition-colors cursor-pointer ${
                             viewMode === "matrix"
-                                ? "bg-background text-foreground shadow-xs"
+                                ? "bg-background text-foreground shadow-2xs"
                                 : "text-muted-foreground hover:text-foreground"
                         }`}
                     >
@@ -807,7 +807,7 @@ function GatewayTopologyCanvas() {
             </div>
 
             {viewMode === "graph" ? (
-                <div className="h-[500px] w-full rounded-lg border border-border/60 bg-background/50 overflow-hidden relative">
+                <div className="h-[480px] w-full rounded-md border border-border/70 bg-background overflow-hidden relative">
                     <ReactFlow
                         nodes={nodes}
                         edges={edges}

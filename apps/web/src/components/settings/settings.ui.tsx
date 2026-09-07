@@ -20,28 +20,28 @@ export function SettingsSection({
     return (
         <section
             id={id}
-            className="rounded-2xl border border-border/80 bg-card p-5 sm:p-6 shadow-2xs transition-all scroll-mt-20"
+            className="rounded-lg border border-border/80 bg-card p-4 sm:p-5 shadow-2xs transition-all scroll-mt-20 font-mono"
         >
-            <div className="flex items-start justify-between gap-4 border-b border-border/60 pb-4 mb-2">
-                <div className="flex items-start gap-3.5">
+            <div className="flex items-start justify-between gap-4 border-b border-border/80 pb-3.5 mb-2">
+                <div className="flex items-start gap-3">
                     {Icon && (
-                        <div className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-border/70 bg-secondary/50 text-foreground shadow-2xs mt-0.5">
-                            <Icon className="size-4" />
+                        <div className="flex size-7.5 shrink-0 items-center justify-center rounded border border-border/80 bg-secondary/60 text-foreground shadow-2xs mt-0.5">
+                            <Icon className="size-3.5" />
                         </div>
                     )}
                     <div>
-                        <div className="flex items-center gap-2.5 flex-wrap">
+                        <div className="flex items-center gap-2 flex-wrap">
                             <h2 className="text-sm font-bold tracking-tight text-foreground">
                                 {title}
                             </h2>
                             {tag && (
-                                <span className="rounded-md border border-border/70 bg-secondary/40 px-1.5 py-0.5 font-mono text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">
+                                <span className="rounded border border-border/70 bg-secondary/50 px-1.5 py-0.2 font-mono text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">
                                     {tag}
                                 </span>
                             )}
                         </div>
                         {description && (
-                            <p className="mt-1 text-xs leading-relaxed text-muted-foreground max-w-2xl">
+                            <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground max-w-2xl">
                                 {description}
                             </p>
                         )}
@@ -68,7 +68,7 @@ export function SettingsRow({
     return (
         <div
             className={[
-                "flex flex-col gap-2 py-3.5 sm:flex-row sm:items-center sm:justify-between",
+                "flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between font-mono",
                 className ?? ""
             ].join(" ")}
         >
@@ -102,7 +102,7 @@ export function SegmentedControl<T extends string | number | boolean>({
         <div
             role="tablist"
             className={[
-                "inline-flex items-center gap-1 rounded-md border border-border/70 bg-secondary/30 p-0.5",
+                "inline-flex items-center gap-1 rounded border border-border/80 bg-card p-0.5 shadow-2xs font-mono",
                 className ?? ""
             ].join(" ")}
         >
@@ -117,11 +117,11 @@ export function SegmentedControl<T extends string | number | boolean>({
                         disabled={disabled}
                         onClick={() => onChange(option.value)}
                         className={[
-                            "rounded px-2.5 py-1 text-[11px] font-medium transition-all",
-                            "disabled:pointer-events-none disabled:opacity-50",
+                            "rounded px-2.5 py-1 text-[11px] font-mono transition-colors cursor-pointer",
                             isActive
                                 ? "bg-foreground text-background font-semibold"
-                                : "text-muted-foreground hover:text-foreground"
+                                : "text-muted-foreground hover:text-foreground hover:bg-secondary/60",
+                            disabled ? "opacity-50 cursor-not-allowed" : ""
                         ].join(" ")}
                     >
                         {option.label}
@@ -134,7 +134,7 @@ export function SegmentedControl<T extends string | number | boolean>({
 
 export function ValueBadge({ children }: { children: React.ReactNode }) {
     return (
-        <span className="inline-flex items-center rounded-md border border-border/70 bg-background px-2 py-0.5 font-mono text-[11px] font-bold tabular-nums text-foreground">
+        <span className="inline-flex items-center rounded border border-border/80 bg-secondary/60 px-2 py-0.5 font-mono text-[11px] font-semibold text-foreground tabular-nums">
             {children}
         </span>
     );

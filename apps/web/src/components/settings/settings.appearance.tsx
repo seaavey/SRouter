@@ -25,15 +25,16 @@ export function AppearanceSettings({
         >
             <SettingsRow
                 title="Color Theme"
+                description="Select interface color scheme or synchronize with operating system."
                 control={
-                    <div className="flex gap-1.5">
+                    <div className="flex gap-1.5 font-mono">
                         <button
                             type="button"
                             onClick={(e) => theme !== "dark" && toggleTheme(e)}
-                            className={`flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-[11px] font-medium cursor-pointer transition-all ${
+                            className={`flex items-center gap-1.5 rounded border px-2.5 py-1 text-[11px] font-medium cursor-pointer transition-colors ${
                                 theme === "dark"
-                                    ? "border-foreground bg-foreground text-background"
-                                    : "border-border/70 text-muted-foreground hover:text-foreground"
+                                    ? "border-foreground bg-foreground text-background font-semibold"
+                                    : "border-border/80 bg-card text-muted-foreground hover:text-foreground"
                             }`}
                         >
                             <Moon className="size-3" />
@@ -43,10 +44,10 @@ export function AppearanceSettings({
                         <button
                             type="button"
                             onClick={(e) => theme !== "light" && toggleTheme(e)}
-                            className={`flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-[11px] font-medium cursor-pointer transition-all ${
+                            className={`flex items-center gap-1.5 rounded border px-2.5 py-1 text-[11px] font-medium cursor-pointer transition-colors ${
                                 theme === "light"
-                                    ? "border-foreground bg-foreground text-background"
-                                    : "border-border/70 text-muted-foreground hover:text-foreground"
+                                    ? "border-foreground bg-foreground text-background font-semibold"
+                                    : "border-border/80 bg-card text-muted-foreground hover:text-foreground"
                             }`}
                         >
                             <Sun className="size-3" />
@@ -58,6 +59,7 @@ export function AppearanceSettings({
             />
             <SettingsRow
                 title="Table Density"
+                description="Set default row height and padding density in log and model tables."
                 control={
                     <SegmentedControl
                         options={[

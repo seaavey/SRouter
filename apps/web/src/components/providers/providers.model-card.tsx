@@ -15,10 +15,10 @@ export function ProviderModelCard({ model, copied, onCopy, onDelete }: ProviderM
 
     return (
         <div
-            className={`group flex flex-col justify-between gap-3 rounded-[12px] border bg-[var(--surface)] p-3.5 transition-all duration-150 shadow-2xs font-mono ${
+            className={`group flex flex-col justify-between gap-3 rounded-lg border bg-card p-3.5 transition-all duration-150 shadow-2xs font-mono ${
                 isFav
-                    ? "border-amber-500/40 bg-amber-500/5 hover:border-amber-500/70"
-                    : "border-[var(--line)] hover:border-[var(--line-strong)]"
+                    ? "border-amber-500/40 bg-amber-500/5 hover:border-amber-500/60"
+                    : "border-border/80 hover:border-foreground/20"
             }`}
         >
             {/* Header: Star + Icon + Model ID + Actions */}
@@ -27,10 +27,10 @@ export function ProviderModelCard({ model, copied, onCopy, onDelete }: ProviderM
                     <button
                         type="button"
                         onClick={() => toggleFavorite(model.id)}
-                        className={`p-1 rounded-[4px] transition-all cursor-pointer shrink-0 ${
+                        className={`p-1 rounded transition-colors cursor-pointer shrink-0 ${
                             isFav
                                 ? "text-amber-500 hover:text-amber-400 bg-amber-500/10"
-                                : "text-[var(--ink-3)] hover:text-amber-500 opacity-40 group-hover:opacity-100 hover:bg-[var(--field)]"
+                                : "text-muted-foreground hover:text-amber-500 opacity-40 group-hover:opacity-100 hover:bg-secondary"
                         }`}
                         title={
                             isFav
@@ -46,13 +46,13 @@ export function ProviderModelCard({ model, copied, onCopy, onDelete }: ProviderM
                         />
                     </button>
 
-                    <div className="flex size-6 shrink-0 items-center justify-center rounded-[4px] bg-[var(--field)] text-[var(--ink-2)]">
+                    <div className="flex size-6 shrink-0 items-center justify-center rounded bg-secondary text-muted-foreground">
                         <Bot className="size-3.5" />
                     </div>
 
                     <span
-                        className={`text-xs font-bold truncate block flex-1 ${
-                            isFav ? "text-amber-500 dark:text-amber-400" : "text-[var(--ink)]"
+                        className={`text-xs font-semibold truncate block flex-1 ${
+                            isFav ? "text-foreground font-bold" : "text-foreground"
                         }`}
                         title={model.id}
                     >
@@ -64,7 +64,7 @@ export function ProviderModelCard({ model, copied, onCopy, onDelete }: ProviderM
                     <button
                         type="button"
                         onClick={() => onCopy(model.id)}
-                        className="text-[var(--ink-3)] hover:text-[var(--ink)] p-1 rounded hover:bg-[var(--field)] transition-colors cursor-pointer"
+                        className="text-muted-foreground hover:text-foreground p-1 rounded hover:bg-secondary transition-colors cursor-pointer"
                         title="Copy Model ID"
                     >
                         {copied ? (
@@ -77,7 +77,7 @@ export function ProviderModelCard({ model, copied, onCopy, onDelete }: ProviderM
                         <button
                             type="button"
                             onClick={() => onDelete(model.id)}
-                            className="text-[var(--ink-3)] hover:text-rose-500 hover:bg-rose-500/10 p-1 rounded transition-colors cursor-pointer"
+                            className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 p-1 rounded transition-colors cursor-pointer"
                             title="Hide model"
                         >
                             <Trash2 className="size-3" />
@@ -87,20 +87,15 @@ export function ProviderModelCard({ model, copied, onCopy, onDelete }: ProviderM
             </div>
 
             {/* Footer */}
-            <div className="pt-2.5 border-t border-[var(--line)] flex items-center justify-between text-[10.5px]">
+            <div className="pt-2.5 border-t border-border/60 flex items-center justify-between text-[10.5px]">
                 <div className="flex items-center gap-2">
-                    <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold">
-                        <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium">
+                        <span className="size-1.5 rounded-full bg-emerald-500" />
                         <span>Active</span>
                     </span>
                     {isFav && (
-                        <span className="inline-flex items-center gap-0.5 rounded-[4px] bg-amber-500/10 px-1.5 py-0.2 text-[9.5px] font-bold text-amber-500 border border-amber-500/20">
+                        <span className="inline-flex items-center gap-0.5 rounded border border-border/80 bg-secondary/60 px-1.5 py-0.2 text-[9.5px] font-semibold text-foreground">
                             ★ Pinned
-                        </span>
-                    )}
-                    {model.custom && (
-                        <span className="inline-flex items-center gap-0.5 rounded-[4px] bg-sky-500/10 px-1.5 py-0.2 text-[9.5px] font-bold text-sky-600 dark:text-sky-400 border border-sky-500/20">
-                            Custom
                         </span>
                     )}
                 </div>

@@ -99,11 +99,14 @@ export function CatalogToolbar({
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                     {summaryItems.map((item) => {
                         const Icon = summaryIcons[item.label as keyof typeof summaryIcons] ?? Boxes;
-                        const isOnline = item.label === "Connected" && parseInt(item.value, 10) > 0;
+                        const isConnectedCategory = item.label === "Connected";
+                        const connectedCount = parseInt(item.value, 10) || 0;
+                        const hasConnections = isConnectedCategory && connectedCount > 0;
+
                         return (
                             <div
                                 key={item.label}
-                                className="relative flex flex-col justify-between rounded-xl border border-border/80 bg-card/60 p-3.5 shadow-2xs hover:border-foreground/20 transition-colors"
+                                className="relative flex flex-col justify-between rounded-lg border border-border/80 bg-card p-3.5 transition-colors shadow-2xs hover:border-foreground/20"
                             >
                                 <div className="flex items-center justify-between text-muted-foreground">
                                     <span className="text-[10px] font-semibold uppercase tracking-[0.14em]">
@@ -112,14 +115,17 @@ export function CatalogToolbar({
                                     <Icon className="size-3.5 text-muted-foreground/70" />
                                 </div>
                                 <div className="mt-2.5 flex items-baseline gap-2">
-                                    <span className="text-2xl font-bold tracking-tight text-foreground">
+                                    <span className="text-2xl font-bold tracking-tight text-foreground tabular-nums">
                                         {item.value}
                                     </span>
-                                    {isOnline && (
-                                        <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+                                    {hasConnections && (
+                                        <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                                            <span className="size-1.5 rounded-full bg-emerald-500" />
+                                            Active
+                                        </span>
                                     )}
                                 </div>
-                                <p className="mt-1 text-[10.5px] text-muted-foreground truncate">
+                                <p className="mt-1 text-[11px] text-muted-foreground truncate">
                                     {item.detail}
                                 </p>
                             </div>
@@ -129,12 +135,12 @@ export function CatalogToolbar({
             )}
 
             {/* Controls Bar: Filter Tabs, Search & View Toggle */}
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between border-y border-border/70 py-3 bg-secondary/15 px-3 rounded-lg">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between border border-border/80 p-2.5 bg-card/50 rounded-lg">
                 {/* Category Filter Tabs */}
                 <div
                     role="tablist"
                     aria-label="Filter providers by category"
-                    className="flex flex-wrap items-center gap-1.5"
+                    className="flex flex-wrap items-center gap-1"
                 >
                     {filterOptions.map((option) => {
                         const isActive = filter === option.value;
@@ -145,10 +151,10 @@ export function CatalogToolbar({
                                 role="tab"
                                 aria-selected={isActive}
                                 onClick={() => onFilterChange(option.value)}
-                                className={`rounded-md px-2.5 py-1 text-[11px] font-mono transition-all cursor-pointer flex items-center gap-1.5 ${
+                                className={`rounded-md px-2.5 py-1 text-[11px] font-mono transition-colors cursor-pointer flex items-center gap-1.5 ${
                                     isActive
-                                        ? "bg-foreground text-background font-bold shadow-xs"
-                                        : "text-muted-foreground hover:text-foreground hover:bg-secondary/70"
+                                        ? "bg-foreground text-background font-semibold"
+                                        : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
                                 }`}
                             >
                                 <span>{option.label}</span>
@@ -167,7 +173,7 @@ export function CatalogToolbar({
                 </div>
 
                 {/* Search & View Mode Switcher */}
-                <div className="flex items-center gap-2.5">
+                <div className="flex items-center gap-2">
                     <div className="relative w-full sm:w-64">
                         <Search
                             className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
@@ -177,7 +183,7 @@ export function CatalogToolbar({
                             type="text"
                             value={search}
                             onChange={(e) => onSearchChange(e.target.value)}
-                            placeholder="Filter drivers & protocols…"
+                            placeholder="Search providers & models…"
                             className="h-8 pl-8 pr-7 font-mono text-xs rounded-md bg-card border-border/80"
                         />
                         {search && (
@@ -199,7 +205,7 @@ export function CatalogToolbar({
                             onClick={() => onViewModeChange("grid")}
                             className={`flex size-7 items-center justify-center rounded-xs transition-colors cursor-pointer ${
                                 viewMode === "grid"
-                                    ? "bg-foreground text-background font-semibold shadow-xs"
+                                    ? "bg-foreground text-background font-semibold"
                                     : "text-muted-foreground hover:text-foreground"
                             }`}
                             title="Grid view"
@@ -212,7 +218,7 @@ export function CatalogToolbar({
                             onClick={() => onViewModeChange("list")}
                             className={`flex size-7 items-center justify-center rounded-xs transition-colors cursor-pointer ${
                                 viewMode === "list"
-                                    ? "bg-foreground text-background font-semibold shadow-xs"
+                                    ? "bg-foreground text-background font-semibold"
                                     : "text-muted-foreground hover:text-foreground"
                             }`}
                             title="List view"

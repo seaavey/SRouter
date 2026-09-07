@@ -86,11 +86,11 @@ export function Catalog({ groups, search, viewMode = "grid" }: CatalogProps) {
                     className="rounded-xl border border-border/70 bg-card overflow-hidden shadow-xs"
                 >
                     {/* Category Header */}
-                    <header className="flex items-center justify-between gap-4 border-b border-border/60 bg-secondary/30 px-4 py-2.5">
+                    <header className="flex items-center justify-between gap-4 border-b border-border/80 bg-card/60 px-4 py-2.5">
                         <div className="flex items-center gap-2">
                             <h2
                                 id={`category-list-${group.category}`}
-                                className="text-xs font-bold text-foreground font-mono"
+                                className="text-xs font-bold text-foreground font-mono uppercase tracking-wider"
                             >
                                 {CATEGORY_LABELS[group.category as keyof typeof CATEGORY_LABELS] ??
                                     group.category}
@@ -108,7 +108,7 @@ export function Catalog({ groups, search, viewMode = "grid" }: CatalogProps) {
                     </header>
 
                     {/* Provider Rows */}
-                    <div className="p-1.5 divide-y divide-border/40">
+                    <div className="p-1 divide-y divide-border/40">
                         {group.providers.map((provider) => (
                             <ProviderRow key={provider.id} provider={provider} />
                         ))}

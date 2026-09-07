@@ -140,16 +140,16 @@ export function CustomProviderDialog({ open, onOpenChange }: CustomProviderDialo
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-md w-full p-5 space-y-4 shadow-xl font-mono">
-                <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
-                    <h2 className="font-bold text-sm text-[var(--ink)] flex items-center gap-1.5">
-                        <Globe className="size-3.5 text-orange-500" />
+            <DialogContent className="sm:max-w-md w-full p-5 space-y-4 shadow-xl font-mono bg-card border border-border/80 rounded-lg">
+                <div className="flex items-center justify-between border-b border-border/80 pb-3">
+                    <h2 className="font-bold text-sm text-foreground flex items-center gap-1.5">
+                        <Globe className="size-3.5 text-muted-foreground" />
                         <span>Add Custom Provider</span>
                     </h2>
                     <button
                         type="button"
                         onClick={() => onOpenChange(false)}
-                        className="text-[var(--ink-3)] hover:text-[var(--ink)] p-1 rounded hover:bg-[var(--field)] transition-colors cursor-pointer"
+                        className="text-muted-foreground hover:text-foreground p-1 rounded hover:bg-secondary transition-colors cursor-pointer"
                     >
                         <X className="size-4" />
                     </button>
@@ -157,21 +157,21 @@ export function CustomProviderDialog({ open, onOpenChange }: CustomProviderDialo
 
                 <DialogHeader className="p-0 space-y-1">
                     <DialogTitle className="sr-only">Add Custom Provider</DialogTitle>
-                    <DialogDescription className="text-xs text-[var(--ink-3)]">
+                    <DialogDescription className="text-xs text-muted-foreground">
                         Register any OpenAI- or Anthropic-compatible endpoint as a new provider
                         driver. Verify the connection before saving.
                     </DialogDescription>
                 </DialogHeader>
 
                 {formError && (
-                    <div className="rounded-[8px] border border-rose-500/40 bg-rose-500/10 p-2.5 text-xs text-rose-500">
+                    <div className="rounded border border-destructive/40 bg-destructive/10 p-2.5 text-xs text-destructive">
                         {formError}
                     </div>
                 )}
 
                 <form onSubmit={handleSubmit} className="space-y-4 text-xs">
                     <div className="space-y-1.5">
-                        <label htmlFor="cp-name" className="font-medium text-[var(--ink)] block">
+                        <label htmlFor="cp-name" className="font-medium text-foreground block">
                             Provider Name *
                         </label>
                         <input
@@ -185,12 +185,12 @@ export function CustomProviderDialog({ open, onOpenChange }: CustomProviderDialo
                             }}
                             autoFocus
                             required
-                            className="w-full rounded-[8px] border border-[var(--line)] bg-[var(--field)] px-3 py-2 text-xs text-[var(--ink)] placeholder:text-[var(--ink-3)] focus:outline-none focus:ring-1 focus:ring-[var(--ink)]"
+                            className="w-full rounded border border-border/80 bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-foreground"
                         />
                     </div>
 
                     <div className="space-y-1.5">
-                        <label htmlFor="cp-alias" className="font-medium text-[var(--ink)] block">
+                        <label htmlFor="cp-alias" className="font-medium text-foreground block">
                             Alias (model prefix) *
                         </label>
                         <input
@@ -202,16 +202,16 @@ export function CustomProviderDialog({ open, onOpenChange }: CustomProviderDialo
                                 setAlias(e.target.value);
                                 if (formError) setFormError("");
                             }}
-                            className="w-full rounded-[8px] border border-[var(--line)] bg-[var(--field)] px-3 py-2 text-xs text-[var(--ink)] placeholder:text-[var(--ink-3)] focus:outline-none focus:ring-1 focus:ring-[var(--ink)]"
+                            className="w-full rounded border border-border/80 bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-foreground"
                         />
-                        <p className="text-[10px] text-[var(--ink-3)]">
-                            Short prefix for model IDs (e.g. <code className="text-[var(--ink)]">mygateway/gpt-4</code>).
+                        <p className="text-[10px] text-muted-foreground">
+                            Short prefix for model IDs (e.g. <code className="text-foreground">mygateway/gpt-4</code>).
                             1-32 chars, lowercase, numbers, hyphens, underscores.
                         </p>
                     </div>
 
                     <div className="space-y-1.5">
-                        <span className="font-medium text-[var(--ink)] block">Protocol *</span>
+                        <span className="font-medium text-foreground block">Protocol *</span>
                         <div className="flex gap-1.5">
                             {PROTOCOLS.map((p) => (
                                 <button
@@ -221,10 +221,10 @@ export function CustomProviderDialog({ open, onOpenChange }: CustomProviderDialo
                                         setProtocol(p.value);
                                         if (verifyStatus !== "idle") setVerifyStatus("idle");
                                     }}
-                                    className={`rounded-[6px] border px-3 py-1.5 font-semibold transition-colors cursor-pointer ${
+                                    className={`rounded border px-3 py-1.5 font-semibold transition-colors cursor-pointer text-xs ${
                                         protocol === p.value
-                                            ? "border-orange-500 bg-orange-500/10 text-orange-500"
-                                            : "border-[var(--line)] text-[var(--ink-3)] hover:text-[var(--ink)]"
+                                            ? "border-foreground bg-foreground text-background"
+                                            : "border-border/80 text-muted-foreground hover:text-foreground bg-card"
                                     }`}
                                 >
                                     {p.label}
@@ -234,7 +234,7 @@ export function CustomProviderDialog({ open, onOpenChange }: CustomProviderDialo
                     </div>
 
                     <div className="space-y-1.5">
-                        <label htmlFor="cp-base-url" className="font-medium text-[var(--ink)] block">
+                        <label htmlFor="cp-base-url" className="font-medium text-foreground block">
                             Base URL *
                         </label>
                         <input
@@ -248,12 +248,12 @@ export function CustomProviderDialog({ open, onOpenChange }: CustomProviderDialo
                                 if (verifyStatus !== "idle") setVerifyStatus("idle");
                             }}
                             required
-                            className="w-full rounded-[8px] border border-[var(--line)] bg-[var(--field)] px-3 py-2 text-xs text-[var(--ink)] placeholder:text-[var(--ink-3)] focus:outline-none focus:ring-1 focus:ring-[var(--ink)]"
+                            className="w-full rounded border border-border/80 bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-foreground"
                         />
                     </div>
 
                     <div className="space-y-1.5">
-                        <label htmlFor="cp-api-key" className="font-medium text-[var(--ink)] block">
+                        <label htmlFor="cp-api-key" className="font-medium text-foreground block">
                             API Key *
                         </label>
                         <div className="relative">
@@ -268,12 +268,12 @@ export function CustomProviderDialog({ open, onOpenChange }: CustomProviderDialo
                                     if (verifyStatus !== "idle") setVerifyStatus("idle");
                                 }}
                                 required
-                                className="w-full rounded-[8px] border border-[var(--line)] bg-[var(--field)] px-3 py-2 pr-9 text-xs text-[var(--ink)] placeholder:text-[var(--ink-3)] focus:outline-none focus:ring-1 focus:ring-[var(--ink)]"
+                                className="w-full rounded border border-border/80 bg-background px-3 py-2 pr-9 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-foreground"
                             />
                             <button
                                 type="button"
                                 onClick={() => setShowKey(!showKey)}
-                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--ink-3)] hover:text-[var(--ink)] cursor-pointer"
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
                                 tabIndex={-1}
                             >
                                 <Key className="size-3.5" />
@@ -286,7 +286,7 @@ export function CustomProviderDialog({ open, onOpenChange }: CustomProviderDialo
                             type="button"
                             onClick={() => void handleTest()}
                             disabled={verifyStatus === "testing" || saveMutation.isPending}
-                            className="inline-flex items-center gap-1.5 rounded-[6px] border border-[var(--line)] px-3 py-1.5 text-xs font-semibold text-[var(--ink)] hover:bg-[var(--field)] disabled:opacity-50 transition-colors cursor-pointer"
+                            className="inline-flex items-center gap-1.5 rounded border border-border/80 px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-secondary disabled:opacity-50 transition-colors cursor-pointer bg-card shadow-2xs"
                         >
                             {verifyStatus === "testing" ? (
                                 <>
@@ -308,11 +308,11 @@ export function CustomProviderDialog({ open, onOpenChange }: CustomProviderDialo
                         )}
                     </div>
 
-                    <div className="pt-3 border-t border-[var(--line)] flex items-center justify-end gap-2">
+                    <div className="pt-3 border-t border-border/80 flex items-center justify-end gap-2">
                         <button
                             type="button"
                             onClick={() => onOpenChange(false)}
-                            className="rounded-[6px] border border-[var(--line)] px-3 py-1.5 text-xs font-medium text-[var(--ink-3)] hover:text-[var(--ink)] transition-colors cursor-pointer"
+                            className="rounded border border-border/80 px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer bg-card"
                         >
                             Cancel
                         </button>
@@ -324,7 +324,7 @@ export function CustomProviderDialog({ open, onOpenChange }: CustomProviderDialo
                                     ? undefined
                                     : "Test the connection successfully before saving"
                             }
-                            className="rounded-[6px] bg-orange-500 hover:bg-orange-600 text-white px-4 py-1.5 text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer shadow-xs"
+                            className="rounded bg-foreground hover:bg-foreground/90 text-background px-4 py-1.5 text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer shadow-2xs"
                         >
                             {saveMutation.isPending ? "Saving…" : "Add Provider"}
                         </button>

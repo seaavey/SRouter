@@ -313,7 +313,7 @@ export function TunnelModal({
                             </div>
                         ) : (
                             <p className="font-mono text-[9px] leading-relaxed text-muted-foreground/70">
-                                Tunnel is starting — the assigned URL will appear shortly.
+                                Tunnel is starting: the assigned URL will appear shortly.
                             </p>
                         )}
                         <Button
@@ -323,7 +323,7 @@ export function TunnelModal({
                             disabled={locked}
                             title={
                                 connecting
-                                    ? "Tunnel is still starting — wait for the URL first"
+                                    ? "Tunnel is still starting: wait for the URL first"
                                     : undefined
                             }
                             className="h-8 w-full text-xs font-semibold cursor-pointer gap-1.5"
@@ -355,7 +355,7 @@ export function TunnelModal({
                             </Button>
                             <div className="space-y-2 rounded-lg border border-border/50 bg-secondary/30 p-3">
                                 <p className="font-mono text-[9px] leading-relaxed text-muted-foreground/70">
-                                    Optional — use a named tunnel with your own hostname. A quick
+                                    Optional: use a named tunnel with your own hostname. A quick
                                     tunnel needs no token and gives a random *.trycloudflare.com
                                     URL.
                                 </p>
@@ -379,7 +379,7 @@ export function TunnelModal({
                                         type="text"
                                         value={domain}
                                         onChange={(e) => setDomain(e.target.value)}
-                                        placeholder="router.example.com — optional"
+                                        placeholder="router.example.com (optional)"
                                         className="w-full rounded-md border border-border/50 bg-background px-2.5 py-1.5 font-mono text-[10.5px] text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring"
                                     />
                                 </div>

@@ -391,18 +391,18 @@ export function ProviderModelTable({
             )}
 
             {/* Table Container using @/components/ui/table & TanStack React Table */}
-            <div className="rounded-[10px] border border-[var(--line)] bg-[var(--surface)] shadow-2xs overflow-hidden">
+            <div className="rounded-lg border border-border/80 bg-card shadow-2xs overflow-hidden">
                 <Table>
                     <TableHeader>
                         {table.getHeaderGroups().map((headerGroup) => (
                             <TableRow
                                 key={headerGroup.id}
-                                className="border-b border-[var(--line)] bg-[var(--field)]/50 hover:bg-[var(--field)]/50"
+                                className="border-b border-border/80 bg-secondary/30 hover:bg-secondary/30"
                             >
                                 {headerGroup.headers.map((header) => (
                                     <TableHead
                                         key={header.id}
-                                        className={`py-2.5 px-4 font-mono text-[10.5px] font-bold uppercase tracking-wider text-[var(--ink-3)] ${
+                                        className={`py-2.5 px-4 font-mono text-[10.5px] font-bold uppercase tracking-wider text-muted-foreground ${
                                             header.id === "status"
                                                 ? "hidden sm:table-cell"
                                                 : header.id === "actions"
@@ -430,13 +430,13 @@ export function ProviderModelTable({
                                     className={`group transition-colors ${
                                         isSelected
                                             ? "bg-amber-500/10 hover:bg-amber-500/15 dark:bg-amber-500/15 dark:hover:bg-amber-500/20"
-                                            : "hover:bg-[var(--hover)]/30"
+                                            : "hover:bg-secondary/40"
                                     }`}
                                 >
                                     {row.getVisibleCells().map((cell) => (
                                         <TableCell
                                             key={cell.id}
-                                            className={`py-2.5 px-4 ${
+                                            className={`py-2 px-4 ${
                                                 cell.column.id === "status"
                                                     ? "hidden sm:table-cell"
                                                     : cell.column.id === "actions"
@@ -458,14 +458,14 @@ export function ProviderModelTable({
             </div>
 
             {/* Pagination Controls */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-1 text-xs text-[var(--ink-3)]">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-1 text-xs text-muted-foreground font-mono">
                 <div className="flex items-center gap-2 text-[11px]">
                     <span>Showing</span>
-                    <span className="font-semibold text-[var(--ink)]">
+                    <span className="font-semibold text-foreground">
                         {totalRows === 0 ? 0 : `${startRow}-${endRow}`}
                     </span>
                     <span>of</span>
-                    <span className="font-semibold text-[var(--ink)]">{totalRows}</span>
+                    <span className="font-semibold text-foreground">{totalRows}</span>
                     <span>models</span>
                 </div>
 
@@ -476,7 +476,7 @@ export function ProviderModelTable({
                         <select
                             value={pageSize}
                             onChange={(e) => table.setPageSize(Number(e.target.value))}
-                            className="rounded-[4px] border border-[var(--line)] bg-[var(--field)] px-2 py-0.5 text-[11px] text-[var(--ink)] focus:outline-none cursor-pointer"
+                            className="rounded border border-border/80 bg-card px-2 py-0.5 text-[11px] text-foreground focus:outline-none cursor-pointer"
                         >
                             <option value={10}>10</option>
                             <option value={25}>25</option>
@@ -491,19 +491,21 @@ export function ProviderModelTable({
                             type="button"
                             onClick={() => table.previousPage()}
                             disabled={!table.getCanPreviousPage()}
-                            className="flex size-6 items-center justify-center rounded-[4px] border border-[var(--line)] bg-[var(--field)] text-[var(--ink)] hover:bg-[var(--hover)] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                            className="flex size-6 items-center justify-center rounded border border-border/80 bg-card text-foreground hover:bg-secondary disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
                             title="Previous page"
                         >
                             <ChevronLeft className="size-3.5" />
                         </button>
-                        <span className="px-2 text-[11px] text-[var(--ink)]">
-                            {pageCount === 0 ? 1 : currentPage + 1} / {Math.max(1, pageCount)}
+                        <span className="px-2 text-[11px] text-foreground">
+                            {table.getPageCount() === 0
+                                ? 0
+                                : pagination.pageIndex + 1} / {table.getPageCount()}
                         </span>
                         <button
                             type="button"
                             onClick={() => table.nextPage()}
                             disabled={!table.getCanNextPage()}
-                            className="flex size-6 items-center justify-center rounded-[4px] border border-[var(--line)] bg-[var(--field)] text-[var(--ink)] hover:bg-[var(--hover)] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                            className="flex size-6 items-center justify-center rounded border border-border/80 bg-card text-foreground hover:bg-secondary disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
                             title="Next page"
                         >
                             <ChevronRight className="size-3.5" />

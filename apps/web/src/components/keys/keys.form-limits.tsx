@@ -50,9 +50,9 @@ const LIMIT_FIELDS: FieldConfig[] = [
 
 export function KeyLimitsFields({ form, onChange, id_prefix = "" }: KeyLimitsFieldsProps) {
     return (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {LIMIT_FIELDS.map(({ key, label, suffix, id, helper, placeholder, min, step, type }) => (
-                <div key={id} className="space-y-1">
+                <div key={id} className="space-y-1.5">
                     <Label
                         htmlFor={`${id_prefix}${id}`}
                         className="text-[11px] font-medium text-foreground flex items-center justify-between"
@@ -72,7 +72,7 @@ export function KeyLimitsFields({ form, onChange, id_prefix = "" }: KeyLimitsFie
                         placeholder={placeholder}
                         className="h-8.5 font-mono text-xs rounded-md bg-background border-input"
                     />
-                    <p className="text-[10px] text-muted-foreground font-mono truncate">{helper}</p>
+                    <p className="text-[10px] text-muted-foreground font-mono leading-tight">{helper}</p>
                 </div>
             ))}
         </div>

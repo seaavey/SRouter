@@ -23,8 +23,8 @@ export function LoggingSettings({ settings, updateSetting }: LoggingSettingsProp
             title="Logging & Privacy"
             description="Request telemetry retention, token tracking granularity, and sensitive header redaction."
         >
-            <div className="py-3">
-                <div className="flex gap-2">
+            <div className="py-2.5">
+                <div className="flex gap-1.5 font-mono">
                     {levels.map(({ id, label }) => {
                         const isActive = settings.loggingLevel === id;
                         return (
@@ -32,10 +32,10 @@ export function LoggingSettings({ settings, updateSetting }: LoggingSettingsProp
                                 key={id}
                                 type="button"
                                 onClick={() => updateSetting("loggingLevel", id)}
-                                className={`flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-[11px] font-medium cursor-pointer transition-all ${
+                                className={`flex items-center gap-1.5 rounded border px-2.5 py-1 text-[11px] font-medium cursor-pointer transition-colors ${
                                     isActive
-                                        ? "border-foreground bg-foreground text-background"
-                                        : "border-border/70 text-muted-foreground hover:text-foreground"
+                                        ? "border-foreground bg-foreground text-background font-semibold"
+                                        : "border-border/80 bg-card text-muted-foreground hover:text-foreground"
                                 }`}
                             >
                                 {label}

@@ -53,44 +53,44 @@ export function ModelUsageOverview({ models }: ModelUsageOverviewProps) {
 
     return (
         <section
-            className="flex h-full min-w-0 flex-col rounded-xl border border-border/70 bg-transparent p-4 sm:p-5 lg:p-6 shadow-xs"
+            className="flex h-full min-w-0 flex-col rounded-lg border border-border/80 bg-card p-4 sm:p-5"
             aria-labelledby="model-usage-title"
         >
             {/* Header */}
-            <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pb-4 border-b border-border/60">
+            <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pb-3 border-b border-border/60">
                 <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-muted/40 text-foreground">
+                    <div className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border/80 bg-secondary text-foreground">
                         <Cpu className="size-3.5" strokeWidth={1.75} />
                     </div>
                     <div className="min-w-0">
                         <div className="flex items-center gap-2">
                             <h2
                                 id="model-usage-title"
-                                className="text-sm font-semibold tracking-tight text-foreground whitespace-nowrap"
+                                className="text-xs font-bold tracking-tight text-foreground uppercase whitespace-nowrap"
                             >
-                                Model traffic
+                                Model Traffic
                             </h2>
                             {topModels.length > 0 && (
-                                <span className="inline-flex items-center rounded-full border border-border/60 bg-secondary/40 px-1.5 py-0.2 text-[9px] font-mono text-muted-foreground">
-                                    Top {topModels.length}
+                                <span className="text-[10px] font-mono text-muted-foreground">
+                                    (Top {topModels.length})
                                 </span>
                             )}
                         </div>
                         <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
-                            Highest token volume in the current dataset
+                            Highest token volume in the current telemetry window
                         </p>
                     </div>
                 </div>
 
                 {/* Legend */}
                 {topModels.length > 0 && (
-                    <div className="flex items-center gap-3 text-[10px] text-muted-foreground font-mono shrink-0">
+                    <div className="flex items-center gap-3 text-[10.5px] text-muted-foreground font-mono shrink-0">
                         <span className="inline-flex items-center gap-1.5">
-                            <span className="size-1.5 rounded-full bg-foreground/45 ring-1 ring-foreground/20" />
+                            <span className="size-1.5 rounded-full bg-foreground/45" />
                             Input
                         </span>
                         <span className="inline-flex items-center gap-1.5">
-                            <span className="size-1.5 rounded-full bg-foreground ring-1 ring-foreground/40" />
+                            <span className="size-1.5 rounded-full bg-foreground" />
                             Output
                         </span>
                     </div>
@@ -128,12 +128,12 @@ export function ModelUsageOverview({ models }: ModelUsageOverviewProps) {
                         return (
                             <div
                                 key={model.model}
-                                className="group relative rounded-xl border border-border/50 bg-background/50 p-3 transition-all duration-200 hover:border-border hover:bg-muted/20 hover:shadow-xs"
+                                className="group rounded-md border border-border/70 bg-secondary/20 p-3 transition-colors hover:border-foreground/20 hover:bg-secondary/40"
                             >
                                 <div className="grid min-w-0 grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2">
                                     {/* Left: Rank, Icon, Provider & Model Name */}
                                     <div className="flex min-w-0 items-center gap-2.5">
-                                        <span className="flex size-5 shrink-0 items-center justify-center rounded-md bg-muted/60 font-mono text-[10px] font-medium text-muted-foreground border border-border/40">
+                                        <span className="flex size-5 shrink-0 items-center justify-center rounded bg-secondary font-mono text-[10px] font-semibold text-muted-foreground border border-border/60">
                                             {index + 1}
                                         </span>
 
@@ -142,9 +142,9 @@ export function ModelUsageOverview({ models }: ModelUsageOverviewProps) {
                                             className="size-4 shrink-0 rounded-xs"
                                         />
 
-                                        <div className="flex min-w-0 items-center gap-1.5 font-mono text-[11.5px]">
+                                        <div className="flex min-w-0 items-center gap-1.5 font-mono text-xs">
                                             <span
-                                                className="shrink-0 text-muted-foreground/80 font-normal truncate max-w-20 sm:max-w-24"
+                                                className="shrink-0 text-muted-foreground font-normal truncate max-w-20 sm:max-w-24"
                                                 title={`Provider: ${provider}`}
                                             >
                                                 {provider}
@@ -163,7 +163,7 @@ export function ModelUsageOverview({ models }: ModelUsageOverviewProps) {
                                     <div className="flex items-center justify-between sm:justify-end gap-2.5 sm:gap-3.5 font-mono tabular-nums text-[10.5px]">
                                         {/* Requests */}
                                         <span
-                                            className="text-left sm:w-16 sm:text-right text-[10.5px] text-muted-foreground"
+                                            className="text-left sm:w-16 sm:text-right text-muted-foreground"
                                             title={`Requests: ${model.totalRequests.toLocaleString()}`}
                                         >
                                             {formatCompactNumber(model.totalRequests)}{" "}
@@ -201,7 +201,7 @@ export function ModelUsageOverview({ models }: ModelUsageOverviewProps) {
                                             className="text-right sm:w-24 flex items-center justify-end gap-1.5"
                                             title={`Total Tokens: ${totalTokens.toLocaleString()} (${sharePercent}% of top models)`}
                                         >
-                                            <span className="text-[11.5px] font-semibold text-foreground">
+                                            <span className="text-xs font-semibold text-foreground">
                                                 {formatCompactNumber(totalTokens)}
                                             </span>
                                             <span className="text-[9px] text-muted-foreground font-normal">
@@ -219,21 +219,21 @@ export function ModelUsageOverview({ models }: ModelUsageOverviewProps) {
                                             aria-valuemax={maxTokens}
                                             aria-label={`${model.model}: ${totalTokens.toLocaleString()} total tokens. ${breakdown}`}
                                             title={breakdown}
-                                            className="h-1.5 w-full rounded-full bg-muted/40 overflow-hidden ring-1 ring-border/20"
+                                            className="h-1.5 w-full rounded-full bg-secondary overflow-hidden border border-border/40"
                                         >
                                             <div
-                                                className="flex h-full transition-all duration-500 ease-out"
+                                                className="flex h-full transition-all duration-300 ease-out"
                                                 style={{ width: `${width}%` }}
                                             >
                                                 {/* Input / Prompt Segment */}
                                                 <span
-                                                    className="h-full bg-foreground/35 transition-colors group-hover:bg-foreground/50"
+                                                    className="h-full bg-foreground/40"
                                                     style={{ width: `${inputRatio}%` }}
                                                     title={`Input: ${model.totalInputTokens.toLocaleString()}`}
                                                 />
                                                 {/* Output / Completion Segment */}
                                                 <span
-                                                    className="h-full bg-foreground transition-colors group-hover:brightness-110"
+                                                    className="h-full bg-foreground"
                                                     style={{ width: `${outputRatio}%` }}
                                                     title={`Output: ${model.totalOutputTokens.toLocaleString()}`}
                                                 />

@@ -61,25 +61,27 @@ function KeysPage() {
     }
 
     return (
-        <div className="mx-auto flex w-full max-w-7xl flex-col gap-5">
+        <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 font-mono">
             <header className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end border-b border-border/80 pb-5">
                 <div className="min-w-0">
-                    <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                        Access Control
-                    </p>
-                    <h1 className="mt-1.5 text-2xl font-bold tracking-tight text-foreground">
+                    <div className="flex items-center gap-2">
+                        <span className="size-2 rounded-full bg-emerald-500 shrink-0" />
+                        <p className="text-[10.5px] font-semibold uppercase tracking-[0.16em] text-muted-foreground font-mono">
+                            Access Control
+                        </p>
+                    </div>
+                    <h1 className="mt-1.5 text-2xl font-bold tracking-tight text-foreground font-mono">
                         API Keys
                     </h1>
-                    <p className="mt-1 max-w-2xl text-xs text-muted-foreground">
-                        Virtual bearer tokens for client SDKs, downstream applications, and
-                        automated pipelines.
+                    <p className="mt-1 max-w-2xl text-xs text-muted-foreground leading-relaxed font-mono">
+                        Virtual bearer tokens for client SDKs, downstream applications, and automated pipelines.
                     </p>
                 </div>
 
                 <Button
                     type="button"
                     onClick={() => setIsCreateOpen(true)}
-                    className="h-8 gap-1.5 px-3 text-xs font-semibold cursor-pointer shrink-0 shadow-xs"
+                    className="h-8 gap-1.5 px-3 text-xs font-semibold cursor-pointer shrink-0 font-mono"
                 >
                     <Plus className="size-3.5" />
                     <span>Create Key</span>

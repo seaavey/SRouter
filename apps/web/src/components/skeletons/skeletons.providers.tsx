@@ -51,32 +51,26 @@ export function ProvidersSkeleton() {
             </div>
 
             {/* Provider Cards Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
                 {Array.from({ length: 6 }).map((_, i) => (
                     <div
                         key={i}
-                        className="flex flex-col justify-between rounded-xl border border-border/80 bg-card/60 p-4 shadow-2xs space-y-4"
+                        className="flex flex-col justify-between rounded-lg border border-border/80 bg-card p-4 shadow-2xs space-y-4"
                     >
                         <div className="flex items-start justify-between gap-3">
                             <div className="flex items-center gap-3">
-                                <Skeleton className="size-10 rounded-lg" />
+                                <Skeleton className="size-9 rounded-md" />
                                 <div className="space-y-1.5">
                                     <Skeleton className="h-4 w-28 rounded" />
                                     <Skeleton className="h-2.5 w-20 rounded" />
                                 </div>
                             </div>
-                            <Skeleton className="h-5 w-16 rounded-full" />
-                        </div>
-
-                        <div className="flex items-center gap-1.5 pt-1">
-                            <Skeleton className="h-5 w-20 rounded-md" />
-                            <Skeleton className="h-5 w-16 rounded-md" />
-                            <Skeleton className="h-5 w-16 rounded-md" />
+                            <Skeleton className="h-3 w-12 rounded" />
                         </div>
 
                         <div className="flex items-center justify-between border-t border-border/60 pt-3">
                             <Skeleton className="h-3 w-20 rounded" />
-                            <Skeleton className="h-4 w-20 rounded" />
+                            <Skeleton className="h-3.5 w-16 rounded" />
                         </div>
                     </div>
                 ))}

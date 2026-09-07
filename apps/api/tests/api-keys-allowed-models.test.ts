@@ -62,3 +62,10 @@ test("IsModelAllowed ignores srouter/ prefix when matching", async () => {
     assert.equal(IsModelAllowed(["gpt-4o"], "srouter/gpt-4o"), true);
     assert.equal(IsModelAllowed(["srouter/gpt-4o"], "gpt-4o"), true);
 });
+
+test("IsModelAllowed matches models with or without provider prefix", async () => {
+    assert.equal(IsModelAllowed(["gpt-4o"], "openai/gpt-4o"), true);
+    assert.equal(IsModelAllowed(["openai/gpt-4o"], "gpt-4o"), true);
+    assert.equal(IsModelAllowed(["claude-3-5-sonnet"], "anthropic/claude-3-5-sonnet"), true);
+    assert.equal(IsModelAllowed(["openai/gpt-4o"], "openai/gpt-4o-mini"), false);
+});

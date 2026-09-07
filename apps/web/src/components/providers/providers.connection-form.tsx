@@ -116,25 +116,18 @@ export function ConnectionForm({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-md w-full p-5 bg-[var(--surface)] border border-[var(--line)] rounded-xl space-y-4 shadow-xl font-mono">
+            <DialogContent className="sm:max-w-md w-full p-5 bg-card border border-border/80 rounded-lg space-y-4 shadow-xl font-mono">
                 {/* Header */}
-                <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
-                    <div className="flex items-center gap-2">
-                        <div className="flex items-center gap-1.5">
-                            <span className="size-2.5 rounded-full bg-rose-500/80 inline-block" />
-                            <span className="size-2.5 rounded-full bg-amber-500/80 inline-block" />
-                            <span className="size-2.5 rounded-full bg-emerald-500/80 inline-block" />
-                        </div>
-                        <h2 className="font-bold text-sm text-[var(--ink)] ml-2 flex items-center gap-1.5">
-                            <Key className="size-3.5 text-orange-500" />
-                            <span>Add API Key for {providerName}</span>
-                        </h2>
-                    </div>
+                <div className="flex items-center justify-between border-b border-border/80 pb-3">
+                    <h2 className="font-bold text-sm text-foreground flex items-center gap-1.5">
+                        <Key className="size-3.5 text-muted-foreground" />
+                        <span>Add API Key for {providerName}</span>
+                    </h2>
 
                     <button
                         type="button"
                         onClick={() => onOpenChange(false)}
-                        className="text-[var(--ink-3)] hover:text-[var(--ink)] p-1 rounded hover:bg-[var(--field)] transition-colors cursor-pointer"
+                        className="text-muted-foreground hover:text-foreground p-1 rounded hover:bg-secondary transition-colors cursor-pointer"
                     >
                         <X className="size-4" />
                     </button>
@@ -142,14 +135,13 @@ export function ConnectionForm({
 
                 <DialogHeader className="p-0 space-y-1">
                     <DialogTitle className="sr-only">Add API Key for {providerName}</DialogTitle>
-                    <DialogDescription className="text-xs text-[var(--ink-3)]">
-                        Masukkan API Key / Access Token untuk menghubungkan {providerName} ke
-                        SRouter, lalu uji koneksinya sebelum menyimpan.
+                    <DialogDescription className="text-xs text-muted-foreground">
+                        Enter credentials for {providerName} and verify the upstream connection before saving.
                     </DialogDescription>
                 </DialogHeader>
 
                 {displayError && (
-                    <div className="rounded-[8px] border border-rose-500/40 bg-rose-500/10 p-2.5 text-xs text-rose-500">
+                    <div className="rounded border border-destructive/40 bg-destructive/10 p-2.5 text-xs text-destructive">
                         {displayError}
                     </div>
                 )}
@@ -158,7 +150,7 @@ export function ConnectionForm({
                     <div className="space-y-1.5">
                         <label
                             htmlFor="conn-api-key"
-                            className="font-medium text-[var(--ink)] block"
+                            className="font-medium text-foreground block"
                         >
                             API Key / Access Token *
                         </label>
@@ -178,12 +170,12 @@ export function ConnectionForm({
                                 }}
                                 autoFocus
                                 required
-                                className="w-full rounded-[8px] border border-[var(--line)] bg-[var(--field)] px-3 py-2 pr-9 text-xs text-[var(--ink)] placeholder:text-[var(--ink-3)] focus:outline-none focus:ring-1 focus:ring-[var(--ink)]"
+                                className="w-full rounded border border-border/80 bg-background px-3 py-2 pr-9 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-foreground"
                             />
                             <button
                                 type="button"
                                 onClick={() => setShowKey(!showKey)}
-                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--ink-3)] hover:text-[var(--ink)] cursor-pointer"
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
                                 tabIndex={-1}
                             >
                                 {showKey ? (
@@ -201,7 +193,7 @@ export function ConnectionForm({
                             type="button"
                             onClick={() => void handleTest()}
                             disabled={verifyStatus === "testing" || !apiKey.trim() || isSaving}
-                            className="inline-flex items-center gap-1.5 rounded-[6px] border border-[var(--line)] px-3 py-1.5 text-xs font-semibold text-[var(--ink)] hover:bg-[var(--field)] disabled:opacity-50 transition-colors cursor-pointer"
+                            className="inline-flex items-center gap-1.5 rounded border border-border/80 px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-secondary disabled:opacity-50 transition-colors cursor-pointer bg-card shadow-2xs"
                         >
                             {verifyStatus === "testing" ? (
                                 <>
@@ -224,11 +216,11 @@ export function ConnectionForm({
                         )}
                     </div>
 
-                    <div className="pt-3 border-t border-[var(--line)] flex items-center justify-end gap-2">
+                    <div className="pt-3 border-t border-border/80 flex items-center justify-end gap-2">
                         <button
                             type="button"
                             onClick={() => onOpenChange(false)}
-                            className="rounded-[6px] border border-[var(--line)] px-3 py-1.5 text-xs font-medium text-[var(--ink-3)] hover:text-[var(--ink)] transition-colors cursor-pointer"
+                            className="rounded border border-border/80 px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer bg-card"
                         >
                             Cancel
                         </button>
@@ -240,7 +232,7 @@ export function ConnectionForm({
                                     ? undefined
                                     : "Test the API key successfully before saving"
                             }
-                            className="rounded-[6px] bg-orange-500 hover:bg-orange-600 text-white px-4 py-1.5 text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer shadow-xs"
+                            className="rounded bg-foreground hover:bg-foreground/90 text-background px-4 py-1.5 text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer shadow-2xs"
                         >
                             {isSaving ? "Saving…" : "Save API Key"}
                         </button>

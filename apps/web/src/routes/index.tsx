@@ -26,15 +26,15 @@ type StatCardProps = {
 
 function StatCard({ label, value, detail, tooltip, subValue }: StatCardProps) {
     return (
-        <article className="group relative flex flex-col justify-between overflow-hidden rounded-xl border border-border/70 bg-transparent p-4.5 transition-all duration-200 hover:border-border hover:bg-card/30 hover:shadow-xs">
+        <article className="flex flex-col justify-between rounded-lg border border-border/80 bg-card p-4 transition-colors hover:border-foreground/30">
             <div>
-                <span className="text-[11px] font-medium tracking-wider uppercase text-muted-foreground">
+                <span className="text-[10.5px] font-medium tracking-wider uppercase text-muted-foreground">
                     {label}
                 </span>
 
-                <div className="mt-3">
+                <div className="mt-2.5">
                     <div
-                        className="text-2xl font-semibold tracking-tight text-foreground cursor-default font-mono"
+                        className="text-2xl font-bold tracking-tight text-foreground cursor-default tabular-nums"
                         title={tooltip ?? value}
                     >
                         {value}
@@ -42,14 +42,14 @@ function StatCard({ label, value, detail, tooltip, subValue }: StatCardProps) {
                 </div>
 
                 {subValue && (
-                    <div className="mt-1 text-[11px] font-medium text-muted-foreground/90 font-mono">
+                    <div className="mt-1 text-[11px] font-medium text-muted-foreground tabular-nums">
                         {subValue}
                     </div>
                 )}
             </div>
 
             <p
-                className="mt-3 truncate text-[11px] text-muted-foreground border-t border-border/40 pt-2.5"
+                className="mt-3 truncate text-[11px] text-muted-foreground border-t border-border/50 pt-2.5"
                 title={detail}
             >
                 {detail}
@@ -75,8 +75,8 @@ function DashboardPage() {
         if (!stats && error) {
             return (
                 <div className="mx-auto w-full max-w-7xl font-mono">
-                    <div className="flex min-h-64 flex-col items-center justify-center rounded-xl border border-destructive/30 bg-destructive/5 px-6 text-center">
-                        <div className="flex size-10 items-center justify-center rounded-full bg-destructive/10 text-destructive mb-3.5">
+                    <div className="flex min-h-64 flex-col items-center justify-center rounded-lg border border-destructive/30 bg-destructive/5 px-6 text-center">
+                        <div className="flex size-10 items-center justify-center rounded-md bg-destructive/10 text-destructive mb-3.5">
                             <TriangleAlert className="size-5" strokeWidth={1.75} />
                         </div>
                         <h1 className="text-sm font-bold text-foreground">
@@ -107,17 +107,17 @@ function DashboardPage() {
     return (
         <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 font-mono">
             {/* Header */}
-            <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center border-b border-border/70 pb-5">
+            <header className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end border-b border-border/80 pb-5">
                 <div className="min-w-0">
-                    <div className="flex items-center gap-2.5">
-                        <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
-                            Gateway Operations
-                        </h1>
-                        <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-500 font-mono">
-                            <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                            LIVE
-                        </span>
+                    <div className="flex items-center gap-2">
+                        <span className="size-2 rounded-full bg-emerald-500 shrink-0" />
+                        <p className="text-[10.5px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                            Live Inference Telemetry
+                        </p>
                     </div>
+                    <h1 className="mt-1.5 text-2xl font-bold tracking-tight text-foreground">
+                        Gateway Operations
+                    </h1>
                     <p className="mt-1 max-w-2xl text-xs text-muted-foreground leading-relaxed">
                         Real-time inference telemetry, routed model analytics, and active provider nodes.
                     </p>
@@ -127,7 +127,7 @@ function DashboardPage() {
                         type="button"
                         variant="outline"
                         size="sm"
-                        className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-foreground border-border/70 cursor-pointer"
+                        className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-foreground border-border/80 cursor-pointer"
                         onClick={() => void refetch()}
                     >
                         <RefreshCw className="size-3" />
@@ -156,13 +156,13 @@ function DashboardPage() {
                     value={stats ? formatCompactNumber(stats.totalTokens) : "0"}
                     tooltip={
                         stats
-                            ? `${stats.totalTokens.toLocaleString()} total tokens (${stats.totalInputTokens.toLocaleString()} in · ${stats.totalOutputTokens.toLocaleString()} out)`
+                            ? `${stats.totalTokens.toLocaleString()} total tokens (${stats.totalInputTokens.toLocaleString()} in : ${stats.totalOutputTokens.toLocaleString()} out)`
                             : undefined
                     }
                     detail={
                         stats
-                            ? `${formatCompactNumber(stats.totalInputTokens)} in · ${formatCompactNumber(stats.totalOutputTokens)} out`
-                            : "0 in · 0 out"
+                            ? `${formatCompactNumber(stats.totalInputTokens)} in / ${formatCompactNumber(stats.totalOutputTokens)} out`
+                            : "0 in / 0 out"
                     }
                 />
                 <StatCard

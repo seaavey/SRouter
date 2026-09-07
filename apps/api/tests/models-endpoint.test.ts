@@ -4,6 +4,7 @@ import { Hono } from "hono";
 import type { AIProvider } from "@srouter/types";
 import { createFallbackRuleDB } from "@srouter/db";
 import { ModelsRouter } from "../src/routes/v1/models.js";
+import { ModelsController } from "../src/controllers/models.controller.js";
 import { registry } from "../src/services/registry.js";
 import { ModelsLogic } from "../src/logic/models.logic.js";
 
@@ -145,4 +146,31 @@ test("GET /v1/models exposes combo source models", async () => {
     };
 
     assert.ok(body.data.some((model) => model.id === "srouter/smart-route"));
+});
+
+test("GET /v1/models filters models according to API key allowed_models", async () => {
+    // Register another model
+    registry.registerProvider({
+        id: "another",
+        name: "Another Provider",
+        listModels: async () => [{ id: "another/llama-3", object: "model" }],
+        chatCompletion: async () => { throw new Error("not implemented"); },
+        chatCompletionStream: async function* () { throw new Error("not implemented"); }
+    });
+    ModelsLogic.ClearCache();
+
+    const testApp = new Hono();
+    testApp.use("*", async (c, next) => {
+        c.set("apiKeyRow" as never, { allowed_models: [`${mockProviderId}/gpt-5-turbo`] } as never);
+        c.set("authType" as never, "api_key" as never);
+        await next();
+    });
+    testApp.get("/v1/models", (c) => ModelsController.ListModels(c));
+
+    const res = await testApp.request("/v1/models", { method: "GET" });
+    assert.equal(res.status, 200);
+
+    const body = (await res.json()) as { data: Array<{ id: string }> };
+    assert.equal(body.data.length, 1);
+    assert.equal(body.data[0]?.id, `${mockProviderId}/gpt-5-turbo`);
 });

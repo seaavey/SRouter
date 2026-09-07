@@ -245,49 +245,54 @@ function ProviderDetailPage() {
             </div>
 
             {/* Editorial Header Section */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border/60 pb-5">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border/80 pb-5">
                 <div className="flex items-center gap-3">
                     {websiteUrl ? (
                         <a
                             href={websiteUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex size-12 shrink-0 items-center justify-center rounded-xl border border-border/70 bg-card p-2 shadow-2xs hover:border-border hover:bg-secondary/40 transition-all cursor-pointer"
+                            className="flex size-11 shrink-0 items-center justify-center rounded-lg border border-border/80 bg-secondary/40 p-2 shadow-2xs hover:border-foreground/30 hover:bg-secondary/60 transition-all cursor-pointer"
                             title={`Open ${provider.name} website (${websiteUrl})`}
                         >
-                            <ProviderIcon providerId={provider.id} className="size-7" />
+                            <ProviderIcon providerId={provider.id} className="size-6" />
                         </a>
                     ) : (
-                        <div className="flex size-12 shrink-0 items-center justify-center rounded-xl border border-border/70 bg-card p-2 shadow-2xs">
-                            <ProviderIcon providerId={provider.id} className="size-7" />
+                        <div className="flex size-11 shrink-0 items-center justify-center rounded-lg border border-border/80 bg-secondary/40 p-2 shadow-2xs">
+                            <ProviderIcon providerId={provider.id} className="size-6" />
                         </div>
                     )}
-                    <div className="space-y-1">
+                    <div className="space-y-0.5">
                         <div className="flex items-center gap-2 flex-wrap">
                             {websiteUrl ? (
                                 <a
                                     href={websiteUrl}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="group inline-flex items-center gap-1.5 text-xl font-bold tracking-tight text-foreground hover:text-amber-500 transition-colors cursor-pointer"
+                                    className="group inline-flex items-center gap-1.5 text-xl font-bold tracking-tight text-foreground hover:text-foreground/80 transition-colors cursor-pointer"
                                     title={`Visit ${provider.name} (${websiteUrl})`}
                                 >
                                     <span>{provider.name}</span>
-                                    <ExternalLink className="size-3.5 text-muted-foreground group-hover:text-amber-500 transition-colors" />
+                                    <ExternalLink className="size-3.5 text-muted-foreground group-hover:text-foreground transition-colors" />
                                 </a>
                             ) : (
                                 <h1 className="text-xl font-bold tracking-tight text-foreground">
                                     {provider.name}
                                 </h1>
                             )}
-                            {activeConnectionsCount > 0 && (
-                                <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold border border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                                    <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            {activeConnectionsCount > 0 ? (
+                                <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+                                    <span className="size-1.5 rounded-full bg-emerald-500" />
                                     <span>{activeConnectionsCount} Connected</span>
+                                </span>
+                            ) : (
+                                <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground font-medium">
+                                    <span className="size-1.5 rounded-full bg-muted-foreground/40" />
+                                    <span>Ready</span>
                                 </span>
                             )}
                         </div>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-xs text-muted-foreground font-mono">
                             Driver ID: <span className="text-foreground">{provider.id}</span> ·{" "}
                             {CATEGORY_LABELS[provider.category as keyof typeof CATEGORY_LABELS] ??
                                 provider.category}
@@ -300,7 +305,7 @@ function ProviderDetailPage() {
                         type="button"
                         variant="outline"
                         onClick={() => setIsAddModelOpen(true)}
-                        className="h-8 text-xs font-semibold cursor-pointer shadow-xs gap-1.5"
+                        className="h-8 text-xs font-semibold cursor-pointer shadow-2xs gap-1.5 border-border/80 bg-card hover:bg-secondary/60"
                     >
                         <Plus className="size-3.5" />
                         <span>Add Model</span>
@@ -308,7 +313,7 @@ function ProviderDetailPage() {
                     <Button
                         type="button"
                         onClick={handleAddConnection}
-                        className="h-8 text-xs font-semibold cursor-pointer shadow-xs gap-1.5"
+                        className="h-8 text-xs font-semibold cursor-pointer shadow-2xs gap-1.5"
                     >
                         <Plus className="size-3.5" />
                         <span>{provider.requires_oauth ? "Connect Account" : "Add Key"}</span>
@@ -316,12 +321,12 @@ function ProviderDetailPage() {
                 </div>
             </div>
 
-            {/* Risk Notice Alert Banner if OAuth */}
+            {/* Notice Alert Banner if OAuth */}
             {provider.requires_oauth && (
-                <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3.5 text-xs leading-relaxed text-amber-600 dark:text-amber-400">
-                    <AlertTriangle className="size-4 shrink-0 mt-0.5 text-amber-500" />
+                <div className="flex items-start gap-3 rounded-lg border border-border/80 bg-card p-3.5 text-xs leading-relaxed text-muted-foreground">
+                    <AlertTriangle className="size-4 shrink-0 mt-0.5 text-foreground" />
                     <div>
-                        <strong>OAuth Refresh Notice:</strong> SRouter manages token lifecycle and
+                        <strong className="text-foreground">OAuth Token Lifecycle:</strong> SRouter manages token lifecycle and
                         background refresh sweeper automatically for this provider account.
                     </div>
                 </div>

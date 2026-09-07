@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { ArrowUpRight, Cpu, Layers } from "lucide-react";
+import { ArrowUpRight, Layers } from "lucide-react";
 import type { ProviderDefinition } from "@srouter/types";
 import { ProviderIcon } from "@/components/providers";
 import { getConnectedCount } from "@/utils/provider.utils";
@@ -26,34 +26,36 @@ export function ProviderRow({ provider }: { provider: ProviderDefinition }) {
         <Link
             to="/providers/$providerId"
             params={{ providerId: provider.id }}
-            className="group flex items-center justify-between gap-3 px-4 py-3 rounded-lg hover:bg-secondary/40 transition-colors font-mono cursor-pointer border-b border-border/40 last:border-b-0"
+            className="group flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-md hover:bg-secondary/40 transition-colors font-mono cursor-pointer border-b border-border/40 last:border-b-0"
         >
             {/* Left: Icon & Info */}
-            <div className="flex items-center gap-3.5 min-w-0">
-                <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border/80 bg-secondary/60 shadow-2xs group-hover:border-border transition-colors">
-                    <ProviderIcon providerId={provider.id} className="size-5" />
+            <div className="flex items-center gap-3 min-w-0">
+                <div className="flex size-8 shrink-0 items-center justify-center rounded-md border border-border/80 bg-secondary/40 shadow-2xs group-hover:border-foreground/20 transition-colors">
+                    <ProviderIcon providerId={provider.id} className="size-4.5" />
                 </div>
 
                 <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                        <span className="truncate text-xs font-bold text-foreground">
+                        <span className="truncate text-xs font-semibold text-foreground">
                             {provider.name}
                         </span>
 
                         {isConnected ? (
-                            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.2 text-[9.5px] font-semibold text-emerald-600 dark:text-emerald-400">
-                                <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                {connectedCount}{" "}
-                                {connectedCount === 1 ? "connection" : "connections"}
+                            <span className="inline-flex items-center gap-1.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                                <span className="size-1.5 rounded-full bg-emerald-500" />
+                                <span>
+                                    {connectedCount} {connectedCount === 1 ? "live" : "live"}
+                                </span>
                             </span>
                         ) : (
-                            <span className="rounded-full border border-border/60 bg-secondary/60 px-2 py-0.2 text-[9px] text-muted-foreground font-medium">
-                                Ready
+                            <span className="inline-flex items-center gap-1.5 text-[10px] text-muted-foreground font-medium">
+                                <span className="size-1.5 rounded-full bg-muted-foreground/40" />
+                                <span>Ready</span>
                             </span>
                         )}
                     </div>
 
-                    <div className="mt-1 flex items-center gap-2 text-[10.5px] text-muted-foreground">
+                    <div className="mt-0.5 flex items-center gap-2 text-[10.5px] text-muted-foreground">
                         <span className="truncate text-foreground/80 font-medium">
                             {provider.id}
                         </span>
@@ -75,13 +77,11 @@ export function ProviderRow({ provider }: { provider: ProviderDefinition }) {
             </div>
 
             {/* Right: Action */}
-            <div className="flex shrink-0 items-center gap-2 text-xs font-bold text-foreground">
-                <span className="hidden sm:inline text-[11px] text-muted-foreground group-hover:text-foreground transition-colors">
+            <div className="flex shrink-0 items-center gap-1.5 text-xs font-semibold text-muted-foreground group-hover:text-foreground transition-colors">
+                <span className="hidden sm:inline text-[11px]">
                     {isConnected ? "Configure" : "Connect"}
                 </span>
-                <div className="flex size-6 items-center justify-center rounded-full bg-secondary text-muted-foreground transition-all duration-200 group-hover:bg-foreground group-hover:text-background group-hover:translate-x-0.5 group-hover:-translate-y-0.5 shadow-2xs">
-                    <ArrowUpRight className="size-3.5 stroke-[2.2]" />
-                </div>
+                <ArrowUpRight className="size-3.5 stroke-[2] transition-transform duration-150 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
             </div>
         </Link>
     );

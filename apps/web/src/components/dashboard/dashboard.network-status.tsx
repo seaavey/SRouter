@@ -1,9 +1,29 @@
 import { useState } from "react";
-import { Check, Cloud, Code2, Copy, Network, ArrowUpRight } from "lucide-react";
+import { Check, Code2, Copy, ArrowUpRight } from "lucide-react";
 import { toast } from "sonner";
 import { getGatewayBaseUrl } from "@/lib/api";
 import { useTunnelStatus, useTunnelActions } from "@/hooks/useTunnel";
 import { TunnelModal } from "@/components/dashboard";
+
+function CloudflareIcon({ className = "size-3.5" }: { className?: string }) {
+    return (
+        <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
+            <path d="M16.91 9.87a5.53 5.53 0 0 0-4.66-2.58 5.57 5.57 0 0 0-5.32 3.86 4.3 4.3 0 0 0-3.9 4.22c0 2.37 1.94 4.3 4.32 4.3h9.6a4.4 4.4 0 0 0 4.4-4.4c0-2.31-1.78-4.2-4.04-4.38a5.52 5.52 0 0 0-.4-.02v-.02zm-9.65 8.3c-1.55 0-2.82-1.26-2.82-2.8a2.82 2.82 0 0 1 2.82-2.82c.26 0 .52.04.77.12l.68.21.22-.68a4.07 4.07 0 0 1 3.98-2.9c1.9 0 3.5 1.3 3.93 3.14l.2.85.87.05c1.6.1 2.86 1.44 2.86 3.03 0 1.68-1.37 3.05-3.05 3.05h-9.46v-.25z" />
+        </svg>
+    );
+}
+
+function TailscaleIcon({ className = "size-3.5" }: { className?: string }) {
+    return (
+        <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
+            <circle cx="12" cy="6" r="2.2" />
+            <circle cx="6" cy="12" r="2.2" />
+            <circle cx="12" cy="12" r="2.2" />
+            <circle cx="18" cy="12" r="2.2" />
+            <circle cx="12" cy="18" r="2.2" />
+        </svg>
+    );
+}
 
 export function NetworkStatus() {
     const apiBase = getGatewayBaseUrl();
@@ -28,25 +48,25 @@ export function NetworkStatus() {
     return (
         <section
             aria-labelledby="api-integration-title"
-            className="flex h-full min-w-0 flex-col justify-between rounded-xl border border-border/70 bg-transparent p-4 sm:p-5 lg:p-6 shadow-xs"
+            className="flex h-full min-w-0 flex-col justify-between rounded-lg border border-border/80 bg-card p-4 sm:p-5"
         >
             {/* Top: API Integration & Base URL */}
             <div className="flex flex-col gap-4">
                 {/* Header */}
-                <header className="flex items-center justify-between gap-3 pb-4 border-b border-border/60">
+                <header className="flex items-center justify-between gap-3 pb-3 border-b border-border/60">
                     <div className="flex min-w-0 items-center gap-2.5">
-                        <div className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-muted/40 text-foreground">
+                        <div className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border/80 bg-secondary text-foreground">
                             <Code2 className="size-3.5" strokeWidth={1.75} />
                         </div>
                         <div className="min-w-0">
                             <h2
                                 id="api-integration-title"
-                                className="text-sm font-semibold tracking-tight text-foreground whitespace-nowrap"
+                                className="text-xs font-bold tracking-tight text-foreground uppercase"
                             >
-                                API integration
+                                API Integration
                             </h2>
                             <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
-                                OpenAI & Anthropic compatible
+                                OpenAI and Anthropic compatible endpoint
                             </p>
                         </div>
                     </div>
@@ -54,8 +74,8 @@ export function NetworkStatus() {
 
                 {/* Base URL Card */}
                 <div className="space-y-1.5">
-                    <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                        <span>Base URL</span>
+                    <div className="flex items-center justify-between text-[10.5px] font-medium uppercase tracking-wider text-muted-foreground">
+                        <span>Gateway Base URL</span>
                         <span className="text-[10px] font-normal lowercase tracking-normal text-muted-foreground/70">
                             click to copy
                         </span>
@@ -71,10 +91,10 @@ export function NetworkStatus() {
                                 void handleCopy();
                             }
                         }}
-                        className="group flex items-center justify-between gap-2.5 rounded-lg border border-border/60 bg-muted/30 px-3.5 py-2.5 transition-all duration-150 hover:border-border hover:bg-muted/50 cursor-pointer active:scale-[0.99]"
+                        className="group flex items-center justify-between gap-2.5 rounded-md border border-border/80 bg-secondary/30 px-3 py-2 transition-colors hover:border-foreground/30 hover:bg-secondary/50 cursor-pointer"
                     >
                         <div className="flex items-center gap-2 min-w-0">
-                            <code className="truncate font-mono text-[12px] text-foreground font-medium select-all">
+                            <code className="truncate font-mono text-xs text-foreground font-medium select-all">
                                 {apiBase}
                             </code>
                         </div>
@@ -82,7 +102,7 @@ export function NetworkStatus() {
                         <button
                             type="button"
                             aria-label="Copy base URL"
-                            className="inline-flex size-6 shrink-0 items-center justify-center rounded-md border border-border/60 bg-background/90 text-muted-foreground transition-colors group-hover:text-foreground hover:border-border cursor-pointer"
+                            className="inline-flex size-6 shrink-0 items-center justify-center rounded border border-border/70 bg-background text-muted-foreground transition-colors group-hover:text-foreground hover:border-foreground/40 cursor-pointer"
                         >
                             {copied ? (
                                 <Check className="size-3 text-emerald-500" />
@@ -95,42 +115,39 @@ export function NetworkStatus() {
             </div>
 
             {/* Bottom: Private Access / Tunneling */}
-            <div className="mt-6 pt-4 border-t border-border/50">
-                <div className="flex items-center justify-between gap-3 mb-2.5">
+            <div className="mt-5 pt-3.5 border-t border-border/60">
+                <div className="flex items-center justify-between gap-3 mb-2">
                     <div>
-                        <h3 className="text-xs font-semibold text-foreground">Private access</h3>
+                        <h3 className="text-xs font-bold text-foreground">Private Access</h3>
                         <p className="mt-0.5 text-[10.5px] text-muted-foreground">
-                            Secure routes for remote clients
+                            Encrypted tunnels for remote client connectivity
                         </p>
                     </div>
-                    <span className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground font-medium">
-                        Optional
-                    </span>
                 </div>
 
                 <div className="space-y-2">
                     {/* Cloudflare Tunnel Row */}
-                    <div className="group flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-background/50 p-2.5 transition-all duration-150 hover:border-border hover:bg-muted/25">
+                    <div className="flex items-center justify-between gap-3 rounded-md border border-border/70 bg-secondary/20 p-2.5 transition-colors hover:border-foreground/20">
                         <div className="flex items-center gap-2.5 min-w-0">
-                            <div className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border/60 bg-muted/50 text-muted-foreground group-hover:text-foreground transition-colors">
-                                <Cloud className="size-3.5" strokeWidth={1.75} />
+                            <div className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border/80 bg-secondary text-foreground">
+                                <CloudflareIcon className="size-3.5" />
                             </div>
                             <div className="min-w-0">
                                 <div className="flex items-center gap-1.5">
-                                    <p className="text-[11.5px] font-medium text-foreground">
+                                    <p className="text-xs font-semibold text-foreground">
                                         Cloudflare Tunnel
                                     </p>
                                     {tunnel?.running && (
-                                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-1.5 py-0.2 text-[8.5px] font-semibold text-emerald-500 font-mono">
-                                            <span className="size-1 rounded-full bg-emerald-500 animate-pulse" />
+                                        <span className="flex items-center gap-1 text-[10px] font-semibold text-emerald-500 font-mono">
+                                            <span className="size-1.5 rounded-full bg-emerald-500" />
                                             Live
                                         </span>
                                     )}
                                 </div>
-                                <p className="mt-0.5 truncate text-[10px] text-muted-foreground font-mono">
+                                <p className="mt-0.5 truncate text-[10.5px] text-muted-foreground font-mono">
                                     {tunnel?.running
                                         ? tunnel.domain ?? "Active tunnel"
-                                        : "Expose gateway without opening ports"}
+                                        : "Expose gateway without opening inbound ports"}
                                 </p>
                             </div>
                         </div>
@@ -138,7 +155,7 @@ export function NetworkStatus() {
                         <button
                             type="button"
                             onClick={() => setModalOpen(true)}
-                            className="inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-border/70 bg-secondary/50 px-2.5 font-mono text-[10.5px] font-medium text-foreground transition-all hover:bg-secondary hover:border-border cursor-pointer active:translate-y-px"
+                            className="inline-flex h-7 shrink-0 items-center gap-1 rounded border border-border/80 bg-background px-2.5 font-mono text-[11px] font-medium text-foreground transition-colors hover:bg-secondary cursor-pointer"
                         >
                             <span>{tunnel?.running ? "Manage" : "Configure"}</span>
                             <ArrowUpRight className="size-3 opacity-60" />
@@ -146,26 +163,22 @@ export function NetworkStatus() {
                     </div>
 
                     {/* Tailscale Row */}
-                    <div className="flex items-center justify-between gap-3 rounded-lg border border-border/30 bg-muted/10 p-2.5 opacity-75 transition-opacity hover:opacity-100">
+                    <div className="flex items-center justify-between gap-3 rounded-md border border-border/50 bg-secondary/10 p-2.5 opacity-70">
                         <div className="flex items-center gap-2.5 min-w-0">
-                            <div className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border/40 bg-muted/40 text-muted-foreground">
-                                <Network className="size-3.5" strokeWidth={1.75} />
+                            <div className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border/60 bg-secondary/40 text-foreground">
+                                <TailscaleIcon className="size-3.5" />
                             </div>
                             <div className="min-w-0">
-                                <p className="text-[11.5px] font-medium text-foreground">
+                                <p className="text-xs font-semibold text-foreground">
                                     Tailscale
                                 </p>
-                                <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
+                                <p className="mt-0.5 truncate text-[10.5px] text-muted-foreground">
                                     Private mesh network access
                                 </p>
                             </div>
                         </div>
 
-                        <span className="flex shrink-0 items-center gap-1.5 rounded-full border border-border/40 bg-muted/30 px-2 py-0.5 font-mono text-[8.5px] text-muted-foreground">
-                            <span
-                                className="size-1 rounded-full bg-muted-foreground/40"
-                                aria-hidden="true"
-                            />
+                        <span className="text-[10px] font-mono uppercase text-muted-foreground/80">
                             Coming soon
                         </span>
                     </div>

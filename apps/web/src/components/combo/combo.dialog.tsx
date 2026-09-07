@@ -223,62 +223,48 @@ export default function ComboModelPickerModal({
 
     return (
         <div
-            className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm p-4 sm:p-6"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4 sm:p-6"
             onClick={onClose}
         >
             <div
-                className="relative flex flex-col w-full max-w-xl max-h-[85vh] rounded-2xl border border-zinc-800 bg-[#161618] text-zinc-100 shadow-2xl overflow-hidden font-sans"
+                className="relative flex flex-col w-full max-w-xl max-h-[85vh] rounded-lg border border-border/80 bg-card text-foreground shadow-xl overflow-hidden font-mono"
                 onClick={(e) => e.stopPropagation()}
             >
-                <div className="flex items-center justify-between border-b border-zinc-800/80 px-4 py-3 bg-[#121214]">
-                    <div className="flex items-center gap-2">
-                        <div className="flex items-center gap-1.5">
-                            <span className="size-3 rounded-full bg-[#ff5f56] inline-block shadow-xs" />
-                            <span className="size-3 rounded-full bg-[#ffbd2e] inline-block shadow-xs" />
-                            <span className="size-3 rounded-full bg-[#27c93f] inline-block shadow-xs" />
-                        </div>
-                        <h3 className="text-sm font-bold text-zinc-100 ml-2">Add Model to Combo</h3>
-                    </div>
+                <div className="flex items-center justify-between border-b border-border/80 px-4 py-3 bg-secondary/30">
+                    <h3 className="text-sm font-bold text-foreground">Select Cascade Models</h3>
                     <button
                         type="button"
                         onClick={onClose}
-                        className="rounded-md p-1 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors cursor-pointer"
+                        className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer"
                     >
                         <X className="size-4" />
                     </button>
                 </div>
 
                 <div className="flex flex-col gap-3.5 p-4 sm:p-5 overflow-y-auto">
-                    <div className="rounded-xl border border-red-950/60 bg-red-950/20 p-3 flex items-start gap-2.5">
-                        <Info className="size-4 text-orange-400 shrink-0 mt-0.5" />
-                        <p className="text-xs text-zinc-300 leading-relaxed font-normal">
-                            Click to add, click again to remove. Changes are saved automatically.
-                        </p>
-                    </div>
-
                     <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-zinc-400" />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
                         <input
                             type="text"
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            placeholder="Search..."
-                            className="w-full h-9 rounded-lg border border-zinc-800 bg-[#1c1c1f] pl-9 pr-3 text-xs text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-zinc-600 focus:ring-1 focus:ring-zinc-600 transition-all font-mono"
+                            placeholder="Filter available models & providers…"
+                            className="w-full h-8.5 rounded border border-border/80 bg-background pl-9 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-foreground transition-all font-mono"
                             autoFocus
                         />
                     </div>
 
                     <div className="space-y-4 pt-1">
                         {filteredGroups.length === 0 ? (
-                            <div className="py-8 text-center text-xs text-zinc-500 font-mono">
+                            <div className="py-8 text-center text-xs text-muted-foreground font-mono">
                                 No models found matching &ldquo;{search}&rdquo;
                             </div>
                         ) : (
                             filteredGroups.map((group) => (
                                 <div key={group.id} className="space-y-2">
-                                    <div className="flex items-center gap-1.5 text-xs font-bold text-orange-400">
+                                    <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
                                         {group.isCombo ? (
-                                            <Layers className="size-3.5 text-orange-400" />
+                                            <Layers className="size-3.5 text-muted-foreground" />
                                         ) : (
                                             <ProviderIcon
                                                 providerId={group.id}
@@ -286,12 +272,12 @@ export default function ComboModelPickerModal({
                                             />
                                         )}
                                         <span>{group.name}</span>
-                                        <span className="text-zinc-500 font-normal text-xs ml-0.5">
+                                        <span className="text-muted-foreground font-normal text-xs ml-0.5">
                                             ({group.models.length})
                                         </span>
                                     </div>
 
-                                    <div className="flex flex-wrap gap-2">
+                                    <div className="flex flex-wrap gap-1.5">
                                         {group.models.map((model) => {
                                             const isSelected = selectedSet.has(model.id);
                                             const { hasVision, hasThinking } = getModelCapabilities(
@@ -304,18 +290,18 @@ export default function ComboModelPickerModal({
                                                     key={model.id}
                                                     type="button"
                                                     onClick={() => onToggleModel(model)}
-                                                    className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all cursor-pointer border select-none ${
+                                                    className={`inline-flex items-center gap-1.5 rounded border px-2.5 py-1 text-xs transition-colors cursor-pointer select-none font-mono ${
                                                         isSelected
-                                                            ? "bg-orange-500/15 border-orange-500/70 text-orange-300 ring-1 ring-orange-500/40 shadow-xs font-semibold"
-                                                            : "bg-[#202024] border-zinc-800/80 text-zinc-300 hover:border-zinc-700 hover:bg-[#27272c] hover:text-white"
+                                                            ? "bg-foreground text-background border-foreground font-semibold"
+                                                            : "bg-card border-border/80 text-foreground hover:bg-secondary/60"
                                                     }`}
                                                 >
                                                     <span>{model.name}</span>
                                                     {hasVision && (
-                                                        <Eye className="size-3 text-sky-400 shrink-0" />
+                                                        <Eye className="size-3 opacity-80 shrink-0" />
                                                     )}
                                                     {hasThinking && (
-                                                        <Brain className="size-3 text-amber-400 shrink-0" />
+                                                        <Brain className="size-3 opacity-80 shrink-0" />
                                                     )}
                                                 </button>
                                             );
@@ -327,11 +313,11 @@ export default function ComboModelPickerModal({
                     </div>
                 </div>
 
-                <div className="flex justify-end border-t border-zinc-800/80 px-4 py-3 bg-[#121214]">
+                <div className="flex justify-end border-t border-border/80 px-4 py-3 bg-secondary/30">
                     <button
                         type="button"
                         onClick={onClose}
-                        className="rounded-lg bg-zinc-800 hover:bg-zinc-700 px-4 py-1.5 text-xs font-semibold text-zinc-100 transition-colors cursor-pointer"
+                        className="rounded bg-foreground text-background hover:bg-foreground/90 px-4 py-1.5 text-xs font-semibold transition-colors cursor-pointer shadow-2xs"
                     >
                         Done
                     </button>

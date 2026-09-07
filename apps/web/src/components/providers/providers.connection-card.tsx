@@ -78,23 +78,23 @@ export function ConnectionCard({
 
     return (
         <TooltipProvider>
-            <div className="rounded-xl border border-border/70 bg-card p-5 font-mono shadow-xs space-y-4">
+            <div className="rounded-lg border border-border/80 bg-card p-4 sm:p-5 font-mono shadow-2xs space-y-4">
                 {/* Header Row */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/60 pb-3.5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/80 pb-3.5">
                     <div className="flex items-center gap-2.5">
-                        <div className="flex size-7 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                        <div className="flex size-7 items-center justify-center rounded-md bg-secondary text-foreground border border-border/80">
                             <KeyRound className="size-3.5" />
                         </div>
                         <div className="flex items-center gap-2 flex-wrap">
                             <h2 className="text-xs font-bold uppercase tracking-wider text-foreground">
                                 Active Credentials
                             </h2>
-                            <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold border border-border/60 bg-secondary/50 text-muted-foreground">
+                            <span className="inline-flex items-center gap-1.5 text-[11px] font-mono text-muted-foreground">
                                 <span
                                     className={`size-1.5 rounded-full ${
                                         activeCount > 0
-                                            ? "bg-emerald-500 animate-pulse"
-                                            : "bg-muted-foreground"
+                                            ? "bg-emerald-500"
+                                            : "bg-muted-foreground/40"
                                     }`}
                                 />
                                 <span>
@@ -109,7 +109,7 @@ export function ConnectionCard({
                         <Tooltip>
                             <TooltipTrigger
                                 render={
-                                    <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-secondary/30 px-2.5 py-1 text-xs text-muted-foreground cursor-pointer hover:border-border hover:bg-secondary/50 transition-colors" />
+                                    <div className="flex items-center gap-2 rounded-md border border-border/80 bg-secondary/30 px-2.5 py-1 text-xs text-muted-foreground cursor-pointer hover:border-foreground/20 hover:bg-secondary/50 transition-colors" />
                                 }
                             >
                                 <span className="text-[11px] font-medium text-foreground">
@@ -136,7 +136,7 @@ export function ConnectionCard({
                             size="sm"
                             onClick={handleTestConnection}
                             disabled={isTesting || connections.length === 0}
-                            className="h-7.5 text-xs font-semibold cursor-pointer gap-1.5 shadow-2xs"
+                            className="h-7.5 text-xs font-semibold cursor-pointer gap-1.5 shadow-2xs border-border/80 bg-card hover:bg-secondary/60"
                         >
                             <RefreshCw
                                 className={`size-3 text-muted-foreground ${
@@ -212,26 +212,19 @@ export function ConnectionCard({
                                                     {getConnectionDisplayTitle(connection)}
                                                 </span>
 
-                                                <span
-                                                    className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9.5px] font-semibold ${
-                                                        connection.enabled
-                                                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
-                                                            : "bg-secondary text-muted-foreground border border-border/60"
-                                                    }`}
-                                                >
-                                                    <span
-                                                        className={`size-1 rounded-full ${
-                                                            connection.enabled
-                                                                ? "bg-emerald-500 animate-pulse"
-                                                                : "bg-muted-foreground"
-                                                        }`}
-                                                    />
-                                                    <span>
-                                                        {connection.enabled ? "Active" : "Disabled"}
+                                                {connection.enabled ? (
+                                                    <span className="inline-flex items-center gap-1.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                                                        <span className="size-1.5 rounded-full bg-emerald-500" />
+                                                        Active
                                                     </span>
-                                                </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center gap-1.5 text-[10px] text-muted-foreground font-medium">
+                                                        <span className="size-1.5 rounded-full bg-muted-foreground/40" />
+                                                        Disabled
+                                                    </span>
+                                                )}
 
-                                                <span className="rounded-[4px] border border-border/60 bg-secondary/60 px-1.5 py-0.5 text-[9.5px] font-semibold text-muted-foreground">
+                                                <span className="rounded border border-border/70 bg-secondary/60 px-1.5 py-0.2 text-[9.5px] font-semibold text-muted-foreground">
                                                     Slot #{index + 1}
                                                 </span>
                                             </div>

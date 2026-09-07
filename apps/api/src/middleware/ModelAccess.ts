@@ -3,7 +3,7 @@ import type { APIKeyZod } from "@srouter/types";
 import { Err } from "@/utils/response.js";
 
 function NormalizeModelId(model: string): string {
-    return model.replace(/^srouter\//, "");
+    return model.replace(/^srouter\//, "").toLowerCase();
 }
 
 export function IsModelAllowed(
@@ -15,7 +15,19 @@ export function IsModelAllowed(
     const Requested = NormalizeModelId(model);
     return allowedModels.some((allowed) => {
         const Allowed = NormalizeModelId(allowed);
-        return Allowed === Requested || allowed === model;
+        if (Allowed === Requested || allowed.toLowerCase() === model.toLowerCase()) {
+            return true;
+        }
+
+        // Support matching model ID with or without provider prefix
+        // e.g. allowed: "gpt-4o" matches "openai/gpt-4o"
+        // or allowed: "openai/gpt-4o" matches "gpt-4o"
+        const allowedParts = Allowed.split("/");
+        const requestedParts = Requested.split("/");
+        const bareAllowed = allowedParts[allowedParts.length - 1];
+        const bareRequested = requestedParts[requestedParts.length - 1];
+
+        return bareAllowed === bareRequested;
     });
 }
 
