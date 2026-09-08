@@ -59,7 +59,10 @@ function ExtractEmailFromToken(token?: string): string | undefined {
         if (typeof decoded.user_metadata?.email === "string") {
             return decoded.user_metadata.email;
         }
-        if (typeof decoded.preferred_username === "string" && decoded.preferred_username.includes("@")) {
+        if (
+            typeof decoded.preferred_username === "string" &&
+            decoded.preferred_username.includes("@")
+        ) {
             return decoded.preferred_username;
         }
         if (typeof decoded.unique_name === "string" && decoded.unique_name.includes("@")) {
@@ -76,7 +79,8 @@ function BuildAccountIdentity(
     now: number,
     tokens?: { accessToken?: string; idToken?: string }
 ): { accountId: string; accountName: string } {
-    const email = ExtractEmailFromToken(tokens?.idToken) || ExtractEmailFromToken(tokens?.accessToken);
+    const email =
+        ExtractEmailFromToken(tokens?.idToken) || ExtractEmailFromToken(tokens?.accessToken);
     const accountName = email || `${handler.displayName} (Account #${now.toString().slice(-4)})`;
     return {
         accountId: `${handler.idPrefix}_${now}`,
@@ -84,7 +88,10 @@ function BuildAccountIdentity(
     };
 }
 
-async function InitiatePKCEFor(handler: AuthProviderHandler, params: OAuthLoginParams): Promise<OAuthLoginResult> {
+async function InitiatePKCEFor(
+    handler: AuthProviderHandler,
+    params: OAuthLoginParams
+): Promise<OAuthLoginResult> {
     await CleanupExpiredSessions();
     const clientId = ResolveClientId(handler, params);
     const redirectUri = ResolveRedirectUri(handler, params);
@@ -184,9 +191,12 @@ async function ProcessTokenImportFor(
     const accountId = params.id || `${handler.idPrefix}_${timestamp}`;
     const token = params.access_token || params.accessToken || "";
     const refreshToken = params.refresh_token || params.refreshToken;
-    const email = ExtractEmailFromToken(token) || ExtractEmailFromToken(params.id_token || params.idToken);
+    const email =
+        ExtractEmailFromToken(token) || ExtractEmailFromToken(params.id_token || params.idToken);
     const providerName =
-        params.name || email || `${handler.displayName} (Account #${timestamp.toString().slice(-4)})`;
+        params.name ||
+        email ||
+        `${handler.displayName} (Account #${timestamp.toString().slice(-4)})`;
     const mapping = handler.mapImportTokens?.(params) ?? {
         accessToken: token,
         refreshToken: refreshToken,
@@ -439,20 +449,25 @@ export async function PollQoderDeviceToken(state: string): Promise<AuthPollResul
 }
 
 interface AuthProviderEntry {
-    initiate?: (params: OAuthLoginParams) => OAuthLoginResult | Promise<OAuthLoginResult>;
-    callback?: (code: string, state: string) => Promise<ProviderConfig>;
     importToken: (params: TokenImportParams) => ProviderConfig | Promise<ProviderConfig>;
 }
 
-const authProviderEntries: Record<string, AuthProviderEntry> = {};
+interface OAuthProviderEntry extends AuthProviderEntry {
+    initiate: (params: OAuthLoginParams) => OAuthLoginResult | Promise<OAuthLoginResult>;
+    callback: (code: string, state: string) => Promise<ProviderConfig>;
+}
 
-const RegisterEntry = (
-    key: string,
-    entry: Omit<AuthProviderEntry, "initiate" | "callback"> &
-        Partial<Pick<AuthProviderEntry, "initiate" | "callback">>
-): void => {
-    authProviderEntries[key] = entry as AuthProviderEntry;
+type RegisteredAuthProviderEntry = AuthProviderEntry | OAuthProviderEntry;
+
+const authProviderEntries: Record<string, RegisteredAuthProviderEntry> = {};
+
+const RegisterEntry = (key: string, entry: RegisteredAuthProviderEntry): void => {
+    authProviderEntries[key] = entry;
 };
+
+function IsOAuthProviderEntry(entry: RegisteredAuthProviderEntry): entry is OAuthProviderEntry {
+    return "initiate" in entry && "callback" in entry;
+}
 
 RegisterEntry("openai", {
     initiate: (params) => InitiatePKCEFor(AuthHandlers.OpenAI, params),
@@ -501,17 +516,33 @@ for (const [key, handler] of [
 }
 
 export const AuthLogic = {
-    initiateOAuthPKCE: async (params: OAuthLoginParams): Promise<OAuthLoginResult> =>
-        authProviderEntries.openai.initiate!(params) as Promise<OAuthLoginResult>,
-    processOAuthCallback: async (code: string, state: string): Promise<ProviderConfig> =>
-        authProviderEntries.openai.callback!(code, state),
-    processTokenImport: async (params: TokenImportParams): Promise<ProviderConfig> =>
-        authProviderEntries.openai.importToken(params) as Promise<ProviderConfig>,
+    initiateOAuthPKCE: async (params: OAuthLoginParams): Promise<OAuthLoginResult> => {
+        const entry = authProviderEntries.openai;
+        if (!entry || !IsOAuthProviderEntry(entry))
+            throw new Error("OpenAI OAuth provider is unavailable");
+        return Promise.resolve(entry.initiate(params));
+    },
+    processOAuthCallback: async (code: string, state: string): Promise<ProviderConfig> => {
+        const entry = authProviderEntries.openai;
+        if (!entry || !IsOAuthProviderEntry(entry))
+            throw new Error("OpenAI OAuth provider is unavailable");
+        return entry.callback(code, state);
+    },
+    processTokenImport: async (params: TokenImportParams): Promise<ProviderConfig> => {
+        const entry = authProviderEntries.openai;
+        if (!entry) throw new Error("OpenAI auth provider is unavailable");
+        return Promise.resolve(entry.importToken(params));
+    },
 
-    async initiateProviderOAuth(providerKey: string, params: OAuthLoginParams): Promise<OAuthLoginResult> {
+    async initiateProviderOAuth(
+        providerKey: string,
+        params: OAuthLoginParams
+    ): Promise<OAuthLoginResult> {
         const entry = authProviderEntries[providerKey];
-        if (!entry?.initiate) throw new Error(`Unknown OAuth provider: ${providerKey}`);
-        return entry.initiate(params) as Promise<OAuthLoginResult>;
+        if (!entry || !IsOAuthProviderEntry(entry)) {
+            throw new Error(`Unknown OAuth provider: ${providerKey}`);
+        }
+        return Promise.resolve(entry.initiate(params));
     },
 
     processProviderOAuthCallback(
@@ -520,14 +551,19 @@ export const AuthLogic = {
         state: string
     ): Promise<ProviderConfig> {
         const entry = authProviderEntries[providerKey];
-        if (!entry?.callback) throw new Error(`Unknown OAuth provider: ${providerKey}`);
+        if (!entry || !IsOAuthProviderEntry(entry)) {
+            throw new Error(`Unknown OAuth provider: ${providerKey}`);
+        }
         return entry.callback(code, state);
     },
 
-    async processProviderTokenImport(providerKey: string, params: TokenImportParams): Promise<ProviderConfig> {
+    async processProviderTokenImport(
+        providerKey: string,
+        params: TokenImportParams
+    ): Promise<ProviderConfig> {
         const entry = authProviderEntries[providerKey];
         if (!entry) throw new Error(`Unknown auth provider: ${providerKey}`);
-        return entry.importToken(params) as Promise<ProviderConfig>;
+        return Promise.resolve(entry.importToken(params));
     },
 
     initiateCodeBuddyOAuth: InitiateCodeBuddyOAuth,
