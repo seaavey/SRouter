@@ -5,7 +5,8 @@ import type {
     ChatCompletionChunk,
     ChatCompletionRequest,
     ChatCompletionResponse,
-    ModelObject
+    ModelObject,
+    RequestAttemptBudget
 } from "@srouter/types";
 import {
     AnthropicEventToOpenAIChunk,
@@ -13,6 +14,7 @@ import {
     OpenAIToAnthropicRequest
 } from "@srouter/translator";
 import { parseDataLine, streamLines } from "./base.js";
+import { FetchWithBudget } from "./retry.js";
 
 export interface AnthropicExecutorOptions {
     id?: string;
@@ -159,7 +161,10 @@ export class AnthropicExecutor implements AIProvider {
         }
     }
 
-    async chatCompletion(req: ChatCompletionRequest): Promise<ChatCompletionResponse> {
+    async chatCompletion(
+        req: ChatCompletionRequest,
+        budget?: RequestAttemptBudget
+    ): Promise<ChatCompletionResponse> {
         const anthropicReq = OpenAIToAnthropicRequest(req);
         anthropicReq.stream = false;
         const targetModel = req.model.includes("/")
@@ -167,11 +172,15 @@ export class AnthropicExecutor implements AIProvider {
             : req.model;
         anthropicReq.model = targetModel;
 
-        const res = await fetch(`${this.baseUrl}/messages`, {
-            method: "POST",
-            headers: this.getHeaders(targetModel, false),
-            body: JSON.stringify(anthropicReq)
-        });
+        const res = await FetchWithBudget(
+            `${this.baseUrl}/messages`,
+            {
+                method: "POST",
+                headers: this.getHeaders(targetModel, false),
+                body: JSON.stringify(anthropicReq)
+            },
+            budget
+        );
 
         if (!res.ok) {
             const errorText = await res.text();
@@ -183,7 +192,8 @@ export class AnthropicExecutor implements AIProvider {
     }
 
     async *chatCompletionStream(
-        req: ChatCompletionRequest
+        req: ChatCompletionRequest,
+        budget?: RequestAttemptBudget
     ): AsyncGenerator<ChatCompletionChunk, void, void> {
         const anthropicReq = OpenAIToAnthropicRequest(req);
         anthropicReq.stream = true;
@@ -192,11 +202,15 @@ export class AnthropicExecutor implements AIProvider {
             : req.model;
         anthropicReq.model = targetModel;
 
-        const res = await fetch(`${this.baseUrl}/messages`, {
-            method: "POST",
-            headers: this.getHeaders(targetModel, true),
-            body: JSON.stringify(anthropicReq)
-        });
+        const res = await FetchWithBudget(
+            `${this.baseUrl}/messages`,
+            {
+                method: "POST",
+                headers: this.getHeaders(targetModel, true),
+                body: JSON.stringify(anthropicReq)
+            },
+            budget
+        );
 
         if (!res.ok) {
             const errorText = await res.text();

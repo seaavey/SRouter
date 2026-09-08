@@ -7,7 +7,8 @@ import type {
     ImageGenerationRequest,
     ImageGenerationResponse,
     ModelListResponse,
-    ModelObject
+    ModelObject,
+    RequestAttemptBudget
 } from "@srouter/types";
 import { parseDataLine, streamLines } from "./base.js";
 import { fetchWithRetry } from "./retry.js";
@@ -94,13 +95,18 @@ export class OpenAIExecutor implements AIProvider {
         }
     }
 
-    async chatCompletion(req: ChatCompletionRequest): Promise<ChatCompletionResponse> {
+    async chatCompletion(
+        req: ChatCompletionRequest,
+        budget?: RequestAttemptBudget
+    ): Promise<ChatCompletionResponse> {
         const targetModel = stripProviderPrefix(req.model);
 
         const res = await fetchWithRetry(
             `${this.baseUrl}/chat/completions`,
             { ...req, model: targetModel, stream: false },
-            this.getHeaders()
+            this.getHeaders(),
+            3,
+            budget
         );
 
         if (!res.ok) {
@@ -112,7 +118,8 @@ export class OpenAIExecutor implements AIProvider {
     }
 
     async *chatCompletionStream(
-        req: ChatCompletionRequest
+        req: ChatCompletionRequest,
+        budget?: RequestAttemptBudget
     ): AsyncGenerator<ChatCompletionChunk, void, void> {
         const targetModel = stripProviderPrefix(req.model);
 
@@ -127,7 +134,9 @@ export class OpenAIExecutor implements AIProvider {
                     include_usage: true
                 }
             },
-            this.getHeaders("text/event-stream, application/json, */*")
+            this.getHeaders("text/event-stream, application/json, */*"),
+            3,
+            budget
         );
 
         if (!res.ok) {
@@ -151,16 +160,20 @@ export class OpenAIExecutor implements AIProvider {
         }
     }
 
-    async generateImage(req: ImageGenerationRequest): Promise<ImageGenerationResponse> {
+    async generateImage(
+        req: ImageGenerationRequest,
+        budget?: RequestAttemptBudget
+    ): Promise<ImageGenerationResponse> {
         const targetModel = stripProviderPrefix(req.model);
         const payload = { ...req, model: targetModel };
 
         // If img2img parameters (image or mask) are provided, upstream may route to /images/edits
-        const endpoint = req.image || req.images || req.mask
-            ? `${this.baseUrl}/images/edits`
-            : `${this.baseUrl}/images/generations`;
+        const endpoint =
+            req.image || req.images || req.mask
+                ? `${this.baseUrl}/images/edits`
+                : `${this.baseUrl}/images/generations`;
 
-        const res = await fetchWithRetry(endpoint, payload, this.getHeaders());
+        const res = await fetchWithRetry(endpoint, payload, this.getHeaders(), 3, budget);
 
         if (!res.ok) {
             const errorText = await res.text();

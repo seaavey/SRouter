@@ -4,6 +4,7 @@ import type {
     ChatCompletionResponse,
     ModelObject
 } from "./openai.js";
+import type { RequestAttemptBudget } from "./attemptBudget.js";
 import type {
     ImageGenerationRequest,
     ImageGenerationResponse
@@ -69,9 +70,16 @@ export interface AIProvider {
     category?: ProviderCategory;
     protocol?: ProviderProtocol;
     listModels(): Promise<ModelObject[]>;
-    chatCompletion(req: ChatCompletionRequest): Promise<ChatCompletionResponse>;
+    chatCompletion(
+        req: ChatCompletionRequest,
+        budget?: RequestAttemptBudget
+    ): Promise<ChatCompletionResponse>;
     chatCompletionStream(
-        req: ChatCompletionRequest
+        req: ChatCompletionRequest,
+        budget?: RequestAttemptBudget
     ): AsyncGenerator<ChatCompletionChunk, void, void>;
-    generateImage?(req: ImageGenerationRequest): Promise<ImageGenerationResponse>;
+    generateImage?(
+        req: ImageGenerationRequest,
+        budget?: RequestAttemptBudget
+    ): Promise<ImageGenerationResponse>;
 }

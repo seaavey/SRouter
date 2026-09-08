@@ -3,7 +3,8 @@ import type {
     ChatCompletionChunk,
     ChatCompletionRequest,
     ChatCompletionResponse,
-    ModelObject
+    ModelObject,
+    RequestAttemptBudget
 } from "@srouter/types";
 import { CODEX_BASE_URL, CODEX_MODELS_URL } from "@srouter/constants";
 import {
@@ -18,6 +19,7 @@ import {
 } from "@srouter/translator";
 import { parseDataLine, streamLines } from "./base.js";
 import { extractSseErrorMessage, MODEL_CAPACITY_MESSAGE } from "./sse.js";
+import { FetchWithBudget } from "./retry.js";
 
 export interface CodexExecutorOptions {
     id?: string;
@@ -171,17 +173,21 @@ export class CodexExecutor implements AIProvider {
         }
     }
 
-    async chatCompletion(req: ChatCompletionRequest): Promise<ChatCompletionResponse> {
+    async chatCompletion(
+        req: ChatCompletionRequest,
+        budget?: RequestAttemptBudget
+    ): Promise<ChatCompletionResponse> {
         // Codex upstream is streaming-only — accumulate the stream for non-streaming callers
         const chunks: ChatCompletionChunk[] = [];
-        for await (const chunk of this.chatCompletionStream(req)) {
+        for await (const chunk of this.chatCompletionStream(req, budget)) {
             chunks.push(chunk);
         }
         return accumulateChunks(chunks, req.model);
     }
 
     async *chatCompletionStream(
-        req: ChatCompletionRequest
+        req: ChatCompletionRequest,
+        budget?: RequestAttemptBudget
     ): AsyncGenerator<ChatCompletionChunk, void, void> {
         const body = this.transformRequest(req);
         this._currentSessionId = this.sessionId || body.prompt_cache_key || null;
@@ -191,11 +197,15 @@ export class CodexExecutor implements AIProvider {
         const maxAttempts = 2;
 
         while (true) {
-            const res = await fetch(this.baseUrl, {
-                method: "POST",
-                headers: this.getHeaders(),
-                body: JSON.stringify(body)
-            });
+            const res = await FetchWithBudget(
+                this.baseUrl,
+                {
+                    method: "POST",
+                    headers: this.getHeaders(),
+                    body: JSON.stringify(body)
+                },
+                budget
+            );
 
             // Non-OK — surface error immediately
             if (!res.ok) {

@@ -5,9 +5,11 @@ import type {
     ChatCompletionRequest,
     ChatCompletionResponse,
     ModelObject,
-    ToolDefinition
+    ToolDefinition,
+    RequestAttemptBudget
 } from "@srouter/types";
 import { iterEventStreamFrames } from "./stream-utils.js";
+import { FetchWithBudget } from "./retry.js";
 
 const RUNTIME_URL = "https://runtime.us-east-1.kiro.dev/generateAssistantResponse";
 const CODEWHISPERER_URL = "https://codewhisperer.us-east-1.amazonaws.com/generateAssistantResponse";
@@ -365,9 +367,12 @@ export class KiroExecutor implements AIProvider {
         return [];
     }
 
-    async chatCompletion(req: ChatCompletionRequest): Promise<ChatCompletionResponse> {
+    async chatCompletion(
+        req: ChatCompletionRequest,
+        budget?: RequestAttemptBudget
+    ): Promise<ChatCompletionResponse> {
         const chunks: ChatCompletionChunk[] = [];
-        for await (const value of this.chatCompletionStream(req)) chunks.push(value);
+        for await (const value of this.chatCompletionStream(req, budget)) chunks.push(value);
         const text = chunks.map((value) => value.choices[0]?.delta.content ?? "").join("");
         const toolCalls = chunks.flatMap((value) => value.choices[0]?.delta.tool_calls ?? []);
         return {
@@ -401,18 +406,23 @@ export class KiroExecutor implements AIProvider {
     }
 
     async *chatCompletionStream(
-        req: ChatCompletionRequest
+        req: ChatCompletionRequest,
+        budget?: RequestAttemptBudget
     ): AsyncGenerator<ChatCompletionChunk, void, void> {
         const body = this.buildRequest(req);
         let response: Response | undefined;
         let lastError = "";
         for (const url of this.getOrderedBaseUrls()) {
             try {
-                response = await fetch(url, {
-                    method: "POST",
-                    headers: this.headers(url),
-                    body: JSON.stringify(body)
-                });
+                response = await FetchWithBudget(
+                    url,
+                    {
+                        method: "POST",
+                        headers: this.headers(url),
+                        body: JSON.stringify(body)
+                    },
+                    budget
+                );
                 if (
                     response.ok ||
                     ![401, 403, 404, 429, 500, 502, 503, 504].includes(response.status)

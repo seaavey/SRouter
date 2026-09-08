@@ -1,9 +1,4 @@
-import {
-    findMatchingFallbackRulesDB,
-    getTokenSaverSettingsDB,
-    logRequestDB,
-    incrementAPIKeyUsageDB
-} from "@srouter/db";
+import { getTokenSaverSettingsDB, logRequestDB, incrementAPIKeyUsageDB } from "@srouter/db";
 import { applyTokenSaver, estimateCostForUsage, extractUsageBreakdown } from "@srouter/translator";
 import { providerTypeForAlias } from "@srouter/constants";
 import type {
@@ -13,17 +8,14 @@ import type {
     ChatMessage,
     JSONValue,
     ToolCall,
+    RequestAttemptBudget,
     UsageInfo
 } from "@srouter/types";
+import { CreateRequestAttemptBudget } from "@srouter/types";
 import { registry } from "@/services/registry.js";
-import { ensureFreshToken } from "@/services/tokenRefresh.js";
 import { executeInterceptedSearch, shouldInterceptToolCall } from "@/services/toolInterceptor.js";
-import {
-    type CandidateModel,
-    type ErrorWithStatus,
-    ExtractStatusCode,
-    ShouldTriggerFallback
-} from "./fallback.policy.js";
+import { type AttemptTracker, RunCandidateAttempts } from "./fallbackRunner.js";
+import { type ErrorWithStatus, ExtractStatusCode } from "./fallback.policy.js";
 
 const MAX_INTERCEPT_DEPTH = 3;
 
@@ -39,27 +31,6 @@ interface RequestContext {
     apiKeyId?: string;
     ipAddress?: string;
     userAgent?: string;
-}
-
-interface AttemptTracker {
-    fallbackPath: string[];
-    fallbackOccurred: boolean;
-    fallbackReason?: string;
-    lastError: Error | ErrorWithStatus | string | null;
-}
-
-async function ResolveCandidates(originalModel: string): Promise<CandidateModel[]> {
-    const matchingRules = await findMatchingFallbackRulesDB(originalModel);
-    const candidates: CandidateModel[] = [{ model: originalModel }];
-    const visitedModels = new Set<string>([originalModel]);
-
-    for (const rule of matchingRules) {
-        if (!visitedModels.has(rule.targetModel)) {
-            visitedModels.add(rule.targetModel);
-            candidates.push({ model: rule.targetModel, rule });
-        }
-    }
-    return candidates;
 }
 
 async function LogCompletion(
@@ -161,38 +132,26 @@ export class ChatLogic {
         depth = 0,
         apiKeyId?: string,
         ipAddress?: string,
-        userAgent?: string
+        userAgent?: string,
+        budget?: RequestAttemptBudget
     ): Promise<ChatCompletionResponse> {
+        const requestBudget = budget ?? CreateRequestAttemptBudget();
         const ctx: RequestContext = { startTime, depth, apiKeyId, ipAddress, userAgent };
         const effectiveBody =
             depth === 0 ? applyTokenSaver(body, await getTokenSaverSettingsDB()).request : body;
         const originalModel = effectiveBody.model;
-        const candidates = await ResolveCandidates(originalModel);
-
         const tracker: AttemptTracker = {
             fallbackPath: [originalModel],
             fallbackOccurred: false,
             fallbackReason: undefined,
             lastError: null
         };
-
-        for (let i = 0; i < candidates.length; i++) {
-            const candidate = candidates[i]!;
-            const isFallbackAttempt = i > 0;
-
-            if (isFallbackAttempt && candidate.rule && tracker.lastError) {
-                if (!ShouldTriggerFallback(candidate.rule, tracker.lastError)) {
-                    continue;
-                }
-            }
-
-            const currentModel = candidate.model;
+        for await (const attempt of RunCandidateAttempts(originalModel, tracker)) {
+            const { currentModel, isFallbackAttempt, providerId } = attempt;
             const currentReq: ChatCompletionRequest = { ...effectiveBody, model: currentModel };
-            const providerId = currentModel.split("/")[0] || "default";
 
             try {
-                await ensureFreshToken(providerId);
-                const response = await registry.chatCompletion(currentReq);
+                const response = await registry.chatCompletion(currentReq, requestBudget);
 
                 if (isFallbackAttempt) {
                     tracker.fallbackOccurred = true;
@@ -231,7 +190,8 @@ export class ChatLogic {
                         depth + 1,
                         apiKeyId,
                         ipAddress,
-                        userAgent
+                        userAgent,
+                        requestBudget
                     );
                 }
 
@@ -252,10 +212,6 @@ export class ChatLogic {
                 if (!tracker.fallbackReason) {
                     tracker.fallbackReason = err instanceof Error ? err.message : String(err);
                 }
-
-                if (i < candidates.length - 1) {
-                    continue;
-                }
             }
         }
 
@@ -271,14 +227,14 @@ export class ChatLogic {
         depth = 0,
         apiKeyId?: string,
         ipAddress?: string,
-        userAgent?: string
+        userAgent?: string,
+        budget?: RequestAttemptBudget
     ): AsyncGenerator<ChatCompletionChunk, void, void> {
+        const requestBudget = budget ?? CreateRequestAttemptBudget();
         const ctx: RequestContext = { startTime, depth, apiKeyId, ipAddress, userAgent };
         const effectiveBody =
             depth === 0 ? applyTokenSaver(body, await getTokenSaverSettingsDB()).request : body;
         const originalModel = effectiveBody.model;
-        const candidates = await ResolveCandidates(originalModel);
-
         const tracker: AttemptTracker = {
             fallbackPath: [originalModel],
             fallbackOccurred: false,
@@ -286,26 +242,15 @@ export class ChatLogic {
             lastError: null
         };
 
-        for (let i = 0; i < candidates.length; i++) {
-            const candidate = candidates[i]!;
-            const isFallbackAttempt = i > 0;
-
-            if (isFallbackAttempt && candidate.rule && tracker.lastError) {
-                if (!ShouldTriggerFallback(candidate.rule, tracker.lastError)) {
-                    continue;
-                }
-            }
-
-            const currentModel = candidate.model;
+        for await (const attempt of RunCandidateAttempts(originalModel, tracker)) {
+            const { currentModel, isFallbackAttempt, providerId } = attempt;
             const currentReq: ChatCompletionRequest = { ...effectiveBody, model: currentModel };
-            const providerId = currentModel.split("/")[0] || "default";
 
             let yieldedAny = false;
             let usage: UsageInfo | undefined = undefined;
 
             try {
-                await ensureFreshToken(providerId);
-                const generator = registry.chatCompletionStream(currentReq);
+                const generator = registry.chatCompletionStream(currentReq, requestBudget);
 
                 const bufferedChunks: ChatCompletionChunk[] = [];
                 const toolCallsMap = new Map<number, AssembledStreamingToolCall>();
@@ -313,14 +258,6 @@ export class ChatLogic {
                 let assistantContent = "";
 
                 for await (const chunk of generator) {
-                    if (!yieldedAny) {
-                        yieldedAny = true;
-                        if (isFallbackAttempt) {
-                            tracker.fallbackOccurred = true;
-                            tracker.fallbackPath.push(currentModel);
-                        }
-                    }
-
                     if (chunk.usage) {
                         usage = chunk.usage;
                     }
@@ -351,6 +288,13 @@ export class ChatLogic {
                     if (hasToolCalls) {
                         bufferedChunks.push(chunk);
                     } else {
+                        if (!yieldedAny) {
+                            yieldedAny = true;
+                            if (isFallbackAttempt) {
+                                tracker.fallbackOccurred = true;
+                                tracker.fallbackPath.push(currentModel);
+                            }
+                        }
                         yield chunk;
                     }
                 }
@@ -395,7 +339,8 @@ export class ChatLogic {
                         depth + 1,
                         apiKeyId,
                         ipAddress,
-                        userAgent
+                        userAgent,
+                        requestBudget
                     );
                     return;
                 }
@@ -422,22 +367,22 @@ export class ChatLogic {
                     tracker.fallbackReason = err instanceof Error ? err.message : String(err);
                 }
 
-                if (!yieldedAny && i < candidates.length - 1) {
-                    continue;
+                if (yieldedAny) {
+                    const provider = currentModel.split("/")[0] || "default";
+                    const errorStatusCode =
+                        ExtractStatusCode(err instanceof Error ? err : (err as ErrorWithStatus)) ??
+                        500;
+                    LogCompletion(provider, currentModel, startTime, {
+                        statusCode: errorStatusCode,
+                        fallbackOccurred: tracker.fallbackOccurred,
+                        fallbackPath: tracker.fallbackPath,
+                        fallbackReason: tracker.fallbackReason,
+                        apiKeyId,
+                        ipAddress,
+                        userAgent
+                    });
+                    throw err;
                 }
-
-                const provider = currentModel.split("/")[0] || "default";
-                const errorStatusCode = ExtractStatusCode(err) ?? 500;
-                LogCompletion(provider, currentModel, startTime, {
-                    statusCode: errorStatusCode,
-                    fallbackOccurred: tracker.fallbackOccurred,
-                    fallbackPath: tracker.fallbackPath,
-                    fallbackReason: tracker.fallbackReason,
-                    apiKeyId,
-                    ipAddress,
-                    userAgent
-                });
-                throw err;
             }
         }
 

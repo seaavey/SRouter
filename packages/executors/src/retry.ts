@@ -1,4 +1,5 @@
 // Shared retry/backoff helpers for upstream providers with transient errors.
+import type { RequestAttemptBudget } from "@srouter/types";
 
 const MAX_RETRY_AFTER_MS = 10000;
 const TRANSIENT_RETRY_MAX_MS = 15000;
@@ -121,14 +122,24 @@ export async function fetchWithRetry(
     url: string,
     body: Record<string, unknown>,
     headers: Record<string, string>,
-    maxAttempts = 3
+    maxAttempts = 3,
+    budget?: RequestAttemptBudget
 ): Promise<Response> {
+    let lastResponse: Response | undefined;
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        if (budget && budget.remaining <= 0) {
+            return (
+                lastResponse ??
+                new Response(null, { status: 503, statusText: "Retry budget exhausted" })
+            );
+        }
+        budget?.consume();
         const res = await fetch(url, {
             method: "POST",
             headers,
             body: JSON.stringify(body)
         });
+        lastResponse = res;
 
         if (res.ok) return res;
 
@@ -137,10 +148,16 @@ export async function fetchWithRetry(
 
         await new Promise((r) => setTimeout(r, retryMs));
     }
-    // Last attempt returns as-is
-    return fetch(url, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(body)
-    });
+    return (
+        lastResponse ?? new Response(null, { status: 503, statusText: "Retry attempts exhausted" })
+    );
+}
+
+export async function FetchWithBudget(
+    input: string | URL,
+    init: RequestInit,
+    budget?: RequestAttemptBudget
+): Promise<Response> {
+    budget?.consume();
+    return fetch(input, init);
 }

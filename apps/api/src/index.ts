@@ -24,6 +24,7 @@ import { resolveWebDistPath } from "@/services/webDist.js";
 import { warmModelRegistry, startProviderRegistry } from "@/services/registry.js";
 import { bootstrapAdminAccountFromEnv } from "@/services/adminAuth.js";
 import { autostartTunnelIfEnabled } from "@/services/cloudflareTunnel.js";
+import { RunStartupTasks } from "@/services/startup.js";
 import { GetPublicUrlBase } from "@/utils/callbackUrl.js";
 import { adminAuthStore, initDatabase, isPostgres } from "@srouter/db";
 
@@ -180,17 +181,18 @@ async function boot(): Promise<void> {
     // Postgres schema init is async — await it before serving any request
     // so the first query never hits a missing table. SQLite is already
     // initialized synchronously at module import.
-    if (isPostgres()) {
-        await initDatabase();
-    }
-
-    // Bootstrap admin account & tunnel autostart: query DB, so must run
-    // after schema init (especially for Postgres).
-    void bootstrapAdminAccountFromEnv(adminAuthStore);
-    void autostartTunnelIfEnabled();
-
-    // Seed default provider rows + load saved providers (must run after DB schema init).
-    await startProviderRegistry();
+    await RunStartupTasks({
+        isPostgres: isPostgres(),
+        initDatabase,
+        bootstrapAdmin: () => bootstrapAdminAccountFromEnv(adminAuthStore),
+        autostartTunnel: autostartTunnelIfEnabled,
+        startProviderRegistry: async () => {
+            await startProviderRegistry();
+        },
+        onBackgroundError: (error: unknown) => {
+            console.warn("Could not autostart Cloudflare Tunnel:", error);
+        }
+    });
 
     serve(
         {
