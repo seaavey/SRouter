@@ -1,5 +1,5 @@
 import { createWriteStream } from "node:fs";
-import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { Readable } from "node:stream";
@@ -103,7 +103,9 @@ function createBoundedRequestBody(request: Request): ReadableStream<Uint8Array> 
 
 async function createPrivateTransferDirectory(): Promise<string> {
     await mkdir(SROUTER_DIR, { recursive: true, mode: 0o700 });
-    return mkdtemp(path.join(SROUTER_DIR, "transfer-temp-"));
+    const directory = await mkdtemp(path.join(SROUTER_DIR, "transfer-temp-"), { encoding: "utf8" });
+    await chmod(directory, 0o700);
+    return directory;
 }
 
 export class DatabaseController {
@@ -160,12 +162,13 @@ export class DatabaseController {
                     code: "invalid_multipart"
                 });
             }
-            const file = formData.get("database");
-            if (!(file instanceof File)) {
+            const databaseValues = formData.getAll("database");
+            if (databaseValues.length !== 1 || !(databaseValues[0] instanceof File)) {
                 return Err(c, "A database file is required in the database field.", 400, {
-                    code: "missing_database_file"
+                    code: databaseValues.length === 0 ? "missing_database_file" : "invalid_database_field"
                 });
             }
+            const file = databaseValues[0];
             if (file.size > MAX_DATABASE_UPLOAD_BYTES) {
                 return Err(c, "The database upload is too large.", 400, { code: "upload_too_large" });
             }

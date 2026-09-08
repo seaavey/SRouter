@@ -110,6 +110,35 @@ test("database import accepts one database file for an admin session", async () 
     }
 });
 
+test("database import rejects duplicate database files and values", async () => {
+    const { app, session, cleanup } = await createTestApp();
+    try {
+        const duplicateFiles = new FormData();
+        duplicateFiles.append("database", new File(["first"], "first.db"));
+        duplicateFiles.append("database", new File(["second"], "second.db"));
+        const duplicateFileResponse = await app.request("/v1/admin/database/import", {
+            method: "POST",
+            headers: { Cookie: session },
+            body: duplicateFiles
+        });
+        assert.equal(duplicateFileResponse.status, 400);
+        assert.equal((await duplicateFileResponse.json()).error.code, "invalid_database_field");
+
+        const duplicateValues = new FormData();
+        duplicateValues.append("database", "first");
+        duplicateValues.append("database", "second");
+        const duplicateValueResponse = await app.request("/v1/admin/database/import", {
+            method: "POST",
+            headers: { Cookie: session },
+            body: duplicateValues
+        });
+        assert.equal(duplicateValueResponse.status, 400);
+        assert.equal((await duplicateValueResponse.json()).error.code, "invalid_database_field");
+    } finally {
+        await cleanup();
+    }
+});
+
 test("database import rejects missing, invalid, and oversized uploads", async () => {
     const { app, session, cleanup } = await createTestApp({
         validateDatabase: () => {
@@ -178,9 +207,11 @@ test("database import maps typed transfer errors and cleans its private temp fil
 
     for (const [ErrorType, status] of errors) {
         let candidatePath = "";
+        let candidateDirectoryMode = 0;
         const { app, session, cleanup } = await createTestApp({
             validateDatabase: (candidate) => {
                 candidatePath = candidate;
+                candidateDirectoryMode = statSync(path.dirname(candidate)).mode & 0o777;
                 throw new ErrorType();
             }
         });
@@ -194,6 +225,7 @@ test("database import maps typed transfer errors and cleans its private temp fil
             });
             assert.equal(response.status, status);
             assert.ok(candidatePath.startsWith(path.join(SROUTER_DIR, "transfer-temp-")));
+            assert.equal(candidateDirectoryMode, 0o700);
             assert.equal((await stat(candidatePath).catch(() => null)), null);
             const directory = path.dirname(candidatePath);
             assert.equal((await stat(directory).catch(() => null)), null);
