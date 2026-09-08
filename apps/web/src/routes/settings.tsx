@@ -90,30 +90,30 @@ function SettingsPage() {
         const scrollContainer = document.getElementById("dashboard-scroll-container");
         if (!scrollContainer) return;
 
-        const getSectionTop = (section: HTMLElement) =>
-            section.getBoundingClientRect().top -
-            scrollContainer.getBoundingClientRect().top +
-            scrollContainer.scrollTop;
+        const observer = new IntersectionObserver(
+            (entries) => {
+                const visibleSections = entries
+                    .filter((entry) => entry.isIntersecting)
+                    .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
 
-        const updateActiveSection = () => {
-            const marker = scrollContainer.scrollTop + 112;
-            let current = sections[0].id;
-
-            for (const section of sections) {
-                if (getSectionTop(section) <= marker) {
-                    current = section.id;
+                const section = visibleSections[0]?.target;
+                if (section instanceof HTMLElement) {
+                    setActiveSection((active) => (active === section.id ? active : section.id));
                 }
+            },
+            {
+                root: scrollContainer,
+                rootMargin: "-112px 0px -65% 0px",
+                threshold: 0
             }
+        );
 
-            setActiveSection((active) => (active === current ? active : current));
-        };
+        for (const section of sections) {
+            observer.observe(section);
+        }
 
-        updateActiveSection();
-        scrollContainer.addEventListener("scroll", updateActiveSection, { passive: true });
-        window.addEventListener("resize", updateActiveSection);
         return () => {
-            scrollContainer.removeEventListener("scroll", updateActiveSection);
-            window.removeEventListener("resize", updateActiveSection);
+            observer.disconnect();
         };
     }, [isLoadingServerSettings]);
 
