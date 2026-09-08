@@ -188,3 +188,153 @@ test("ChatLogic cascades streaming request to fallback provider before first chu
     assert.equal(chunks.length, 1);
     assert.equal(chunks[0]?.choices[0]?.delta.content, "Streaming seamlessly from fallback!");
 });
+
+test("ChatLogic does not cascade after a client-visible streaming chunk", async () => {
+    let fallbackCalled = false;
+    const primaryProvider: AIProvider = {
+        id: "primary_committed_stream",
+        name: "Primary Committed Stream Provider",
+        listModels: async () => [{ id: "primary_committed_stream/model", object: "model" }],
+        chatCompletion: async () => {
+            throw new Error("Not implemented");
+        },
+        chatCompletionStream: async function* () {
+            yield {
+                id: "committed-chunk",
+                object: "chat.completion.chunk",
+                created: Date.now(),
+                model: "primary_committed_stream/model",
+                choices: [{ index: 0, delta: { content: "partial" }, finish_reason: null }]
+            };
+            throw new Error("stream interrupted after output");
+        }
+    };
+    const fallbackProvider: AIProvider = {
+        id: "fallback_after_commit",
+        name: "Fallback After Commit",
+        listModels: async () => [{ id: "fallback_after_commit/model", object: "model" }],
+        chatCompletion: async () => {
+            throw new Error("Not implemented");
+        },
+        chatCompletionStream: async function* () {
+            fallbackCalled = true;
+            yield {
+                id: "fallback-chunk",
+                object: "chat.completion.chunk",
+                created: Date.now(),
+                model: "fallback_after_commit/model",
+                choices: [{ index: 0, delta: { content: "fallback" }, finish_reason: null }]
+            };
+        }
+    };
+
+    registry.registerProvider(primaryProvider);
+    registry.registerProvider(fallbackProvider);
+    registeredProviderIds.push(primaryProvider.id, fallbackProvider.id);
+    const rule = await createFallbackRuleDB({
+        sourceModel: "primary_committed_stream/model",
+        targetModel: "fallback_after_commit/model",
+        priority: 1,
+        enabled: true
+    });
+    createdRuleIds.push(rule.id);
+
+    const chunks = [];
+    await assert.rejects(async () => {
+        for await (const chunk of ChatLogic.processStreamingCompletion(
+            {
+                model: "primary_committed_stream/model",
+                messages: [{ role: "user", content: "commit test" }]
+            },
+            Date.now()
+        )) {
+            chunks.push(chunk);
+        }
+    }, /stream interrupted after output/);
+
+    assert.equal(chunks.length, 1);
+    assert.equal(fallbackCalled, false);
+});
+
+test("ChatLogic can cascade when a buffered tool-call stream fails before client output", async () => {
+    let fallbackCalled = false;
+    const primaryProvider: AIProvider = {
+        id: "primary_buffered_stream",
+        name: "Primary Buffered Stream Provider",
+        listModels: async () => [{ id: "primary_buffered_stream/model", object: "model" }],
+        chatCompletion: async () => {
+            throw new Error("Not implemented");
+        },
+        chatCompletionStream: async function* () {
+            yield {
+                id: "tool-buffered-chunk",
+                object: "chat.completion.chunk",
+                created: Date.now(),
+                model: "primary_buffered_stream/model",
+                choices: [
+                    {
+                        index: 0,
+                        delta: {
+                            tool_calls: [
+                                {
+                                    index: 0,
+                                    id: "buffered-call",
+                                    type: "function",
+                                    function: { name: "client_tool", arguments: "{}" }
+                                }
+                            ]
+                        },
+                        finish_reason: null
+                    }
+                ]
+            };
+            throw new Error("buffered stream interrupted");
+        }
+    };
+    const fallbackProvider: AIProvider = {
+        id: "fallback_buffered_stream",
+        name: "Fallback Buffered Stream",
+        listModels: async () => [{ id: "fallback_buffered_stream/model", object: "model" }],
+        chatCompletion: async () => {
+            throw new Error("Not implemented");
+        },
+        chatCompletionStream: async function* () {
+            fallbackCalled = true;
+            yield {
+                id: "buffered-fallback-chunk",
+                object: "chat.completion.chunk",
+                created: Date.now(),
+                model: "fallback_buffered_stream/model",
+                choices: [
+                    { index: 0, delta: { content: "fallback after buffer" }, finish_reason: null }
+                ]
+            };
+        }
+    };
+
+    registry.registerProvider(primaryProvider);
+    registry.registerProvider(fallbackProvider);
+    registeredProviderIds.push(primaryProvider.id, fallbackProvider.id);
+    const rule = await createFallbackRuleDB({
+        sourceModel: "primary_buffered_stream/model",
+        targetModel: "fallback_buffered_stream/model",
+        priority: 1,
+        enabled: true
+    });
+    createdRuleIds.push(rule.id);
+
+    const chunks = [];
+    for await (const chunk of ChatLogic.processStreamingCompletion(
+        {
+            model: "primary_buffered_stream/model",
+            messages: [{ role: "user", content: "buffer test" }]
+        },
+        Date.now()
+    )) {
+        chunks.push(chunk);
+    }
+
+    assert.equal(fallbackCalled, true);
+    assert.equal(chunks.length, 1);
+    assert.equal(chunks[0]?.choices[0]?.delta.content, "fallback after buffer");
+});

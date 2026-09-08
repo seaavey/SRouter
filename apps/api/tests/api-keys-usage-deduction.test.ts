@@ -19,7 +19,6 @@ test("ChatLogic.ProcessNonStreamingCompletion records usage tokens and dollar co
     });
     createdIds.push(key.id);
 
-    // Mock provider in registry
     const origMethod = registry.chatCompletion;
     registry.chatCompletion = async () => ({
         id: "chatcmpl-mock",
@@ -110,6 +109,50 @@ test("ChatLogic.ProcessStreamingCompletion records usage tokens and dollar cost 
         assert.ok(updated);
         assert.equal(updated?.usage_tokens, 300);
         assert.ok((updated?.usage_cost ?? 0) > 0, "Streaming usage cost should be greater than 0");
+    } finally {
+        registry.chatCompletionStream = origStream;
+    }
+});
+
+test("ChatLogic does not bill a stream that errors after partial output without usage", async () => {
+    const key = await createAPIKeyDB({
+        name: "Partial Stream Key",
+        credit_limit: 10
+    });
+    createdIds.push(key.id);
+
+    const origStream = registry.chatCompletionStream;
+    registry.chatCompletionStream = async function* () {
+        yield {
+            id: "chatcmpl-partial",
+            object: "chat.completion.chunk",
+            created: Date.now(),
+            model: "openai_codex/gpt-4o",
+            choices: [{ index: 0, delta: { content: "partial" } }]
+        };
+        throw new Error("upstream stream interrupted");
+    };
+
+    try {
+        await assert.rejects(async () => {
+            for await (const _ of ChatLogic.ProcessStreamingCompletion(
+                {
+                    model: "openai_codex/gpt-4o",
+                    messages: [{ role: "user", content: "Hi" }],
+                    stream: true
+                },
+                Date.now(),
+                0,
+                key.id
+            )) {
+                // Consume the client-visible partial output before the error.
+            }
+        }, /upstream stream interrupted/);
+
+        const updated = await getAPIKeyByKeyDB(key.key);
+        assert.ok(updated);
+        assert.equal(updated?.usage_tokens, 0);
+        assert.equal(updated?.usage_cost, 0);
     } finally {
         registry.chatCompletionStream = origStream;
     }

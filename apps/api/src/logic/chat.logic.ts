@@ -313,14 +313,6 @@ export class ChatLogic {
                 let assistantContent = "";
 
                 for await (const chunk of generator) {
-                    if (!yieldedAny) {
-                        yieldedAny = true;
-                        if (isFallbackAttempt) {
-                            tracker.fallbackOccurred = true;
-                            tracker.fallbackPath.push(currentModel);
-                        }
-                    }
-
                     if (chunk.usage) {
                         usage = chunk.usage;
                     }
@@ -351,6 +343,13 @@ export class ChatLogic {
                     if (hasToolCalls) {
                         bufferedChunks.push(chunk);
                     } else {
+                        if (!yieldedAny) {
+                            yieldedAny = true;
+                            if (isFallbackAttempt) {
+                                tracker.fallbackOccurred = true;
+                                tracker.fallbackPath.push(currentModel);
+                            }
+                        }
                         yield chunk;
                     }
                 }

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { providerBaseId, providerTypeForAlias } from "@srouter/constants";
 import { getProviderAlias, ProviderRegistry } from "../src/registry.js";
 import type { AIProvider } from "@srouter/types";
 
@@ -216,6 +217,41 @@ test("unknown prefix still returns descriptive error", async () => {
     );
 });
 
+test("model identity contract preserves built-in, bare, legacy, and explicit double prefixes", async () => {
+    assert.equal(providerBaseId("qoder_123"), "qoder");
+    assert.equal(providerTypeForAlias("opencode"), "opencode_zen");
+
+    const registry = new ProviderRegistry();
+    const provider: AIProvider = {
+        id: "qoder_123",
+        name: "Qoder Identity Contract",
+        listModels: async () => [
+            { id: "qoder/ultimate", object: "model", owned_by: "qoder" },
+            { id: "qoder/qoder/explicit", object: "model", owned_by: "qoder" },
+            { id: "bare-model", object: "model", owned_by: "qoder" }
+        ],
+        chatCompletion: async () => {
+            throw new Error("not used");
+        },
+        chatCompletionStream: async function* () {
+            throw new Error("not used");
+        }
+    };
+    registry.registerProvider(provider);
+
+    const cases = [
+        ["qoder/ultimate", provider],
+        ["qd/ultimate", provider],
+        ["qoder_123/ultimate", provider],
+        ["bare-model", provider],
+        ["qoder/qoder/explicit", provider]
+    ] as const;
+
+    for (const [modelId, expectedProvider] of cases) {
+        assert.equal(await registry.getProviderForModel(modelId), expectedProvider, modelId);
+    }
+});
+
 test("custom alias that resembles a built-in provider name must resolve to the custom alias", async () => {
     const registry = new ProviderRegistry();
     const qoderBuiltin: AIProvider = {
@@ -254,7 +290,10 @@ test("custom alias that resembles a built-in provider name must resolve to the c
     // will match. The key is that the custom provider IS found.
     const candidates = await registry.getCandidateProvidersForModel("qoder/custom-model");
     assert.ok(candidates.length > 0, "must find at least one candidate");
-    assert.ok(candidates.some((c) => c.id === uuid), "custom provider must be among candidates");
+    assert.ok(
+        candidates.some((c) => c.id === uuid),
+        "custom provider must be among candidates"
+    );
 });
 
 test("custom provider alias matches via exact alias when model list is empty", async () => {
@@ -717,4 +756,54 @@ test("ProviderRegistry automatically fails over to backup account when primary a
 
     assert.equal(chunks.length, 1);
     assert.equal(chunks[0]?.choices[0]?.delta.content, "Recovered stream from acc2!");
+});
+
+test("ProviderRegistry exposes separate provider-attempt behavior for one request", async () => {
+    const attempts: string[] = [];
+    const first: AIProvider = {
+        id: "attempt_primary",
+        name: "Attempt Primary",
+        listModels: async () => [{ id: "attempt/model", object: "model", owned_by: "attempt" }],
+        chatCompletion: async () => {
+            attempts.push("primary");
+            throw new Error("503 upstream unavailable");
+        },
+        chatCompletionStream: async function* () {
+            throw new Error("not used");
+        }
+    };
+    const second: AIProvider = {
+        id: "attempt_backup",
+        name: "Attempt Backup",
+        listModels: async () => [{ id: "attempt/model", object: "model", owned_by: "attempt" }],
+        chatCompletion: async (req) => {
+            attempts.push("backup");
+            return {
+                id: "attempt-result",
+                object: "chat.completion",
+                created: Date.now(),
+                model: req.model,
+                choices: [
+                    {
+                        index: 0,
+                        message: { role: "assistant", content: "ok" },
+                        finish_reason: "stop"
+                    }
+                ]
+            };
+        },
+        chatCompletionStream: async function* () {
+            throw new Error("not used");
+        }
+    };
+    const registry = new ProviderRegistry();
+    registry.registerProvider(first);
+    registry.registerProvider(second);
+
+    await registry.chatCompletion({
+        model: "attempt/model",
+        messages: [{ role: "user", content: "count attempts" }]
+    });
+
+    assert.deepEqual(attempts, ["primary", "backup"]);
 });
