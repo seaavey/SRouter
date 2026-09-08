@@ -192,10 +192,10 @@ function SettingsPage() {
             </header>
 
             <div className="lg:grid lg:grid-cols-[11rem_minmax(0,1fr)] lg:items-start lg:gap-6">
-                <aside className="sticky top-14 z-20 -mx-3 border-y border-border/80 bg-background/95 px-3 py-2 backdrop-blur-md sm:-mx-5 sm:px-5 lg:top-20 lg:mx-0 lg:h-[calc(100svh-5rem)] lg:self-start lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
+                <aside className="sticky top-14 z-20 -mx-3 border-y border-border/80 bg-background/95 px-3 py-2 backdrop-blur-md sm:-mx-5 sm:px-5 lg:top-20 lg:mx-0 lg:self-start lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
                     <nav
                         aria-label="Settings sections"
-                        className="flex items-center gap-1 overflow-x-auto no-scrollbar rounded-lg border border-border/80 bg-card/50 p-1.5 lg:h-full lg:w-44 lg:flex-col lg:items-stretch"
+                        className="flex items-center gap-1 overflow-x-auto no-scrollbar rounded-lg border border-border/80 bg-card/50 p-1.5 lg:w-44 lg:flex-col lg:items-stretch"
                     >
                     {SECTIONS.map(({ id, label, icon: Icon }) => {
                         const isActive = activeSection === id;
