@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { providerBaseId, providerTypeForAlias } from "@srouter/constants";
+import { CreateRequestAttemptBudget } from "@srouter/types";
 import { getProviderAlias, ProviderRegistry } from "../src/registry.js";
 import type { AIProvider } from "@srouter/types";
 
@@ -806,4 +807,58 @@ test("ProviderRegistry exposes separate provider-attempt behavior for one reques
     });
 
     assert.deepEqual(attempts, ["primary", "backup"]);
+});
+
+test("ProviderRegistry records provider attempts separately from transport attempts", async () => {
+    const attempts: string[] = [];
+    const first: AIProvider = {
+        id: "telemetry_primary",
+        name: "Telemetry Primary",
+        listModels: async () => [{ id: "telemetry/model", object: "model", owned_by: "telemetry" }],
+        chatCompletion: async () => {
+            attempts.push("primary");
+            throw new Error("503 upstream unavailable");
+        },
+        chatCompletionStream: async function* () {
+            throw new Error("not used");
+        }
+    };
+    const second: AIProvider = {
+        id: "telemetry_backup",
+        name: "Telemetry Backup",
+        listModels: async () => [{ id: "telemetry/model", object: "model", owned_by: "telemetry" }],
+        chatCompletion: async (req) => {
+            attempts.push("backup");
+            return {
+                id: "telemetry-result",
+                object: "chat.completion",
+                created: Date.now(),
+                model: req.model,
+                choices: [
+                    {
+                        index: 0,
+                        message: { role: "assistant", content: "ok" },
+                        finish_reason: "stop"
+                    }
+                ]
+            };
+        },
+        chatCompletionStream: async function* () {
+            throw new Error("not used");
+        }
+    };
+    const registry = new ProviderRegistry();
+    registry.registerProvider(first);
+    registry.registerProvider(second);
+    const budget = CreateRequestAttemptBudget(4);
+
+    await registry.chatCompletion(
+        { model: "telemetry/model", messages: [{ role: "user", content: "telemetry" }] },
+        budget
+    );
+
+    assert.deepEqual(attempts, ["primary", "backup"]);
+    assert.equal(budget.providerAttempts, 2);
+    assert.equal(budget.transportAttempts, 0);
+    assert.equal(budget.remaining, 4);
 });

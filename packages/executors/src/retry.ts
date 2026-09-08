@@ -152,3 +152,12 @@ export async function fetchWithRetry(
         lastResponse ?? new Response(null, { status: 503, statusText: "Retry attempts exhausted" })
     );
 }
+
+export async function FetchWithBudget(
+    input: string | URL,
+    init: RequestInit,
+    budget?: RequestAttemptBudget
+): Promise<Response> {
+    budget?.consume();
+    return fetch(input, init);
+}

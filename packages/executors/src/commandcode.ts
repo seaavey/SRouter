@@ -6,7 +6,8 @@ import type {
     ChatCompletionRequest,
     ChatCompletionResponse,
     ModelListResponse,
-    ModelObject
+    ModelObject,
+    RequestAttemptBudget
 } from "@srouter/types";
 import {
     accumulateChunks,
@@ -16,6 +17,7 @@ import {
     type CommandCodeEvent
 } from "@srouter/translator";
 import { parseDataLine, streamLines } from "./base.js";
+import { FetchWithBudget } from "./retry.js";
 
 export interface CommandCodeExecutorOptions {
     id?: string;
@@ -94,25 +96,33 @@ export class CommandCodeExecutor implements AIProvider {
         }
     }
 
-    async chatCompletion(req: ChatCompletionRequest): Promise<ChatCompletionResponse> {
+    async chatCompletion(
+        req: ChatCompletionRequest,
+        budget?: RequestAttemptBudget
+    ): Promise<ChatCompletionResponse> {
         // CommandCode upstream is streaming-only (forceStream). Run the stream and
         // accumulate the final response for non-streaming callers.
         const chunks: ChatCompletionChunk[] = [];
-        for await (const chunk of this.chatCompletionStream(req)) {
+        for await (const chunk of this.chatCompletionStream(req, budget)) {
             chunks.push(chunk);
         }
         return accumulateChunks(chunks, req.model);
     }
 
     async *chatCompletionStream(
-        req: ChatCompletionRequest
+        req: ChatCompletionRequest,
+        budget?: RequestAttemptBudget
     ): AsyncGenerator<ChatCompletionChunk, void, void> {
         const body = buildRequestBody(req);
-        const res = await fetch(this.baseUrl, {
-            method: "POST",
-            headers: this.getHeaders(),
-            body: JSON.stringify(body)
-        });
+        const res = await FetchWithBudget(
+            this.baseUrl,
+            {
+                method: "POST",
+                headers: this.getHeaders(),
+                body: JSON.stringify(body)
+            },
+            budget
+        );
 
         if (!res.ok) {
             const errorText = await res.text();

@@ -56,4 +56,5 @@ test("fetchWithRetry stops at the request-level attempt budget", async () => {
     assert.equal(calls, 2);
     assert.equal(budget.used, 2);
     assert.equal(budget.remaining, 0);
+    assert.equal(budget.transportAttempts, 2);
 });

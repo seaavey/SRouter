@@ -4,11 +4,16 @@ export interface RequestAttemptBudget {
     readonly limit: number;
     readonly used: number;
     readonly remaining: number;
+    readonly providerAttempts: number;
+    readonly transportAttempts: number;
     consume(): void;
+    recordProviderAttempt(): void;
 }
 
 class AttemptBudget implements RequestAttemptBudget {
     public used = 0;
+    public providerAttempts = 0;
+    public transportAttempts = 0;
 
     public constructor(public readonly limit: number) {}
 
@@ -23,10 +28,13 @@ class AttemptBudget implements RequestAttemptBudget {
             );
         }
         this.used += 1;
+        this.transportAttempts += 1;
+    }
+
+    public recordProviderAttempt(): void {
+        this.providerAttempts += 1;
     }
 }
-
-const RequestAttemptBudgets = new WeakMap<object, RequestAttemptBudget>();
 
 export function CreateRequestAttemptBudget(
     limit = DEFAULT_REQUEST_ATTEMPT_LIMIT
@@ -35,16 +43,4 @@ export function CreateRequestAttemptBudget(
         throw new Error("Request attempt limit must be a positive integer");
     }
     return new AttemptBudget(limit);
-}
-
-export function AttachRequestAttemptBudget<T extends object>(
-    request: T,
-    budget: RequestAttemptBudget
-): T {
-    RequestAttemptBudgets.set(request, budget);
-    return request;
-}
-
-export function GetRequestAttemptBudget(request: object): RequestAttemptBudget | undefined {
-    return RequestAttemptBudgets.get(request);
 }

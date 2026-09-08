@@ -5,9 +5,11 @@ import type {
     ChatCompletionChunk,
     ChatCompletionRequest,
     ChatCompletionResponse,
-    ModelObject
+    ModelObject,
+    RequestAttemptBudget
 } from "@srouter/types";
 import { parseDataLine, streamLines } from "./base.js";
+import { FetchWithBudget } from "./retry.js";
 
 function stripProviderPrefix(model: string): string {
     const slash = model.indexOf("/");
@@ -104,7 +106,11 @@ export class CodeBuddyExecutor implements AIProvider {
         const source = Array.isArray(req.messages) ? req.messages : [];
         const systemPrompts: string[] = [];
         for (const m of source) {
-            if (m && typeof m === "object" && ["system", "developer"].includes((m as { role?: string }).role ?? "")) {
+            if (
+                m &&
+                typeof m === "object" &&
+                ["system", "developer"].includes((m as { role?: string }).role ?? "")
+            ) {
                 const content = (m as { content?: unknown }).content;
                 if (typeof content === "string" && content.trim()) {
                     systemPrompts.push(content.trim());
@@ -112,9 +118,10 @@ export class CodeBuddyExecutor implements AIProvider {
             }
         }
 
-        const combinedSystem = systemPrompts.length > 0
-            ? `You are CodeBuddy Code.\n\n${systemPrompts.join("\n\n")}`
-            : "You are CodeBuddy Code.";
+        const combinedSystem =
+            systemPrompts.length > 0
+                ? `You are CodeBuddy Code.\n\n${systemPrompts.join("\n\n")}`
+                : "You are CodeBuddy Code.";
 
         const messages: unknown[] = [{ role: "system", content: combinedSystem }];
 
@@ -153,7 +160,8 @@ export class CodeBuddyExecutor implements AIProvider {
             delete transformed.response_format;
             let directive = rf.type === "json_object" ? "Respond only in valid JSON." : "";
             if (rf.type === "json_schema") {
-                const schemaObj = (rf.json_schema as { schema?: unknown } | undefined)?.schema ?? rf.json_schema;
+                const schemaObj =
+                    (rf.json_schema as { schema?: unknown } | undefined)?.schema ?? rf.json_schema;
                 if (schemaObj) {
                     directive =
                         `You must respond with valid JSON matching this schema:\n` +
@@ -168,7 +176,10 @@ export class CodeBuddyExecutor implements AIProvider {
                         const parts = content as { type?: string; text?: string }[];
                         for (let j = parts.length - 1; j >= 0; j--) {
                             if (parts[j]?.type === "text" && typeof parts[j].text === "string") {
-                                parts[j] = { type: "text", text: `${parts[j].text}\n\n${directive}` };
+                                parts[j] = {
+                                    type: "text",
+                                    text: `${parts[j].text}\n\n${directive}`
+                                };
                                 break;
                             }
                         }
@@ -191,25 +202,33 @@ export class CodeBuddyExecutor implements AIProvider {
         }));
     }
 
-    async chatCompletion(req: ChatCompletionRequest): Promise<ChatCompletionResponse> {
+    async chatCompletion(
+        req: ChatCompletionRequest,
+        budget?: RequestAttemptBudget
+    ): Promise<ChatCompletionResponse> {
         // CodeBuddy upstream is stream-only (forceStream). Run the stream and
         // accumulate the final response for non-streaming callers.
         const chunks: ChatCompletionChunk[] = [];
-        for await (const chunk of this.chatCompletionStream(req)) {
+        for await (const chunk of this.chatCompletionStream(req, budget)) {
             chunks.push(chunk);
         }
         return accumulateChunks(chunks, req.model);
     }
 
     async *chatCompletionStream(
-        req: ChatCompletionRequest
+        req: ChatCompletionRequest,
+        budget?: RequestAttemptBudget
     ): AsyncGenerator<ChatCompletionChunk, void, void> {
         const body = this.transformRequestBody(req);
-        const res = await fetch(this.getChatUrl(), {
-            method: "POST",
-            headers: this.getHeaders(),
-            body: JSON.stringify(body)
-        });
+        const res = await FetchWithBudget(
+            this.getChatUrl(),
+            {
+                method: "POST",
+                headers: this.getHeaders(),
+                body: JSON.stringify(body)
+            },
+            budget
+        );
 
         if (!res.ok) {
             const errorText = await res.text();

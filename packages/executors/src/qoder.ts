@@ -20,9 +20,11 @@ import type {
     ChatCompletionChunk,
     ChatCompletionRequest,
     ChatCompletionResponse,
-    ModelObject
+    ModelObject,
+    RequestAttemptBudget
 } from "@srouter/types";
 import { parseDataLine, streamLines } from "./base.js";
+import { FetchWithBudget } from "./retry.js";
 
 /**
  * ============================================================================
@@ -635,7 +637,8 @@ export class QoderExecutor implements AIProvider {
     }
 
     async *chatCompletionStream(
-        req: ChatCompletionRequest
+        req: ChatCompletionRequest,
+        budget?: RequestAttemptBudget
     ): AsyncGenerator<ChatCompletionChunk, void, void> {
         const creds = await this.resolveCredentials();
         if (!creds.accessToken) {
@@ -667,11 +670,15 @@ export class QoderExecutor implements AIProvider {
             ...cosyHeaders
         };
 
-        const res = await fetch(url, {
-            method: "POST",
-            headers,
-            body: encodedBodyBuf
-        });
+        const res = await FetchWithBudget(
+            url,
+            {
+                method: "POST",
+                headers,
+                body: encodedBodyBuf
+            },
+            budget
+        );
 
         if (!res.ok) {
             const errorText = await res.text();
@@ -725,7 +732,10 @@ export class QoderExecutor implements AIProvider {
         }
     }
 
-    async chatCompletion(req: ChatCompletionRequest): Promise<ChatCompletionResponse> {
+    async chatCompletion(
+        req: ChatCompletionRequest,
+        budget?: RequestAttemptBudget
+    ): Promise<ChatCompletionResponse> {
         let content = "";
         let role = "assistant";
         let model = req.model;
@@ -734,7 +744,7 @@ export class QoderExecutor implements AIProvider {
             ChatCompletionResponse["choices"][number]["message"]["tool_calls"]
         > = [];
 
-        for await (const chunk of this.chatCompletionStream(req)) {
+        for await (const chunk of this.chatCompletionStream(req, budget)) {
             if (chunk.id) id = chunk.id;
             if (chunk.model) model = chunk.model;
             const choice = chunk.choices?.[0];

@@ -15,7 +15,6 @@ import type {
     ProviderDefinition,
     RequestAttemptBudget
 } from "@srouter/types";
-import { GetRequestAttemptBudget } from "@srouter/types";
 import { CircuitBreaker, circuitBreaker as defaultCircuitBreaker } from "./circuitBreaker.js";
 
 export function getProviderAlias(providerId: string): string {
@@ -523,13 +522,14 @@ export class ProviderRegistry {
         req: ChatCompletionRequest,
         budget?: RequestAttemptBudget
     ): Promise<ChatCompletionResponse> {
-        const requestBudget = budget ?? GetRequestAttemptBudget(req);
+        const requestBudget = budget;
         const candidates = await this.getCandidateProvidersForModel(req.model);
         let lastError: unknown = null;
 
         for (let i = 0; i < candidates.length; i++) {
             const candidate = candidates[i]!;
             try {
+                requestBudget?.recordProviderAttempt();
                 const response = await candidate.chatCompletion(req, requestBudget);
                 this.circuitBreaker.recordSuccess(candidate.id);
                 return response;
@@ -549,7 +549,7 @@ export class ProviderRegistry {
         req: ChatCompletionRequest,
         budget?: RequestAttemptBudget
     ): AsyncGenerator<ChatCompletionChunk, void, void> {
-        const requestBudget = budget ?? GetRequestAttemptBudget(req);
+        const requestBudget = budget;
         const candidates = await this.getCandidateProvidersForModel(req.model);
         let lastError: unknown = null;
 
@@ -557,6 +557,7 @@ export class ProviderRegistry {
             const candidate = candidates[i]!;
             let yieldedAny = false;
             try {
+                requestBudget?.recordProviderAttempt();
                 const stream = candidate.chatCompletionStream(req, requestBudget);
                 for await (const chunk of stream) {
                     if (!yieldedAny) {
@@ -593,6 +594,7 @@ export class ProviderRegistry {
                 continue;
             }
             try {
+                budget?.recordProviderAttempt();
                 const response = await candidate.generateImage(req, budget);
                 this.circuitBreaker.recordSuccess(candidate.id);
                 return response;
