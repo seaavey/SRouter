@@ -21,9 +21,12 @@ export const Route = createRootRouteWithContext<RouterContext>()({
             <AdminAuthGate>
                 <SidebarProvider>
                     <AppSidebar />
-                    <SidebarInset className="min-h-svh overflow-hidden bg-background">
+                    <SidebarInset className="h-svh min-h-0 overflow-hidden bg-background">
                         <Topbar />
-                        <main className="flex min-h-0 flex-1 flex-col overflow-y-auto p-4 sm:p-6 bg-grid-pattern">
+                        <main
+                            id="dashboard-scroll-container"
+                            className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-grid-pattern p-4 sm:p-6"
+                        >
                             <Outlet />
                         </main>
                     </SidebarInset>

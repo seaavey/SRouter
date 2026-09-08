@@ -87,12 +87,20 @@ function SettingsPage() {
         );
         if (sections.length === 0) return;
 
+        const scrollContainer = document.getElementById("dashboard-scroll-container");
+        if (!scrollContainer) return;
+
+        const getSectionTop = (section: HTMLElement) =>
+            section.getBoundingClientRect().top -
+            scrollContainer.getBoundingClientRect().top +
+            scrollContainer.scrollTop;
+
         const updateActiveSection = () => {
-            const marker = window.scrollY + 112;
+            const marker = scrollContainer.scrollTop + 112;
             let current = sections[0].id;
 
             for (const section of sections) {
-                if (section.getBoundingClientRect().top + window.scrollY <= marker) {
+                if (getSectionTop(section) <= marker) {
                     current = section.id;
                 }
             }
@@ -101,10 +109,10 @@ function SettingsPage() {
         };
 
         updateActiveSection();
-        window.addEventListener("scroll", updateActiveSection, { passive: true });
+        scrollContainer.addEventListener("scroll", updateActiveSection, { passive: true });
         window.addEventListener("resize", updateActiveSection);
         return () => {
-            window.removeEventListener("scroll", updateActiveSection);
+            scrollContainer.removeEventListener("scroll", updateActiveSection);
             window.removeEventListener("resize", updateActiveSection);
         };
     }, [isLoadingServerSettings]);
@@ -133,8 +141,16 @@ function SettingsPage() {
     const scrollToSection = (id: string) => {
         setActiveSection(id);
         const el = document.getElementById(id);
-        if (el) {
-            el.scrollIntoView({ behavior: "smooth", block: "start" });
+        const scrollContainer = document.getElementById("dashboard-scroll-container");
+        if (el && scrollContainer) {
+            scrollContainer.scrollTo({
+                top:
+                    el.getBoundingClientRect().top -
+                    scrollContainer.getBoundingClientRect().top +
+                    scrollContainer.scrollTop -
+                    16,
+                behavior: "smooth"
+            });
         }
     };
 
