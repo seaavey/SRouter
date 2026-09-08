@@ -27,6 +27,72 @@ const SCHEMA_TABLES = {
 } as const;
 const REQUIRED_TABLES = Object.keys(SCHEMA_TABLES) as Array<keyof typeof SCHEMA_TABLES>;
 
+type ExpectedColumn = {
+    name: string;
+    type: string;
+    notnull: number;
+    defaultValue: string | null;
+    pk: number;
+};
+function makeExpectedColumn(column: (string | number | null)[]): ExpectedColumn {
+    const [name, type, notnull, defaultValue, pk] = column;
+    if (
+        typeof name !== "string" ||
+        typeof type !== "string" ||
+        typeof notnull !== "number" ||
+        (typeof defaultValue !== "string" && defaultValue !== null) ||
+        typeof pk !== "number"
+    ) {
+        throw new Error("Invalid transfer schema definition.");
+    }
+    return { name, type, notnull, defaultValue, pk };
+}
+
+const EXPECTED_COLUMNS: Record<string, ExpectedColumn[]> = {
+    providers: [
+        ["id", "TEXT", 0, null, 1], ["provider_id", "TEXT", 1, null, 0], ["name", "TEXT", 1, null, 0],
+        ["alias", "TEXT", 0, null, 0], ["category", "TEXT", 1, null, 0], ["protocol", "TEXT", 1, null, 0],
+        ["base_url", "TEXT", 0, null, 0], ["api_key", "TEXT", 0, null, 0], ["access_token", "TEXT", 0, null, 0],
+        ["refresh_token", "TEXT", 0, null, 0], ["account_id", "TEXT", 0, null, 0], ["organization_id", "TEXT", 0, null, 0],
+        ["provider_specific_data", "TEXT", 0, null, 0], ["custom_headers", "TEXT", 0, null, 0],
+        ["token_expires_at", "INTEGER", 0, null, 0], ["last_refreshed_at", "INTEGER", 0, null, 0],
+        ["enabled", "INTEGER", 1, "1", 0], ["created_at", "INTEGER", 1, null, 0]
+    ].map(makeExpectedColumn),
+    api_keys: [
+        ["id", "TEXT", 0, null, 1], ["key", "TEXT", 1, null, 0], ["name", "TEXT", 1, null, 0],
+        ["enabled", "INTEGER", 1, "1", 0], ["rate_limit", "INTEGER", 0, "0", 0], ["quota_limit", "INTEGER", 0, "0", 0],
+        ["usage_tokens", "INTEGER", 0, "0", 0], ["credit_limit", "REAL", 0, "0", 0], ["usage_cost", "REAL", 0, "0", 0],
+        ["allowed_models", "TEXT", 0, null, 0], ["created_at", "INTEGER", 1, null, 0]
+    ].map(makeExpectedColumn),
+    request_logs: [
+        ["id", "TEXT", 0, null, 1], ["api_key_id", "TEXT", 0, null, 0], ["ip_address", "TEXT", 0, null, 0],
+        ["user_agent", "TEXT", 0, null, 0], ["provider_id", "TEXT", 1, null, 0], ["model", "TEXT", 1, null, 0],
+        ["prompt_tokens", "INTEGER", 1, "0", 0], ["completion_tokens", "INTEGER", 1, "0", 0], ["total_tokens", "INTEGER", 1, "0", 0],
+        ["status_code", "INTEGER", 1, null, 0], ["latency_ms", "INTEGER", 1, null, 0], ["cached_tokens", "INTEGER", 1, "0", 0],
+        ["cache_creation_tokens", "INTEGER", 1, "0", 0], ["reasoning_tokens", "INTEGER", 1, "0", 0], ["estimated_cost", "REAL", 1, "0", 0],
+        ["fallback_occurred", "INTEGER", 1, "0", 0], ["fallback_path", "TEXT", 0, null, 0], ["fallback_reason", "TEXT", 0, null, 0],
+        ["resolved_model", "TEXT", 0, null, 0], ["created_at", "INTEGER", 1, null, 0]
+    ].map(makeExpectedColumn),
+    oauth_sessions: [["state", "TEXT", 0, null, 1], ["code_verifier", "TEXT", 1, null, 0], ["client_id", "TEXT", 1, null, 0], ["redirect_uri", "TEXT", 1, null, 0], ["created_at", "INTEGER", 1, null, 0]].map(makeExpectedColumn),
+    fallback_rules: [["id", "TEXT", 0, null, 1], ["source_model", "TEXT", 1, null, 0], ["target_model", "TEXT", 1, null, 0], ["priority", "INTEGER", 1, "1", 0], ["enabled", "INTEGER", 1, "1", 0], ["trigger_on_status", "TEXT", 0, null, 0], ["max_retries", "INTEGER", 0, "1", 0], ["created_at", "INTEGER", 1, null, 0]].map(makeExpectedColumn),
+    system_settings: [["key", "TEXT", 0, null, 1], ["value", "TEXT", 1, null, 0]].map(makeExpectedColumn),
+    custom_models: [["provider_id", "TEXT", 1, null, 1], ["model_id", "TEXT", 1, null, 2], ["created_at", "INTEGER", 1, null, 0]].map(makeExpectedColumn),
+    admin_account: [["id", "INTEGER", 0, null, 1], ["password_hash", "TEXT", 1, null, 0], ["created_at", "INTEGER", 1, null, 0], ["updated_at", "INTEGER", 1, null, 0]].map(makeExpectedColumn),
+    admin_sessions: [["token_hash", "TEXT", 0, null, 1], ["created_at", "INTEGER", 1, null, 0], ["expires_at", "INTEGER", 1, null, 0]].map(makeExpectedColumn),
+    srouter_schema_meta: [["key", "TEXT", 0, null, 1], ["value", "TEXT", 1, null, 0]].map(makeExpectedColumn)
+};
+
+const SUPPORTED_ADDITIVE_COLUMNS = new Set<string>();
+const REQUIRED_INDEXES = [
+    "idx_request_logs_created_at",
+    "idx_request_logs_provider_created",
+    "idx_request_logs_provider_model",
+    "idx_request_logs_model",
+    "idx_fallback_rules_priority",
+    "idx_providers_provider_id",
+    "idx_custom_models_provider"
+];
+
 type SchemaColumn = {
     name: string;
     type: string;
@@ -88,7 +154,7 @@ export class DatabaseRecoveryError extends Error {
 }
 
 let importActive = false;
-let testFailure: "after-backup" | "after-reopen" | "export-before-rename" | null = null;
+let testFailure: "after-backup" | "before-rename" | "after-reopen" | "export-before-rename" | null = null;
 let testOwnerProbe: "eperm" | null = null;
 let testReleaseReplacement: string | null = null;
 
@@ -121,10 +187,38 @@ function readSchema(database: DatabaseSync): Map<string, SchemaColumn[]> {
 function schemasMatch(candidate: Map<string, SchemaColumn[]>): boolean {
     return REQUIRED_TABLES.every((table) => {
         const candidateColumns = candidate.get(table);
-        if (!candidateColumns || candidateColumns.length !== SCHEMA_TABLES[table].length) {
+        const expectedColumns = EXPECTED_COLUMNS[table];
+        if (!candidateColumns || !expectedColumns || candidateColumns.length < expectedColumns.length) {
             return false;
         }
-        return SCHEMA_TABLES[table].every((column, index) => candidateColumns[index]?.name === column);
+        const matches = expectedColumns.every((expected, index) => {
+            const actual = candidateColumns[index];
+            return actual?.name === expected.name && actual.type.toUpperCase() === expected.type &&
+                actual.notnull === expected.notnull && actual.dflt_value === expected.defaultValue && actual.pk === expected.pk;
+        }) && candidateColumns.slice(expectedColumns.length).every((column) =>
+            SUPPORTED_ADDITIVE_COLUMNS.has(`${table}.${column.name}`)
+        );
+        return matches;
+    });
+}
+
+function constraintsMatch(database: DatabaseSync): boolean {
+    const names = new Set<string>();
+    for (const table of ["request_logs", "fallback_rules", "providers", "custom_models"]) {
+        const rows = database.prepare(`PRAGMA index_list("${table}")`).all() as Array<{ name: string }>;
+        for (const row of rows) names.add(row.name);
+    }
+    if (!REQUIRED_INDEXES.every((name) => names.has(name))) return false;
+    const apiKeyIndexes = database.prepare('PRAGMA index_list("api_keys")').all() as Array<{
+        name: string;
+        unique: number;
+    }>;
+    return apiKeyIndexes.some((index) => {
+        if (index.unique !== 1) return false;
+        const columns = database.prepare(`PRAGMA index_info("${index.name.replaceAll('"', '""')}")`).all() as Array<{
+            name: string;
+        }>;
+        return columns.length === 1 && columns[0]?.name === "key";
     });
 }
 
@@ -149,7 +243,12 @@ function readValidation(candidatePath: string): DatabaseTransferValidation {
                   .prepare("SELECT value FROM srouter_schema_meta WHERE key = ?")
                   .get("schema_version") as { value?: string } | undefined)
             : undefined;
-        if (missing.length > 0 || !schemasMatch(candidateSchema) || marker?.value !== TRANSFER_SCHEMA_VERSION) {
+        if (
+            missing.length > 0 ||
+            !schemasMatch(candidateSchema) ||
+            !constraintsMatch(candidate) ||
+            marker?.value !== TRANSFER_SCHEMA_VERSION
+        ) {
             throw new IncompatibleDatabaseError(
                 missing.length > 0
                     ? `Missing required SRouter tables: ${missing.join(", ")}.`
@@ -283,22 +382,49 @@ function acquireTransferLock(): () => void {
                         throw error;
                     }
                     process.kill(lockOwner.pid, 0);
-                    if (processStartIdentityFor(lockOwner.pid) !== lockOwner.start) {
-                        fs.rmSync(lockPath, { force: true });
-                        continue;
+                    if (processStartIdentityFor(lockOwner.pid) === lockOwner.start) {
+                        throw new DatabaseImportBusyError();
                     }
+                    reclaimStaleLock(lockPath, lockOwner.token);
+                    continue;
                     throw new DatabaseImportBusyError();
                 } catch (ownerError) {
                     if (ownerError instanceof DatabaseImportBusyError) throw ownerError;
                     if ((ownerError as NodeJS.ErrnoException).code === "EPERM") {
                         throw new DatabaseImportBusyError();
                     }
-                    fs.rmSync(lockPath, { force: true });
+                    reclaimStaleLock(lockPath, lockOwner.token);
                 }
             } else {
                 throw new DatabaseImportBusyError();
             }
         }
+    }
+}
+
+function reclaimStaleLock(lockPath: string, token: string): void {
+    const quarantinePath = `${lockPath}.stale-${process.pid}-${randomUUID()}`;
+    try {
+        fs.renameSync(lockPath, quarantinePath);
+    } catch {
+        throw new DatabaseImportBusyError();
+    }
+    try {
+        const quarantined = JSON.parse(fs.readFileSync(quarantinePath, "utf8")) as { token: string };
+        if (quarantined.token !== token) {
+            if (!fs.existsSync(lockPath)) fs.renameSync(quarantinePath, lockPath);
+            return;
+        }
+        if (testReleaseReplacement) {
+            fs.writeFileSync(
+                lockPath,
+                `${JSON.stringify({ pid: process.pid, start: processStartIdentity(), token: testReleaseReplacement })}\n`
+            );
+            testReleaseReplacement = null;
+            throw new DatabaseImportBusyError();
+        }
+    } finally {
+        fs.rmSync(quarantinePath, { force: true });
     }
 }
 
@@ -336,6 +462,7 @@ export function replaceDatabaseFromFile(candidatePath: string): DatabaseTransfer
         closeSharedConnection();
         createConsistentSnapshot(activePath, savedBackupPath);
         if (testFailure === "after-backup") throw new Error("Injected replacement failure.");
+        if (testFailure === "before-rename") throw new Error("Injected pre-rename failure.");
         createConsistentSnapshot(candidate, targetTempPath);
         fs.renameSync(targetTempPath, activePath);
         if (testReleaseReplacement) {
@@ -353,6 +480,13 @@ export function replaceDatabaseFromFile(candidatePath: string): DatabaseTransfer
     } catch (error) {
         fs.rmSync(targetTempPath, { force: true });
         if (!savedBackupPath || !replacementStarted) {
+            try {
+                reopenSqliteDb();
+            } catch {
+                throw new DatabaseRecoveryError(
+                    "Database replacement did not start and the original connection could not be reopened."
+                );
+            }
             throw new DatabaseRecoveryError(
                 error instanceof Error ? error.message : "Database replacement could not start safely."
             );
@@ -382,7 +516,7 @@ export function replaceDatabaseFromFile(candidatePath: string): DatabaseTransfer
 }
 
 export function setDatabaseTransferTestFailure(
-    failure: "after-backup" | "after-reopen" | "export-before-rename" | null
+    failure: "after-backup" | "before-rename" | "after-reopen" | "export-before-rename" | null
 ): void {
     testFailure = failure;
 }
@@ -392,6 +526,10 @@ export function setDatabaseTransferTestOwnerProbe(probe: "eperm" | null): void {
 }
 
 export function setDatabaseTransferTestReleaseReplacement(token: string | null): void {
+    testReleaseReplacement = token;
+}
+
+export function setDatabaseTransferTestQuarantineReplacement(token: string | null): void {
     testReleaseReplacement = token;
 }
 

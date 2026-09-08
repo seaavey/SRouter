@@ -28,6 +28,13 @@ function createDatabase(filePath: string): DatabaseSync {
         CREATE TABLE admin_sessions (token_hash TEXT PRIMARY KEY, created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL);
         CREATE TABLE srouter_schema_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
         INSERT INTO srouter_schema_meta (key, value) VALUES ('schema_version', '1');
+        CREATE INDEX idx_request_logs_created_at ON request_logs(created_at DESC);
+        CREATE INDEX idx_request_logs_provider_created ON request_logs(provider_id, created_at DESC);
+        CREATE INDEX idx_request_logs_provider_model ON request_logs(provider_id, model);
+        CREATE INDEX idx_request_logs_model ON request_logs(model);
+        CREATE INDEX idx_fallback_rules_priority ON fallback_rules(priority ASC, created_at ASC);
+        CREATE INDEX idx_providers_provider_id ON providers(provider_id);
+        CREATE INDEX idx_custom_models_provider ON custom_models(provider_id, created_at ASC);
     `);
     return db;
 }
@@ -88,6 +95,29 @@ test("rejects invalid sqlite and missing required tables", () => {
         () => database.validateDatabaseImport(incompatiblePath),
         database.IncompatibleDatabaseError
     );
+
+    const wrongTypePath = path.join(testDirectory, "wrong-type.db");
+    const wrongType = createDatabase(wrongTypePath);
+    wrongType.exec("ALTER TABLE providers RENAME TO providers_old");
+    wrongType.exec(
+        "CREATE TABLE providers (id TEXT PRIMARY KEY, provider_id TEXT NOT NULL, name TEXT NOT NULL, alias TEXT, category TEXT NOT NULL, protocol TEXT NOT NULL, base_url TEXT, api_key INTEGER, access_token TEXT, refresh_token TEXT, account_id TEXT, organization_id TEXT, provider_specific_data TEXT, custom_headers TEXT, token_expires_at INTEGER, last_refreshed_at INTEGER, enabled INTEGER NOT NULL DEFAULT 1, created_at INTEGER NOT NULL)"
+    );
+    wrongType.close();
+    assert.throws(() => database.validateDatabaseImport(wrongTypePath), database.IncompatibleDatabaseError);
+
+    const missingUniquePath = path.join(testDirectory, "missing-unique.db");
+    const missingUnique = createDatabase(missingUniquePath);
+    missingUnique.exec("ALTER TABLE api_keys RENAME TO api_keys_old");
+    missingUnique.exec(
+        "CREATE TABLE api_keys (id TEXT PRIMARY KEY, key TEXT NOT NULL, name TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 1, rate_limit INTEGER DEFAULT 0, quota_limit INTEGER DEFAULT 0, usage_tokens INTEGER DEFAULT 0, credit_limit REAL DEFAULT 0, usage_cost REAL DEFAULT 0, allowed_models TEXT, created_at INTEGER NOT NULL)"
+    );
+    missingUnique.exec("INSERT INTO api_keys SELECT * FROM api_keys_old");
+    missingUnique.exec("DROP TABLE api_keys_old");
+    missingUnique.close();
+    assert.throws(
+        () => database.validateDatabaseImport(missingUniquePath),
+        database.IncompatibleDatabaseError
+    );
 });
 
 test("uses the stable transfer contract instead of a drifted target schema", () => {
@@ -138,6 +168,7 @@ test("restores the original target when replacement fails", () => {
     const source = createDatabase(sourcePath);
     source.close();
     addProvider(sourcePath, "replacement", "replacement-key");
+    addProvider(targetPath, "failure-target", "failure-target-key");
     transferTestHooks.setDatabaseTransferTestFailure("after-backup");
 
     assert.throws(
@@ -150,11 +181,31 @@ test("restores the original target when replacement fails", () => {
     );
 });
 
+test("reopens the unchanged target after a pre-rename failure", () => {
+    const sourcePath = path.join(testDirectory, "pre-rename-failure-source.db");
+    const source = createDatabase(sourcePath);
+    source.close();
+    addProvider(sourcePath, "pre-rename", "pre-rename-key");
+    addProvider(targetPath, "pre-rename-target", "pre-rename-target-key");
+    transferTestHooks.setDatabaseTransferTestFailure("before-rename");
+
+    assert.throws(
+        () => database.replaceDatabaseFromFile(sourcePath),
+        database.DatabaseRecoveryError
+    );
+    assert.equal(database.getOpenDatabasePath(), path.resolve(targetPath));
+    assert.equal(
+        database.getSqliteDb().prepare("SELECT api_key FROM providers").get().api_key,
+        "source-key"
+    );
+});
+
 test("restores the original target when reopening the replacement fails", () => {
     const sourcePath = path.join(testDirectory, "reopen-failure-source.db");
     const source = createDatabase(sourcePath);
     source.close();
     addProvider(sourcePath, "reopen-failure", "reopen-failure-key");
+    addProvider(targetPath, "reopen-target", "reopen-target-key");
     transferTestHooks.setDatabaseTransferTestFailure("after-reopen");
 
     assert.throws(
@@ -230,4 +281,19 @@ test("does not release a lock replaced by another owner", () => {
         `${JSON.stringify({ pid: process.pid, start, token: "new-owner-token" })}\n`
     );
     fs.rmSync(`${targetPath}.transfer.lock`);
+});
+
+test("does not remove a new owner acquired during stale-lock quarantine", () => {
+    const outputPath = path.join(testDirectory, "quarantine-export.db");
+    transferTestHooks.setDatabaseTransferTestOwnerProbe("stale");
+    transferTestHooks.setDatabaseTransferTestQuarantineReplacement("quarantine-owner");
+    const lockPath = `${targetPath}.transfer.lock`;
+    const staleOwner = { pid: process.pid + 1, start: "stale-start", token: "stale-token" };
+    fs.writeFileSync(lockPath, `${JSON.stringify(staleOwner)}\n`, { mode: 0o600 });
+
+    assert.throws(() => database.exportDatabaseSnapshot(outputPath), database.DatabaseImportBusyError);
+    assert.match(fs.readFileSync(lockPath, "utf8"), /quarantine-owner/);
+    fs.rmSync(lockPath);
+    transferTestHooks.setDatabaseTransferTestOwnerProbe(null);
+    transferTestHooks.setDatabaseTransferTestQuarantineReplacement(null);
 });
