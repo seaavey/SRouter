@@ -251,6 +251,18 @@ test("rejects an import while another process owns the transfer lock", () => {
     fs.rmSync(lockPath);
 });
 
+test("does not allow a transfer to start after a cooperating DB operation claims the lock", () => {
+    const release = database.acquireDatabaseOperationLock();
+    try {
+        assert.throws(
+            () => database.replaceDatabaseFromFile(path.join(testDirectory, "missing-source.db")),
+            database.DatabaseImportBusyError
+        );
+    } finally {
+        release();
+    }
+});
+
 test("treats EPERM from the owner probe as busy", () => {
     const lockPath = `${targetPath}.transfer.lock`;
     fs.writeFileSync(

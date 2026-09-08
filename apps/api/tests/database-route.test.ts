@@ -112,6 +112,25 @@ test("database import accepts one database file for an admin session", async () 
     }
 });
 
+test("database import accepts filename before name in Content-Disposition", async () => {
+    const { app, session, cleanup } = await createTestApp();
+    try {
+        const boundary = "ordered-parameters";
+        const body = `--${boundary}\r\nContent-Disposition: form-data; filename="source.db"; name="database"\r\nContent-Type: application/octet-stream\r\n\r\nvalid sqlite bytes\r\n--${boundary}--\r\n`;
+        const response = await app.request("/v1/admin/database/import", {
+            method: "POST",
+            headers: {
+                Cookie: session,
+                "content-type": `multipart/form-data; boundary=${boundary}`
+            },
+            body
+        });
+        assert.equal(response.status, 200);
+    } finally {
+        await cleanup();
+    }
+});
+
 test("database import rejects duplicate database files and values", async () => {
     const { app, session, cleanup } = await createTestApp();
     try {

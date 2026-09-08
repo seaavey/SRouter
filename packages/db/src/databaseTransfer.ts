@@ -11,6 +11,7 @@ import {
     reopenSqliteDb
 } from "./sqlite.js";
 import { isPostgres } from "./db.js";
+import { beginDatabaseTransfer, endDatabaseTransfer } from "./transferLock.js";
 
 const TRANSFER_SCHEMA_VERSION = "1";
 const SCHEMA_TABLES = {
@@ -351,19 +352,31 @@ function acquireTransferLock(): () => void {
             const descriptor = fs.openSync(lockPath, "wx", 0o600);
             fs.writeFileSync(descriptor, `${JSON.stringify(owner)}\n`, { encoding: "utf8" });
             fs.closeSync(descriptor);
+            beginDatabaseTransfer();
             return () => {
                 try {
                     const current = JSON.parse(fs.readFileSync(lockPath, "utf8")) as typeof owner;
                     if (current.token === owner.token) fs.rmSync(lockPath, { force: true });
                 } catch {
                     // The lock is already gone or malformed; never remove an unknown owner.
+                } finally {
+                    endDatabaseTransfer();
                 }
             };
         } catch (error) {
             if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
             let lockOwner: { pid: number; start: string; token: string };
             try {
-                lockOwner = JSON.parse(fs.readFileSync(lockPath, "utf8")) as {
+                const parsed: unknown = JSON.parse(fs.readFileSync(lockPath, "utf8"));
+                if (
+                    typeof parsed === "object" &&
+                    parsed !== null &&
+                    "mode" in parsed &&
+                    parsed.mode === "operation"
+                ) {
+                    throw new DatabaseImportBusyError();
+                }
+                lockOwner = parsed as {
                     pid: number;
                     start: string;
                     token: string;

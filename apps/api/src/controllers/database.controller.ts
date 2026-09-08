@@ -145,8 +145,14 @@ async function streamMultipartDatabase(request: Request, outputPath: string): Pr
                     const headers = buffer.subarray(0, headerEnd).toString("utf8").toLowerCase();
                     buffer = buffer.subarray(headerEnd + 4);
                     partCount += 1;
-                    const isDatabaseField = /content-disposition:[^\r\n]*\bname="database"/.test(headers);
-                    filePart = /content-disposition:[^\r\n]*\bname="database"[^\r\n]*\bfilename="[^"]*"/.test(headers);
+                    const disposition = /content-disposition:([^\r\n]*)/.exec(headers)?.[1] ?? "";
+                    const parameters = new Map<string, string>();
+                    for (const parameter of disposition.split(";").slice(1)) {
+                        const match = /^\s*([^=]+)="([^"]*)"\s*$/.exec(parameter);
+                        if (match) parameters.set(match[1].trim(), match[2]);
+                    }
+                    const isDatabaseField = parameters.get("name") === "database";
+                    filePart = isDatabaseField && parameters.has("filename");
                     if (partCount > 1 || (isDatabaseField && !filePart)) {
                         throw new InvalidMultipartDatabaseError("invalid_database_field");
                     }

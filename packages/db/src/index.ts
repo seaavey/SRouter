@@ -23,4 +23,4 @@ export {
     type DatabaseTransferImportResult,
     type DatabaseTransferValidation
 } from "./databaseTransfer.js";
-export { assertDatabaseTransferAvailable } from "./transferLock.js";
+export { acquireDatabaseOperationLock, beginDatabaseTransfer, endDatabaseTransfer } from "./transferLock.js";
