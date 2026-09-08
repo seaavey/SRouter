@@ -57,7 +57,7 @@ test("OpenCodeAdapter - link and unlink lifecycle", async () => {
         assert.equal(models["claude-3-7-sonnet"].name, "Claude 3.7 Sonnet");
         assert.equal(models["claude-3-7-sonnet"].attachment, true);
         assert.deepEqual(models["claude-3-7-sonnet"].modalities, {
-            input: ["text", "image", "pdf"],
+            input: ["text", "image"],
             output: ["text"]
         });
         assert.ok(models["antigravity/gemini-2.5-pro"]);
