@@ -147,7 +147,7 @@ async function ProcessOAuthCallbackFor(
     const timestamp = Date.now();
     const { accountId, accountName } = BuildAccountIdentity(handler, timestamp, {
         accessToken: tokens.accessToken,
-        idToken: (rawTokens as any).idToken || (rawTokens as any).id_token
+        idToken: rawTokens.idToken
     });
 
     const baseUrl = handler.baseUrl ? handler.baseUrl() : undefined;

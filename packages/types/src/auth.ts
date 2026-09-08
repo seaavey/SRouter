@@ -31,6 +31,7 @@ export interface TokenImportParams {
 export interface OAuthTokens {
     accessToken: string;
     refreshToken?: string;
+    idToken?: string;
     accountId?: string;
     organizationId?: string;
     expiresIn?: number;

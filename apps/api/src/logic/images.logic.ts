@@ -56,6 +56,15 @@ export class ImagesLogic {
             lastAttemptProvider = providerId;
             const currentReq: ImageGenerationRequest = { ...body, model: currentModel };
 
+            if (!isImageGenerationSupported(currentModel, hasInputImage)) {
+                const reason = hasInputImage
+                    ? `Model '${currentModel}' does not support image editing / image-to-image input.`
+                    : `Model '${currentModel}' does not support image generation. Output modalities do not include 'image'.`;
+                tracker.lastError = new HTTPException(400, { message: reason });
+                if (!tracker.fallbackReason) tracker.fallbackReason = reason;
+                continue;
+            }
+
             try {
                 const response = await registry.generateImage(currentReq, requestBudget);
 

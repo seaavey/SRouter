@@ -132,3 +132,34 @@ test("ImagesLogic validates image capability before provider execution", async (
         registry.generateImage = originalGenerateImage;
     }
 });
+
+test("ImagesLogic skips an image-incompatible fallback before provider execution", async () => {
+    const rule = await createFallbackRuleDB({
+        sourceModel: "openai/gpt-image-1.5",
+        targetModel: "deepseek/deepseek-chat",
+        priority: 1,
+        enabled: true
+    });
+    createdRuleIds.push(rule.id);
+
+    const originalGenerateImage = registry.generateImage;
+    const models: string[] = [];
+    registry.generateImage = async (request) => {
+        models.push(request.model);
+        throw new Error("429 image quota exceeded");
+    };
+
+    try {
+        await assert.rejects(
+            () =>
+                ImagesLogic.generate(
+                    { ...defaults, model: "openai/gpt-image-1.5", prompt: "unsupported fallback" },
+                    Date.now()
+                ),
+            /deepseek\/deepseek-chat.*does not support image generation/
+        );
+        assert.deepEqual(models, ["openai/gpt-image-1.5"]);
+    } finally {
+        registry.generateImage = originalGenerateImage;
+    }
+});
