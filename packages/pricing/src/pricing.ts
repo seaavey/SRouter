@@ -32,17 +32,17 @@ try {
 export const DEFAULT_PRICING: ModelPrice = loadedDataset.defaults || EMBEDDED_DEFAULT_PRICING;
 
 /**
- * Canonical model pricing table loaded from pricing.jsonc / pricing.json.
+ * Canonical model pricing table loaded from pricing.jsonc.
  */
 export const MODEL_PRICING: Record<string, ModelPrice> = loadedDataset.models;
 
 /**
- * Provider-grouped model pricing list loaded from pricing.jsonc / pricing.json.
+ * Provider-grouped model pricing list loaded from pricing.jsonc.
  */
 export const PROVIDER_MODELS = loadedDataset.providerModels;
 
 /**
- * Model aliases map loaded from pricing.jsonc / pricing.json.
+ * Model aliases map loaded from pricing.jsonc.
  */
 export const MODEL_ALIASES: Record<string, string> = loadedDataset.aliases;
 
@@ -87,7 +87,7 @@ let cachedModelsDevData: Record<string, ModelsDevModel> | undefined;
 
 /**
  * Retrieves comprehensive metadata (modalities, limits, capabilities) for a model
- * by resolving aliases and canonical keys from pricing.jsonc / models.jsonc.
+ * by resolving aliases and canonical keys from pricing.jsonc.
  */
 export function getModelMetadata(modelId: string): ModelsDevModel | undefined {
     if (!modelId) return undefined;
@@ -247,7 +247,7 @@ export function calculateCostBreakdownFromTokens(
 
 /**
  * Checks whether a given model supports image generation (and optionally img2img input),
- * querying metadata directly from models.jsonc.
+ * querying metadata directly from pricing.jsonc.
  */
 export function isImageGenerationSupported(model: string, hasInputImage: boolean = false): boolean {
     if (!model) return false;

@@ -26,15 +26,14 @@ test("JSONC comment stripping and loading", () => {
 
     const dataset = loadPricingData();
     assert.ok(dataset.models["deepseek-v4-flash"]);
-    assert.ok(dataset.aliases["deepseek-chat"]);
     assert.equal(dataset.defaults.input, 2.0);
 
     // Verify provider-grouped array structure
     assert.ok(dataset.providerModels);
     assert.ok(Array.isArray(dataset.providerModels.anthropic));
-    assert.ok(dataset.providerModels.anthropic.some((m) => m.id === "claude-sonnet-5"));
+    assert.ok(dataset.providerModels.anthropic.some((m) => m.id === "anthropic/claude-sonnet-5"));
     assert.ok(Array.isArray(dataset.providerModels.openai));
-    assert.ok(dataset.providerModels.openai.some((m) => m.id === "gpt-5.6-sol"));
+    assert.ok(dataset.providerModels.openai.some((m) => m.id === "openai/gpt-5-pro"));
 });
 
 test("Model name normalization and aliasing", () => {
@@ -47,12 +46,9 @@ test("Model name normalization and aliasing", () => {
     // 2. Strip tags
     assert.equal(normalizeModelName("deepseek/deepseek-v4-flash:latest"), "deepseek-v4-flash");
 
-    // 3. Resolve aliases
-    assert.equal(normalizeModelName("deepseek-chat", dataset.aliases), "deepseek-v4-flash");
-    assert.equal(
-        normalizeModelName("claude-3.5-sonnet", dataset.aliases),
-        "claude-3-5-sonnet-20241022"
-    );
+    // 3. Preserve model names when the models.dev dataset has no custom aliases
+    assert.equal(normalizeModelName("deepseek-chat", dataset.aliases), "deepseek/deepseek-chat");
+    assert.equal(normalizeModelName("claude-3.5-sonnet", dataset.aliases), "claude-3.5-sonnet");
 });
 
 test("Pricing resolution across different provider prefixes", () => {
@@ -63,8 +59,8 @@ test("Pricing resolution across different provider prefixes", () => {
         "commandcode/deepseek-v4-flash"
     );
 
-    assert.equal(directPrice.input, 0.44);
-    assert.equal(directPrice.output, 1.32);
+    assert.equal(directPrice.input, 0.14);
+    assert.equal(directPrice.output, 0.28);
 
     // All variations resolve to the exact same price
     assert.deepEqual(deepseekPrefixPrice, directPrice);
@@ -92,45 +88,14 @@ test("Free model pricing returns 0 cost", () => {
     assert.equal(nameWithFree.output, 0);
 });
 
-test("Alias pricing resolution", () => {
+test("Pricing resolution for canonical models", () => {
     const canonicalPrice = getPricingForModel(undefined, "deepseek-v4-flash");
-    const aliasPrice = getPricingForModel(undefined, "deepseek-chat");
+    const prefixedPrice = getPricingForModel("deepseek", "deepseek/deepseek-v4-flash");
+    assert.deepEqual(prefixedPrice, canonicalPrice);
 
-    assert.deepEqual(aliasPrice, canonicalPrice);
-
-    const sonnetCanonical = getPricingForModel(undefined, "claude-3-5-sonnet-20241022");
-    const sonnetAlias = getPricingForModel(undefined, "claude-3.5-sonnet");
-    assert.deepEqual(sonnetAlias, sonnetCanonical);
-
-    const opusCanonical = getPricingForModel(undefined, "claude-opus-5");
-    assert.equal(opusCanonical.input, 5.0);
-    assert.equal(opusCanonical.output, 25.0);
-
-    const opusAlias = getPricingForModel(undefined, "claude-opus");
-    const opusCommandCode = getPricingForModel("commandcode", "commandcode/claude-opus-5");
-    assert.deepEqual(opusAlias, opusCanonical);
-    assert.deepEqual(opusCommandCode, opusCanonical);
-
-    const gptProPrice = getPricingForModel(undefined, "gpt-5.5-pro");
-    assert.equal(gptProPrice.input, 30.0);
-    assert.equal(gptProPrice.output, 180.0);
-
-    const gptNanoPrice = getPricingForModel(undefined, "gpt-5.4-nano");
-    assert.equal(gptNanoPrice.input, 0.2);
-    assert.equal(gptNanoPrice.output, 1.25);
-    assert.equal(gptNanoPrice.cached, 0.02);
-
-    const llamaAlias = getPricingForModel(undefined, "meta-llama/Llama-3.3-70B-Instruct");
-    assert.equal(llamaAlias.input, 0.13);
-    assert.equal(llamaAlias.output, 0.4);
-
-    const mistralAlias = getPricingForModel(undefined, "mistral");
-    assert.equal(mistralAlias.input, 2.0);
-    assert.equal(mistralAlias.output, 6.0);
-
-    const r1Alias = getPricingForModel(undefined, "deepseek-ai/DeepSeek-R1");
-    assert.equal(r1Alias.input, 0.55);
-    assert.equal(r1Alias.output, 2.19);
+    const gptProPrice = getPricingForModel(undefined, "gpt-5-pro");
+    assert.equal(gptProPrice.input, 15.0);
+    assert.equal(gptProPrice.output, 120.0);
 });
 
 test("Unknown model fallback to DEFAULT_PRICING", () => {
@@ -170,7 +135,7 @@ test("Cost calculation and formatting", () => {
     assert.equal(cachedCost, 1.65);
 });
 
-test("models.dev dataset loading from models.jsonc", () => {
+test("models.dev dataset loading from pricing.jsonc", () => {
     const modelsData = loadModelsDevData();
     assert.ok(Object.keys(modelsData).length > 0, "modelsData should not be empty");
     assert.ok(modelsData["minimax/MiniMax-M3"], "Should contain minimax/MiniMax-M3");
@@ -178,7 +143,7 @@ test("models.dev dataset loading from models.jsonc", () => {
     assert.equal(modelsData["minimax/MiniMax-M3"]?.family, "minimax");
     assert.ok(modelsData["upstage/solar-pro4"], "Should contain upstage/solar-pro4");
 
-    // Verify pricing data loaded from models.jsonc
+    // Verify pricing data loaded from pricing.jsonc
     const modelsDevPricing = loadPricingData();
     // Full key: <provider>/<model>
     assert.ok(modelsDevPricing.models["tencent/hy3"]);

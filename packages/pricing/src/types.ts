@@ -10,14 +10,6 @@ export interface ModelPrice {
 
 export type ProviderModelMap = Record<string, ModelPrice[]>;
 
-export interface RawPricingDataset {
-    version?: string;
-    updatedAt?: string;
-    defaults: ModelPrice;
-    models: ProviderModelMap | Record<string, ModelPrice>;
-    aliases: Record<string, string>;
-}
-
 export interface PricingDataset {
     version?: string;
     updatedAt?: string;

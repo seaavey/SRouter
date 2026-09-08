@@ -24,7 +24,7 @@ function createOpenCodeModelConfig(id: string, name?: string): OpenCodeModelConf
         name: displayName
     };
 
-    // Check metadata from @srouter/pricing (pricing.jsonc / models.jsonc)
+    // Check metadata from @srouter/pricing (pricing.jsonc)
     const meta = getModelMetadata(id);
     if (meta?.modalities?.input?.includes("image") || meta?.attachment) {
         config.attachment = true;

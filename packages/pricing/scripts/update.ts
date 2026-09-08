@@ -169,10 +169,10 @@ async function updateModelsDevData() {
     }
 
     const currentDir = path.dirname(fileURLToPath(import.meta.url));
-    const targetFile = path.resolve(currentDir, "../models.jsonc");
+    const targetFile = path.resolve(currentDir, "../pricing.jsonc");
 
     const header = "// Source by models.dev\n// Source: https://models.dev\n";
-    const jsonContent = JSON.stringify(filtered, null, 2);
+    const jsonContent = JSON.stringify(filtered);
 
     fs.writeFileSync(targetFile, header + jsonContent + "\n", "utf-8");
     console.log(`[pricing] ✓ Saved ${Object.keys(filtered).length} models with pricing info to ${targetFile}`);
