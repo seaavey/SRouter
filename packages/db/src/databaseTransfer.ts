@@ -82,7 +82,6 @@ const EXPECTED_COLUMNS: Record<string, ExpectedColumn[]> = {
     srouter_schema_meta: [["key", "TEXT", 0, null, 1], ["value", "TEXT", 1, null, 0]].map(makeExpectedColumn)
 };
 
-const SUPPORTED_ADDITIVE_COLUMNS = new Set<string>();
 const REQUIRED_INDEXES = [
     "idx_request_logs_created_at",
     "idx_request_logs_provider_created",
@@ -116,6 +115,7 @@ export interface DatabaseTransferValidation {
 export interface DatabaseTransferImportResult {
     backupPath: string;
     restartRequired: boolean;
+    reauthRequired: boolean;
 }
 
 export class UnsupportedDatabaseError extends Error {
@@ -154,7 +154,7 @@ export class DatabaseRecoveryError extends Error {
 }
 
 let importActive = false;
-let testFailure: "after-backup" | "before-rename" | "after-reopen" | "export-before-rename" | null = null;
+let testFailure: "after-backup" | "before-rename" | "after-rename" | "after-reopen" | "export-before-rename" | null = null;
 let testOwnerProbe: "eperm" | null = null;
 let testReleaseReplacement: string | null = null;
 
@@ -191,14 +191,11 @@ function schemasMatch(candidate: Map<string, SchemaColumn[]>): boolean {
         if (!candidateColumns || !expectedColumns || candidateColumns.length < expectedColumns.length) {
             return false;
         }
-        const matches = expectedColumns.every((expected, index) => {
-            const actual = candidateColumns[index];
-            return actual?.name === expected.name && actual.type.toUpperCase() === expected.type &&
+        return expectedColumns.every((expected) => {
+            const actual = candidateColumns.find((column) => column.name === expected.name);
+            return actual?.type.toUpperCase() === expected.type &&
                 actual.notnull === expected.notnull && actual.dflt_value === expected.defaultValue && actual.pk === expected.pk;
-        }) && candidateColumns.slice(expectedColumns.length).every((column) =>
-            SUPPORTED_ADDITIVE_COLUMNS.has(`${table}.${column.name}`)
-        );
-        return matches;
+        });
     });
 }
 
@@ -465,6 +462,9 @@ export function replaceDatabaseFromFile(candidatePath: string): DatabaseTransfer
         if (testFailure === "before-rename") throw new Error("Injected pre-rename failure.");
         createConsistentSnapshot(candidate, targetTempPath);
         fs.renameSync(targetTempPath, activePath);
+        // From this point on the active file is no longer the original. Every
+        // later failure must restore the retained backup.
+        replacementStarted = true;
         if (testReleaseReplacement) {
             fs.writeFileSync(
                 `${activePath}.transfer.lock`,
@@ -472,11 +472,11 @@ export function replaceDatabaseFromFile(candidatePath: string): DatabaseTransfer
             );
             testReleaseReplacement = null;
         }
-        replacementStarted = true;
+        if (testFailure === "after-rename") throw new Error("Injected post-rename failure.");
         removeSidecars(activePath);
         reopenSqliteDb();
         if (testFailure === "after-reopen") throw new Error("Injected reopen failure.");
-        return { backupPath: savedBackupPath, restartRequired: false };
+        return { backupPath: savedBackupPath, restartRequired: false, reauthRequired: true };
     } catch (error) {
         fs.rmSync(targetTempPath, { force: true });
         if (!savedBackupPath || !replacementStarted) {
@@ -516,7 +516,7 @@ export function replaceDatabaseFromFile(candidatePath: string): DatabaseTransfer
 }
 
 export function setDatabaseTransferTestFailure(
-    failure: "after-backup" | "before-rename" | "after-reopen" | "export-before-rename" | null
+    failure: "after-backup" | "before-rename" | "after-rename" | "after-reopen" | "export-before-rename" | null
 ): void {
     testFailure = failure;
 }

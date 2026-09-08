@@ -79,10 +79,16 @@ export function DataSettings(props: DataSettingsProps) {
         mutationFn: importDatabase,
         onSuccess: (result) => {
             toast.success("Database imported", {
-                description: result.restart_required
-                    ? "Restart SRouter before continuing to use the dashboard."
-                    : `Previous database backed up at ${result.backup_path}.`
+                description: result.reauth_required
+                    ? "Database restored. Sign in again to continue."
+                    : result.restart_required
+                      ? "Restart SRouter before continuing to use the dashboard."
+                      : `Previous database backed up at ${result.backup_path}.`
             });
+            if (result.reauth_required) {
+                window.location.assign(window.location.href);
+                return;
+            }
         },
         onError: (error) => {
             toast.error("Database import failed", {

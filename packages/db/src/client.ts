@@ -1,5 +1,6 @@
 import { type DatabaseSync, type SQLInputValue } from "node:sqlite";
 import { sqliteDb } from "./sqlite.js";
+import { assertDatabaseTransferAvailable } from "./transferLock.js";
 import type { Pool as PgPool } from "pg";
 
 // ──────────────────────────────────────────────────
@@ -33,21 +34,25 @@ export class SqliteClient implements DbClient {
     }
 
     all(sql: string, ...params: unknown[]): Promise<unknown[]> {
+        assertDatabaseTransferAvailable();
         return Promise.resolve(
             this.db.prepare(sql).all(...this.normalizeParams(params)) as unknown[]
         );
     }
 
     get(sql: string, ...params: unknown[]): Promise<unknown> {
+        assertDatabaseTransferAvailable();
         return Promise.resolve(this.db.prepare(sql).get(...this.normalizeParams(params)));
     }
 
     run(sql: string, ...params: unknown[]): Promise<DbResult> {
+        assertDatabaseTransferAvailable();
         const result = this.db.prepare(sql).run(...this.normalizeParams(params));
         return Promise.resolve(result as unknown as DbResult);
     }
 
     exec(sql: string): Promise<void> {
+        assertDatabaseTransferAvailable();
         this.db.exec(sql);
         return Promise.resolve();
     }

@@ -4,6 +4,7 @@ export interface DatabaseImportResult {
     ok: true;
     backup_path: string;
     restart_required: boolean;
+    reauth_required: boolean;
 }
 
 export async function exportDatabase(): Promise<Blob> {

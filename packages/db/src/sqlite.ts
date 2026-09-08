@@ -52,6 +52,19 @@ function assertNotProductionDatabaseInTests(dbPath: string): void {
 function openDatabase(dbPath: string): DatabaseSync {
     assertNotProductionDatabaseInTests(dbPath);
 
+    const transferLockPath = `${path.resolve(dbPath)}.transfer.lock`;
+    if (fs.existsSync(transferLockPath)) {
+        let owner: { pid?: number } | undefined;
+        try {
+            const raw = fs.readFileSync(transferLockPath, "utf8").trim();
+            const parsed: unknown = JSON.parse(raw);
+            owner = typeof parsed === "number" ? { pid: parsed } : parsed as { pid?: number };
+        } catch {
+            throw new Error("A database transfer is already in progress.");
+        }
+        if (owner.pid !== process.pid) throw new Error("A database transfer is already in progress.");
+    }
+
     // Ensure parent folder exists if path contains subdirectories
     const dbDir = path.dirname(dbPath);
     if (!fs.existsSync(dbDir)) {

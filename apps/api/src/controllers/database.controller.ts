@@ -3,8 +3,8 @@ import { chmod, mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { Readable } from "node:stream";
-import { pipeline } from "node:stream/promises";
 import type { Context } from "hono";
+import { deleteCookie } from "hono/cookie";
 import {
     DatabaseImportBusyError,
     DatabaseRecoveryError,
@@ -82,23 +82,105 @@ class DatabaseUploadTooLargeError extends Error {
     }
 }
 
-function createBoundedRequestBody(request: Request): ReadableStream<Uint8Array> | null {
-    const stream = request.body;
-    if (!stream) return null;
+class InvalidMultipartDatabaseError extends Error {
+    constructor(
+        public readonly code: "invalid_multipart" | "missing_database_file" | "invalid_database_field" = "invalid_multipart"
+    ) {
+        super(code === "missing_database_file"
+            ? "A database file is required in the database field."
+            : code === "invalid_database_field"
+              ? "A single database file is required in the database field."
+              : "A valid multipart database upload is required.");
+        this.name = "InvalidMultipartDatabaseError";
+    }
+}
 
-    let size = 0;
-    return stream.pipeThrough(
-        new TransformStream<Uint8Array, Uint8Array>({
-            transform(chunk, controller) {
-                size += chunk.byteLength;
-                if (size > MAX_DATABASE_UPLOAD_BYTES) {
-                    controller.error(new DatabaseUploadTooLargeError());
-                    return;
+async function streamMultipartDatabase(request: Request, outputPath: string): Promise<void> {
+    // Node's built-in Request.formData() buffers multipart parts. Keep the
+    // upload bounded and disk-backed by parsing only this fixed file field.
+    const contentType = request.headers.get("content-type") ?? "";
+    const boundaryMatch = /boundary=(?:"([^"]+)"|([^;]+))/i.exec(contentType);
+    const boundary = boundaryMatch?.[1] ?? boundaryMatch?.[2]?.trim();
+    if (!boundary || !request.body) throw new InvalidMultipartDatabaseError("missing_database_file");
+
+    const marker = Buffer.from(`--${boundary}`);
+    const separator = Buffer.from(`\r\n--${boundary}`);
+    const reader = Readable.fromWeb(request.body);
+    const output = createWriteStream(outputPath, { flags: "wx", mode: 0o600 });
+    let buffer = Buffer.alloc(0);
+    let total = 0;
+    let partCount = 0;
+    let filePart = false;
+    let fileBytes = 0;
+    let started = false;
+    let finished = false;
+
+    const write = async (chunk: Buffer): Promise<void> => {
+        if (!filePart || chunk.length === 0) return;
+        fileBytes += chunk.length;
+        if (fileBytes > MAX_DATABASE_UPLOAD_BYTES) throw new DatabaseUploadTooLargeError();
+        if (!output.write(chunk)) await new Promise<void>((resolve) => output.once("drain", resolve));
+    };
+
+    try {
+        for await (const chunk of reader) {
+            const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+            total += bytes.length;
+            if (total > MAX_DATABASE_UPLOAD_BYTES) throw new DatabaseUploadTooLargeError();
+            buffer = Buffer.concat([buffer, bytes]);
+
+            while (!finished) {
+                if (!started) {
+                    const start = buffer.indexOf(marker);
+                    if (start < 0) {
+                        buffer = buffer.subarray(Math.max(0, buffer.length - marker.length));
+                        break;
+                    }
+                    buffer = buffer.subarray(start + marker.length);
+                    started = true;
                 }
-                controller.enqueue(chunk);
+                if (!filePart) {
+                    const headerEnd = buffer.indexOf(Buffer.from("\r\n\r\n"));
+                    if (headerEnd < 0) break;
+                    const headers = buffer.subarray(0, headerEnd).toString("utf8").toLowerCase();
+                    buffer = buffer.subarray(headerEnd + 4);
+                    partCount += 1;
+                    const isDatabaseField = /content-disposition:[^\r\n]*\bname="database"/.test(headers);
+                    filePart = /content-disposition:[^\r\n]*\bname="database"[^\r\n]*\bfilename="[^"]*"/.test(headers);
+                    if (partCount > 1 || (isDatabaseField && !filePart)) {
+                        throw new InvalidMultipartDatabaseError("invalid_database_field");
+                    }
+                }
+                const end = buffer.indexOf(separator);
+                if (end < 0) {
+                    const safeLength = Math.max(0, buffer.length - separator.length);
+                    await write(buffer.subarray(0, safeLength));
+                    buffer = buffer.subarray(safeLength);
+                    break;
+                }
+                await write(buffer.subarray(0, end));
+                buffer = buffer.subarray(end + separator.length);
+                if (buffer.subarray(0, 2).equals(Buffer.from("--"))) {
+                    finished = true;
+                } else {
+                    filePart = false;
+                    if (!buffer.subarray(0, 2).equals(Buffer.from("\r\n"))) {
+                        throw new InvalidMultipartDatabaseError();
+                    }
+                    buffer = buffer.subarray(2);
+                }
+                break;
             }
-        })
-    );
+        }
+        if (!finished || partCount !== 1 || fileBytes === 0) throw new InvalidMultipartDatabaseError();
+        await new Promise<void>((resolve, reject) => {
+            output.end(() => resolve());
+            output.on("error", reject);
+        });
+    } catch (error) {
+        output.destroy();
+        throw error;
+    }
 }
 
 async function createPrivateTransferDirectory(): Promise<string> {
@@ -139,54 +221,29 @@ export class DatabaseController {
         };
         let directory: string | undefined;
         try {
-            const boundedBody = createBoundedRequestBody(c.req.raw);
-            if (!boundedBody) {
-                return Err(c, "The database upload is too large.", 400, { code: "upload_too_large" });
-            }
-
-            let formData: FormData;
-            try {
-                const request = new Request(c.req.raw.url, {
-                    method: c.req.raw.method,
-                    headers: c.req.raw.headers,
-                    body: boundedBody,
-                    duplex: "half"
-                });
-                formData = await request.formData();
-            } catch (error) {
-                if (error instanceof DatabaseUploadTooLargeError ||
-                    (error instanceof TypeError && error.cause instanceof DatabaseUploadTooLargeError)) {
-                    return Err(c, "The database upload is too large.", 400, { code: "upload_too_large" });
-                }
-                return Err(c, "A valid multipart database upload is required.", 400, {
-                    code: "invalid_multipart"
-                });
-            }
-            const databaseValues = formData.getAll("database");
-            if (databaseValues.length !== 1 || !(databaseValues[0] instanceof File)) {
-                return Err(c, "A database file is required in the database field.", 400, {
-                    code: databaseValues.length === 0 ? "missing_database_file" : "invalid_database_field"
-                });
-            }
-            const file = databaseValues[0];
-            if (file.size > MAX_DATABASE_UPLOAD_BYTES) {
+            if (!c.req.raw.body) {
                 return Err(c, "The database upload is too large.", 400, { code: "upload_too_large" });
             }
 
             directory = await createPrivateTransferDirectory();
             const candidatePath = path.join(directory, "database.db");
-            await pipeline(
-                Readable.fromWeb(file.stream()),
-                createWriteStream(candidatePath, { flags: "wx", mode: 0o600 })
-            );
+            await streamMultipartDatabase(c.req.raw, candidatePath);
             transfer.validateDatabase(candidatePath);
             const result = transfer.replaceDatabase(candidatePath);
+            deleteCookie(c, "srouter_admin_session", { path: "/" });
             return Ok(c, {
                 ok: true,
                 backup_path: formatBackupPath(result.backupPath),
-                restart_required: result.restartRequired
+                restart_required: result.restartRequired,
+                reauth_required: result.reauthRequired
             });
         } catch (error) {
+            if (error instanceof DatabaseUploadTooLargeError) {
+                return Err(c, "The database upload is too large.", 400, { code: "upload_too_large" });
+            }
+            if (error instanceof InvalidMultipartDatabaseError) {
+                return Err(c, error.message, 400, { code: error.code });
+            }
             return mapTransferError(c, error);
         } finally {
             if (directory) await rm(directory, { recursive: true, force: true });

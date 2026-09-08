@@ -128,6 +128,12 @@ test("uses the stable transfer contract instead of a drifted target schema", () 
 
     assert.equal(database.validateDatabaseImport(canonicalPath).schemaCompatible, true);
 
+    const futurePath = path.join(testDirectory, "future-schema.db");
+    const future = createDatabase(futurePath);
+    future.exec("ALTER TABLE providers ADD COLUMN future_column TEXT");
+    future.close();
+    assert.equal(database.validateDatabaseImport(futurePath).schemaCompatible, true);
+
     const wrongMarker = path.join(testDirectory, "wrong-marker.db");
     const marked = createDatabase(wrongMarker);
     marked.prepare("UPDATE srouter_schema_meta SET value = ? WHERE key = ?").run("2", "schema_version");
@@ -212,6 +218,21 @@ test("restores the original target when reopening the replacement fails", () => 
         () => database.replaceDatabaseFromFile(sourcePath),
         database.DatabaseRecoveryError
     );
+    assert.equal(
+        database.getSqliteDb().prepare("SELECT api_key FROM providers").get().api_key,
+        "source-key"
+    );
+});
+
+test("restores the original target after the replacement rename starts", () => {
+    const sourcePath = path.join(testDirectory, "post-rename-failure-source.db");
+    const source = createDatabase(sourcePath);
+    source.close();
+    addProvider(sourcePath, "post-rename", "post-rename-key");
+    addProvider(targetPath, "post-rename-target", "post-rename-target-key");
+    transferTestHooks.setDatabaseTransferTestFailure("after-rename");
+
+    assert.throws(() => database.replaceDatabaseFromFile(sourcePath), database.DatabaseRecoveryError);
     assert.equal(
         database.getSqliteDb().prepare("SELECT api_key FROM providers").get().api_key,
         "source-key"

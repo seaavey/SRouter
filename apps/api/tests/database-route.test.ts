@@ -38,7 +38,8 @@ async function createTestApp(options: {
             })),
             replaceDatabase: options.replaceDatabase ?? (() => ({
                 backupPath: path.join(os.homedir(), ".srouter/backups/import-backup-1.db"),
-                restartRequired: false
+                restartRequired: false,
+                reauthRequired: true
             }))
         })
     );
@@ -103,7 +104,8 @@ test("database import accepts one database file for an admin session", async () 
         assert.deepEqual(await response.json(), {
             ok: true,
             backup_path: "~/.srouter/backups/import-backup-1.db",
-            restart_required: false
+            restart_required: false,
+            reauth_required: true
         });
     } finally {
         await cleanup();
