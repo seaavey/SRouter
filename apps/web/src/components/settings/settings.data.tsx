@@ -14,6 +14,7 @@ import {
 import { SettingsSection, SettingsRow, ValueBadge } from "./settings.ui";
 import type { StorageStats } from "@/hooks/useSettings";
 import type { DatabaseImportResult } from "@/lib/api";
+import { downloadDatabaseBlob } from "@/lib/databaseTransfer";
 
 interface DataSettingsProps {
     exportSettings: () => void;
@@ -64,12 +65,7 @@ export function DataSettings(props: DataSettingsProps) {
     const databaseExportMutation = useMutation({
         mutationFn: exportDatabase,
         onSuccess: (blob) => {
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement("a");
-            link.href = url;
-            link.download = `srouter-backup-${new Date().toISOString().replace(/[:.]/g, "-")}.db`;
-            link.click();
-            URL.revokeObjectURL(url);
+            downloadDatabaseBlob(blob);
             toast.success("Database export downloaded");
         },
         onError: (error) => {
@@ -134,6 +130,15 @@ export function DataSettings(props: DataSettingsProps) {
         databaseImportMutation.reset();
         setDatabaseFile(file);
         setIsDatabaseImportOpen(true);
+    };
+
+    const closeDatabaseImport = () => {
+        if (databaseImportMutation.isPending) return;
+        setIsDatabaseImportOpen(false);
+        setDatabaseFile(undefined);
+        const fileInput = databaseFileInputRef.current;
+        if (fileInput) fileInput.value = "";
+        databaseImportMutation.reset();
     };
 
     const handleDatabaseImport = () => {
@@ -244,7 +249,7 @@ export function DataSettings(props: DataSettingsProps) {
             <Dialog
                 open={isDatabaseImportOpen}
                 onOpenChange={(open) => {
-                    if (!databaseImportMutation.isPending) setIsDatabaseImportOpen(open);
+                    if (!open) closeDatabaseImport();
                 }}
             >
                 <DialogContent>
@@ -284,7 +289,7 @@ export function DataSettings(props: DataSettingsProps) {
                             variant="outline"
                             size="sm"
                             disabled={databaseImportMutation.isPending}
-                            onClick={() => setIsDatabaseImportOpen(false)}
+                            onClick={closeDatabaseImport}
                         >
                             Cancel
                         </Button>
@@ -295,9 +300,7 @@ export function DataSettings(props: DataSettingsProps) {
                             disabled={databaseImportMutation.isPending || (!databaseFile && !databaseImportMutation.isSuccess)}
                             onClick={() => {
                                 if (databaseImportMutation.isSuccess) {
-                                    setIsDatabaseImportOpen(false);
-                                    setDatabaseFile(undefined);
-                                    databaseImportMutation.reset();
+                                    closeDatabaseImport();
                                     return;
                                 }
                                 handleDatabaseImport();

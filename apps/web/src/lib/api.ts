@@ -1,4 +1,11 @@
 import type { AnalyticsReport, AnalyticsWindow } from "@srouter/types";
+import {
+    exportDatabase,
+    importDatabase,
+    type DatabaseImportResult
+} from "./databaseTransfer";
+
+export type { DatabaseImportResult } from "./databaseTransfer";
 
 export class ApiError extends Error {
     status: number;
@@ -56,23 +63,8 @@ export const api = {
         request<T>(path, {
             method: "DELETE"
         }),
-    exportDatabase: async (): Promise<Blob> => {
-        const response = await fetch("/v1/admin/database/export", {
-            credentials: "include"
-        });
-        if (!response.ok) {
-            throw await responseError(response);
-        }
-        return response.blob();
-    },
-    importDatabase: (file: File): Promise<DatabaseImportResult> => {
-        const formData = new FormData();
-        formData.set("database", file);
-        return request<DatabaseImportResult>("/v1/admin/database/import", {
-            method: "POST",
-            body: formData
-        });
-    }
+    exportDatabase,
+    importDatabase
 };
 
 /**
@@ -109,9 +101,3 @@ export const Api = {
     getAnalytics: (window: AnalyticsWindow): Promise<AnalyticsReport> =>
         api.get<AnalyticsReport>(`/v1/logs/analytics?window=${window}`)
 };
-
-export interface DatabaseImportResult {
-    ok: true;
-    backup_path: string;
-    restart_required: boolean;
-}
