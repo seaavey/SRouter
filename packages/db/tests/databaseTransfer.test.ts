@@ -74,6 +74,27 @@ test("rejects invalid sqlite and missing required tables", () => {
         () => database.validateDatabaseImport(incompletePath),
         database.IncompatibleDatabaseError
     );
+
+    const incompatiblePath = path.join(testDirectory, "incompatible.db");
+    const incompatible = createDatabase(incompatiblePath);
+    incompatible.exec("ALTER TABLE providers RENAME TO providers_old");
+    incompatible.exec(
+        "CREATE TABLE providers (id TEXT PRIMARY KEY, provider_id TEXT NOT NULL, name TEXT NOT NULL, category TEXT NOT NULL, protocol TEXT NOT NULL, created_at INTEGER NOT NULL)"
+    );
+    incompatible.close();
+    assert.throws(
+        () => database.validateDatabaseImport(incompatiblePath),
+        database.IncompatibleDatabaseError
+    );
+});
+
+test("does not remove an existing export when snapshot creation fails", () => {
+    const outputPath = path.join(testDirectory, "existing-export.db");
+    fs.writeFileSync(outputPath, "keep this file");
+    transferTestHooks.setDatabaseTransferTestFailure("export-before-rename");
+
+    assert.throws(() => database.exportDatabaseSnapshot(outputPath));
+    assert.equal(fs.readFileSync(outputPath, "utf8"), "keep this file");
 });
 
 test("backs up and replaces every target table", () => {
@@ -109,15 +130,31 @@ test("restores the original target when replacement fails", () => {
     );
 });
 
-test("rejects a second import while an import is active", () => {
+test("restores the original target when reopening the replacement fails", () => {
+    const sourcePath = path.join(testDirectory, "reopen-failure-source.db");
+    const source = createDatabase(sourcePath);
+    source.close();
+    addProvider(sourcePath, "reopen-failure", "reopen-failure-key");
+    transferTestHooks.setDatabaseTransferTestFailure("after-reopen");
+
+    assert.throws(
+        () => database.replaceDatabaseFromFile(sourcePath),
+        database.DatabaseRecoveryError
+    );
+    assert.equal(
+        database.getSqliteDb().prepare("SELECT api_key FROM providers").get().api_key,
+        "source-key"
+    );
+});
+
+test("rejects an import while another process owns the transfer lock", () => {
     const sourcePath = path.join(testDirectory, "busy-source.db");
     const source = createDatabase(sourcePath);
     source.close();
     addProvider(sourcePath, "busy-source", "busy-key");
-    transferTestHooks.setDatabaseTransferTestHook(() => database.replaceDatabaseFromFile(sourcePath));
+    const lockPath = `${targetPath}.transfer.lock`;
+    fs.writeFileSync(lockPath, `${process.pid}\n`, { mode: 0o600 });
 
-    assert.throws(
-        () => database.replaceDatabaseFromFile(sourcePath),
-        database.DatabaseImportBusyError
-    );
+    assert.throws(() => database.replaceDatabaseFromFile(sourcePath), database.DatabaseImportBusyError);
+    fs.rmSync(lockPath);
 });

@@ -123,11 +123,7 @@ export function getOpenDatabasePath(): string | null {
 
 /** Close the shared connection (test teardown / path switching). */
 export function closeSqliteDb(): void {
-    try {
-        _sqliteDb?.close();
-    } catch {
-        // Ignore close errors on a stale handle.
-    }
+    _sqliteDb?.close();
     _sqliteDb = null;
     _sqliteDbPath = null;
 }
@@ -135,5 +131,9 @@ export function closeSqliteDb(): void {
 /** Reopen the shared connection after an operation replaces the database file. */
 export function reopenSqliteDb(): DatabaseSync {
     closeSqliteDb();
-    return getSqliteDbInstance();
+    const database = getSqliteDbInstance();
+    if (getOpenDatabasePath() !== path.resolve(getDatabasePath())) {
+        throw new Error("SQLite connection reopened at an unexpected path.");
+    }
+    return database;
 }
