@@ -208,6 +208,8 @@ function SettingsPage() {
                 <DataSettings
                     exportSettings={exportSettings}
                     importSettings={importSettings}
+                    exportDatabase={api.exportDatabase}
+                    importDatabase={api.importDatabase}
                     clearStorage={clearStorage}
                     resetToDefaults={resetToDefaults}
                     getStorageStats={getStorageStats}

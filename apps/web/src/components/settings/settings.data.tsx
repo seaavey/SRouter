@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
-import { Download, Upload, Trash2, RotateCcw, HardDrive } from "lucide-react";
+import { useMutation } from "@tanstack/react-query";
+import { Download, Upload, Trash2, RotateCcw, HardDrive, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,13 +13,20 @@ import {
 } from "@/components/ui/dialog";
 import { SettingsSection, SettingsRow, ValueBadge } from "./settings.ui";
 import type { StorageStats } from "@/hooks/useSettings";
+import type { DatabaseImportResult } from "@/lib/api";
 
 interface DataSettingsProps {
     exportSettings: () => void;
     importSettings: (json: string) => boolean;
+    exportDatabase: () => Promise<Blob>;
+    importDatabase: (file: File) => Promise<DatabaseImportResult>;
     clearStorage: () => void;
     resetToDefaults: () => void;
     getStorageStats: () => StorageStats;
+}
+
+export function isDatabaseFile(file: File | undefined): boolean {
+    return file?.name.toLowerCase().endsWith(".db") ?? false;
 }
 
 function formatBytes(bytes: number): string {
@@ -33,6 +41,8 @@ export function DataSettings(props: DataSettingsProps) {
     const {
         exportSettings,
         importSettings,
+        exportDatabase,
+        importDatabase,
         clearStorage,
         resetToDefaults,
         getStorageStats
@@ -46,7 +56,44 @@ export function DataSettings(props: DataSettingsProps) {
     const [importText, setImportText] = useState("");
     const [isClearOpen, setIsClearOpen] = useState(false);
     const [isResetOpen, setIsResetOpen] = useState(false);
+    const [isDatabaseImportOpen, setIsDatabaseImportOpen] = useState(false);
+    const [databaseFile, setDatabaseFile] = useState<File>();
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const databaseFileInputRef = useRef<HTMLInputElement>(null);
+
+    const databaseExportMutation = useMutation({
+        mutationFn: exportDatabase,
+        onSuccess: (blob) => {
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = `srouter-backup-${new Date().toISOString().replace(/[:.]/g, "-")}.db`;
+            link.click();
+            URL.revokeObjectURL(url);
+            toast.success("Database export downloaded");
+        },
+        onError: (error) => {
+            toast.error("Database export failed", {
+                description: error instanceof Error ? error.message : "Try again."
+            });
+        }
+    });
+
+    const databaseImportMutation = useMutation({
+        mutationFn: importDatabase,
+        onSuccess: (result) => {
+            toast.success("Database imported", {
+                description: result.restart_required
+                    ? "Restart SRouter before continuing to use the dashboard."
+                    : `Previous database backed up at ${result.backup_path}.`
+            });
+        },
+        onError: (error) => {
+            toast.error("Database import failed", {
+                description: error instanceof Error ? error.message : "Choose a valid SRouter database and try again."
+            });
+        }
+    });
 
     const refresh = () => setStats(getStorageStats());
     useEffect(() => {
@@ -74,6 +121,24 @@ export function DataSettings(props: DataSettingsProps) {
             setImportText("");
             refresh();
         }
+    };
+
+    const handleDatabaseFile = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        if (!isDatabaseFile(file)) {
+            toast.error("Choose a .db database file");
+            event.target.value = "";
+            return;
+        }
+        databaseImportMutation.reset();
+        setDatabaseFile(file);
+        setIsDatabaseImportOpen(true);
+    };
+
+    const handleDatabaseImport = () => {
+        if (!databaseFile || databaseImportMutation.isPending) return;
+        databaseImportMutation.mutate(databaseFile);
     };
 
     return (
@@ -131,6 +196,122 @@ export function DataSettings(props: DataSettingsProps) {
                     <RotateCcw className="size-3" /> Reset
                 </Button>
             </div>
+
+            <div className="border-t border-border/50 py-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0 pr-4">
+                        <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
+                            <span>Server database migration</span>
+                        </div>
+                        <p className="mt-1 max-w-2xl text-[11px] leading-relaxed text-muted-foreground">
+                            Move the complete SQLite database, including API keys and provider credentials.
+                            Export files contain sensitive plaintext data.
+                        </p>
+                    </div>
+                    <div className="flex shrink-0 flex-wrap gap-2">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={databaseExportMutation.isPending}
+                            onClick={() => databaseExportMutation.mutate()}
+                            className="cursor-pointer text-[11px]"
+                        >
+                            <Download className="size-3" />
+                            {databaseExportMutation.isPending ? "Exporting..." : "Export Database"}
+                        </Button>
+                        <input
+                            ref={databaseFileInputRef}
+                            type="file"
+                            accept=".db"
+                            onChange={handleDatabaseFile}
+                            className="sr-only"
+                        />
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={databaseImportMutation.isPending}
+                            onClick={() => databaseFileInputRef.current?.click()}
+                            className="cursor-pointer text-[11px]"
+                        >
+                            <Upload className="size-3" /> Import Database
+                        </Button>
+                    </div>
+                </div>
+            </div>
+
+            <Dialog
+                open={isDatabaseImportOpen}
+                onOpenChange={(open) => {
+                    if (!databaseImportMutation.isPending) setIsDatabaseImportOpen(open);
+                }}
+            >
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-sm font-bold text-rose-500">
+                            <AlertTriangle className="size-4" /> Replace server database?
+                        </DialogTitle>
+                        <DialogDescription>
+                            This operation replaces all current SRouter data. API keys and provider credentials
+                            from the file will be restored. The current database will be backed up first, but this
+                            cannot be undone from the dashboard.
+                        </DialogDescription>
+                    </DialogHeader>
+                    {databaseFile && (
+                        <div className="rounded border border-border/70 bg-muted/20 p-3 text-[11px]">
+                            <div className="font-semibold text-foreground">{databaseFile.name}</div>
+                            <div className="mt-1 text-muted-foreground">{formatBytes(databaseFile.size)}</div>
+                        </div>
+                    )}
+                    {databaseImportMutation.isError && (
+                        <p role="alert" className="text-xs text-rose-600 dark:text-rose-400">
+                            {databaseImportMutation.error instanceof Error
+                                ? databaseImportMutation.error.message
+                                : "Import failed. Choose a valid database file and try again."}
+                        </p>
+                    )}
+                    {databaseImportMutation.isSuccess && (
+                        <p className="text-xs text-emerald-700 dark:text-emerald-400">
+                            Database backed up at {databaseImportMutation.data.backup_path}.
+                            {databaseImportMutation.data.restart_required &&
+                                " Restart SRouter before continuing to use the dashboard."}
+                        </p>
+                    )}
+                    <DialogFooter>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={databaseImportMutation.isPending}
+                            onClick={() => setIsDatabaseImportOpen(false)}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            disabled={databaseImportMutation.isPending || (!databaseFile && !databaseImportMutation.isSuccess)}
+                            onClick={() => {
+                                if (databaseImportMutation.isSuccess) {
+                                    setIsDatabaseImportOpen(false);
+                                    setDatabaseFile(undefined);
+                                    databaseImportMutation.reset();
+                                    return;
+                                }
+                                handleDatabaseImport();
+                            }}
+                        >
+                            {databaseImportMutation.isPending
+                                ? "Importing..."
+                                : databaseImportMutation.isSuccess
+                                  ? "Close"
+                                  : "Replace Database"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             <Dialog open={isImportOpen} onOpenChange={setIsImportOpen}>
                 <DialogContent>

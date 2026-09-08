@@ -9,23 +9,26 @@ export class ApiError extends Error {
     }
 }
 
+async function responseError(response: Response): Promise<ApiError> {
+    let message = response.statusText;
+    try {
+        const body = (await response.json()) as { error?: { message?: string } | string };
+        message = typeof body.error === "string" ? body.error : (body.error?.message ?? message);
+    } catch {
+        // Keep the HTTP status text when the server does not return the standard error envelope.
+    }
+    return new ApiError(response.status, message);
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const res = await fetch(path, {
         credentials: "include",
-        headers: { "Content-Type": "application/json" },
+        headers: init?.body instanceof FormData ? undefined : { "Content-Type": "application/json" },
         ...init
     });
 
     if (!res.ok) {
-        let message = res.statusText;
-        try {
-            const body = (await res.json()) as { error?: { message?: string } | string };
-            message =
-                typeof body.error === "string" ? body.error : (body.error?.message ?? message);
-        } catch {
-            // ignore body parse errors
-        }
-        throw new ApiError(res.status, message);
+        throw await responseError(res);
     }
 
     if (res.status === 204) return undefined as T;
@@ -52,7 +55,24 @@ export const api = {
     delete: <T>(path: string) =>
         request<T>(path, {
             method: "DELETE"
-        })
+        }),
+    exportDatabase: async (): Promise<Blob> => {
+        const response = await fetch("/v1/admin/database/export", {
+            credentials: "include"
+        });
+        if (!response.ok) {
+            throw await responseError(response);
+        }
+        return response.blob();
+    },
+    importDatabase: (file: File): Promise<DatabaseImportResult> => {
+        const formData = new FormData();
+        formData.set("database", file);
+        return request<DatabaseImportResult>("/v1/admin/database/import", {
+            method: "POST",
+            body: formData
+        });
+    }
 };
 
 /**
@@ -89,3 +109,9 @@ export const Api = {
     getAnalytics: (window: AnalyticsWindow): Promise<AnalyticsReport> =>
         api.get<AnalyticsReport>(`/v1/logs/analytics?window=${window}`)
 };
+
+export interface DatabaseImportResult {
+    ok: true;
+    backup_path: string;
+    restart_required: boolean;
+}
