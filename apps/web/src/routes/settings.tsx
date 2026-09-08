@@ -170,7 +170,7 @@ function SettingsPage() {
                         <h1 className="text-2xl font-bold tracking-tight text-foreground">
                             Gateway Settings
                         </h1>
-                        <span className="rounded border border-border/80 bg-secondary/60 px-1.5 py-0.2 text-[10px] font-semibold text-muted-foreground">
+                        <span className="inline-flex h-5 items-center whitespace-nowrap rounded border border-border/80 bg-secondary/60 px-1.5 text-[10px] font-semibold leading-none text-muted-foreground">
                             v{currentVersion}
                         </span>
                         {hasUpdate && latestVersion && (
