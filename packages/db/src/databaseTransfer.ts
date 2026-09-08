@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { randomUUID } from "node:crypto";
 import {
     DEFAULT_DB_PATH,
     SROUTER_DIR,
@@ -11,17 +12,20 @@ import {
 } from "./sqlite.js";
 import { isPostgres } from "./db.js";
 
-const REQUIRED_TABLES = [
-    "providers",
-    "api_keys",
-    "request_logs",
-    "oauth_sessions",
-    "fallback_rules",
-    "system_settings",
-    "custom_models",
-    "admin_account",
-    "admin_sessions"
-] as const;
+const TRANSFER_SCHEMA_VERSION = "1";
+const SCHEMA_TABLES = {
+    providers: ["id", "provider_id", "name", "alias", "category", "protocol", "base_url", "api_key", "access_token", "refresh_token", "account_id", "organization_id", "provider_specific_data", "custom_headers", "token_expires_at", "last_refreshed_at", "enabled", "created_at"],
+    api_keys: ["id", "key", "name", "enabled", "rate_limit", "quota_limit", "usage_tokens", "credit_limit", "usage_cost", "allowed_models", "created_at"],
+    request_logs: ["id", "api_key_id", "ip_address", "user_agent", "provider_id", "model", "prompt_tokens", "completion_tokens", "total_tokens", "status_code", "latency_ms", "cached_tokens", "cache_creation_tokens", "reasoning_tokens", "estimated_cost", "fallback_occurred", "fallback_path", "fallback_reason", "resolved_model", "created_at"],
+    oauth_sessions: ["state", "code_verifier", "client_id", "redirect_uri", "created_at"],
+    fallback_rules: ["id", "source_model", "target_model", "priority", "enabled", "trigger_on_status", "max_retries", "created_at"],
+    system_settings: ["key", "value"],
+    custom_models: ["provider_id", "model_id", "created_at"],
+    admin_account: ["id", "password_hash", "created_at", "updated_at"],
+    admin_sessions: ["token_hash", "created_at", "expires_at"],
+    srouter_schema_meta: ["key", "value"]
+} as const;
+const REQUIRED_TABLES = Object.keys(SCHEMA_TABLES) as Array<keyof typeof SCHEMA_TABLES>;
 
 type SchemaColumn = {
     name: string;
@@ -85,6 +89,8 @@ export class DatabaseRecoveryError extends Error {
 
 let importActive = false;
 let testFailure: "after-backup" | "after-reopen" | "export-before-rename" | null = null;
+let testOwnerProbe: "eperm" | null = null;
+let testReleaseReplacement: string | null = null;
 
 function assertSqlite(): void {
     if (isPostgres()) throw new UnsupportedDatabaseError();
@@ -112,27 +118,17 @@ function readSchema(database: DatabaseSync): Map<string, SchemaColumn[]> {
     return schema;
 }
 
-function schemasMatch(expected: Map<string, SchemaColumn[]>, candidate: Map<string, SchemaColumn[]>): boolean {
+function schemasMatch(candidate: Map<string, SchemaColumn[]>): boolean {
     return REQUIRED_TABLES.every((table) => {
-        const expectedColumns = expected.get(table);
         const candidateColumns = candidate.get(table);
-        if (!expectedColumns || !candidateColumns || expectedColumns.length !== candidateColumns.length) {
+        if (!candidateColumns || candidateColumns.length !== SCHEMA_TABLES[table].length) {
             return false;
         }
-        return expectedColumns.every((expectedColumn, index) => {
-            const candidateColumn = candidateColumns[index];
-            return (
-                expectedColumn.name === candidateColumn.name &&
-                expectedColumn.type === candidateColumn.type &&
-                expectedColumn.notnull === candidateColumn.notnull &&
-                expectedColumn.dflt_value === candidateColumn.dflt_value &&
-                expectedColumn.pk === candidateColumn.pk
-            );
-        });
+        return SCHEMA_TABLES[table].every((column, index) => candidateColumns[index]?.name === column);
     });
 }
 
-function readValidation(candidatePath: string, expectedSchema: Map<string, SchemaColumn[]>): DatabaseTransferValidation {
+function readValidation(candidatePath: string): DatabaseTransferValidation {
     let candidate: DatabaseSync;
     try {
         candidate = new DatabaseSync(candidatePath, { readOnly: true, timeout: 5000 });
@@ -148,11 +144,16 @@ function readValidation(candidatePath: string, expectedSchema: Map<string, Schem
 
         const candidateSchema = readSchema(candidate);
         const missing = REQUIRED_TABLES.filter((table) => !candidateSchema.has(table));
-        if (missing.length > 0 || !schemasMatch(expectedSchema, candidateSchema)) {
+        const marker = candidateSchema.has("srouter_schema_meta")
+            ? (candidate
+                  .prepare("SELECT value FROM srouter_schema_meta WHERE key = ?")
+                  .get("schema_version") as { value?: string } | undefined)
+            : undefined;
+        if (missing.length > 0 || !schemasMatch(candidateSchema) || marker?.value !== TRANSFER_SCHEMA_VERSION) {
             throw new IncompatibleDatabaseError(
                 missing.length > 0
                     ? `Missing required SRouter tables: ${missing.join(", ")}.`
-                    : "The import database schema does not match the initialized SRouter schema."
+                    : `The import database schema does not match transfer schema version ${TRANSFER_SCHEMA_VERSION}.`
             );
         }
 
@@ -185,6 +186,13 @@ export function exportDatabaseSnapshot(outputPath: string): DatabaseTransferExpo
     try {
         fs.mkdirSync(path.dirname(targetPath), { recursive: true, mode: 0o700 });
         createConsistentSnapshot(activePath, temporaryPath);
+        if (testReleaseReplacement) {
+            fs.writeFileSync(
+                `${activePath}.transfer.lock`,
+                `${JSON.stringify({ pid: process.pid, start: processStartIdentity(), token: testReleaseReplacement })}\n`
+            );
+            testReleaseReplacement = null;
+        }
         if (testFailure === "export-before-rename") throw new Error("Injected export failure.");
         fs.renameSync(temporaryPath, targetPath);
         setPrivateFileMode(targetPath);
@@ -209,11 +217,11 @@ export function validateDatabaseImport(candidatePath: string): DatabaseTransferV
     if (candidate === resolvePath(getDatabasePath())) {
         throw new InvalidDatabaseImportError("The import file cannot be the active database.");
     }
-    const active = new DatabaseSync(getDatabasePath(), { readOnly: true, timeout: 5000 });
+    const releaseLock = acquireTransferLock();
     try {
-        return readValidation(candidate, readSchema(active));
+        return readValidation(candidate);
     } finally {
-        active.close();
+        releaseLock();
     }
 }
 
@@ -240,33 +248,70 @@ function createConsistentSnapshot(sourcePath: string, outputPath: string): void 
 
 function acquireTransferLock(): () => void {
     const lockPath = `${resolvePath(getDatabasePath())}.transfer.lock`;
+    const owner = { pid: process.pid, start: processStartIdentity(), token: randomUUID() };
     fs.mkdirSync(path.dirname(lockPath), { recursive: true, mode: 0o700 });
     for (;;) {
         try {
             const descriptor = fs.openSync(lockPath, "wx", 0o600);
-            fs.writeFileSync(descriptor, `${process.pid}\n`, { encoding: "utf8" });
+            fs.writeFileSync(descriptor, `${JSON.stringify(owner)}\n`, { encoding: "utf8" });
             fs.closeSync(descriptor);
-            return () => fs.rmSync(lockPath, { force: true });
+            return () => {
+                try {
+                    const current = JSON.parse(fs.readFileSync(lockPath, "utf8")) as typeof owner;
+                    if (current.token === owner.token) fs.rmSync(lockPath, { force: true });
+                } catch {
+                    // The lock is already gone or malformed; never remove an unknown owner.
+                }
+            };
         } catch (error) {
             if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
-            let ownerPid: number | null = null;
+            let lockOwner: { pid: number; start: string; token: string };
             try {
-                ownerPid = Number.parseInt(fs.readFileSync(lockPath, "utf8"), 10);
+                lockOwner = JSON.parse(fs.readFileSync(lockPath, "utf8")) as {
+                    pid: number;
+                    start: string;
+                    token: string;
+                };
             } catch {
                 throw new DatabaseImportBusyError();
             }
-            if (ownerPid && ownerPid !== process.pid) {
+            if (lockOwner.pid) {
                 try {
-                    process.kill(ownerPid, 0);
+                    if (testOwnerProbe === "eperm") {
+                        const error = new Error("operation not permitted") as NodeJS.ErrnoException;
+                        error.code = "EPERM";
+                        throw error;
+                    }
+                    process.kill(lockOwner.pid, 0);
+                    if (processStartIdentityFor(lockOwner.pid) !== lockOwner.start) {
+                        fs.rmSync(lockPath, { force: true });
+                        continue;
+                    }
                     throw new DatabaseImportBusyError();
                 } catch (ownerError) {
                     if (ownerError instanceof DatabaseImportBusyError) throw ownerError;
+                    if ((ownerError as NodeJS.ErrnoException).code === "EPERM") {
+                        throw new DatabaseImportBusyError();
+                    }
                     fs.rmSync(lockPath, { force: true });
                 }
             } else {
                 throw new DatabaseImportBusyError();
             }
         }
+    }
+}
+
+function processStartIdentity(): string {
+    return processStartIdentityFor(process.pid);
+}
+
+function processStartIdentityFor(pid: number): string {
+    try {
+        const stat = fs.readFileSync(`/proc/${pid}/stat`, "utf8");
+        return stat.slice(stat.lastIndexOf(")") + 2).split(" ")[19] ?? "unknown";
+    } catch {
+        return "unknown";
     }
 }
 
@@ -281,7 +326,7 @@ export function replaceDatabaseFromFile(candidatePath: string): DatabaseTransfer
     let replacementStarted = false;
     try {
         const candidate = resolvePath(candidatePath);
-        const validation = validateDatabaseImport(candidate);
+        const validation = readValidation(candidate);
         if (!validation.schemaCompatible || !validation.integrityOk) {
             throw new IncompatibleDatabaseError();
         }
@@ -293,6 +338,13 @@ export function replaceDatabaseFromFile(candidatePath: string): DatabaseTransfer
         if (testFailure === "after-backup") throw new Error("Injected replacement failure.");
         createConsistentSnapshot(candidate, targetTempPath);
         fs.renameSync(targetTempPath, activePath);
+        if (testReleaseReplacement) {
+            fs.writeFileSync(
+                `${activePath}.transfer.lock`,
+                `${JSON.stringify({ pid: process.pid, start: processStartIdentity(), token: testReleaseReplacement })}\n`
+            );
+            testReleaseReplacement = null;
+        }
         replacementStarted = true;
         removeSidecars(activePath);
         reopenSqliteDb();
@@ -333,6 +385,14 @@ export function setDatabaseTransferTestFailure(
     failure: "after-backup" | "after-reopen" | "export-before-rename" | null
 ): void {
     testFailure = failure;
+}
+
+export function setDatabaseTransferTestOwnerProbe(probe: "eperm" | null): void {
+    testOwnerProbe = probe;
+}
+
+export function setDatabaseTransferTestReleaseReplacement(token: string | null): void {
+    testReleaseReplacement = token;
 }
 
 export { DEFAULT_DB_PATH };

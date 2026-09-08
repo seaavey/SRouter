@@ -245,6 +245,8 @@ const ADMIN_TABLES = (pg: boolean) => {
 `;
 };
 
+const TRANSFER_SCHEMA_VERSION = "1";
+
 /**
  * Adds columns to a table if they do not already exist.
  * Declarative replacement for repeated try/catch ALTER TABLE blocks.
@@ -287,6 +289,11 @@ function initSqliteSchemaSync(): void {
         raw.exec(index.sql);
     }
     raw.exec(ADMIN_TABLES(false));
+    raw.exec("CREATE TABLE IF NOT EXISTS srouter_schema_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);");
+    raw.prepare("INSERT OR IGNORE INTO srouter_schema_meta (key, value) VALUES (?, ?)").run(
+        "schema_version",
+        TRANSFER_SCHEMA_VERSION
+    );
 
     const ensureSync = (table: string, columns: ColumnDef[]): void => {
         const existing = new Set(

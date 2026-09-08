@@ -26,6 +26,8 @@ function createDatabase(filePath: string): DatabaseSync {
         CREATE TABLE custom_models (provider_id TEXT NOT NULL, model_id TEXT NOT NULL, created_at INTEGER NOT NULL, PRIMARY KEY (provider_id, model_id));
         CREATE TABLE admin_account (id INTEGER PRIMARY KEY CHECK (id = 1), password_hash TEXT NOT NULL, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);
         CREATE TABLE admin_sessions (token_hash TEXT PRIMARY KEY, created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL);
+        CREATE TABLE srouter_schema_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+        INSERT INTO srouter_schema_meta (key, value) VALUES ('schema_version', '1');
     `);
     return db;
 }
@@ -84,6 +86,24 @@ test("rejects invalid sqlite and missing required tables", () => {
     incompatible.close();
     assert.throws(
         () => database.validateDatabaseImport(incompatiblePath),
+        database.IncompatibleDatabaseError
+    );
+});
+
+test("uses the stable transfer contract instead of a drifted target schema", () => {
+    const canonicalPath = path.join(testDirectory, "canonical-schema.db");
+    const canonical = createDatabase(canonicalPath);
+    canonical.close();
+    database.getSqliteDb().exec("ALTER TABLE providers ADD COLUMN target_only_drift TEXT");
+
+    assert.equal(database.validateDatabaseImport(canonicalPath).schemaCompatible, true);
+
+    const wrongMarker = path.join(testDirectory, "wrong-marker.db");
+    const marked = createDatabase(wrongMarker);
+    marked.prepare("UPDATE srouter_schema_meta SET value = ? WHERE key = ?").run("2", "schema_version");
+    marked.close();
+    assert.throws(
+        () => database.validateDatabaseImport(wrongMarker),
         database.IncompatibleDatabaseError
     );
 });
@@ -157,4 +177,57 @@ test("rejects an import while another process owns the transfer lock", () => {
 
     assert.throws(() => database.replaceDatabaseFromFile(sourcePath), database.DatabaseImportBusyError);
     fs.rmSync(lockPath);
+});
+
+test("treats EPERM from the owner probe as busy", () => {
+    const lockPath = `${targetPath}.transfer.lock`;
+    fs.writeFileSync(
+        lockPath,
+        `${JSON.stringify({ pid: process.pid + 1, start: "owner-start", token: "owner-token" })}\n`,
+        { mode: 0o600 }
+    );
+    transferTestHooks.setDatabaseTransferTestOwnerProbe("eperm");
+
+    assert.throws(
+        () => database.exportDatabaseSnapshot(path.join(testDirectory, "eperm-export.db")),
+        database.DatabaseImportBusyError
+    );
+    assert.equal(fs.existsSync(lockPath), true);
+    fs.rmSync(lockPath);
+    transferTestHooks.setDatabaseTransferTestOwnerProbe(null);
+});
+
+test("public validation respects an active transfer lock", () => {
+    const sourcePath = path.join(testDirectory, "validation-lock-source.db");
+    const source = createDatabase(sourcePath);
+    source.close();
+    const lockPath = `${targetPath}.transfer.lock`;
+    const stat = fs.readFileSync(`/proc/${process.pid}/stat`, "utf8");
+    const start = stat.slice(stat.lastIndexOf(")") + 2).split(" ")[19];
+    fs.writeFileSync(
+        lockPath,
+        `${JSON.stringify({ pid: process.pid, start, token: "validation-owner" })}\n`,
+        { mode: 0o600 }
+    );
+
+    assert.throws(
+        () => database.validateDatabaseImport(sourcePath),
+        database.DatabaseImportBusyError
+    );
+    fs.rmSync(lockPath);
+});
+
+test("does not release a lock replaced by another owner", () => {
+    const outputPath = path.join(testDirectory, "release-owner-export.db");
+    const stat = fs.readFileSync(`/proc/${process.pid}/stat`, "utf8");
+    const start = stat.slice(stat.lastIndexOf(")") + 2).split(" ")[19];
+    transferTestHooks.setDatabaseTransferTestFailure("export-before-rename");
+    transferTestHooks.setDatabaseTransferTestReleaseReplacement("new-owner-token");
+
+    assert.throws(() => database.exportDatabaseSnapshot(outputPath));
+    assert.equal(
+        fs.readFileSync(`${targetPath}.transfer.lock`, "utf8"),
+        `${JSON.stringify({ pid: process.pid, start, token: "new-owner-token" })}\n`
+    );
+    fs.rmSync(`${targetPath}.transfer.lock`);
 });
