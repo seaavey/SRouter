@@ -20,7 +20,11 @@ interface ImportOptions {
 
 function defaultExportPath(): string {
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-    return path.resolve(process.cwd(), `srouter-export-${timestamp}.db`);
+    return path.resolve(process.cwd(), `srouter-backup-${timestamp}.db`);
+}
+
+export function getImportConfirmationMessage(): string {
+    return "Replace this database? All current SRouter data will be replaced, the current database will be backed up first, and API keys and provider credentials in the file are plaintext.";
 }
 
 function displayExportResult(result: DatabaseTransferExportResult): void {
@@ -55,7 +59,7 @@ async function importCommand(input: string, options: ImportOptions): Promise<voi
     p.log.warn("Database import replaces all target data and includes credentials in plaintext.");
     if (!options.yes) {
         const confirmed = await p.confirm({
-            message: "Replace the local SRouter database with this file? All current data will be replaced."
+            message: getImportConfirmationMessage()
         });
         if (p.isCancel(confirmed) || confirmed !== true) {
             p.log.info("Database import cancelled. No changes made.");

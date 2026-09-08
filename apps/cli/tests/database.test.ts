@@ -6,6 +6,7 @@ import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { exportDatabaseSnapshot, getDatabasePath, initDatabase } from "@srouter/db";
 import { createCli } from "../src/index.js";
+import { getImportConfirmationMessage } from "../src/commands/database.js";
 
 function makeTempDir(): string {
     return fs.mkdtempSync(path.join(os.tmpdir(), "srouter-database-cli-"));
@@ -60,6 +61,38 @@ test("exports to an explicit path and warns that credentials are plaintext", asy
     assert.match(output, /plaintext/i);
 });
 
+test("exports to the default timestamped backup path with private permissions", async () => {
+    const tempDir = makeTempDir();
+    const previousCwd = process.cwd();
+    process.chdir(tempDir);
+    try {
+        await captureCliOutput(async () => {
+            const program = createCli();
+            await program.parseAsync(["node", "srouter", "db", "export"]);
+        });
+
+        const files = fs.readdirSync(tempDir);
+        assert.equal(files.length, 1);
+        assert.match(files[0] ?? "", /^srouter-backup-.*\.db$/);
+        assert.equal(fs.statSync(path.join(tempDir, files[0] ?? "")).mode & 0o777, 0o600);
+    } finally {
+        process.chdir(previousCwd);
+    }
+});
+
+test("creates parent directories for an export", async () => {
+    const tempDir = makeTempDir();
+    const outputPath = path.join(tempDir, "nested", "backups", "backup.db");
+
+    await captureCliOutput(async () => {
+        const program = createCli();
+        await program.parseAsync(["node", "srouter", "db", "export", outputPath]);
+    });
+
+    assert.equal(fs.existsSync(outputPath), true);
+    assert.equal(fs.statSync(outputPath).mode & 0o777, 0o600);
+});
+
 test("refuses to overwrite an export unless --force is provided", async () => {
     const tempDir = makeTempDir();
     const outputPath = path.join(tempDir, "backup.db");
@@ -72,6 +105,30 @@ test("refuses to overwrite an export unless --force is provided", async () => {
     assert.equal(fs.readFileSync(outputPath, "utf8"), "existing");
     assert.match(output, /already exists/i);
     process.exitCode = 0;
+});
+
+test("overwrites an existing export with --force", async () => {
+    const tempDir = makeTempDir();
+    const outputPath = path.join(tempDir, "backup.db");
+    fs.writeFileSync(outputPath, "existing");
+
+    await captureCliOutput(async () => {
+        const program = createCli();
+        await program.parseAsync(["node", "srouter", "db", "export", outputPath, "--force"]);
+    });
+
+    const database = new DatabaseSync(outputPath, { readOnly: true });
+    assert.equal(database.prepare("PRAGMA integrity_check").get().integrity_check, "ok");
+    database.close();
+    assert.equal(fs.statSync(outputPath).mode & 0o777, 0o600);
+});
+
+test("import confirmation describes replacement, backup, and plaintext credentials", () => {
+    const message = getImportConfirmationMessage();
+
+    assert.match(message, /all current SRouter data will be replaced/i);
+    assert.match(message, /backed up first/i);
+    assert.match(message, /API keys and provider credentials.*plaintext/i);
 });
 
 test("imports with --yes and reports the target backup", async () => {
