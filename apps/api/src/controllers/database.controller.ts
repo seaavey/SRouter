@@ -1,6 +1,9 @@
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { createWriteStream } from "node:fs";
+import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
 import type { Context } from "hono";
 import {
     DatabaseImportBusyError,
@@ -10,6 +13,7 @@ import {
     UnsupportedDatabaseError,
     exportDatabaseSnapshot,
     replaceDatabaseFromFile,
+    SROUTER_DIR,
     validateDatabaseImport,
     type DatabaseTransferExportResult,
     type DatabaseTransferImportResult,
@@ -71,6 +75,37 @@ function formatBackupPath(backupPath: string): string {
     return `~/.srouter/${relativePath}`;
 }
 
+class DatabaseUploadTooLargeError extends Error {
+    constructor() {
+        super("The database upload is too large.");
+        this.name = "DatabaseUploadTooLargeError";
+    }
+}
+
+function createBoundedRequestBody(request: Request): ReadableStream<Uint8Array> | null {
+    const stream = request.body;
+    if (!stream) return null;
+
+    let size = 0;
+    return stream.pipeThrough(
+        new TransformStream<Uint8Array, Uint8Array>({
+            transform(chunk, controller) {
+                size += chunk.byteLength;
+                if (size > MAX_DATABASE_UPLOAD_BYTES) {
+                    controller.error(new DatabaseUploadTooLargeError());
+                    return;
+                }
+                controller.enqueue(chunk);
+            }
+        })
+    );
+}
+
+async function createPrivateTransferDirectory(): Promise<string> {
+    await mkdir(SROUTER_DIR, { recursive: true, mode: 0o700 });
+    return mkdtemp(path.join(SROUTER_DIR, "transfer-temp-"));
+}
+
 export class DatabaseController {
     public static async Export(c: Context, options: DatabaseControllerOptions = {}): Promise<Response> {
         const transfer = {
@@ -102,15 +137,30 @@ export class DatabaseController {
         };
         let directory: string | undefined;
         try {
-            let body: Record<string, File | string | File[]>;
+            const boundedBody = createBoundedRequestBody(c.req.raw);
+            if (!boundedBody) {
+                return Err(c, "The database upload is too large.", 400, { code: "upload_too_large" });
+            }
+
+            let formData: FormData;
             try {
-                body = await c.req.parseBody();
-            } catch {
+                const request = new Request(c.req.raw.url, {
+                    method: c.req.raw.method,
+                    headers: c.req.raw.headers,
+                    body: boundedBody,
+                    duplex: "half"
+                });
+                formData = await request.formData();
+            } catch (error) {
+                if (error instanceof DatabaseUploadTooLargeError ||
+                    (error instanceof TypeError && error.cause instanceof DatabaseUploadTooLargeError)) {
+                    return Err(c, "The database upload is too large.", 400, { code: "upload_too_large" });
+                }
                 return Err(c, "A valid multipart database upload is required.", 400, {
                     code: "invalid_multipart"
                 });
             }
-            const file = body.database;
+            const file = formData.get("database");
             if (!(file instanceof File)) {
                 return Err(c, "A database file is required in the database field.", 400, {
                     code: "missing_database_file"
@@ -120,9 +170,12 @@ export class DatabaseController {
                 return Err(c, "The database upload is too large.", 400, { code: "upload_too_large" });
             }
 
-            directory = await mkdtemp(path.join(os.tmpdir(), "srouter-database-import-"));
+            directory = await createPrivateTransferDirectory();
             const candidatePath = path.join(directory, "database.db");
-            await writeFile(candidatePath, Buffer.from(await file.arrayBuffer()), { mode: 0o600 });
+            await pipeline(
+                Readable.fromWeb(file.stream()),
+                createWriteStream(candidatePath, { flags: "wx", mode: 0o600 })
+            );
             transfer.validateDatabase(candidatePath);
             const result = transfer.replaceDatabase(candidatePath);
             return Ok(c, {
