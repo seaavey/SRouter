@@ -52,6 +52,19 @@ function assertNotProductionDatabaseInTests(dbPath: string): void {
 function openDatabase(dbPath: string): DatabaseSync {
     assertNotProductionDatabaseInTests(dbPath);
 
+    const transferLockPath = `${path.resolve(dbPath)}.transfer.lock`;
+    if (fs.existsSync(transferLockPath)) {
+        let owner: { pid?: number } | undefined;
+        try {
+            const raw = fs.readFileSync(transferLockPath, "utf8").trim();
+            const parsed: unknown = JSON.parse(raw);
+            owner = typeof parsed === "number" ? { pid: parsed } : parsed as { pid?: number };
+        } catch {
+            throw new Error("A database transfer is already in progress.");
+        }
+        if (owner.pid !== process.pid) throw new Error("A database transfer is already in progress.");
+    }
+
     // Ensure parent folder exists if path contains subdirectories
     const dbDir = path.dirname(dbPath);
     if (!fs.existsSync(dbDir)) {
@@ -123,11 +136,17 @@ export function getOpenDatabasePath(): string | null {
 
 /** Close the shared connection (test teardown / path switching). */
 export function closeSqliteDb(): void {
-    try {
-        _sqliteDb?.close();
-    } catch {
-        // Ignore close errors on a stale handle.
-    }
+    _sqliteDb?.close();
     _sqliteDb = null;
     _sqliteDbPath = null;
+}
+
+/** Reopen the shared connection after an operation replaces the database file. */
+export function reopenSqliteDb(): DatabaseSync {
+    closeSqliteDb();
+    const database = getSqliteDbInstance();
+    if (getOpenDatabasePath() !== path.resolve(getDatabasePath())) {
+        throw new Error("SQLite connection reopened at an unexpected path.");
+    }
+    return database;
 }

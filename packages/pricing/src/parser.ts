@@ -5,8 +5,7 @@ import type {
     ModelPrice,
     ModelsDevModel,
     PricingDataset,
-    ProviderModelMap,
-    RawPricingDataset
+    ProviderModelMap
 } from "./types.js";
 
 /**
@@ -106,7 +105,7 @@ export function flattenModelPrices(
 }
 
 /**
- * Finds the path to pricing.jsonc or pricing.json data file.
+ * Finds the models.dev pricing dataset.
  */
 export function resolvePricingDataPath(customPath?: string): string {
     if (customPath) return customPath;
@@ -114,14 +113,10 @@ export function resolvePricingDataPath(customPath?: string): string {
     const currentDir = path.dirname(fileURLToPath(import.meta.url));
 
     const candidates = [
-        path.resolve(currentDir, "../data/pricing.jsonc"),
-        path.resolve(currentDir, "../data/pricing.json"),
-        path.resolve(currentDir, "../../data/pricing.jsonc"),
-        path.resolve(currentDir, "../../data/pricing.json"),
-        path.resolve(process.cwd(), "packages/pricing/data/pricing.jsonc"),
-        path.resolve(process.cwd(), "packages/pricing/data/pricing.json"),
-        path.resolve(process.cwd(), "data/pricing.jsonc"),
-        path.resolve(process.cwd(), "data/pricing.json")
+        path.resolve(currentDir, "../pricing.jsonc"),
+        path.resolve(currentDir, "../../pricing.jsonc"),
+        path.resolve(process.cwd(), "packages/pricing/pricing.jsonc"),
+        path.resolve(process.cwd(), "pricing.jsonc")
     ];
 
     for (const candidate of candidates) {
@@ -153,7 +148,7 @@ export function modelsDevToModelPrice(model: ModelsDevModel): ModelPrice | undef
 }
 
 /**
- * Loads pricing directly from models.jsonc.
+ * Loads pricing directly from pricing.jsonc.
  * Populates models map, aliases, and provider-grouped models.
  */
 export function loadPricingFromModelsDev(customPath?: string): PricingDataset {
@@ -209,67 +204,18 @@ export function loadPricingFromModelsDev(customPath?: string): PricingDataset {
 }
 
 /**
- * Loads and parses the pricing dataset.
- * By default loads pricing from pricing.jsonc / pricing.json.
- * If customPath targets models.jsonc / models.json, loads directly from models.dev dataset.
+ * Loads and parses the models.dev pricing dataset.
  */
 export function loadPricingData(customPath?: string): PricingDataset {
-    if (customPath && (customPath.endsWith("models.jsonc") || customPath.endsWith("models.json"))) {
-        return loadPricingFromModelsDev(customPath);
-    }
-
     const filePath = resolvePricingDataPath(customPath);
     if (!fs.existsSync(filePath)) {
-        // Fallback to models.jsonc if pricing.jsonc does not exist
-        const modelsDevPath = resolveModelsDevDataPath();
-        if (fs.existsSync(modelsDevPath)) {
-            return loadPricingFromModelsDev(modelsDevPath);
-        }
         throw new Error(`Pricing dataset file not found at: ${filePath}`);
     }
-    const content = fs.readFileSync(filePath, "utf-8");
-    const raw = parseJsonc<RawPricingDataset>(content);
-    const flatModels = flattenModelPrices(raw.models);
-    const isGroupedArray =
-        raw.models &&
-        Object.values(raw.models).length > 0 &&
-        Array.isArray(Object.values(raw.models)[0]);
-
-    const dataset: PricingDataset = {
-        version: raw.version,
-        updatedAt: raw.updatedAt,
-        defaults: raw.defaults,
-        models: { ...flatModels },
-        providerModels: isGroupedArray ? { ...(raw.models as ProviderModelMap) } : undefined,
-        aliases: { ...(raw.aliases || {}) }
-    };
-
-    // Enrich with any models from models.jsonc that are not in pricing.jsonc
-    const modelsDevPath = resolveModelsDevDataPath();
-    if (fs.existsSync(modelsDevPath)) {
-        try {
-            const modelsDevDataset = loadPricingFromModelsDev(modelsDevPath);
-            // Hanya daftarkan model dari models.jsonc jika model tersebut belum ada di pricing.jsonc
-            for (const [k, v] of Object.entries(modelsDevDataset.models)) {
-                if (!dataset.models[k]) {
-                    dataset.models[k] = v;
-                }
-            }
-            for (const [k, v] of Object.entries(modelsDevDataset.aliases)) {
-                if (!dataset.aliases[k] && !dataset.models[k]) {
-                    dataset.aliases[k] = v;
-                }
-            }
-        } catch {
-            // Ignore enrichment errors
-        }
-    }
-
-    return dataset;
+    return loadPricingFromModelsDev(filePath);
 }
 
 /**
- * Finds the path to models.jsonc data file sourced from models.dev.
+ * Finds the pricing.jsonc data file sourced from models.dev.
  */
 export function resolveModelsDevDataPath(customPath?: string): string {
     if (customPath) {
@@ -282,14 +228,10 @@ export function resolveModelsDevDataPath(customPath?: string): string {
     const currentDir = path.dirname(fileURLToPath(import.meta.url));
 
     const candidates = [
-        path.resolve(currentDir, "../models.jsonc"),
-        path.resolve(currentDir, "../models.json"),
-        path.resolve(currentDir, "../../models.jsonc"),
-        path.resolve(currentDir, "../../models.json"),
-        path.resolve(process.cwd(), "packages/pricing/models.jsonc"),
-        path.resolve(process.cwd(), "packages/pricing/models.json"),
-        path.resolve(process.cwd(), "models.jsonc"),
-        path.resolve(process.cwd(), "models.json")
+        path.resolve(currentDir, "../pricing.jsonc"),
+        path.resolve(currentDir, "../../pricing.jsonc"),
+        path.resolve(process.cwd(), "packages/pricing/pricing.jsonc"),
+        path.resolve(process.cwd(), "pricing.jsonc")
     ];
 
     for (const candidate of candidates) {
@@ -302,7 +244,7 @@ export function resolveModelsDevDataPath(customPath?: string): string {
 }
 
 /**
- * Loads and parses the models.dev dataset from models.jsonc.
+ * Loads and parses the models.dev dataset from pricing.jsonc.
  */
 export function loadModelsDevData(customPath?: string): Record<string, ModelsDevModel> {
     const filePath = resolveModelsDevDataPath(customPath);

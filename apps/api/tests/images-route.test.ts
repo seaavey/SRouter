@@ -42,7 +42,7 @@ afterEach(async () => {
     await deleteLogsByProviderDB(mockProviderId);
 });
 
-test("POST /v1/images/generations succeeds with valid image model from models.jsonc", async () => {
+test("POST /v1/images/generations succeeds with valid image model from pricing.jsonc", async () => {
     const app = new Hono();
     app.route("/v1/images", imagesRouter);
 

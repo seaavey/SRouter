@@ -1,31 +1,23 @@
 import type { AnalyticsReport, AnalyticsWindow } from "@srouter/types";
+import {
+    exportDatabase,
+    importDatabase,
+    type DatabaseImportResult
+} from "./databaseTransfer";
+import { ApiError, responseError } from "./apiError";
 
-export class ApiError extends Error {
-    status: number;
-
-    constructor(status: number, message: string) {
-        super(message);
-        this.status = status;
-    }
-}
+export type { DatabaseImportResult } from "./databaseTransfer";
+export { ApiError } from "./apiError";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const res = await fetch(path, {
         credentials: "include",
-        headers: { "Content-Type": "application/json" },
+        headers: init?.body instanceof FormData ? undefined : { "Content-Type": "application/json" },
         ...init
     });
 
     if (!res.ok) {
-        let message = res.statusText;
-        try {
-            const body = (await res.json()) as { error?: { message?: string } | string };
-            message =
-                typeof body.error === "string" ? body.error : (body.error?.message ?? message);
-        } catch {
-            // ignore body parse errors
-        }
-        throw new ApiError(res.status, message);
+        throw await responseError(res);
     }
 
     if (res.status === 204) return undefined as T;
@@ -52,7 +44,9 @@ export const api = {
     delete: <T>(path: string) =>
         request<T>(path, {
             method: "DELETE"
-        })
+        }),
+    exportDatabase,
+    importDatabase
 };
 
 /**

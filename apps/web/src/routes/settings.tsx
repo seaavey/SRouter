@@ -81,6 +81,42 @@ function SettingsPage() {
         }
     }, [serverSettings]);
 
+    useEffect(() => {
+        const sections = SECTIONS.map(({ id }) => document.getElementById(id)).filter(
+            (section): section is HTMLElement => section !== null
+        );
+        if (sections.length === 0) return;
+
+        const scrollContainer = document.getElementById("dashboard-scroll-container");
+        if (!scrollContainer) return;
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                const visibleSections = entries
+                    .filter((entry) => entry.isIntersecting)
+                    .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+
+                const section = visibleSections[0]?.target;
+                if (section instanceof HTMLElement) {
+                    setActiveSection((active) => (active === section.id ? active : section.id));
+                }
+            },
+            {
+                root: scrollContainer,
+                rootMargin: "-112px 0px -65% 0px",
+                threshold: 0
+            }
+        );
+
+        for (const section of sections) {
+            observer.observe(section);
+        }
+
+        return () => {
+            observer.disconnect();
+        };
+    }, [isLoadingServerSettings]);
+
     const updateServerMutation = useMutation({
         mutationFn: (newRequireApiKey: boolean) =>
             api.post("/v1/settings", { require_api_key: newRequireApiKey }),
@@ -105,8 +141,16 @@ function SettingsPage() {
     const scrollToSection = (id: string) => {
         setActiveSection(id);
         const el = document.getElementById(id);
-        if (el) {
-            el.scrollIntoView({ behavior: "smooth", block: "start" });
+        const scrollContainer = document.getElementById("dashboard-scroll-container");
+        if (el && scrollContainer) {
+            scrollContainer.scrollTo({
+                top:
+                    el.getBoundingClientRect().top -
+                    scrollContainer.getBoundingClientRect().top +
+                    scrollContainer.scrollTop -
+                    16,
+                behavior: "smooth"
+            });
         }
     };
 
@@ -126,7 +170,7 @@ function SettingsPage() {
                         <h1 className="text-2xl font-bold tracking-tight text-foreground">
                             Gateway Settings
                         </h1>
-                        <span className="rounded border border-border/80 bg-secondary/60 px-1.5 py-0.2 text-[10px] font-semibold text-muted-foreground">
+                        <span className="inline-flex h-5 items-center whitespace-nowrap rounded border border-border/80 bg-secondary/60 px-1.5 text-[10px] font-semibold leading-none text-muted-foreground">
                             v{currentVersion}
                         </span>
                         {hasUpdate && latestVersion && (
@@ -163,30 +207,35 @@ function SettingsPage() {
                 </div>
             </header>
 
-            {/* Sticky/Subnav Quick Jump Tabs */}
-            <div className="flex items-center gap-1 border border-border/80 p-1.5 bg-card/50 rounded-lg overflow-x-auto no-scrollbar">
-                {SECTIONS.map(({ id, label, icon: Icon }) => {
-                    const isActive = activeSection === id;
-                    return (
-                        <button
-                            key={id}
-                            type="button"
-                            onClick={() => scrollToSection(id)}
-                            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded text-xs font-mono font-medium transition-colors shrink-0 cursor-pointer ${
-                                isActive
-                                    ? "bg-foreground text-background font-semibold"
-                                    : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
-                            }`}
-                        >
-                            <Icon className="size-3.5" />
-                            <span>{label}</span>
-                        </button>
-                    );
-                })}
-            </div>
+            <div className="lg:grid lg:grid-cols-[11rem_minmax(0,1fr)] lg:items-start lg:gap-6">
+                <aside className="sticky top-14 z-20 -mx-3 border-y border-border/80 bg-background/95 px-3 py-2 backdrop-blur-md sm:-mx-5 sm:px-5 lg:top-20 lg:mx-0 lg:self-start lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
+                    <nav
+                        aria-label="Settings sections"
+                        className="flex items-center gap-1 overflow-x-auto no-scrollbar rounded-lg border border-border/80 bg-card/50 p-1.5 lg:w-44 lg:flex-col lg:items-stretch"
+                    >
+                    {SECTIONS.map(({ id, label, icon: Icon }) => {
+                        const isActive = activeSection === id;
+                        return (
+                            <button
+                                key={id}
+                                type="button"
+                                onClick={() => scrollToSection(id)}
+                                aria-current={isActive ? "location" : undefined}
+                                className={`inline-flex min-h-11 shrink-0 cursor-pointer items-center gap-1.5 rounded px-3 py-1 text-xs font-mono font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/70 lg:justify-start ${
+                                    isActive
+                                        ? "bg-foreground text-background font-semibold"
+                                        : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
+                                }`}
+                            >
+                                <Icon className="size-3.5" />
+                                <span>{label}</span>
+                            </button>
+                        );
+                    })}
+                    </nav>
+                </aside>
 
-            {/* Main Settings Sections */}
-            <main className="space-y-6">
+                <main className="space-y-6">
                 <SecuritySettings
                     requireApiKey={requireApiKey}
                     onToggleRequireApiKey={handleToggleRequireApiKey}
@@ -208,13 +257,16 @@ function SettingsPage() {
                 <DataSettings
                     exportSettings={exportSettings}
                     importSettings={importSettings}
+                    exportDatabase={api.exportDatabase}
+                    importDatabase={api.importDatabase}
                     clearStorage={clearStorage}
                     resetToDefaults={resetToDefaults}
                     getStorageStats={getStorageStats}
                 />
 
                 <SystemSettings apiBase={apiBase} />
-            </main>
+                </main>
+            </div>
         </div>
     );
 }
