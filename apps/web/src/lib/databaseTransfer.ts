@@ -1,27 +1,9 @@
+import { responseError } from "./apiError";
+
 export interface DatabaseImportResult {
     ok: true;
     backup_path: string;
     restart_required: boolean;
-}
-
-export class DatabaseTransferError extends Error {
-    status: number;
-
-    constructor(status: number, message: string) {
-        super(message);
-        this.status = status;
-    }
-}
-
-async function responseError(response: Response): Promise<DatabaseTransferError> {
-    let message = response.statusText;
-    try {
-        const body = (await response.json()) as { error?: { message?: string } | string };
-        message = typeof body.error === "string" ? body.error : (body.error?.message ?? message);
-    } catch {
-        // Keep the HTTP status text when the server does not return the standard error envelope.
-    }
-    return new DatabaseTransferError(response.status, message);
 }
 
 export async function exportDatabase(): Promise<Blob> {

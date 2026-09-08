@@ -4,28 +4,10 @@ import {
     importDatabase,
     type DatabaseImportResult
 } from "./databaseTransfer";
+import { ApiError, responseError } from "./apiError";
 
 export type { DatabaseImportResult } from "./databaseTransfer";
-
-export class ApiError extends Error {
-    status: number;
-
-    constructor(status: number, message: string) {
-        super(message);
-        this.status = status;
-    }
-}
-
-async function responseError(response: Response): Promise<ApiError> {
-    let message = response.statusText;
-    try {
-        const body = (await response.json()) as { error?: { message?: string } | string };
-        message = typeof body.error === "string" ? body.error : (body.error?.message ?? message);
-    } catch {
-        // Keep the HTTP status text when the server does not return the standard error envelope.
-    }
-    return new ApiError(response.status, message);
-}
+export { ApiError } from "./apiError";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const res = await fetch(path, {

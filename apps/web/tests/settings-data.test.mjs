@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const apiSource = await readFile(new URL("../src/lib/databaseTransfer.ts", import.meta.url), "utf8");
+const sharedErrorSource = await readFile(new URL("../src/lib/apiError.ts", import.meta.url), "utf8");
 const settingsSource = await readFile(
     new URL("../src/components/settings/settings.data.tsx", import.meta.url),
     "utf8"
@@ -16,6 +17,11 @@ test("database API contract uses the admin endpoints and authenticated requests"
     assert.match(apiSource, /const formData = new FormData\(\)/);
     assert.match(apiSource, /formData\.set\("database", file\)/);
     assert.doesNotMatch(apiSource, /Content-Type.*multipart\/form-data/);
+    assert.match(apiSource, /import \{ responseError \} from "\.\/apiError"/);
+    assert.match(apiSource, /throw await responseError\(response\)/g);
+    assert.doesNotMatch(apiSource, /class DatabaseTransferError/);
+    assert.match(sharedErrorSource, /export class ApiError/);
+    assert.match(sharedErrorSource, /export async function responseError/);
 });
 
 test("database download contract mounts, removes, and asynchronously revokes its anchor URL", () => {
