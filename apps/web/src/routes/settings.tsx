@@ -99,7 +99,7 @@ function SettingsPage() {
 
         sections.forEach((section) => observer.observe(section));
         return () => observer.disconnect();
-    }, []);
+    }, [isLoadingServerSettings]);
 
     const updateServerMutation = useMutation({
         mutationFn: (newRequireApiKey: boolean) =>
