@@ -9,6 +9,7 @@ import { statusCommand } from "./commands/status.js";
 import { envCommand } from "./commands/env.js";
 import { runCommand } from "./commands/run.js";
 import { migrateCommand } from "./commands/migrate.js";
+import { databaseCommand } from "./commands/database.js";
 
 export function createCli(): Command {
     const program = new Command();
@@ -165,6 +166,8 @@ export function createCli(): Command {
             await migrateCommand(target, opts);
         });
 
+    program.addCommand(databaseCommand());
+
     return program;
 }
 
@@ -183,5 +186,4 @@ function runCli(): void {
 }
 
 runCli();
-
 
