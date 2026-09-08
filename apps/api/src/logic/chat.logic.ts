@@ -13,8 +13,10 @@ import type {
     ChatMessage,
     JSONValue,
     ToolCall,
+    RequestAttemptBudget,
     UsageInfo
 } from "@srouter/types";
+import { CreateRequestAttemptBudget } from "@srouter/types";
 import { registry } from "@/services/registry.js";
 import { ensureFreshToken } from "@/services/tokenRefresh.js";
 import { executeInterceptedSearch, shouldInterceptToolCall } from "@/services/toolInterceptor.js";
@@ -161,8 +163,10 @@ export class ChatLogic {
         depth = 0,
         apiKeyId?: string,
         ipAddress?: string,
-        userAgent?: string
+        userAgent?: string,
+        budget?: RequestAttemptBudget
     ): Promise<ChatCompletionResponse> {
+        const requestBudget = budget ?? CreateRequestAttemptBudget();
         const ctx: RequestContext = { startTime, depth, apiKeyId, ipAddress, userAgent };
         const effectiveBody =
             depth === 0 ? applyTokenSaver(body, await getTokenSaverSettingsDB()).request : body;
@@ -192,7 +196,7 @@ export class ChatLogic {
 
             try {
                 await ensureFreshToken(providerId);
-                const response = await registry.chatCompletion(currentReq);
+                const response = await registry.chatCompletion(currentReq, requestBudget);
 
                 if (isFallbackAttempt) {
                     tracker.fallbackOccurred = true;
@@ -231,7 +235,8 @@ export class ChatLogic {
                         depth + 1,
                         apiKeyId,
                         ipAddress,
-                        userAgent
+                        userAgent,
+                        requestBudget
                     );
                 }
 
@@ -271,8 +276,10 @@ export class ChatLogic {
         depth = 0,
         apiKeyId?: string,
         ipAddress?: string,
-        userAgent?: string
+        userAgent?: string,
+        budget?: RequestAttemptBudget
     ): AsyncGenerator<ChatCompletionChunk, void, void> {
+        const requestBudget = budget ?? CreateRequestAttemptBudget();
         const ctx: RequestContext = { startTime, depth, apiKeyId, ipAddress, userAgent };
         const effectiveBody =
             depth === 0 ? applyTokenSaver(body, await getTokenSaverSettingsDB()).request : body;
@@ -305,7 +312,7 @@ export class ChatLogic {
 
             try {
                 await ensureFreshToken(providerId);
-                const generator = registry.chatCompletionStream(currentReq);
+                const generator = registry.chatCompletionStream(currentReq, requestBudget);
 
                 const bufferedChunks: ChatCompletionChunk[] = [];
                 const toolCallsMap = new Map<number, AssembledStreamingToolCall>();
@@ -394,7 +401,8 @@ export class ChatLogic {
                         depth + 1,
                         apiKeyId,
                         ipAddress,
-                        userAgent
+                        userAgent,
+                        requestBudget
                     );
                     return;
                 }

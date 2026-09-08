@@ -12,8 +12,10 @@ import type {
     ImageGenerationRequest,
     ImageGenerationResponse,
     ModelObject,
-    ProviderDefinition
+    ProviderDefinition,
+    RequestAttemptBudget
 } from "@srouter/types";
+import { GetRequestAttemptBudget } from "@srouter/types";
 import { CircuitBreaker, circuitBreaker as defaultCircuitBreaker } from "./circuitBreaker.js";
 
 export function getProviderAlias(providerId: string): string {
@@ -394,8 +396,7 @@ export class ProviderRegistry {
             } else {
                 // Fallback: derived alias (via constants catalog) or base ID matching
                 const derivedAlias = Array.from(this.providers.values()).find(
-                    (provider) =>
-                        provider.id !== "default" && providerAliasFor(provider) === prefix
+                    (provider) => provider.id !== "default" && providerAliasFor(provider) === prefix
                 );
                 if (derivedAlias) {
                     candidates.push(derivedAlias);
@@ -518,14 +519,18 @@ export class ProviderRegistry {
         // again. The loop above observes that second refresh before returning.
     }
 
-    async chatCompletion(req: ChatCompletionRequest): Promise<ChatCompletionResponse> {
+    async chatCompletion(
+        req: ChatCompletionRequest,
+        budget?: RequestAttemptBudget
+    ): Promise<ChatCompletionResponse> {
+        const requestBudget = budget ?? GetRequestAttemptBudget(req);
         const candidates = await this.getCandidateProvidersForModel(req.model);
         let lastError: unknown = null;
 
         for (let i = 0; i < candidates.length; i++) {
             const candidate = candidates[i]!;
             try {
-                const response = await candidate.chatCompletion(req);
+                const response = await candidate.chatCompletion(req, requestBudget);
                 this.circuitBreaker.recordSuccess(candidate.id);
                 return response;
             } catch (err) {
@@ -541,8 +546,10 @@ export class ProviderRegistry {
     }
 
     async *chatCompletionStream(
-        req: ChatCompletionRequest
+        req: ChatCompletionRequest,
+        budget?: RequestAttemptBudget
     ): AsyncGenerator<ChatCompletionChunk, void, void> {
+        const requestBudget = budget ?? GetRequestAttemptBudget(req);
         const candidates = await this.getCandidateProvidersForModel(req.model);
         let lastError: unknown = null;
 
@@ -550,7 +557,7 @@ export class ProviderRegistry {
             const candidate = candidates[i]!;
             let yieldedAny = false;
             try {
-                const stream = candidate.chatCompletionStream(req);
+                const stream = candidate.chatCompletionStream(req, requestBudget);
                 for await (const chunk of stream) {
                     if (!yieldedAny) {
                         yieldedAny = true;
@@ -596,6 +603,8 @@ export class ProviderRegistry {
         }
 
         if (lastError) throw lastError;
-        throw new Error(`No provider available supporting image generation for model '${req.model}'`);
+        throw new Error(
+            `No provider available supporting image generation for model '${req.model}'`
+        );
     }
 }

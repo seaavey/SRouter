@@ -8,7 +8,8 @@ import type {
     ChatCompletionChunk,
     ChatCompletionRequest,
     ChatCompletionResponse,
-    ModelObject
+    ModelObject,
+    RequestAttemptBudget
 } from "@srouter/types";
 import {
     ANTIGRAVITY_IDE_USER_AGENT,
@@ -305,31 +306,35 @@ export class AntigravityExecutor implements AIProvider {
         return this.projectId;
     }
 
-    async chatCompletion(req: ChatCompletionRequest): Promise<ChatCompletionResponse> {
+    async chatCompletion(
+        req: ChatCompletionRequest,
+        budget?: RequestAttemptBudget
+    ): Promise<ChatCompletionResponse> {
         const isLocalProxy = this.isLocalProxy();
         const isApiKey = this.isApiKey();
 
         // 1. OpenAI-compatible fallback
         if (isLocalProxy || (isApiKey && this.baseUrl.includes("/openai"))) {
-            return await this.openaiFallback.chatCompletion(req);
+            return await this.openaiFallback.chatCompletion(req, budget);
         }
 
         // 2. Native Antigravity — accumulate stream for non-streaming callers
         const chunks: ChatCompletionChunk[] = [];
-        for await (const chunk of this.chatCompletionStream(req)) {
+        for await (const chunk of this.chatCompletionStream(req, budget)) {
             chunks.push(chunk);
         }
         return accumulateChunks(chunks, req.model);
     }
 
     async *chatCompletionStream(
-        req: ChatCompletionRequest
+        req: ChatCompletionRequest,
+        budget?: RequestAttemptBudget
     ): AsyncGenerator<ChatCompletionChunk, void, void> {
         const isLocalProxy = this.isLocalProxy();
         const isApiKey = this.isApiKey();
 
         if (isLocalProxy || (isApiKey && this.baseUrl.includes("/openai"))) {
-            yield* this.openaiFallback.chatCompletionStream(req);
+            yield* this.openaiFallback.chatCompletionStream(req, budget);
             return;
         }
 
@@ -341,7 +346,7 @@ export class AntigravityExecutor implements AIProvider {
         for (let i = 0; i < modelFallbacks.length; i++) {
             const candidateModel = modelFallbacks[i] ?? req.model;
             try {
-                yield* this.streamCandidateWithCreditRetry(candidateModel, req);
+                yield* this.streamCandidateWithCreditRetry(candidateModel, req, budget);
                 return;
             } catch (err: unknown) {
                 lastError = err instanceof Error ? err : new Error(String(err));
@@ -359,7 +364,8 @@ export class AntigravityExecutor implements AIProvider {
 
     private async *streamCandidateWithCreditRetry(
         model: string,
-        req: ChatCompletionRequest
+        req: ChatCompletionRequest,
+        budget?: RequestAttemptBudget
     ): AsyncGenerator<ChatCompletionChunk, void, void> {
         const useCreditsFirst =
             this.creditsMode === "always" ||
@@ -369,7 +375,7 @@ export class AntigravityExecutor implements AIProvider {
         let creditsRetryAttempted = Boolean(useCreditsFirst);
 
         try {
-            yield* this.executeStreamAttempt(model, req, currentCreditTypes);
+            yield* this.executeStreamAttempt(model, req, currentCreditTypes, budget);
         } catch (err: unknown) {
             const errStr = err instanceof Error ? err.message : String(err);
             const is429 = errStr.includes("(429)");
@@ -387,7 +393,7 @@ export class AntigravityExecutor implements AIProvider {
             if (shouldRetryCredits) {
                 creditsRetryAttempted = true;
                 currentCreditTypes = ["GOOGLE_ONE_AI"];
-                yield* this.executeStreamAttempt(model, req, currentCreditTypes);
+                yield* this.executeStreamAttempt(model, req, currentCreditTypes, budget);
                 return;
             }
 
@@ -398,11 +404,12 @@ export class AntigravityExecutor implements AIProvider {
     private async *executeStreamAttempt(
         model: string,
         req: ChatCompletionRequest,
-        enabledCreditTypes?: string[]
+        enabledCreditTypes?: string[],
+        budget?: RequestAttemptBudget
     ): AsyncGenerator<ChatCompletionChunk, void, void> {
         const { url, body } = await this.buildRequest(model, req, true, enabledCreditTypes);
         const streamUrl = url.includes("?") ? url : `${url}?alt=sse`;
-        const res = await fetchWithRetry(streamUrl, body, this.getHeaders());
+        const res = await fetchWithRetry(streamUrl, body, this.getHeaders(), 3, budget);
 
         if (!res.ok) {
             const errorText = await res.text();
