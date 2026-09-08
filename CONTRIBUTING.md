@@ -46,17 +46,21 @@ Please treat everyone with respect, kindness, and professionalism. Constructive 
 
 ## 🧪 Testing & Code Quality
 
-Before submitting a Pull Request, ensure all tests and builds pass:
+Before submitting a Pull Request, run verification only for the apps and packages touched by the change. Do not run root-level Turbo tests, builds, or lint tasks on resource-constrained development environments.
 
 ```bash
-# Run all monorepo unit and integration tests
-pnpm test
+# Run one focused API test file
+cd apps/api
+pnpm exec tsx --test --test-concurrency=1 --import ./tests/setup.ts tests/<focused-file>.test.ts
 
-# Verify type safety and frontend bundle compilation
-pnpm build
+# Build only the touched app or package
+pnpm run build
 
-# Format codebase
-pnpm exec prettier --write "**/*.{ts,tsx,json,md,css}"
+# Check formatting only for changed files
+pnpm exec prettier --check src/<changed-file>.ts tests/<changed-file>.test.ts
+
+# Check whitespace errors
+git diff --check
 ```
 
 ---
@@ -101,7 +105,7 @@ _Example:_ `feat(quota): add live quota tracking for upstream accounts`
 
 1. Create a feature branch: `git checkout -b feat/your-feature-name`
 2. Commit your changes following conventional commit syntax.
-3. Verify that `pnpm test` and `pnpm build` pass with 0 errors.
+3. Verify the focused tests and builds for the touched apps or packages; do not claim broader checks were run unless they were explicitly executed.
 4. Push to your fork and open a Pull Request against `main`.
 5. Clearly describe the motivation, changes, and testing steps in your PR description.
 
