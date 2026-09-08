@@ -87,18 +87,26 @@ function SettingsPage() {
         );
         if (sections.length === 0) return;
 
-        const observer = new IntersectionObserver(
-            (entries) => {
-                const visible = entries
-                    .filter((entry) => entry.isIntersecting)
-                    .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
-                if (visible) setActiveSection(visible.target.id);
-            },
-            { rootMargin: "-96px 0px -55% 0px", threshold: [0.1, 0.35, 0.6] }
-        );
+        const updateActiveSection = () => {
+            const marker = window.scrollY + 112;
+            let current = sections[0].id;
 
-        sections.forEach((section) => observer.observe(section));
-        return () => observer.disconnect();
+            for (const section of sections) {
+                if (section.getBoundingClientRect().top + window.scrollY <= marker) {
+                    current = section.id;
+                }
+            }
+
+            setActiveSection((active) => (active === current ? active : current));
+        };
+
+        updateActiveSection();
+        window.addEventListener("scroll", updateActiveSection, { passive: true });
+        window.addEventListener("resize", updateActiveSection);
+        return () => {
+            window.removeEventListener("scroll", updateActiveSection);
+            window.removeEventListener("resize", updateActiveSection);
+        };
     }, [isLoadingServerSettings]);
 
     const updateServerMutation = useMutation({
