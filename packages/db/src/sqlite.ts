@@ -131,3 +131,9 @@ export function closeSqliteDb(): void {
     _sqliteDb = null;
     _sqliteDbPath = null;
 }
+
+/** Reopen the shared connection after an operation replaces the database file. */
+export function reopenSqliteDb(): DatabaseSync {
+    closeSqliteDb();
+    return getSqliteDbInstance();
+}
