@@ -580,7 +580,10 @@ export class ProviderRegistry {
         if (lastError) throw lastError;
     }
 
-    async generateImage(req: ImageGenerationRequest): Promise<ImageGenerationResponse> {
+    async generateImage(
+        req: ImageGenerationRequest,
+        budget?: RequestAttemptBudget
+    ): Promise<ImageGenerationResponse> {
         const candidates = await this.getCandidateProvidersForModel(req.model);
         let lastError: unknown = null;
 
@@ -590,7 +593,7 @@ export class ProviderRegistry {
                 continue;
             }
             try {
-                const response = await candidate.generateImage(req);
+                const response = await candidate.generateImage(req, budget);
                 this.circuitBreaker.recordSuccess(candidate.id);
                 return response;
             } catch (err) {

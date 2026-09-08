@@ -1,28 +1,15 @@
-import { findMatchingFallbackRulesDB, incrementAPIKeyUsageDB, logRequestDB } from "@srouter/db";
+import { incrementAPIKeyUsageDB, logRequestDB } from "@srouter/db";
 import { isImageGenerationSupported } from "@srouter/pricing";
-import type { FallbackRule, ImageGenerationRequest, ImageGenerationResponse } from "@srouter/types";
+import { CreateRequestAttemptBudget } from "@srouter/types";
+import type {
+    ImageGenerationRequest,
+    ImageGenerationResponse,
+    RequestAttemptBudget
+} from "@srouter/types";
 import { HTTPException } from "hono/http-exception";
 import { registry } from "@/services/registry.js";
-import { ensureFreshToken } from "@/services/tokenRefresh.js";
-import {
-    type CandidateModel,
-    type ErrorWithStatus,
-    ExtractStatusCode,
-    ShouldTriggerFallback
-} from "./fallback.policy.js";
-
-async function ResolveCandidates(model: string): Promise<CandidateModel[]> {
-    const candidates: CandidateModel[] = [{ model }];
-    const rules = await findMatchingFallbackRulesDB(model);
-
-    for (const rule of rules) {
-        if (!candidates.some((c) => c.model === rule.targetModel)) {
-            candidates.push({ model: rule.targetModel, rule });
-        }
-    }
-
-    return candidates;
-}
+import { type AttemptTracker, RunCandidateAttempts } from "./fallbackRunner.js";
+import { type ErrorWithStatus, ExtractStatusCode } from "./fallback.policy.js";
 
 export class ImagesLogic {
     public static async generate(
@@ -30,12 +17,13 @@ export class ImagesLogic {
         startTime: number,
         apiKeyId?: string,
         ipAddress?: string,
-        userAgent?: string
+        userAgent?: string,
+        budget?: RequestAttemptBudget
     ): Promise<ImageGenerationResponse> {
+        const requestBudget = budget ?? CreateRequestAttemptBudget();
         const model = body.model || "dall-e-3";
         const hasInputImage = Boolean(body.image || body.images);
 
-        // 1. Modality capability validation
         if (!isImageGenerationSupported(model, hasInputImage)) {
             const reason = hasInputImage
                 ? `Model '${model}' does not support image editing / image-to-image input.`
@@ -53,33 +41,27 @@ export class ImagesLogic {
             });
         }
 
-        const candidates = await ResolveCandidates(model);
-        let lastError: Error | ErrorWithStatus | string | null = null;
-        const fallbackPath: string[] = [model];
-        let fallbackOccurred = false;
-        let fallbackReason: string | undefined;
+        const tracker: AttemptTracker = {
+            fallbackPath: [model],
+            fallbackOccurred: false,
+            fallbackReason: undefined,
+            lastError: null
+        };
+        let lastAttemptModel = model;
+        let lastAttemptProvider = model.split("/")[0] || "default";
 
-        for (let i = 0; i < candidates.length; i++) {
-            const candidate = candidates[i]!;
-            const isFallbackAttempt = i > 0;
-
-            if (isFallbackAttempt && candidate.rule && lastError) {
-                if (!ShouldTriggerFallback(candidate.rule, lastError)) {
-                    continue;
-                }
-            }
-
-            const currentModel = candidate.model;
+        for await (const attempt of RunCandidateAttempts(model, tracker)) {
+            const { currentModel, isFallbackAttempt, providerId } = attempt;
+            lastAttemptModel = currentModel;
+            lastAttemptProvider = providerId;
             const currentReq: ImageGenerationRequest = { ...body, model: currentModel };
-            const providerId = currentModel.split("/")[0] || "default";
 
             try {
-                await ensureFreshToken(providerId);
-                const response = await registry.generateImage(currentReq);
+                const response = await registry.generateImage(currentReq, requestBudget);
 
                 if (isFallbackAttempt) {
-                    fallbackOccurred = true;
-                    fallbackPath.push(currentModel);
+                    tracker.fallbackOccurred = true;
+                    tracker.fallbackPath.push(currentModel);
                 }
 
                 if (apiKeyId) {
@@ -96,45 +78,43 @@ export class ImagesLogic {
                     completionTokens: 0,
                     totalTokens: 0,
                     statusCode: 200,
-                    fallbackOccurred,
-                    fallbackPath: fallbackOccurred ? fallbackPath.join(" -> ") : undefined,
-                    fallbackReason,
+                    fallbackOccurred: tracker.fallbackOccurred,
+                    fallbackPath: tracker.fallbackOccurred
+                        ? tracker.fallbackPath.join(" -> ")
+                        : undefined,
+                    fallbackReason: tracker.fallbackReason,
                     latencyMs: Date.now() - startTime
                 });
 
                 return response;
             } catch (err) {
-                lastError = err instanceof Error ? err : (err as ErrorWithStatus);
-                if (!fallbackReason) {
-                    fallbackReason = err instanceof Error ? err.message : String(err);
+                tracker.lastError = err instanceof Error ? err : (err as ErrorWithStatus);
+                if (!tracker.fallbackReason) {
+                    tracker.fallbackReason = err instanceof Error ? err.message : String(err);
                 }
-
-                if (i < candidates.length - 1) {
-                    continue;
-                }
-
-                const errorStatusCode = ExtractStatusCode(err as ErrorWithStatus) ?? 500;
-                logRequestDB({
-                    apiKeyId,
-                    ipAddress,
-                    userAgent,
-                    providerId,
-                    model: currentModel,
-                    promptTokens: 0,
-                    completionTokens: 0,
-                    totalTokens: 0,
-                    statusCode: errorStatusCode,
-                    fallbackOccurred,
-                    fallbackPath: fallbackOccurred ? fallbackPath.join(" -> ") : undefined,
-                    fallbackReason,
-                    latencyMs: Date.now() - startTime
-                });
-
-                throw err;
             }
         }
 
-        if (lastError) throw lastError;
+        if (tracker.lastError) {
+            logRequestDB({
+                apiKeyId,
+                ipAddress,
+                userAgent,
+                providerId: lastAttemptProvider,
+                model: lastAttemptModel,
+                promptTokens: 0,
+                completionTokens: 0,
+                totalTokens: 0,
+                statusCode: ExtractStatusCode(tracker.lastError) ?? 500,
+                fallbackOccurred: tracker.fallbackOccurred,
+                fallbackPath: tracker.fallbackOccurred
+                    ? tracker.fallbackPath.join(" -> ")
+                    : undefined,
+                fallbackReason: tracker.fallbackReason,
+                latencyMs: Date.now() - startTime
+            });
+            throw tracker.lastError;
+        }
         throw new Error(`Failed to generate image for model '${model}'`);
     }
 }
