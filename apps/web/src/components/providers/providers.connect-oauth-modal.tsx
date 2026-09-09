@@ -173,7 +173,7 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
     }, [open, provider, isPolling, baseId, authProviderId, oauthState, queryClient, onOpenChange]);
 
     const callbackMutation = useMutation({
-        mutationFn: (payload: { callbackUrl: string }) => {
+        mutationFn: (payload: { callback_url: string }) => {
             const endpoint =
                 baseId === "antigravity"
                     ? "/v1/auth/antigravity/callback"
@@ -307,7 +307,7 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
         }
 
         setError("");
-        callbackMutation.mutate({ callbackUrl: input });
+        callbackMutation.mutate({ callback_url: input });
     };
 
     const handlePatSubmit = (e: React.FormEvent) => {
