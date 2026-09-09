@@ -11,7 +11,7 @@ export function KeyTelemetryCard({ api_key }: KeyTelemetryCardProps) {
             : null;
 
     return (
-        <div className="rounded-md border border-border/80 bg-secondary/20 p-3 space-y-2.5 font-mono">
+        <div className="border-y border-border/70 bg-secondary/10 p-3 space-y-2.5 font-mono">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <span className="text-[10.5px] font-semibold uppercase tracking-wider text-muted-foreground">
                     Active Token

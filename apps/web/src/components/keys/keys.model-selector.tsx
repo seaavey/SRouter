@@ -61,7 +61,7 @@ export function ModelSelector({
         cn(
             "rounded-md border px-3 py-2 text-left text-xs transition-colors cursor-pointer",
             active
-                ? "border-primary bg-primary/10 text-foreground font-semibold"
+                ? "border-foreground bg-foreground/5 text-foreground font-semibold"
                 : "border-input bg-background text-muted-foreground hover:text-foreground"
         );
 
@@ -99,7 +99,7 @@ export function ModelSelector({
                         <div className="flex items-center justify-between">
                             <span>{title}</span>
                             {value === "restricted" && selected_models.length > 0 ? (
-                                <span className="text-[10px] font-mono font-normal opacity-80 bg-primary/15 px-1.5 py-0.2 rounded">
+                                <span className="rounded border border-emerald-500/30 bg-emerald-500/5 px-1.5 py-0.2 text-[10px] font-mono font-normal text-emerald-600 opacity-90 dark:text-emerald-400">
                                     {selected_models.length}
                                 </span>
                             ) : null}
@@ -197,13 +197,13 @@ export function ModelSelector({
                                                         className={cn(
                                                             "flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left font-mono text-xs transition-colors cursor-pointer",
                                                             isSelected
-                                                                ? "bg-primary/10 text-foreground font-medium"
+                                                                ? "bg-emerald-500/5 text-foreground font-medium"
                                                                 : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
                                                         )}
                                                     >
                                                         <span className="truncate">{model.id}</span>
                                                         {isSelected ? (
-                                                            <Check className="size-3.5 shrink-0 text-primary" />
+                                                            <Check className="size-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
                                                         ) : null}
                                                     </button>
                                                 </li>

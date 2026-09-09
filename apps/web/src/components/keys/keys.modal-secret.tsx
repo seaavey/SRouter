@@ -32,7 +32,7 @@ export function KeySecretModal({ new_key, onClose }: KeySecretModalProps) {
 
     return (
         <Dialog open={Boolean(new_key)} onOpenChange={(open) => !open && onClose()}>
-            <DialogContent className="w-[calc(100vw-1.5rem)] sm:max-w-md bg-card border-border/80 p-0 overflow-hidden flex flex-col shadow-xl font-mono">
+            <DialogContent className="w-[calc(100vw-1.5rem)] sm:max-w-md bg-card border-border/80 p-0 overflow-hidden flex flex-col shadow-lg font-mono">
                 <DialogHeader className="px-4 sm:px-5 py-3.5 sm:py-4 border-b border-border/60 bg-secondary/15 shrink-0 text-left">
                     <DialogTitle className="text-xs sm:text-sm font-bold tracking-tight text-foreground uppercase">
                         Save Your API Key
@@ -44,8 +44,8 @@ export function KeySecretModal({ new_key, onClose }: KeySecretModalProps) {
 
                 {active_key ? (
                     <div className="p-4 sm:p-5 space-y-4 max-h-[calc(100dvh-12rem)] overflow-y-auto">
-                        <div className="rounded-md border border-amber-500/25 bg-amber-500/10 p-3 flex items-start gap-2.5">
-                            <AlertCircle className="size-4 text-amber-500 shrink-0 mt-0.5" />
+                        <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 flex items-start gap-2.5">
+                            <AlertCircle className="size-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                             <div className="text-xs text-amber-600 dark:text-amber-400 leading-relaxed">
                                 Store this key securely in your environment variables. If you lose
                                 it, you will need to generate a new key.

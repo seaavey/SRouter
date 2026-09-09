@@ -55,7 +55,7 @@ export function AddCreditDialog({
 
     return (
         <Dialog open={open && Boolean(active_key)} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-md bg-card border-border/80 p-0 overflow-hidden flex flex-col shadow-2xl">
+            <DialogContent className="sm:max-w-md bg-card border-border/80 p-0 overflow-hidden flex flex-col shadow-lg">
                 <DialogHeader className="px-5 py-4 border-b border-border/60 bg-secondary/10 shrink-0 text-left">
                     <DialogTitle className="text-sm font-semibold tracking-tight text-foreground">
                         Add Credit
@@ -70,7 +70,7 @@ export function AddCreditDialog({
                 </DialogHeader>
 
                 <div className="p-5 space-y-4">
-                    <div className="rounded-lg border border-border/70 bg-secondary/20 p-3 text-xs space-y-1.5 font-mono">
+                    <div className="border-y border-border/70 bg-secondary/10 p-3 text-xs space-y-1.5 font-mono">
                         <div className="flex justify-between items-center">
                             <span className="text-muted-foreground font-sans">Current Balance:</span>
                             <span className="font-semibold text-foreground">

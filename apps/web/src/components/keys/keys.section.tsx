@@ -17,9 +17,9 @@ export default function KeyMetrics({
     return (
         <section
             aria-label="API Keys Summary"
-            className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 font-mono"
+            className="grid grid-cols-1 divide-y divide-border/70 overflow-hidden border-y border-border/80 sm:grid-cols-3 sm:divide-x sm:divide-y-0 font-mono"
         >
-            <article className="flex flex-col justify-between rounded-lg border border-border/80 bg-card p-4 transition-colors hover:border-foreground/30">
+            <article className="flex min-h-28 flex-col justify-between bg-card p-4 transition-colors hover:bg-muted/20 sm:p-5">
                 <div>
                     <span className="text-[10.5px] font-medium tracking-wider uppercase text-muted-foreground">
                         Active Keys
@@ -38,7 +38,7 @@ export default function KeyMetrics({
                 </p>
             </article>
 
-            <article className="flex flex-col justify-between rounded-lg border border-border/80 bg-card p-4 transition-colors hover:border-foreground/30">
+            <article className="flex min-h-28 flex-col justify-between bg-card p-4 transition-colors hover:bg-muted/20 sm:p-5">
                 <div>
                     <span className="text-[10.5px] font-medium tracking-wider uppercase text-muted-foreground">
                         Throughput
@@ -58,7 +58,7 @@ export default function KeyMetrics({
                 </p>
             </article>
 
-            <article className="flex flex-col justify-between rounded-lg border border-border/80 bg-card p-4 transition-colors hover:border-foreground/30">
+            <article className="flex min-h-28 flex-col justify-between bg-card p-4 transition-colors hover:bg-muted/20 sm:p-5">
                 <div>
                     <span className="text-[10.5px] font-medium tracking-wider uppercase text-muted-foreground">
                         Recorded Spend

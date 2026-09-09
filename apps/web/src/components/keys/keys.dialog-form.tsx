@@ -98,7 +98,7 @@ export function KeyFormDialog({
                     <motion.div
                         layout="position"
                         transition={{ type: "spring", stiffness: 350, damping: 32 }}
-                        className="w-full md:w-[460px] lg:w-[480px] shrink-0 rounded-xl border border-border/80 bg-card p-0 flex flex-col shadow-2xl overflow-hidden max-h-[calc(100dvh-2.5rem)]"
+                        className="w-full md:w-[460px] lg:w-[480px] shrink-0 border border-border/80 bg-card p-0 flex flex-col shadow-lg overflow-hidden max-h-[calc(100dvh-2.5rem)]"
                     >
                         {/* Header Section */}
                         <div className="px-4 sm:px-5 py-3.5 sm:py-4 border-b border-border/60 bg-secondary/15 shrink-0">
@@ -118,7 +118,7 @@ export function KeyFormDialog({
                                 </div>
                                 {api_key ? (
                                     <span className="hidden sm:inline-flex items-center gap-1 font-mono text-[10px] text-muted-foreground bg-secondary/60 border border-border/60 px-2 py-0.5 rounded shrink-0">
-                                        <ShieldCheck className="size-3 text-emerald-500" />
+                                        <ShieldCheck className="size-3 text-emerald-600 dark:text-emerald-400" />
                                         {api_key.id.slice(0, 8)}…
                                     </span>
                                 ) : null}
@@ -131,7 +131,7 @@ export function KeyFormDialog({
 
                             <form id="key-form" onSubmit={handleSubmit} className="space-y-4">
                                 {/* Key Identifier & Status */}
-                                <div className="rounded-md border border-border/70 bg-secondary/20 p-3 space-y-3">
+                                <div className="border-y border-border/70 bg-secondary/10 p-3 space-y-3">
                                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                                         <div className="flex-1 space-y-1">
                                             <Label
@@ -170,7 +170,7 @@ export function KeyFormDialog({
                                                     className={cn(
                                                         "font-mono text-[11px] font-semibold select-none min-w-14 text-right sm:text-left",
                                                         form.enabled
-                                                            ? "text-emerald-500"
+                                                            ? "text-emerald-600 dark:text-emerald-400"
                                                             : "text-muted-foreground"
                                                     )}
                                                 >
@@ -182,7 +182,7 @@ export function KeyFormDialog({
                                 </div>
 
                                 {/* Guardrails: Rate limit & Quotas */}
-                                <div className="rounded-md border border-border/70 bg-secondary/20 p-3 space-y-2">
+                                <div className="border-y border-border/70 bg-secondary/10 p-3 space-y-2">
                                     <div className="text-[10.5px] font-mono text-muted-foreground uppercase tracking-wider font-semibold">
                                         Quotas & Limits
                                     </div>
@@ -190,7 +190,7 @@ export function KeyFormDialog({
                                 </div>
 
                                 {/* Model Scope */}
-                                <div className="rounded-md border border-border/70 bg-secondary/20 p-3 space-y-2">
+                                <div className="border-y border-border/70 bg-secondary/10 p-3 space-y-2">
                                     <ModelSelector
                                         scope={form.model_scope}
                                         onScopeChange={(scope) => {
@@ -246,7 +246,7 @@ export function KeyFormDialog({
                                     scale: { duration: 0.2, ease: "easeInOut" },
                                     width: { type: "spring", stiffness: 350, damping: 32 }
                                 }}
-                                className="w-full md:w-72 lg:w-80 rounded-xl border border-border/80 bg-card p-0 flex flex-col shadow-xl overflow-hidden shrink-0 max-h-[calc(100dvh-2.5rem)] md:h-auto"
+                                className="w-full md:w-72 lg:w-80 border border-border/80 bg-card p-0 flex flex-col shadow-lg overflow-hidden shrink-0 max-h-[calc(100dvh-2.5rem)] md:h-auto"
                             >
                                 {/* Panel Header */}
                                 <div className="px-3.5 py-3 border-b border-border/60 bg-secondary/15 flex items-center justify-between shrink-0">
@@ -315,7 +315,7 @@ export function KeyFormDialog({
                                                             className={cn(
                                                                 "flex w-full items-center justify-between gap-2 px-2.5 py-1.5 rounded text-left font-mono text-xs transition-colors cursor-pointer",
                                                                 isSelected
-                                                                    ? "bg-primary/10 text-foreground font-semibold border border-primary/20"
+                                                                    ? "bg-emerald-500/5 text-foreground font-semibold border border-emerald-500/30"
                                                                     : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
                                                             )}
                                                         >
@@ -323,7 +323,7 @@ export function KeyFormDialog({
                                                                 {m.id}
                                                             </span>
                                                             {isSelected && (
-                                                                <Check className="size-3 text-emerald-500 shrink-0" />
+                                                                <Check className="size-3 text-emerald-600 dark:text-emerald-400 shrink-0" />
                                                             )}
                                                         </button>
                                                     </li>

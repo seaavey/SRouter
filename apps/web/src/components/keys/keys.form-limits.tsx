@@ -70,7 +70,7 @@ export function KeyLimitsFields({ form, onChange, id_prefix = "" }: KeyLimitsFie
                         value={form[key]}
                         onChange={(e) => onChange(key, e.target.value)}
                         placeholder={placeholder}
-                        className="h-8.5 font-mono text-xs rounded-md bg-background border-input"
+                        className="h-8.5 rounded border-input bg-background font-mono text-xs"
                     />
                     <p className="text-[10px] text-muted-foreground font-mono leading-tight">{helper}</p>
                 </div>

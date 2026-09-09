@@ -79,18 +79,18 @@ export function KeyTable({
 
     // ── Key Table when keys exist ─────────────────────────────────────────────
     return (
-        <div className="rounded-lg border border-border/80 bg-card overflow-hidden font-mono">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/60 px-4 py-3 bg-card">
+        <div className="overflow-hidden border border-border/80 bg-card font-mono">
+            <div className="flex flex-col justify-between gap-4 border-b border-border/70 px-4 py-4 sm:flex-row sm:items-center sm:px-5">
                 <div className="flex items-center gap-2.5">
-                    <div className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border/80 bg-secondary text-foreground">
+                    <div className="flex size-7 shrink-0 items-center justify-center border border-border/80 bg-secondary text-foreground">
                         <KeyRound className="size-3.5" strokeWidth={1.75} />
                     </div>
                     <div>
                         <h2 className="text-xs font-bold tracking-tight text-foreground uppercase">
-                            Provisioned Keys
+                            Key Registry
                         </h2>
                         <p className="text-[11px] text-muted-foreground">
-                            Active credentials, token limits, and consumption metrics
+                             Credentials, limits, and consumption
                         </p>
                     </div>
                 </div>
@@ -102,7 +102,7 @@ export function KeyTable({
                         placeholder="Search keys, models…"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="h-8 pl-8 pr-7 font-mono text-xs bg-secondary/30 border-border/70 focus-visible:ring-1"
+                        className="h-9 border-border/70 bg-secondary/20 pl-8 pr-7 font-mono text-xs focus-visible:ring-1"
                     />
                     {searchQuery && (
                         <button
@@ -119,7 +119,7 @@ export function KeyTable({
 
             <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
-                    <thead className="border-b border-border/60 bg-secondary/25 text-[10px] uppercase font-mono tracking-wider text-muted-foreground">
+                    <thead className="border-b border-border/60 bg-secondary/15 text-[10px] uppercase font-mono tracking-[0.14em] text-muted-foreground">
                         <tr>
                             <th className="py-2.5 px-4 font-semibold">Key & Token</th>
                             <th className="py-2.5 px-4 font-semibold">Limits & Balance</th>
@@ -227,13 +227,13 @@ export function KeyTable({
                                                 {(rateLimit > 0 || hasAllowedModels) && (
                                                     <div className="flex flex-wrap items-center gap-1 mt-0.5">
                                                         {rateLimit > 0 && (
-                                                            <span className="inline-flex items-center rounded bg-secondary px-1.5 py-0.2 text-[9.5px] font-mono text-muted-foreground border border-border/50">
+                                                            <span className="inline-flex items-center rounded border border-amber-500/30 bg-amber-500/5 px-1.5 py-0.2 text-[9.5px] font-mono text-amber-600 dark:text-amber-400">
                                                                 {rateLimit} req/m
                                                             </span>
                                                         )}
                                                         {hasAllowedModels && (
                                                             <span
-                                                                className="inline-flex items-center rounded bg-secondary px-1.5 py-0.2 text-[9.5px] font-mono text-muted-foreground border border-border/50 cursor-default"
+                                                                className="inline-flex items-center rounded border border-border/50 bg-secondary px-1.5 py-0.2 text-[9.5px] font-mono text-muted-foreground cursor-default"
                                                                 title={k.allowed_models?.join("\n")}
                                                             >
                                                                 {k.allowed_models?.length} models
@@ -266,7 +266,7 @@ export function KeyTable({
                                     {/* 4. Status */}
                                     <td className="py-3 px-4 text-center whitespace-nowrap">
                                         {k.enabled ? (
-                                            <span className="inline-flex items-center gap-1.5 font-mono text-[10.5px] font-semibold text-emerald-500">
+                                            <span className="inline-flex items-center gap-1.5 font-mono text-[10.5px] font-semibold text-emerald-600 dark:text-emerald-400">
                                                 <span className="size-1.5 rounded-full bg-emerald-500" />
                                                 Active
                                             </span>
@@ -294,7 +294,7 @@ export function KeyTable({
                                                 type="button"
                                                 disabled={isDeleting}
                                                 onClick={() => onDeleteClick(k)}
-                                                className="flex size-7 items-center justify-center rounded text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors disabled:opacity-30 cursor-pointer"
+                                                className="flex size-7 items-center justify-center rounded text-muted-foreground hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400 transition-colors disabled:opacity-30 cursor-pointer"
                                                 title="Revoke and delete key"
                                                 aria-label={`Revoke key ${k.name}`}
                                             >

@@ -32,14 +32,14 @@ export function KeyDeleteDialog({ IDKey, deleting, onClose, onConfirm }: KeyDele
 
     return (
         <Dialog open={Boolean(IDKey)} onOpenChange={(open) => !open && onClose()}>
-            <DialogContent className="sm:max-w-md bg-card border-border/80 p-0 overflow-hidden flex flex-col shadow-2xl">
-                <DialogHeader className="px-5 py-4 border-b border-border/60 bg-destructive/10 shrink-0 text-left">
+            <DialogContent className="sm:max-w-md bg-card border-border/80 p-0 overflow-hidden flex flex-col shadow-lg">
+                <DialogHeader className="px-5 py-4 border-b border-red-500/30 bg-red-500/5 shrink-0 text-left">
                     <div className="flex items-center gap-2.5">
-                        <div className="flex size-7.5 shrink-0 items-center justify-center rounded-md border border-destructive/30 bg-destructive/15 text-destructive">
+                        <div className="flex size-7.5 shrink-0 items-center justify-center rounded-md border border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400">
                             <AlertTriangle className="size-4" />
                         </div>
                         <div>
-                            <DialogTitle className="text-sm font-semibold tracking-tight text-destructive">
+                            <DialogTitle className="text-sm font-semibold tracking-tight text-red-600 dark:text-red-400">
                                 Revoke API Key
                             </DialogTitle>
                             <DialogDescription className="text-xs text-muted-foreground leading-tight mt-0.5">
