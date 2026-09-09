@@ -86,8 +86,8 @@ function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) 
             onClick={() => void handleCopy()}
             className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md border border-border/70 bg-background/70 px-2.5 text-[11px] font-semibold text-muted-foreground transition-[color,background-color,transform] hover:bg-secondary hover:text-foreground active:translate-y-px"
         >
-            {copied ? <Check className="size-3 text-emerald-500" /> : <Copy className="size-3" />}
-            <span className={copied ? "text-emerald-500" : undefined}>
+            {copied ? <Check className="size-3 text-foreground" /> : <Copy className="size-3" />}
+            <span className={copied ? "text-foreground" : undefined}>
                 {copied ? "Copied" : label}
             </span>
         </button>
@@ -106,18 +106,18 @@ function StatusBadge({ status }: { status: TunnelStatus | null }) {
           ? "Installing"
           : "Offline";
     const tone = connecting
-        ? "border-amber-500/40 bg-amber-500/10 text-amber-400"
+        ? "border-foreground/40 bg-foreground/10 text-foreground"
         : status?.running
-          ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-500"
+          ? "border-foreground/40 bg-foreground/10 text-foreground"
           : installing
-            ? "border-blue-500/40 bg-blue-500/10 text-blue-400"
+          ? "border-foreground/40 bg-foreground/10 text-foreground"
             : "border-border/50 bg-secondary/25 text-muted-foreground";
     const dot = connecting
-        ? "bg-amber-400 animate-pulse"
+        ? "bg-foreground animate-pulse"
         : status?.running
-          ? "bg-emerald-500"
+          ? "bg-foreground"
           : installing
-            ? "bg-blue-400 animate-pulse"
+          ? "bg-foreground animate-pulse"
             : "bg-muted-foreground/50";
     return (
         <span
@@ -220,7 +220,7 @@ export function TunnelModal({
             <DialogContent className="sm:max-w-md bg-card border-border p-6">
                 <DialogHeader className="space-y-1 text-left">
                     <DialogTitle className="flex items-center gap-2 text-base font-semibold text-foreground">
-                        <Cloud className="size-4 text-sky-500" strokeWidth={1.75} />
+                        <Cloud className="size-4 text-foreground" strokeWidth={1.75} />
                         Cloudflare Tunnel
                     </DialogTitle>
                     <DialogDescription className="text-xs text-muted-foreground leading-relaxed">
@@ -240,7 +240,7 @@ export function TunnelModal({
                     <div className="space-y-1.5 py-1">
                         <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary/40">
                             <div
-                                className="h-full rounded-full bg-sky-500 transition-[width] duration-300"
+                                className="h-full rounded-full bg-foreground transition-[width] duration-300"
                                 style={{
                                     width: `${
                                         status?.install?.totalBytes && status.install.totalBytes > 0
@@ -268,7 +268,7 @@ export function TunnelModal({
                 )}
 
                 {status?.install?.error && !installing ? (
-                    <p className="font-mono text-[9px] leading-relaxed text-red-400/80">
+                    <p className="font-mono text-[9px] leading-relaxed text-muted-foreground">
                         {status.install.error}
                     </p>
                 ) : null}

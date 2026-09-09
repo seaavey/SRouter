@@ -105,7 +105,7 @@ export function NetworkStatus() {
                             className="inline-flex size-6 shrink-0 items-center justify-center rounded border border-border/70 bg-background text-muted-foreground transition-colors group-hover:text-foreground hover:border-foreground/40 cursor-pointer"
                         >
                             {copied ? (
-                                <Check className="size-3 text-emerald-500" />
+                                <Check className="size-3 text-foreground" />
                             ) : (
                                 <Copy className="size-3" />
                             )}
@@ -138,8 +138,8 @@ export function NetworkStatus() {
                                         Cloudflare Tunnel
                                     </p>
                                     {tunnel?.running && (
-                                        <span className="flex items-center gap-1 text-[10px] font-semibold text-emerald-500 font-mono">
-                                            <span className="size-1.5 rounded-full bg-emerald-500" />
+                                        <span className="flex items-center gap-1 text-[10px] font-semibold text-foreground font-mono">
+                                            <span className="size-1.5 rounded-full bg-foreground" />
                                             Live
                                         </span>
                                     )}

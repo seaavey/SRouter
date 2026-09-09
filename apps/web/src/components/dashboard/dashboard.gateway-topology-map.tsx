@@ -72,7 +72,7 @@ function CentralCoreHubNode({ data, selected }: NodeProps<Node<CoreNodeData, "ce
                 selected
                     ? "border-foreground ring-1 ring-foreground/20"
                     : hasActiveTraffic
-                      ? "border-emerald-500/80 ring-1 ring-emerald-500/30"
+                        ? "border-foreground ring-1 ring-foreground/20"
                       : "border-border/80 hover:border-foreground/30"
             }`}
         >
@@ -106,7 +106,7 @@ function CentralCoreHubNode({ data, selected }: NodeProps<Node<CoreNodeData, "ce
                     <div
                         className={`flex size-6 shrink-0 items-center justify-center rounded border transition-colors ${
                             hasActiveTraffic
-                                ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-500"
+                                ? "border-foreground/50 bg-foreground/10 text-foreground"
                                 : "border-border/80 bg-secondary text-foreground"
                         }`}
                     >
@@ -127,7 +127,7 @@ function CentralCoreHubNode({ data, selected }: NodeProps<Node<CoreNodeData, "ce
                 <span
                     className={`rounded border px-1.5 py-0.5 text-[8.5px] font-mono font-bold transition-colors ${
                         hasActiveTraffic
-                            ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-500"
+                            ? "border-foreground/40 bg-foreground/10 text-foreground"
                             : "border-border/70 bg-secondary text-foreground"
                     }`}
                 >
@@ -138,8 +138,8 @@ function CentralCoreHubNode({ data, selected }: NodeProps<Node<CoreNodeData, "ce
             <div className="mt-2.5 space-y-1.5 text-[10px]">
                 <div className="flex items-center justify-between rounded bg-secondary/40 px-2 py-1">
                     <span className="text-muted-foreground">Circuit Breaker</span>
-                    <span className="flex items-center gap-1 font-semibold text-emerald-500">
-                        <span className="size-1.5 rounded-full bg-emerald-500" />
+                    <span className="flex items-center gap-1 font-semibold text-foreground">
+                        <span className="size-1.5 rounded-full bg-foreground" />
                         Nominal
                     </span>
                 </div>
@@ -167,7 +167,7 @@ function OrbitProviderNode({ data, selected }: NodeProps<Node<ProviderNodeData, 
                 selected
                     ? "border-foreground ring-1 ring-foreground/20"
                     : isReceivingRequest
-                      ? "border-emerald-500 ring-1 ring-emerald-500/40"
+                      ? "border-foreground ring-1 ring-foreground/30"
                       : isOnline
                         ? "border-border/80 hover:border-foreground/30"
                         : "border-border/40 opacity-70 hover:opacity-100"
@@ -177,7 +177,7 @@ function OrbitProviderNode({ data, selected }: NodeProps<Node<ProviderNodeData, 
                 type="target"
                 position={handlePos}
                 className={`!w-2 !h-2 !border-2 !border-card transition-colors ${
-                    isReceivingRequest ? "!bg-emerald-500" : "!bg-foreground"
+                    "!bg-foreground"
                 }`}
             />
 
@@ -186,7 +186,7 @@ function OrbitProviderNode({ data, selected }: NodeProps<Node<ProviderNodeData, 
                     <div
                         className={`flex size-6 shrink-0 items-center justify-center rounded border p-1 transition-colors ${
                             isReceivingRequest
-                                ? "border-emerald-500/50 bg-emerald-500/10"
+                                ? "border-foreground/50 bg-foreground/10"
                                 : "border-border/80 bg-secondary/50"
                         }`}
                     >
@@ -203,7 +203,7 @@ function OrbitProviderNode({ data, selected }: NodeProps<Node<ProviderNodeData, 
                 </div>
 
                 {isReceivingRequest && (
-                    <span className="rounded px-1 py-0.5 text-[8px] font-mono font-bold flex items-center gap-1 bg-emerald-500 text-black">
+                    <span className="rounded px-1 py-0.5 text-[8px] font-mono font-bold flex items-center gap-1 bg-foreground text-background">
                         <span className="size-1 rounded-full bg-black" />
                         {lastLatency !== null ? `${lastLatency}ms` : "ACTIVE"}
                     </span>
@@ -241,7 +241,7 @@ function NodeDetailInspector({
             <div>
                 <div className="flex items-center justify-between pb-3 border-b border-border/60">
                     <div className="flex items-center gap-2">
-                        <span className="size-1.5 rounded-full bg-emerald-500" />
+                        <span className="size-1.5 rounded-full bg-foreground" />
                         <h3 className="text-xs font-bold uppercase tracking-[0.12em] text-foreground">
                             Node Telemetry
                         </h3>
@@ -284,7 +284,7 @@ function NodeDetailInspector({
                                 </div>
                                 <div className="flex justify-between">
                                     <span className="text-muted-foreground">Circuit Breaker:</span>
-                                    <span className="font-semibold text-emerald-500">Nominal</span>
+                                    <span className="font-semibold text-foreground">Nominal</span>
                                 </div>
                                 <div className="flex justify-between">
                                     <span className="text-muted-foreground">Overhead Latency:</span>
@@ -452,7 +452,7 @@ function ProviderMatrixView({
                 </div>
                 <div className="flex items-center gap-3 text-[10.5px]">
                     <div className="flex items-center gap-1.5">
-                        <span className="size-1.5 rounded-full bg-emerald-500" />
+                         <span className="size-1.5 rounded-full bg-foreground" />
                         <span className="text-muted-foreground">Circuit Breaker:</span>
                         <span className="font-semibold text-foreground">Nominal</span>
                     </div>
@@ -478,7 +478,7 @@ function ProviderMatrixView({
                             params={{ providerId: p.id }}
                             className={`group flex flex-col justify-between rounded-md border bg-card p-3 transition-colors cursor-pointer ${
                                 isReceiving
-                                    ? "border-emerald-500 ring-1 ring-emerald-500/40"
+                                    ? "border-foreground ring-1 ring-foreground/30"
                                     : "border-border/70 hover:border-foreground/30"
                             }`}
                         >
@@ -497,7 +497,7 @@ function ProviderMatrixView({
                                     </div>
                                 </div>
                                 {isReceiving && (
-                                    <span className="rounded px-1.5 py-0.2 text-[8px] font-mono font-bold bg-emerald-500 text-black">
+                                    <span className="rounded px-1.5 py-0.2 text-[8px] font-mono font-bold bg-foreground text-background">
                                         ACTIVE
                                     </span>
                                 )}
@@ -724,7 +724,7 @@ function GatewayTopologyCanvas() {
                 animated: isReceivingRequest,
                 style: {
                     stroke: isReceivingRequest
-                        ? "var(--color-emerald-500, #10b981)"
+                         ? "var(--foreground)"
                         : isOnline
                           ? "var(--border)"
                           : "var(--muted)",
@@ -766,8 +766,8 @@ function GatewayTopologyCanvas() {
                                 Mesh Routing Topology
                             </h2>
                             {hasAnyActiveTraffic && (
-                                <span className="flex items-center gap-1 text-[10px] font-mono text-emerald-500 font-semibold">
-                                    <span className="size-1.5 rounded-full bg-emerald-500" />
+                                    <span className="flex items-center gap-1 text-[10px] font-mono text-foreground font-semibold">
+                                     <span className="size-1.5 rounded-full bg-foreground" />
                                     Routing Traffic
                                 </span>
                             )}

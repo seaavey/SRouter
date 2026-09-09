@@ -30,10 +30,7 @@ const mainNavItems = [
     { to: "/", label: "Dashboard", icon: LayoutDashboard },
     { to: "/keys", label: "API Keys", icon: KeyRound },
     { to: "/providers", label: "Providers", icon: Boxes },
-    { to: "/pricing", label: "List Pricing", icon: Coins }
-] as const;
-
-const routingNavItems = [
+    { to: "/pricing", label: "List Pricing", icon: Coins },
     { to: "/combo", label: "Combo", icon: GitFork }
 ] as const;
 
@@ -107,46 +104,6 @@ export function AppSidebar() {
                         <SidebarGroupContent>
                             <SidebarMenu className="gap-1">
                                 {mainNavItems.map(({ to, label, icon: Icon }) => (
-                                    <SidebarMenuItem key={to}>
-                                        <SidebarMenuButton
-                                            render={
-                                                <Link
-                                                    to={to}
-                                                    activeOptions={{ exact: true }}
-                                                    activeProps={{
-                                                        className:
-                                                            "bg-secondary text-foreground font-semibold border border-border/80 shadow-2xs",
-                                                        "aria-current": "page"
-                                                    }}
-                                                    inactiveProps={{
-                                                        className:
-                                                            "text-muted-foreground hover:bg-secondary/40 hover:text-foreground border border-transparent"
-                                                    }}
-                                                />
-                                            }
-                                            tooltip={label}
-                                            className="h-8.5 rounded-md px-2.5 transition-all text-xs cursor-pointer group-data-[collapsible=icon]:justify-center"
-                                        >
-                                            <Icon
-                                                strokeWidth={1.75}
-                                                className="size-3.5 shrink-0"
-                                            />
-                                            <span className="text-xs truncate">{label}</span>
-                                        </SidebarMenuButton>
-                                    </SidebarMenuItem>
-                                ))}
-                            </SidebarMenu>
-                        </SidebarGroupContent>
-                    </SidebarGroup>
-
-                    {/* Routing Group */}
-                    <SidebarGroup className="border-t border-border/60 p-0 pt-4">
-                        <SidebarGroupLabel className="mb-1.5 h-5 px-2 text-[9px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/80">
-                            Routing Engine
-                        </SidebarGroupLabel>
-                        <SidebarGroupContent>
-                            <SidebarMenu className="gap-1">
-                                {routingNavItems.map(({ to, label, icon: Icon }) => (
                                     <SidebarMenuItem key={to}>
                                         <SidebarMenuButton
                                             render={

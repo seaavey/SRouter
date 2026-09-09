@@ -1,6 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import type { ReactNode } from "react";
 import {
+    ArrowDownToLine,
+    ArrowUpFromLine,
+    Database,
     RefreshCw,
     TriangleAlert
 } from "lucide-react";
@@ -22,11 +26,12 @@ type StatCardProps = {
     detail: string;
     tooltip?: string;
     subValue?: string;
+    detailContent?: ReactNode;
 };
 
-function StatCard({ label, value, detail, tooltip, subValue }: StatCardProps) {
+function StatCard({ label, value, detail, tooltip, subValue, detailContent }: StatCardProps) {
     return (
-        <article className="flex flex-col justify-between rounded-lg border border-border/80 bg-card p-4 transition-colors hover:border-foreground/30">
+        <article className="flex min-h-32 flex-col justify-between border-border/70 bg-card p-4 transition-colors hover:bg-muted/20 sm:p-5">
             <div>
                 <span className="text-[10.5px] font-medium tracking-wider uppercase text-muted-foreground">
                     {label}
@@ -48,12 +53,14 @@ function StatCard({ label, value, detail, tooltip, subValue }: StatCardProps) {
                 )}
             </div>
 
-            <p
-                className="mt-3 truncate text-[11px] text-muted-foreground border-t border-border/50 pt-2.5"
-                title={detail}
-            >
-                {detail}
-            </p>
+            {detailContent ?? (
+                <p
+                    className="mt-3 truncate border-t border-border/50 pt-2.5 text-[11px] text-muted-foreground"
+                    title={detail}
+                >
+                    {detail}
+                </p>
+            )}
         </article>
     );
 }
@@ -104,22 +111,24 @@ function DashboardPage() {
         return <DashboardSkeleton />;
     }
 
+    const uncachedInputTokens = Math.max(0, stats.totalInputTokens - stats.totalCachedTokens);
+
     return (
-        <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 font-mono">
+        <div className="mx-auto flex w-full max-w-[1360px] flex-col gap-8 font-mono">
             {/* Header */}
-            <header className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end border-b border-border/80 pb-5">
+            <header className="flex flex-col justify-between gap-5 border-b border-foreground/15 pb-6 sm:flex-row sm:items-end">
                 <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                        <span className="size-2 rounded-full bg-emerald-500 shrink-0" />
-                        <p className="text-[10.5px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                            Live Inference Telemetry
+                        <span className="size-1.5 shrink-0 rounded-full bg-foreground" />
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                            Gateway / Overview
                         </p>
                     </div>
-                    <h1 className="mt-1.5 text-2xl font-bold tracking-tight text-foreground">
-                        Gateway Operations
+                    <h1 className="mt-2 text-3xl font-bold tracking-[-0.04em] text-foreground sm:text-4xl">
+                        Operations
                     </h1>
                     <p className="mt-1 max-w-2xl text-xs text-muted-foreground leading-relaxed">
-                        Real-time inference telemetry, routed model analytics, and active provider nodes.
+                        A quiet view of traffic, routing, and connected providers.
                     </p>
                 </div>
                 <div className="flex items-center gap-2 self-start sm:self-auto">
@@ -127,7 +136,7 @@ function DashboardPage() {
                         type="button"
                         variant="outline"
                         size="sm"
-                        className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-foreground border-border/80 cursor-pointer"
+                        className="h-9 gap-2 border-border/80 px-3 text-xs text-muted-foreground hover:bg-foreground hover:text-background cursor-pointer"
                         onClick={() => void refetch()}
                     >
                         <RefreshCw className="size-3" />
@@ -136,10 +145,10 @@ function DashboardPage() {
                 </div>
             </header>
 
-            {/* 4 KPI Telemetry Tiles */}
+            {/* Summary */}
             <section
                 aria-label="Gateway usage summary"
-                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5"
+                className="grid grid-cols-1 divide-y divide-border/70 overflow-hidden border-y border-border/80 sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-4"
             >
                 <StatCard
                     label="Total Requests"
@@ -156,13 +165,36 @@ function DashboardPage() {
                     value={stats ? formatCompactNumber(stats.totalTokens) : "0"}
                     tooltip={
                         stats
-                            ? `${stats.totalTokens.toLocaleString()} total tokens (${stats.totalInputTokens.toLocaleString()} in : ${stats.totalOutputTokens.toLocaleString()} out)`
+                            ? `${stats.totalTokens.toLocaleString()} total tokens (${uncachedInputTokens.toLocaleString()} input, ${stats.totalOutputTokens.toLocaleString()} output, ${stats.totalCachedTokens.toLocaleString()} cached)`
                             : undefined
                     }
                     detail={
                         stats
-                            ? `${formatCompactNumber(stats.totalInputTokens)} in / ${formatCompactNumber(stats.totalOutputTokens)} out`
-                            : "0 in / 0 out"
+                            ? `${formatCompactNumber(uncachedInputTokens)} input, ${formatCompactNumber(stats.totalOutputTokens)} output, ${formatCompactNumber(stats.totalCachedTokens)} cached`
+                            : "0 input, 0 output, 0 cached"
+                    }
+                    detailContent={
+                        <div
+                            className="mt-2 flex items-center gap-2 border-t border-border/50 pt-2 text-[9px] leading-none text-muted-foreground"
+                            title={`${formatCompactNumber(uncachedInputTokens)} input, ${formatCompactNumber(stats.totalOutputTokens)} output, ${formatCompactNumber(stats.totalCachedTokens)} cached`}
+                            aria-label={`${formatCompactNumber(uncachedInputTokens)} input, ${formatCompactNumber(stats.totalOutputTokens)} output, ${formatCompactNumber(stats.totalCachedTokens)} cached`}
+                        >
+                            <span className="inline-flex items-center gap-1" aria-label="Input tokens">
+                                <ArrowDownToLine className="size-2.5" aria-hidden="true" />
+                                <span className="sr-only">Input</span>
+                                {formatCompactNumber(uncachedInputTokens)}
+                            </span>
+                            <span className="inline-flex items-center gap-1" aria-label="Output tokens">
+                                <ArrowUpFromLine className="size-2.5" aria-hidden="true" />
+                                <span className="sr-only">Output</span>
+                                {formatCompactNumber(stats.totalOutputTokens)}
+                            </span>
+                            <span className="inline-flex items-center gap-1" aria-label="Cached tokens">
+                                <Database className="size-2.5" aria-hidden="true" />
+                                <span className="sr-only">Cached</span>
+                                {formatCompactNumber(stats.totalCachedTokens)}
+                            </span>
+                        </div>
                     }
                 />
                 <StatCard
@@ -179,16 +211,16 @@ function DashboardPage() {
                 />
             </section>
 
-            {/* Overview & Live Network Status */}
+            {/* Traffic & Access */}
             <section
                 aria-label="Operational overview"
-                className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(20rem,0.65fr)]"
+                className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(19rem,0.6fr)]"
             >
                 <ModelUsageOverview models={stats?.byModel ?? []} />
                 <NetworkStatus />
             </section>
 
-            {/* Mesh Routing Topology Map */}
+            {/* Routing topology */}
             <GatewayTopologyMap />
 
             {/* Tabular Usage Breakdown */}
