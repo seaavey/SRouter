@@ -3,8 +3,11 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import {
     Activity,
+    ArrowDownToLine,
+    ArrowUpFromLine,
     Coins,
     Cpu,
+    Database,
     KeyRound,
     RefreshCw,
     Search,
@@ -12,6 +15,7 @@ import {
     ShieldCheck
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { formatCompactNumber } from "@/lib/utils";
 import type { APIKeyZod, RequestLogEntry, UsageStats } from "@srouter/types";
 import type { ListResponse } from "@/lib/types";
 import { LogsSkeleton } from "@/components/skeletons";
@@ -51,13 +55,13 @@ function LogsPage() {
 
     const keys = keysData?.data ?? [];
 
-    const { data, isLoading, error, refetch, isFetching } = useQuery({
+    const { data, isLoading, error, refetch } = useQuery({
         queryKey: ["logs"],
         queryFn: () => api.get<ListResponse<RequestLogEntry>>("/v1/logs?limit=100"),
         refetchInterval: 10000
     });
 
-    const { data: globalStats, refetch: refetchStats } = useQuery<UsageStats>({
+    const { data: globalStats } = useQuery<UsageStats>({
         queryKey: ["stats"],
         queryFn: () => api.get<UsageStats>("/v1/logs/stats"),
         refetchInterval: 10000
@@ -75,6 +79,8 @@ function LogsPage() {
             return {
                 totalRequests,
                 totalTokens: globalStats.totalTokens,
+                totalInputTokens: globalStats.totalInputTokens,
+                totalOutputTokens: globalStats.totalOutputTokens,
                 totalCost: globalStats.totalEstimatedCost,
                 cachedTokens: globalStats.totalCachedTokens,
                 successRate,
@@ -83,12 +89,16 @@ function LogsPage() {
         }
 
         let totalTokens = 0;
+        let totalInputTokens = 0;
+        let totalOutputTokens = 0;
         let totalCost = 0;
         let cachedTokens = 0;
         let successCount = 0;
 
         for (const log of logs) {
             totalTokens += log.totalTokens;
+            totalInputTokens += log.promptTokens;
+            totalOutputTokens += log.completionTokens;
             totalCost += log.costBreakdown?.totalCost ?? log.estimatedCost ?? 0;
             cachedTokens += log.cachedTokens ?? 0;
             if (log.statusCode >= 200 && log.statusCode < 300) {
@@ -101,12 +111,16 @@ function LogsPage() {
         return {
             totalRequests: logs.length,
             totalTokens,
+            totalInputTokens,
+            totalOutputTokens,
             totalCost,
             cachedTokens,
             successRate,
             isGlobal: false
         };
     }, [globalStats, logs]);
+
+    const uncachedInputTokens = Math.max(0, stats.totalInputTokens - stats.cachedTokens);
 
     if (isLoading) {
         return <LogsSkeleton />;
@@ -133,99 +147,66 @@ function LogsPage() {
 
     return (
         <div className="flex flex-col gap-6 font-mono">
-            {/* Header: Clean Machined Bar */}
-            <header className="rounded-2xl border border-border/80 bg-card p-5 sm:p-6 shadow-2xs">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="space-y-1.5">
-                        <div className="flex items-center gap-2.5 flex-wrap">
-                            <h1 className="text-base font-bold tracking-tight text-foreground">
-                                Request Logs
-                            </h1>
-                            <span
-                                className={[
-                                    "rounded-md border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-widest",
-                                    requireApiKey
-                                        ? "border-border/80 bg-secondary/60 text-foreground"
-                                        : "border-border/60 bg-secondary/30 text-muted-foreground"
-                                ].join(" ")}
-                            >
-                                {requireApiKey ? "Key Enforced" : "Permissive"}
-                            </span>
-                        </div>
-                        <p className="text-xs text-muted-foreground max-w-2xl leading-relaxed">
-                            Recent 100 API gateway requests with token usage, latency, and cost telemetry.
-                        </p>
-                    </div>
-
-                    <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
-                        <button
-                            type="button"
-                            onClick={() => {
-                                void refetch();
-                                void refetchStats();
-                            }}
-                            disabled={isFetching}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border/70 bg-secondary/40 hover:bg-secondary text-xs font-semibold text-muted-foreground hover:text-foreground cursor-pointer transition-all shadow-2xs disabled:opacity-50"
-                        >
-                            <RefreshCw className={`size-3.5 ${isFetching ? "animate-spin" : ""}`} />
-                            <span>Refresh</span>
-                        </button>
-                    </div>
-                </div>
-            </header>
-
-            {/* Metrics Row: Clean Integrated Grid */}
+            {/* Metrics Row */}
             <section
                 aria-label="Log Summary Metrics"
-                className="grid grid-cols-2 rounded-xl border border-border/70 bg-card/60 divide-y sm:divide-y-0 sm:divide-x sm:grid-cols-4 divide-border/60 shadow-2xs"
+                className="grid grid-cols-1 overflow-hidden rounded-xl border border-border bg-card/70 shadow-2xs sm:grid-cols-2 lg:grid-cols-3 sm:divide-x sm:divide-y-0 divide-border/60"
             >
-                <div className="p-4">
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <div className="min-w-0 border-b border-border/60 p-4 last:border-b-0 sm:border-b-0 lg:p-5">
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                         Total Requests
                     </span>
-                    <div className="mt-1.5 text-xl font-bold tracking-tight text-foreground tabular-nums">
-                        {stats.totalRequests}
+                    <div
+                        className="mt-2 text-2xl font-bold tracking-tight text-foreground tabular-nums lg:text-[1.7rem]"
+                        title={stats.totalRequests.toLocaleString("en-US")}
+                    >
+                        {formatCompactNumber(stats.totalRequests)}
                     </div>
-                    <span className="text-[11px] text-muted-foreground">
+                    <span className="mt-1 block text-[11px] text-muted-foreground">
                         {stats.successRate.toFixed(1)}% success
                     </span>
                 </div>
 
-                <div className="p-4">
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <div className="min-w-0 border-b border-border/60 p-4 last:border-b-0 sm:border-b-0 lg:p-5">
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                         Tokens
                     </span>
-                    <div className="mt-1.5 text-xl font-bold tracking-tight text-foreground tabular-nums">
-                        {stats.totalTokens.toLocaleString()}
+                    <div
+                        className="mt-2 text-2xl font-bold tracking-tight text-foreground tabular-nums lg:text-[1.7rem]"
+                        title={stats.totalTokens.toLocaleString("en-US")}
+                    >
+                        {formatCompactNumber(stats.totalTokens)}
                     </div>
-                    <span className="text-[11px] text-muted-foreground">
-                        {stats.cachedTokens.toLocaleString()} cached
+                    <span className="mt-1.5 flex min-w-0 items-center gap-2 whitespace-nowrap text-[11px] text-muted-foreground" title={`${uncachedInputTokens.toLocaleString("en-US")} input · ${stats.totalOutputTokens.toLocaleString("en-US")} output · ${stats.cachedTokens.toLocaleString("en-US")} cached`}>
+                        <span className="inline-flex shrink-0 items-center gap-1">
+                            <ArrowDownToLine className="size-3" aria-hidden="true" />
+                            {formatCompactNumber(uncachedInputTokens)}
+                        </span>
+                        <span className="text-border">·</span>
+                        <span className="inline-flex shrink-0 items-center gap-1">
+                            <ArrowUpFromLine className="size-3" aria-hidden="true" />
+                            {formatCompactNumber(stats.totalOutputTokens)}
+                        </span>
+                        <span className="text-border">·</span>
+                        <span className="inline-flex shrink-0 items-center gap-1">
+                            <Database className="size-3" aria-hidden="true" />
+                            {formatCompactNumber(stats.cachedTokens)}
+                        </span>
                     </span>
                 </div>
 
-                <div className="p-4">
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <div className="min-w-0 border-b border-border/60 p-4 last:border-b-0 sm:border-b-0 lg:p-5">
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                         Est. Cost
                     </span>
-                    <div className="mt-1.5 text-xl font-bold tracking-tight text-foreground tabular-nums">
+                    <div className="mt-2 text-2xl font-bold tracking-tight text-foreground tabular-nums lg:text-[1.7rem]">
                         ${stats.totalCost.toFixed(4)}
                     </div>
-                    <span className="text-[11px] text-muted-foreground">
+                    <span className="mt-1 block text-[11px] text-muted-foreground">
                         {stats.isGlobal ? "All-time total" : "Past 100 calls"}
                     </span>
                 </div>
 
-                <div className="p-4">
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                        Access Mode
-                    </span>
-                    <div className="mt-1.5 text-xs font-semibold text-foreground truncate">
-                        {requireApiKey ? "Key Required" : "Open Gateway"}
-                    </div>
-                    <span className="text-[11px] text-muted-foreground truncate block">
-                        {requireApiKey ? `${keys.length} keys active` : "Bypass enabled"}
-                    </span>
-                </div>
             </section>
 
             {/* Filter Toolbar: Unified & Quiet */}
