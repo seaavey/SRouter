@@ -201,6 +201,25 @@ samp,
     }
 }
 
+.responsive-number {
+    container-type: inline-size;
+    min-width: 0;
+}
+
+.responsive-number-compact {
+    display: none;
+}
+
+@container (max-width: 12rem) {
+    .responsive-number-full {
+        display: none;
+    }
+
+    .responsive-number-compact {
+        display: inline;
+    }
+}
+
 /* Custom scrollbars for clean modern SaaS feel */
 ::-webkit-scrollbar {
     width: 5px;

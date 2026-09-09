@@ -2,8 +2,8 @@ import { useMemo } from "react";
 import { ArrowDown, ArrowUp, Cpu, Layers, BarChart2 } from "lucide-react";
 import type { UsageStats } from "@srouter/types";
 import { ProviderIcon } from "@/components/providers";
-import { formatCompactNumber } from "@/lib/utils";
 import { Empty, EmptyContent, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
+import { ResponsiveNumber } from "./dashboard.responsive-number";
 
 type ModelUsageOverviewProps = {
     models: UsageStats["byModel"];
@@ -166,7 +166,7 @@ export function ModelUsageOverview({ models }: ModelUsageOverviewProps) {
                                             className="text-left sm:w-16 sm:text-right text-muted-foreground"
                                             title={`Requests: ${model.totalRequests.toLocaleString()}`}
                                         >
-                                            {formatCompactNumber(model.totalRequests)}{" "}
+                                             <ResponsiveNumber value={model.totalRequests} />{" "}
                                             <span className="text-[9.5px] opacity-70">req</span>
                                         </span>
 
@@ -177,7 +177,7 @@ export function ModelUsageOverview({ models }: ModelUsageOverviewProps) {
                                         >
                                             <ArrowDown className="inline size-2.5 opacity-60 mr-0.5" />
                                             <strong className="font-semibold text-foreground">
-                                                {formatCompactNumber(model.totalInputTokens)}
+                                                 <ResponsiveNumber value={model.totalInputTokens} />
                                             </strong>
                                             <span className="text-[9px] opacity-70 ml-0.5">in</span>
                                         </span>
@@ -189,7 +189,7 @@ export function ModelUsageOverview({ models }: ModelUsageOverviewProps) {
                                         >
                                             <ArrowUp className="inline size-2.5 opacity-60 mr-0.5" />
                                             <strong className="font-semibold text-foreground">
-                                                {formatCompactNumber(model.totalOutputTokens)}
+                                                 <ResponsiveNumber value={model.totalOutputTokens} />
                                             </strong>
                                             <span className="text-[9px] opacity-70 ml-0.5">
                                                 out
@@ -202,7 +202,7 @@ export function ModelUsageOverview({ models }: ModelUsageOverviewProps) {
                                             title={`Total Tokens: ${totalTokens.toLocaleString()} (${sharePercent}% of top models)`}
                                         >
                                             <span className="text-xs font-semibold text-foreground">
-                                                {formatCompactNumber(totalTokens)}
+                                                 <ResponsiveNumber value={totalTokens} />
                                             </span>
                                             <span className="text-[9px] text-muted-foreground font-normal">
                                                 tok

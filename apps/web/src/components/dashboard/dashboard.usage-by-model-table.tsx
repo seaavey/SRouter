@@ -32,7 +32,7 @@ import {
     TableRow
 } from "@/components/ui/table";
 import { useDebounce } from "@/hooks/useDebounce";
-import { formatCompactNumber } from "@/lib/utils";
+import { ResponsiveNumber } from "./dashboard.responsive-number";
 
 type ModelUsageItem = UsageStats["byModel"][number];
 
@@ -114,7 +114,7 @@ export function UsageByModelTable({ models }: UsageByModelTableProps) {
                         className="font-mono text-foreground tabular-nums cursor-default"
                         title={`Requests: ${row.original.totalRequests.toLocaleString()}`}
                     >
-                        {formatCompactNumber(row.original.totalRequests)}
+                         <ResponsiveNumber value={row.original.totalRequests} />
                     </span>
                 )
             },
@@ -144,7 +144,7 @@ export function UsageByModelTable({ models }: UsageByModelTableProps) {
                         className="font-mono text-muted-foreground tabular-nums cursor-default"
                         title={`Prompt Tokens: ${row.original.totalInputTokens.toLocaleString()}`}
                     >
-                        {formatCompactNumber(row.original.totalInputTokens)}
+                         <ResponsiveNumber value={row.original.totalInputTokens} />
                     </span>
                 )
             },
@@ -174,7 +174,7 @@ export function UsageByModelTable({ models }: UsageByModelTableProps) {
                         className="font-mono text-muted-foreground tabular-nums cursor-default"
                         title={`Completion Tokens: ${row.original.totalOutputTokens.toLocaleString()}`}
                     >
-                        {formatCompactNumber(row.original.totalOutputTokens)}
+                         <ResponsiveNumber value={row.original.totalOutputTokens} />
                     </span>
                 )
             },
@@ -204,7 +204,7 @@ export function UsageByModelTable({ models }: UsageByModelTableProps) {
                         className="font-mono text-muted-foreground tabular-nums cursor-default"
                         title={`Cached Tokens: ${row.original.totalCachedTokens.toLocaleString()}`}
                     >
-                        {formatCompactNumber(row.original.totalCachedTokens)}
+                         <ResponsiveNumber value={row.original.totalCachedTokens} />
                     </span>
                 )
             },
@@ -237,7 +237,7 @@ export function UsageByModelTable({ models }: UsageByModelTableProps) {
                             className="font-mono font-medium text-foreground tabular-nums cursor-default"
                             title={`Total Tokens: ${total.toLocaleString()} (${row.original.totalInputTokens.toLocaleString()} in · ${row.original.totalOutputTokens.toLocaleString()} out)`}
                         >
-                            {formatCompactNumber(total)}
+                             <ResponsiveNumber value={total} />
                         </span>
                     );
                 }

@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
 import type { ReactNode } from "react";
 import {
     ArrowDownToLine,
@@ -8,10 +9,17 @@ import {
     RefreshCw,
     TriangleAlert
 } from "lucide-react";
-import { api } from "@/lib/api";
+import { api, getGatewayBaseUrl } from "@/lib/api";
 import { formatCompactNumber } from "@/lib/utils";
 import type { UsageStats } from "@srouter/types";
-import { GatewayTopologyMap, ModelUsageOverview, NetworkStatus, UsageByModelTable } from "@/components/dashboard";
+import {
+    GatewayTopologyMap,
+    AnimatedNumber,
+    ModelUsageOverview,
+    NetworkStatus,
+    ResponsiveNumber,
+    UsageByModelTable
+} from "@/components/dashboard";
 import { Button } from "@/components/ui/button";
 import { DashboardSkeleton } from "@/components/skeletons";
 
@@ -22,27 +30,41 @@ export const Route = createFileRoute("/")({
 
 type StatCardProps = {
     label: string;
-    value: string;
+    value: number | string;
     detail: string;
     tooltip?: string;
     subValue?: string;
     detailContent?: ReactNode;
+    animatedValue?: number;
+    animatedFormat?: (value: number) => string;
 };
 
-function StatCard({ label, value, detail, tooltip, subValue, detailContent }: StatCardProps) {
+function StatCard({
+    label,
+    value,
+    detail,
+    tooltip,
+    subValue,
+    detailContent,
+    animatedValue,
+    animatedFormat
+}: StatCardProps) {
     return (
-        <article className="flex min-h-32 flex-col justify-between border-border/70 bg-card p-4 transition-colors hover:bg-muted/20 sm:p-5">
+        <article className="flex min-w-0 min-h-32 flex-col justify-between border-border/70 bg-card p-4 transition-colors hover:bg-muted/20 sm:p-5">
             <div>
                 <span className="text-[10.5px] font-medium tracking-wider uppercase text-muted-foreground">
                     {label}
                 </span>
 
                 <div className="mt-2.5">
-                    <div
-                        className="text-2xl font-bold tracking-tight text-foreground cursor-default tabular-nums"
-                        title={tooltip ?? value}
-                    >
-                        {value}
+                    <div className="min-w-0 overflow-hidden text-2xl font-bold tracking-tight text-foreground cursor-default tabular-nums">
+                        {animatedValue !== undefined ? (
+                            <AnimatedNumber value={animatedValue} format={animatedFormat} />
+                        ) : typeof value === "number" ? (
+                            <ResponsiveNumber value={value} title={tooltip} />
+                        ) : (
+                            <span title={tooltip ?? value}>{value}</span>
+                        )}
                     </div>
                 </div>
 
@@ -66,6 +88,7 @@ function StatCard({ label, value, detail, tooltip, subValue, detailContent }: St
 }
 
 function DashboardPage() {
+    const queryClient = useQueryClient();
     const {
         data: stats,
         isPending,
@@ -74,9 +97,33 @@ function DashboardPage() {
     } = useQuery({
         queryKey: ["stats"],
         queryFn: () => api.get<UsageStats>("/v1/logs/stats"),
-        refetchInterval: 30_000,
-        refetchIntervalInBackground: false
+        refetchInterval: false
     });
+
+    useEffect(() => {
+        if (typeof window === "undefined" || typeof window.EventSource === "undefined") return;
+
+        const source = new EventSource(`${getGatewayBaseUrl()}/logs/events`);
+        source.onmessage = (event) => {
+            try {
+                const payload: unknown = JSON.parse(event.data);
+                if (
+                    typeof payload === "object" &&
+                    payload !== null &&
+                    "type" in payload &&
+                    payload.type === "usage.updated"
+                ) {
+                    if ("stats" in payload && payload.stats !== null) {
+                        queryClient.setQueryData(["stats"], payload.stats);
+                    }
+                }
+            } catch {
+                return;
+            }
+        };
+
+        return () => source.close();
+    }, [queryClient]);
 
     if (isPending || !stats) {
         if (!stats && error) {
@@ -152,7 +199,8 @@ function DashboardPage() {
             >
                 <StatCard
                     label="Total Requests"
-                    value={stats ? formatCompactNumber(stats.totalRequests) : "0"}
+                    value={stats.totalRequests}
+                    animatedValue={stats.totalRequests}
                     tooltip={
                         stats
                             ? `${stats.totalRequests.toLocaleString()} recorded requests`
@@ -162,7 +210,8 @@ function DashboardPage() {
                 />
                 <StatCard
                     label="Total Tokens"
-                    value={stats ? formatCompactNumber(stats.totalTokens) : "0"}
+                    value={stats.totalTokens}
+                    animatedValue={stats.totalTokens}
                     tooltip={
                         stats
                             ? `${stats.totalTokens.toLocaleString()} total tokens (${uncachedInputTokens.toLocaleString()} input, ${stats.totalOutputTokens.toLocaleString()} output, ${stats.totalCachedTokens.toLocaleString()} cached)`
@@ -175,24 +224,24 @@ function DashboardPage() {
                     }
                     detailContent={
                         <div
-                            className="mt-2 flex items-center gap-2 border-t border-border/50 pt-2 text-[9px] leading-none text-muted-foreground"
+                            className="mt-2 grid grid-cols-3 gap-1 border-t border-border/50 pt-2 text-[9px] leading-none text-muted-foreground"
                             title={`${formatCompactNumber(uncachedInputTokens)} input, ${formatCompactNumber(stats.totalOutputTokens)} output, ${formatCompactNumber(stats.totalCachedTokens)} cached`}
                             aria-label={`${formatCompactNumber(uncachedInputTokens)} input, ${formatCompactNumber(stats.totalOutputTokens)} output, ${formatCompactNumber(stats.totalCachedTokens)} cached`}
                         >
-                            <span className="inline-flex items-center gap-1" aria-label="Input tokens">
+                            <span className="flex min-w-0 items-center gap-1" aria-label="Input tokens">
                                 <ArrowDownToLine className="size-2.5" aria-hidden="true" />
                                 <span className="sr-only">Input</span>
-                                {formatCompactNumber(uncachedInputTokens)}
+                                <ResponsiveNumber value={uncachedInputTokens} />
                             </span>
-                            <span className="inline-flex items-center gap-1" aria-label="Output tokens">
+                            <span className="flex min-w-0 items-center gap-1" aria-label="Output tokens">
                                 <ArrowUpFromLine className="size-2.5" aria-hidden="true" />
                                 <span className="sr-only">Output</span>
-                                {formatCompactNumber(stats.totalOutputTokens)}
+                                <ResponsiveNumber value={stats.totalOutputTokens} />
                             </span>
-                            <span className="inline-flex items-center gap-1" aria-label="Cached tokens">
+                            <span className="flex min-w-0 items-center gap-1" aria-label="Cached tokens">
                                 <Database className="size-2.5" aria-hidden="true" />
                                 <span className="sr-only">Cached</span>
-                                {formatCompactNumber(stats.totalCachedTokens)}
+                                <ResponsiveNumber value={stats.totalCachedTokens} />
                             </span>
                         </div>
                     }
@@ -200,13 +249,15 @@ function DashboardPage() {
                 <StatCard
                     label="Estimated Cost"
                     value={stats?.costLabel ?? "$0.00"}
+                    animatedValue={stats.totalEstimatedCost}
+                    animatedFormat={(value) => `$${value.toFixed(2)}`}
                     detail={
                         stats?.estimated ? "Calculated from pricing catalog" : "Recorded token cost"
                     }
                 />
                 <StatCard
                     label="Models Routed"
-                    value={stats ? stats.byModel.length.toLocaleString() : "0"}
+                    value={stats.byModel.length}
                     detail="Active models with traffic"
                 />
             </section>

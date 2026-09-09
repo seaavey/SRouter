@@ -16,6 +16,7 @@ import { registry } from "@/services/registry.js";
 import { executeInterceptedSearch, shouldInterceptToolCall } from "@/services/toolInterceptor.js";
 import { type AttemptTracker, RunCandidateAttempts } from "./fallbackRunner.js";
 import { type ErrorWithStatus, ExtractStatusCode } from "./fallback.policy.js";
+import { publishUsageUpdated } from "@/services/usageEvents.js";
 
 const MAX_INTERCEPT_DEPTH = 3;
 
@@ -86,6 +87,7 @@ async function LogCompletion(
         statusCode: options.statusCode,
         latencyMs: Date.now() - startTime
     });
+    publishUsageUpdated();
 }
 
 function LogFailure(originalModel: string, ctx: RequestContext, tracker: AttemptTracker): void {
