@@ -11,7 +11,13 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue
+} from "@/components/ui/select";
 import { api } from "@/lib/api";
 import type { PricingListResponse } from "@srouter/types";
 
@@ -202,53 +208,70 @@ function PricingPage() {
                     {/* Provider Select */}
                     <Select
                         value={providerFilter}
-                        onChange={(e) => setProviderFilter(e.target.value)}
+                        onValueChange={(value) => setProviderFilter(value ?? "all")}
                     >
-                        <option value="all">All Providers ({providers.length})</option>
+                        <SelectTrigger className="w-auto text-xs">
+                            <SelectValue placeholder="All Providers" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All Providers ({providers.length})</SelectItem>
                         {providers.map((p) => (
-                            <option key={p} value={p}>
+                            <SelectItem key={p} value={p}>
                                 {p}
-                            </option>
+                            </SelectItem>
                         ))}
+                        </SelectContent>
                     </Select>
 
                     <Select
                         value={familyFilter}
-                        onChange={(e) => setFamilyFilter(e.target.value)}
-                        className="h-8 px-2.5 text-xs bg-background border border-border/80 rounded-md text-foreground focus:outline-none"
+                        onValueChange={(value) => setFamilyFilter(value ?? "all")}
                     >
-                        <option value="all">All Families ({families.length})</option>
+                        <SelectTrigger className="w-auto text-xs">
+                            <SelectValue placeholder="All Families" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All Families ({families.length})</SelectItem>
                         {families.map((family) => (
-                            <option key={family} value={family}>
+                            <SelectItem key={family} value={family}>
                                 {family}
-                            </option>
+                            </SelectItem>
                         ))}
+                        </SelectContent>
                     </Select>
 
                     {/* Modality Filter */}
                     <Select
                         value={modalityFilter}
-                        onChange={(e) => setModalityFilter(e.target.value)}
-                        className="h-8 px-2.5 text-xs bg-background border border-border/80 rounded-md text-foreground focus:outline-none"
+                        onValueChange={(value) => setModalityFilter(value ?? "all")}
                     >
-                        <option value="all">All Modalities</option>
-                        <option value="image">Vision / Image</option>
-                        <option value="audio">Audio</option>
-                        <option value="video">Video</option>
-                        <option value="pdf">PDF / Document</option>
+                        <SelectTrigger className="w-auto text-xs">
+                            <SelectValue placeholder="All Modalities" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All Modalities</SelectItem>
+                            <SelectItem value="image">Vision / Image</SelectItem>
+                            <SelectItem value="audio">Audio</SelectItem>
+                            <SelectItem value="video">Video</SelectItem>
+                            <SelectItem value="pdf">PDF / Document</SelectItem>
+                        </SelectContent>
                     </Select>
 
                     {/* Feature Filter */}
                     <Select
                         value={featureFilter}
-                        onChange={(e) => setFeatureFilter(e.target.value)}
-                        className="h-8 px-2.5 text-xs bg-background border border-border/80 rounded-md text-foreground focus:outline-none"
+                        onValueChange={(value) => setFeatureFilter(value ?? "all")}
                     >
-                        <option value="all">All Features</option>
-                        <option value="free">Free Tier Only</option>
-                        <option value="reasoning">Reasoning Models</option>
-                        <option value="tool_call">Tool Calling</option>
-                        <option value="open_weights">Open Weights</option>
+                        <SelectTrigger className="w-auto text-xs">
+                            <SelectValue placeholder="All Features" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All Features</SelectItem>
+                            <SelectItem value="free">Free Tier Only</SelectItem>
+                            <SelectItem value="reasoning">Reasoning Models</SelectItem>
+                            <SelectItem value="tool_call">Tool Calling</SelectItem>
+                            <SelectItem value="open_weights">Open Weights</SelectItem>
+                        </SelectContent>
                     </Select>
                 </div>
             </div>
