@@ -19,6 +19,9 @@ import {
     deleteCustomModelDB,
     getAllProvidersDB,
     getCustomModelsByProviderDB,
+    getHiddenModelsByProviderDB,
+    addHiddenModelDB,
+    deleteHiddenModelDB,
     getRoundRobinDB,
     setRoundRobinDB,
     upsertProviderDB
@@ -216,6 +219,9 @@ export class ProvidersLogic {
         }
 
         const CustomModels = await ProvidersLogic.ListCustomModels(ProviderId);
+        const HiddenModels = new Set(
+            (await getHiddenModelsByProviderDB(ProviderId.toLowerCase())).map((Row) => Row.modelId.toLowerCase())
+        );
         if (CustomModels.length > 0) {
             const Merged = new Map<string, ModelObject>();
             for (const M of LiveModels) {
@@ -230,7 +236,7 @@ export class ProvidersLogic {
         return {
             ...Provider,
             connections: Connections,
-            models: LiveModels,
+            models: LiveModels.filter((Model) => !HiddenModels.has(Model.id.toLowerCase())),
             status: {
                 ...Provider.status,
                 connectedCount: ConnectedCount,
@@ -324,6 +330,19 @@ export class ProvidersLogic {
         const Deleted = await deleteCustomModelDB(ProviderId.toLowerCase(), ModelId);
         if (!Deleted) throw new Error(`Custom model '${ModelId}' not found for '${ProviderId}'`);
         registry.clearModelsCache();
+    }
+
+    public static async HideModel(ProviderId: string, ModelId: string): Promise<void> {
+        await addHiddenModelDB(ProviderId.toLowerCase(), ModelId);
+    }
+
+    public static async RestoreModel(ProviderId: string, ModelId: string): Promise<void> {
+        const Restored = await deleteHiddenModelDB(ProviderId.toLowerCase(), ModelId);
+        if (!Restored) throw new Error(`Hidden model '${ModelId}' not found for '${ProviderId}'`);
+    }
+
+    public static async ListHiddenModels(ProviderId: string): Promise<string[]> {
+        return (await getHiddenModelsByProviderDB(ProviderId.toLowerCase())).map((Row) => Row.modelId);
     }
 
     public static async SetRoundRobin(ProviderId: string, Enabled: boolean): Promise<ProviderDefinition> {

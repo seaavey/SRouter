@@ -100,6 +100,33 @@ export class ProvidersController {
         }
     }
 
+    public static async ListHiddenModels(c: Context): Promise<Response> {
+        const ProviderId = c.req.param("providerId");
+        if (!ProviderId) return Err(c, "Provider ID is required", 400);
+        return Ok(c, { models: await ProvidersLogic.ListHiddenModels(ProviderId) });
+    }
+
+    public static async HideModel(c: Context): Promise<Response> {
+        const ProviderId = c.req.param("providerId");
+        if (!ProviderId) return Err(c, "Provider ID is required", 400);
+        const Parsed = AddCustomModelSchema.safeParse(await c.req.json().catch(() => null));
+        if (!Parsed.success) return Err(c, "Invalid model payload", 400);
+        await ProvidersLogic.HideModel(ProviderId, Parsed.data.model_id);
+        return Ok(c, { message: "Model hidden" }, 201);
+    }
+
+    public static async RestoreModel(c: Context): Promise<Response> {
+        const ProviderId = c.req.param("providerId");
+        const ModelId = c.req.param("modelId");
+        if (!ProviderId || !ModelId) return Err(c, "Provider ID and model ID are required", 400);
+        try {
+            await ProvidersLogic.RestoreModel(ProviderId, decodeURIComponent(ModelId));
+            return Ok(c, { message: "Model restored" });
+        } catch (error) {
+            return Err(c, error instanceof Error ? error.message : "Failed to restore model", 404);
+        }
+    }
+
     public static async ToggleRoundRobin(c: Context): Promise<Response> {
         const ProviderId = c.req.param("providerId");
         if (!ProviderId) return Err(c, "Provider ID is required", 400);

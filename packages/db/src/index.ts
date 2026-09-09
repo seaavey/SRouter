@@ -8,6 +8,8 @@ export * from "./settings.js";
 export * from "./fallbacks.js";
 export * from "./tokenSaver.js";
 export * from "./customModels.js";
+export * from "./hiddenModels.js";
+export * from "./favoriteModels.js";
 export * from "./row-utils.js";
 export * from "./client.js";
 export {

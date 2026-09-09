@@ -1,119 +1,75 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { api } from "@/lib/api";
 
 const STORAGE_KEY = "srouter_favorite_models";
-const EVENT_NAME = "srouter:favorites-updated";
 
-function loadFavorites(): string[] {
+function loadLegacyFavorites(): string[] {
     try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) return [];
-        const parsed = JSON.parse(raw);
-        return Array.isArray(parsed) ? parsed : [];
+        const parsed: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+        return Array.isArray(parsed) && parsed.every((id): id is string => typeof id === "string") ? parsed : [];
     } catch {
         return [];
     }
 }
 
-function saveFavorites(favorites: string[]): void {
-    try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(favorites));
-        window.dispatchEvent(new CustomEvent(EVENT_NAME, { detail: favorites }));
-    } catch (e) {
-        console.error("Failed to save favorite models to localStorage:", e);
-    }
-}
-
-/**
- * Hook for managing pinned/favorite models across the dashboard and playground.
- */
 export function useFavorites() {
-    const [favorites, setFavorites] = useState<string[]>(loadFavorites);
+    const queryClient = useQueryClient();
+    const query = useQuery({
+        queryKey: ["favorite-models"],
+        queryFn: async () => {
+            const response = await api.get<{ models: string[] }>("/v1/favorites");
+            if (response.models.length > 0 || typeof window === "undefined") return response.models;
 
-    useEffect(() => {
-        const handleUpdate = (e: Event) => {
-            const customEvent = e as CustomEvent<string[]>;
-            if (customEvent.detail) {
-                setFavorites(customEvent.detail);
-            } else {
-                setFavorites(loadFavorites());
+            const legacyFavorites = loadLegacyFavorites();
+            for (const modelId of legacyFavorites) {
+                await api.post("/v1/favorites", { model_id: modelId });
             }
-        };
+            if (legacyFavorites.length > 0) localStorage.removeItem(STORAGE_KEY);
+            return legacyFavorites;
+        }
+    });
 
-        const handleStorage = (e: StorageEvent) => {
-            if (e.key === STORAGE_KEY) {
-                setFavorites(loadFavorites());
-            }
-        };
+    const mutation = useMutation({
+        mutationFn: ({ modelId, favorite }: { modelId: string; favorite: boolean }) =>
+            favorite
+                ? api.post("/v1/favorites", { model_id: modelId })
+                : api.delete(`/v1/favorites/${encodeURIComponent(modelId)}`),
+        onSuccess: () => {
+            void queryClient.invalidateQueries({ queryKey: ["favorite-models"] });
+        }
+    });
 
-        window.addEventListener(EVENT_NAME, handleUpdate);
-        window.addEventListener("storage", handleStorage);
-
-        return () => {
-            window.removeEventListener(EVENT_NAME, handleUpdate);
-            window.removeEventListener("storage", handleStorage);
-        };
-    }, []);
-
+    const favorites = query.data ?? [];
     const favoriteSet = useMemo(() => new Set(favorites), [favorites]);
 
-    const isFavorite = useCallback(
-        (modelId: string): boolean => {
-            return favoriteSet.has(modelId);
-        },
-        [favoriteSet]
-    );
-
     const toggleFavorite = useCallback((modelId: string) => {
-        setFavorites((prev) => {
-            const exists = prev.includes(modelId);
-            const next = exists ? prev.filter((id) => id !== modelId) : [...prev, modelId];
-            saveFavorites(next);
-            return next;
-        });
-    }, []);
+        mutation.mutate({ modelId, favorite: !favoriteSet.has(modelId) });
+    }, [favoriteSet, mutation]);
 
     const addFavorite = useCallback((modelId: string) => {
-        setFavorites((prev) => {
-            if (prev.includes(modelId)) return prev;
-            const next = [...prev, modelId];
-            saveFavorites(next);
-            return next;
-        });
-    }, []);
+        if (!favoriteSet.has(modelId)) mutation.mutate({ modelId, favorite: true });
+    }, [favoriteSet, mutation]);
 
     const removeFavorite = useCallback((modelId: string) => {
-        setFavorites((prev) => {
-            if (!prev.includes(modelId)) return prev;
-            const next = prev.filter((id) => id !== modelId);
-            saveFavorites(next);
-            return next;
-        });
-    }, []);
+        if (favoriteSet.has(modelId)) mutation.mutate({ modelId, favorite: false });
+    }, [favoriteSet, mutation]);
 
     const addMultipleFavorites = useCallback((modelIds: string[]) => {
-        setFavorites((prev) => {
-            const set = new Set(prev);
-            for (const id of modelIds) {
-                set.add(id);
-            }
-            const next = Array.from(set);
-            saveFavorites(next);
-            return next;
-        });
-    }, []);
+        for (const modelId of modelIds) {
+            if (!favoriteSet.has(modelId)) mutation.mutate({ modelId, favorite: true });
+        }
+    }, [favoriteSet, mutation]);
 
     const removeMultipleFavorites = useCallback((modelIds: string[]) => {
-        setFavorites((prev) => {
-            const removeSet = new Set(modelIds);
-            const next = prev.filter((id) => !removeSet.has(id));
-            saveFavorites(next);
-            return next;
-        });
-    }, []);
+        for (const modelId of modelIds) {
+            if (favoriteSet.has(modelId)) mutation.mutate({ modelId, favorite: false });
+        }
+    }, [favoriteSet, mutation]);
 
     return {
         favorites,
-        isFavorite,
+        isFavorite: (modelId: string): boolean => favoriteSet.has(modelId),
         toggleFavorite,
         addFavorite,
         removeFavorite,

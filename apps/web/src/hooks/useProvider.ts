@@ -30,6 +30,30 @@ export function useProvider(providerId: string) {
         enabled: Boolean(providerId)
     });
 
+    const hiddenModelsQuery = useQuery({
+        queryKey: ["providers", providerId, "hidden-models"],
+        queryFn: async () => {
+            const response = await api.get<{ models: string[] }>(`/v1/providers/${providerId}/hidden-models`);
+            if (response.models.length > 0 || typeof window === "undefined") return response;
+            const legacyKey = `srouter_deleted_models_${providerId}`;
+            let legacyModels: string[] = [];
+            try {
+                const parsed: unknown = JSON.parse(localStorage.getItem(legacyKey) || "[]");
+                if (Array.isArray(parsed) && parsed.every((id): id is string => typeof id === "string")) {
+                    legacyModels = parsed;
+                }
+            } catch {
+                legacyModels = [];
+            }
+            for (const modelId of legacyModels) {
+                await api.post(`/v1/providers/${providerId}/hidden-models`, { model_id: modelId });
+            }
+            if (legacyModels.length > 0) localStorage.removeItem(legacyKey);
+            return { models: legacyModels };
+        },
+        enabled: Boolean(providerId)
+    });
+
     const addMutation = useMutation({
         mutationFn: (payload: AddConnectionPayload) =>
             api.post<ProviderDefinition>("/v1/providers", payload),
@@ -101,12 +125,31 @@ export function useProvider(providerId: string) {
         }
     });
 
+    const hideModelMutation = useMutation({
+        mutationFn: (modelId: string) => api.post(`/v1/providers/${providerId}/hidden-models`, { model_id: modelId }),
+        onSuccess: () => {
+            void queryClient.invalidateQueries({ queryKey: ["providers", providerId] });
+            void queryClient.invalidateQueries({ queryKey: ["providers", providerId, "hidden-models"] });
+        }
+    });
+
+    const restoreModelMutation = useMutation({
+        mutationFn: (modelId: string) => api.delete(`/v1/providers/${providerId}/hidden-models/${encodeURIComponent(modelId)}`),
+        onSuccess: () => {
+            void queryClient.invalidateQueries({ queryKey: ["providers", providerId] });
+            void queryClient.invalidateQueries({ queryKey: ["providers", providerId, "hidden-models"] });
+        }
+    });
+
     return {
         ...query,
+        hiddenModelIds: hiddenModelsQuery.data?.models ?? [],
         addMutation,
         deleteMutation,
         toggleRoundRobinMutation,
         addModelMutation,
-        deleteModelMutation
+        deleteModelMutation,
+        hideModelMutation,
+        restoreModelMutation
     };
 }
