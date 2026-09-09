@@ -1,4 +1,5 @@
-import { Coins, Sparkles, Tag, DollarSign } from "lucide-react";
+import { Coins, DollarSign, Sparkles, Tag } from "lucide-react";
+import { Card } from "@/components/ui/card";
 
 interface PricingSummaryMetricsProps {
     totalModels: number;
@@ -7,6 +8,8 @@ interface PricingSummaryMetricsProps {
     medianOutputPrice: number;
 }
 
+const metricIcons = [Coins, Tag, DollarSign, Sparkles] as const;
+
 export function PricingSummaryMetrics({
     totalModels,
     freeModels,
@@ -14,49 +17,29 @@ export function PricingSummaryMetrics({
     medianOutputPrice
 }: PricingSummaryMetricsProps) {
     const stats = [
-        {
-            label: "Total Models",
-            value: String(totalModels),
-            icon: Coins,
-            sub: "in catalog"
-        },
-        {
-            label: "Free Tier",
-            value: String(freeModels),
-            icon: Tag,
-            sub: "zero token cost"
-        },
-        {
-            label: "Median Input",
-            value: medianInputPrice > 0 ? `$${medianInputPrice.toFixed(2)}` : "$0.00",
-            icon: DollarSign,
-            sub: "per 1M tokens"
-        },
-        {
-            label: "Median Output",
-            value: medianOutputPrice > 0 ? `$${medianOutputPrice.toFixed(2)}` : "$0.00",
-            icon: Sparkles,
-            sub: "per 1M tokens"
-        }
-    ];
+        ["Total Models", String(totalModels), "in catalog"],
+        ["Free Tier", String(freeModels), "zero token cost"],
+        ["Median Input", `$${medianInputPrice.toFixed(2)}`, "per 1M tokens"],
+        ["Median Output", `$${medianOutputPrice.toFixed(2)}`, "per 1M tokens"]
+    ] as const;
 
     return (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 font-mono">
-            {stats.map(({ label, value, icon: Icon, sub }) => (
-                <div
-                    key={label}
-                    className="rounded-lg border border-border/80 bg-card p-3 shadow-2xs space-y-1"
-                >
-                    <div className="flex items-center justify-between text-muted-foreground text-[10px] uppercase tracking-wider">
-                        <span>{label}</span>
-                        <Icon className="size-3.5 text-muted-foreground/70" />
-                    </div>
-                    <div className="text-lg font-bold tracking-tight text-foreground tabular-nums">
-                        {value}
-                    </div>
-                    <div className="text-[10px] text-muted-foreground/70 truncate">{sub}</div>
-                </div>
-            ))}
-        </div>
+        <section aria-label="Pricing summary" className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {stats.map(([label, value, description], index) => {
+                const Icon = metricIcons[index];
+                return (
+                    <Card key={label} className="gap-1 rounded-lg p-3 shadow-2xs">
+                        <div className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                            <span>{label}</span>
+                            <Icon aria-hidden="true" className="size-3.5 text-muted-foreground/70" />
+                        </div>
+                        <div className="text-lg font-bold tracking-tight text-foreground tabular-nums">
+                            {value}
+                        </div>
+                        <div className="truncate text-[10px] text-muted-foreground/70">{description}</div>
+                    </Card>
+                );
+            })}
+        </section>
     );
 }

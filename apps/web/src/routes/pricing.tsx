@@ -8,6 +8,10 @@ import { PricingSkeleton } from "@/components/skeletons";
 import { PricingSummaryMetrics } from "@/components/pricing/pricing.metrics";
 import { PricingTable } from "@/components/pricing/pricing.table";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { api } from "@/lib/api";
 import type { PricingListResponse } from "@srouter/types";
 
@@ -128,21 +132,22 @@ function PricingPage() {
 
     if (error || !data) {
         return (
-            <div className="mx-auto w-full max-w-6xl space-y-4 font-mono">
-                <div className="rounded-[12px] border border-rose-500/30 bg-rose-500/10 p-6 text-xs text-rose-500 space-y-2">
-                    <p className="font-bold text-sm">Failed to load pricing catalog</p>
-                    <p className="text-muted-foreground">
+            <Card className="mx-auto w-full max-w-6xl gap-2 border-destructive/30 bg-destructive/10 p-6 font-mono text-xs text-destructive">
+                <EmptyHeader className="items-start">
+                    <EmptyTitle className="text-sm">Failed to load pricing catalog</EmptyTitle>
+                    <EmptyDescription>
                         {error instanceof Error ? error.message : "Unknown error"}
-                    </p>
-                    <Button
-                        type="button"
-                        onClick={() => void handleRefresh()}
-                        className="mt-2 text-xs bg-foreground text-background cursor-pointer"
-                    >
-                        Try Again
-                    </Button>
-                </div>
-            </div>
+                    </EmptyDescription>
+                </EmptyHeader>
+                <Button
+                    type="button"
+                    variant="destructive"
+                    onClick={() => void handleRefresh()}
+                    className="mt-2 text-xs"
+                >
+                    Try Again
+                </Button>
+            </Card>
         );
     }
 
@@ -185,21 +190,19 @@ function PricingPage() {
             <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center justify-between">
                 <div className="relative flex-1 max-w-md">
                     <Search className="absolute left-2.5 top-2.5 size-3.5 text-muted-foreground" />
-                    <input
+                    <Input
                         type="text"
                         placeholder="Search model ID or name..."
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        className="w-full h-8 pl-8 pr-3 text-xs bg-background border border-border/80 rounded-md focus:outline-none focus:border-foreground/50 transition-colors"
                     />
                 </div>
 
                 <div className="flex items-center gap-2 flex-wrap">
                     {/* Provider Select */}
-                    <select
+                    <Select
                         value={providerFilter}
                         onChange={(e) => setProviderFilter(e.target.value)}
-                        className="h-8 px-2.5 text-xs bg-background border border-border/80 rounded-md text-foreground focus:outline-none"
                     >
                         <option value="all">All Providers ({providers.length})</option>
                         {providers.map((p) => (
@@ -207,9 +210,9 @@ function PricingPage() {
                                 {p}
                             </option>
                         ))}
-                    </select>
+                    </Select>
 
-                    <select
+                    <Select
                         value={familyFilter}
                         onChange={(e) => setFamilyFilter(e.target.value)}
                         className="h-8 px-2.5 text-xs bg-background border border-border/80 rounded-md text-foreground focus:outline-none"
@@ -220,10 +223,10 @@ function PricingPage() {
                                 {family}
                             </option>
                         ))}
-                    </select>
+                    </Select>
 
                     {/* Modality Filter */}
-                    <select
+                    <Select
                         value={modalityFilter}
                         onChange={(e) => setModalityFilter(e.target.value)}
                         className="h-8 px-2.5 text-xs bg-background border border-border/80 rounded-md text-foreground focus:outline-none"
@@ -233,10 +236,10 @@ function PricingPage() {
                         <option value="audio">Audio</option>
                         <option value="video">Video</option>
                         <option value="pdf">PDF / Document</option>
-                    </select>
+                    </Select>
 
                     {/* Feature Filter */}
-                    <select
+                    <Select
                         value={featureFilter}
                         onChange={(e) => setFeatureFilter(e.target.value)}
                         className="h-8 px-2.5 text-xs bg-background border border-border/80 rounded-md text-foreground focus:outline-none"
@@ -246,7 +249,7 @@ function PricingPage() {
                         <option value="reasoning">Reasoning Models</option>
                         <option value="tool_call">Tool Calling</option>
                         <option value="open_weights">Open Weights</option>
-                    </select>
+                    </Select>
                 </div>
             </div>
 
