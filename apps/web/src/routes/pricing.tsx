@@ -21,6 +21,7 @@ function PricingPage() {
     const { data, isLoading, error } = usePricing();
     const [search, setSearch] = useState("");
     const [providerFilter, setProviderFilter] = useState("all");
+    const [familyFilter, setFamilyFilter] = useState("all");
     const [modalityFilter, setModalityFilter] = useState("all");
     const [featureFilter, setFeatureFilter] = useState("all");
     const [isManualRefreshing, setIsManualRefreshing] = useState(false);
@@ -29,7 +30,7 @@ function PricingPage() {
         setIsManualRefreshing(true);
         try {
             const freshData = await api.get<PricingListResponse>("/v1/pricing/models?refresh=true");
-            queryClient.setQueryData(["pricing", "models", { forceRefresh: false }], freshData);
+            queryClient.setQueryData(["pricing", "models"], freshData);
             toast.success("Pricing catalog refreshed", {
                 description: "Loaded fresh model dataset from server."
             });
@@ -50,6 +51,12 @@ function PricingPage() {
         return Array.from(set).sort();
     }, [models]);
 
+    const families = useMemo(() => {
+        const set = new Set<string>();
+        for (const model of models) set.add(model.family || "Other");
+        return Array.from(set).sort();
+    }, [models]);
+
     const filteredModels = useMemo(() => {
         const q = search.trim().toLowerCase();
         return models.filter((item) => {
@@ -64,18 +71,15 @@ function PricingPage() {
                 return false;
             }
 
-            if (modalityFilter === "image") {
-                const hasImageIn = item.modalities?.input?.includes("image");
-                const hasImageOut = item.modalities?.output?.includes("image");
-                if (!hasImageIn && !hasImageOut) return false;
-            } else if (modalityFilter === "audio") {
-                const hasAudioIn = item.modalities?.input?.includes("audio");
-                const hasAudioOut = item.modalities?.output?.includes("audio");
-                if (!hasAudioIn && !hasAudioOut) return false;
-            } else if (modalityFilter === "video") {
-                const hasVideoIn = item.modalities?.input?.includes("video");
-                const hasVideoOut = item.modalities?.output?.includes("video");
-                if (!hasVideoIn && !hasVideoOut) return false;
+            if (familyFilter !== "all" && (item.family || "Other") !== familyFilter) {
+                return false;
+            }
+
+            if (modalityFilter !== "all") {
+                const hasModality =
+                    item.modalities?.input?.includes(modalityFilter) ||
+                    item.modalities?.output?.includes(modalityFilter);
+                if (!hasModality) return false;
             }
 
             if (featureFilter === "reasoning" && !item.reasoning) return false;
@@ -85,7 +89,7 @@ function PricingPage() {
 
             return true;
         });
-    }, [models, search, providerFilter, modalityFilter, featureFilter]);
+    }, [models, search, providerFilter, familyFilter, modalityFilter, featureFilter]);
 
     // Metrics calculations
     const metrics = useMemo(() => {
@@ -93,19 +97,28 @@ function PricingPage() {
             return { total: 0, free: 0, medianInput: 0, medianOutput: 0 };
         }
 
-        const free = models.filter((m) => m.cost.input === 0 && m.cost.output === 0).length;
-        const inputCosts = models.map((m) => m.cost.input).sort((a, b) => a - b);
-        const outputCosts = models.map((m) => m.cost.output).sort((a, b) => a - b);
-
-        const mid = Math.floor(models.length / 2);
-        const medianInput = inputCosts[mid] ?? 0;
-        const medianOutput = outputCosts[mid] ?? 0;
+        const knownPrices = models.filter(
+            (model) => model.cost.input !== undefined && model.cost.output !== undefined
+        );
+        const free = knownPrices.filter(
+            (model) => model.cost.input === 0 && model.cost.output === 0
+        ).length;
+        const inputCosts = knownPrices.map((model) => model.cost.input ?? 0).sort((a, b) => a - b);
+        const outputCosts = knownPrices
+            .map((model) => model.cost.output ?? 0)
+            .sort((a, b) => a - b);
+        const median = (values: number[]): number => {
+            if (values.length === 0) return 0;
+            const middle = Math.floor(values.length / 2);
+            if (values.length % 2 === 1) return values[middle] ?? 0;
+            return ((values[middle - 1] ?? 0) + (values[middle] ?? 0)) / 2;
+        };
 
         return {
             total: models.length,
             free,
-            medianInput,
-            medianOutput
+            medianInput: median(inputCosts),
+            medianOutput: median(outputCosts)
         };
     }, [models]);
 
@@ -196,6 +209,19 @@ function PricingPage() {
                         ))}
                     </select>
 
+                    <select
+                        value={familyFilter}
+                        onChange={(e) => setFamilyFilter(e.target.value)}
+                        className="h-8 px-2.5 text-xs bg-background border border-border/80 rounded-md text-foreground focus:outline-none"
+                    >
+                        <option value="all">All Families ({families.length})</option>
+                        {families.map((family) => (
+                            <option key={family} value={family}>
+                                {family}
+                            </option>
+                        ))}
+                    </select>
+
                     {/* Modality Filter */}
                     <select
                         value={modalityFilter}
@@ -206,6 +232,7 @@ function PricingPage() {
                         <option value="image">Vision / Image</option>
                         <option value="audio">Audio</option>
                         <option value="video">Video</option>
+                        <option value="pdf">PDF / Document</option>
                     </select>
 
                     {/* Feature Filter */}

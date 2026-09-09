@@ -41,6 +41,7 @@ export function PricingTable({ models }: PricingTableProps) {
                             <th className="py-2.5 px-3 text-right">Input / 1M</th>
                             <th className="py-2.5 px-3 text-right">Output / 1M</th>
                             <th className="py-2.5 px-3 text-right">Cache Read</th>
+                            <th className="py-2.5 px-3 text-right">Reasoning</th>
                             <th className="py-2.5 px-3 text-center">Context / Max Out</th>
                             <th className="py-2.5 px-3 text-center">Modalities (I/O)</th>
                             <th className="py-2.5 px-3 text-center">Features</th>
@@ -48,7 +49,11 @@ export function PricingTable({ models }: PricingTableProps) {
                     </thead>
                     <tbody className="divide-y divide-border/60">
                         {models.map((item) => {
-                            const isFree = item.cost.input === 0 && item.cost.output === 0;
+                            const isFree =
+                                item.cost.input !== undefined &&
+                                item.cost.output !== undefined &&
+                                item.cost.input === 0 &&
+                                item.cost.output === 0;
 
                             return (
                                 <tr
@@ -93,12 +98,18 @@ export function PricingTable({ models }: PricingTableProps) {
                                         {formatRate(item.cost.cache_read)}
                                     </td>
 
+                                    <td className="py-2.5 px-3 text-right tabular-nums whitespace-nowrap text-muted-foreground">
+                                        {formatRate(item.cost.reasoning)}
+                                    </td>
+
                                     {/* Context & Limits */}
                                     <td className="py-2.5 px-3 text-center tabular-nums whitespace-nowrap text-muted-foreground text-[11px]">
-                                        {item.limit?.context ? (
+                                        {item.limit?.context !== undefined ? (
                                             <span>
                                                 {formatTokens(item.limit.context)}
-                                                {item.limit.output ? ` / ${formatTokens(item.limit.output)}` : ""}
+                                                {item.limit.output !== undefined
+                                                    ? ` / ${formatTokens(item.limit.output)}`
+                                                    : ""}
                                             </span>
                                         ) : (
                                             "-"

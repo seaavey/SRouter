@@ -1,4 +1,4 @@
-import { loadModelsDevData, type ModelsDevModel } from "@srouter/pricing";
+import { loadModelsDevData } from "@srouter/pricing";
 import type { ModelPricingItem, PricingListResponse } from "@srouter/types";
 
 export class PricingLogic {
@@ -19,8 +19,6 @@ export class PricingLogic {
             if (!model || typeof model !== "object" || !model.id) continue;
 
             const cost = model.cost;
-            const inputCost = cost?.input ?? 0;
-            const outputCost = cost?.output ?? 0;
 
             const parts = key.split("/");
             const provider = parts.length > 1 ? parts[0] : (model.family || "other");
@@ -41,8 +39,8 @@ export class PricingLogic {
                 release_date: model.release_date,
                 last_updated: model.last_updated,
                 cost: {
-                    input: inputCost,
-                    output: outputCost,
+                    input: cost?.input,
+                    output: cost?.output,
                     cache_read: cost?.cache_read,
                     cache_write: cost?.cache_write,
                     reasoning: cost?.reasoning,

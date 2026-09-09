@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 export const ModelPricingCostSchema = z.object({
-    input: z.number(),
-    output: z.number(),
+    input: z.number().optional(),
+    output: z.number().optional(),
     cache_read: z.number().optional(),
     cache_write: z.number().optional(),
     reasoning: z.number().optional(),
