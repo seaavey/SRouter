@@ -3,11 +3,15 @@ import { useState } from "react";
 const ICON_MAPPING: Record<string, string> = {
     bai: "/icons/providers/bai.svg",
     "b.ai": "/icons/providers/bai.svg",
+    alibaba: "/icons/providers/alibaba.svg",
+    alibabacloud: "/icons/providers/alibaba.svg",
+    "arcee-ai": "/icons/providers/arcee.svg",
+    bytedance: "/icons/providers/bytedance.svg",
+    "bytedance-seed": "/icons/providers/bytedance.svg",
     openai_codex: "/icons/providers/codex.png",
-    openai: "/icons/providers/openai.png",
     gpt: "/icons/providers/openai.png",
     chatgpt: "/icons/providers/openai.png",
-    anthropic: "/icons/providers/anthropic.png",
+    anthropic: "/icons/providers/anthropic.svg",
     claude: "/icons/providers/claude.png",
     antigravity: "/icons/providers/antigravity.png",
     neosantara: "/icons/providers/neosantara.png",
@@ -33,15 +37,31 @@ const ICON_MAPPING: Record<string, string> = {
     "codebuddy-intl": "/icons/providers/codebuddy-intl.png",
     kimi: "/icons/providers/kimi.png",
     grok: "/icons/providers/grok-web.png",
-    xai: "/icons/providers/xai.png",
     gemini: "/icons/providers/gemini.png",
+    google: "/icons/providers/google.svg",
+    ibm: "/icons/providers/ibm.svg",
+    meituan: "/icons/providers/meituan.svg",
+    meta: "/icons/providers/meta.svg",
+    microsoft: "/icons/providers/microsoft.svg",
+    minimax: "/icons/providers/minimax.svg",
     huggingface: "/icons/providers/huggingface.png",
     ollama: "/icons/providers/ollama.png",
-    deepseek: "/icons/providers/deepseek.png",
-    mistral: "/icons/providers/mistral.png",
+    deepseek: "/icons/providers/deepseek.svg",
+    qwen: "/icons/providers/qwen.svg",
+    openai: "/icons/providers/openai.svg",
+    mistral: "/icons/providers/mistral.svg",
     cohere: "/icons/providers/cohere.png",
     replicate: "/icons/providers/replicate.png",
     together: "/icons/providers/together.png",
+    moonshotai: "/icons/providers/moonshotai.svg",
+    nvidia: "/icons/providers/nvidia.svg",
+    perplexity: "/icons/providers/perplexity.svg",
+    stepfun: "/icons/providers/stepfun.svg",
+    tencent: "/icons/providers/tencent.svg",
+    upstage: "/icons/providers/upstage.svg",
+    xiaomi: "/icons/providers/xiaomi.svg",
+    xai: "/icons/providers/xai.svg",
+    zhipuai: "/icons/providers/zhipu.svg",
     siliconflow: "/icons/providers/siliconflow.png",
     opencode: "/icons/providers/opencode.png",
     opencode_zen: "/icons/providers/opencode.png",
@@ -78,7 +98,7 @@ export function ProviderIcon({
         const initial = providerId.trim().charAt(0).toUpperCase() || "P";
         return (
             <div
-                className={`${className} flex items-center justify-center rounded-md bg-secondary text-[10.5px] font-bold text-foreground select-none shrink-0 font-mono`}
+                className={`${className} flex items-center justify-center rounded-md bg-secondary text-[10.5px] font-bold text-foreground select-none shrink-0 font-mono group-data-highlighted/item:bg-accent group-data-highlighted/item:text-accent-foreground`}
                 title={providerId}
             >
                 {initial}
@@ -99,16 +119,25 @@ export function ProviderIcon({
         }
     }
 
-    // 3. Fallback to local `/icons/providers/${id}.png`
     if (!src) {
-        src = `/icons/providers/${id.replace(/[^a-z0-9_-]/g, "")}.png`;
+        const initial = providerId.trim().charAt(0).toUpperCase() || "P";
+        return (
+            <div
+                className={`${className} flex items-center justify-center rounded-md bg-secondary text-[10.5px] font-bold text-foreground select-none shrink-0 font-mono group-data-highlighted/item:bg-accent group-data-highlighted/item:text-accent-foreground`}
+                title={providerId}
+            >
+                {initial}
+            </div>
+        );
     }
+
+    const themeAwareClass = src.endsWith(".svg") ? "dark:invert" : "";
 
     return (
         <img
             src={src}
             alt={providerId}
-            className={`${className} rounded object-contain shrink-0`}
+            className={`${className} rounded object-contain shrink-0 ${themeAwareClass}`}
             onError={() => {
                 setHasError(true);
             }}

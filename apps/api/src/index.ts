@@ -11,6 +11,7 @@ import { KeysRouter } from "@/routes/v1/keys.js";
 import { LogsRouter } from "@/routes/v1/logs.js";
 import { MessagesRouter } from "@/routes/v1/messages.js";
 import { ModelsRouter } from "@/routes/v1/models.js";
+import { PricingRouter } from "@/routes/v1/pricing.js";
 import { ProvidersRouter } from "@/routes/v1/providers.js";
 import { QuotaRouter } from "@/routes/v1/quota.js";
 import { SettingsRouter } from "@/routes/v1/settings.js";
@@ -123,6 +124,7 @@ app.get("/v1", (c) => {
 
 // Mount OpenAI & Anthropic v1 API routes
 app.route("/v1", ModelsRouter);
+app.route("/v1", PricingRouter);
 app.route("/v1", adminRoute);
 app.route("/v1", ChatRouter);
 app.route("/v1", MessagesRouter);

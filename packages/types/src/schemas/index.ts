@@ -7,3 +7,4 @@ export * from "./settings.js";
 export * from "./models.js";
 export * from "./admin.js";
 export * from "./images.js";
+export * from "./pricing.js";
