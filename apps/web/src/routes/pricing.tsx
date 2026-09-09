@@ -1,12 +1,28 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, type ComponentType } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Coins, RefreshCw, Search } from "lucide-react";
+import {
+    AudioLines,
+    BadgeDollarSign,
+    Bot,
+    BrainCircuit,
+    Coins,
+    Cpu,
+    FileText,
+    Image,
+    RefreshCw,
+    Search,
+    Unlock,
+    Video,
+    Wrench
+} from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { usePricing } from "@/hooks/usePricing";
-import { PricingSkeleton } from "@/components/skeletons";
+import { useDebounce } from "@/hooks/useDebounce";
+import { PricingSearchSkeleton, PricingSkeleton } from "@/components/skeletons";
 import { PricingSummaryMetrics } from "@/components/pricing/pricing.metrics";
 import { PricingTable } from "@/components/pricing/pricing.table";
+import { ProviderIcon } from "@/components/providers";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
@@ -20,6 +36,120 @@ import {
 } from "@/components/ui/select";
 import { api } from "@/lib/api";
 import type { PricingListResponse } from "@srouter/types";
+
+const modalityLabels: Record<string, string> = {
+    all: "All Modalities",
+    image: "Vision / Image",
+    audio: "Audio",
+    video: "Video",
+    pdf: "PDF / Document"
+};
+
+const featureLabels: Record<string, string> = {
+    all: "All Features",
+    free: "Free Tier Only",
+    reasoning: "Reasoning Models",
+    tool_call: "Tool Calling",
+    open_weights: "Open Weights"
+};
+
+const filterLabelOverrides: Record<string, string> = {
+    "ai-singapore": "AI Singapore",
+    "arcee-ai": "Arcee AI",
+    alibaba: "Alibaba",
+    anthropic: "Anthropic",
+    "bytedance-seed": "ByteDance Seed",
+    cohere: "Cohere",
+    deepinfra: "DeepInfra",
+    deepreinforce: "DeepReinforce",
+    deepseek: "DeepSeek",
+    google: "Google",
+    ibm: "IBM"
+};
+
+function formatFilterLabel(value: string): string {
+    const override = filterLabelOverrides[value];
+    if (override) return override;
+
+    return value
+        .split(/[-_]/)
+        .map((word) => {
+            if (word.toLowerCase() === "ai") return "AI";
+            return word ? `${word[0].toUpperCase()}${word.slice(1)}` : word;
+        })
+        .join(" ");
+}
+
+function ProviderFilterLabel({ providerId }: { providerId: string }) {
+    return (
+        <span className="flex min-w-0 items-center gap-2">
+            <ProviderIcon providerId={providerId} className="size-4" />
+            <span className="truncate">{formatFilterLabel(providerId)}</span>
+        </span>
+    );
+}
+
+const familyIcons: Array<[string, ComponentType<{ className?: string }>]> = [
+    ["claude", Bot],
+    ["gemini", Bot],
+    ["gpt", Bot],
+    ["llama", Bot],
+    ["qwen", Bot],
+    ["deepseek-thinking", BrainCircuit],
+    ["reasoning", BrainCircuit],
+    ["image", Image],
+    ["audio", AudioLines],
+    ["whisper", AudioLines]
+];
+
+function getFamilyIcon(family: string): ComponentType<{ className?: string }> {
+    const normalized = family.toLowerCase();
+    return familyIcons.find(([prefix]) => normalized.includes(prefix))?.[1] ?? Cpu;
+}
+
+function FamilyFilterLabel({ family }: { family: string }) {
+    const Icon = getFamilyIcon(family);
+    return (
+        <span className="flex min-w-0 items-center gap-2">
+            <Icon className="size-4 shrink-0" />
+            <span className="truncate">{formatFilterLabel(family)}</span>
+        </span>
+    );
+}
+
+const modalityIcons = {
+    image: Image,
+    audio: AudioLines,
+    video: Video,
+    pdf: FileText
+};
+
+function ModalityFilterLabel({ modality }: { modality: string }) {
+    const Icon = modalityIcons[modality as keyof typeof modalityIcons];
+    return (
+        <span className="flex min-w-0 items-center gap-2">
+            {Icon && <Icon className="size-4 shrink-0" />}
+            <span className="truncate">{modalityLabels[modality] ?? modality}</span>
+        </span>
+    );
+}
+
+const featureIcons = {
+    free: BadgeDollarSign,
+    reasoning: BrainCircuit,
+    tool_call: Wrench,
+    open_weights: Unlock
+};
+
+function FeatureFilterLabel({ feature }: { feature: string }) {
+    const Icon = featureIcons[feature as keyof typeof featureIcons];
+    return (
+        <span className="flex min-w-0 items-center gap-2">
+            {Icon && <Icon className="size-4 shrink-0" />}
+            <span className="truncate">{featureLabels[feature] ?? feature}</span>
+        </span>
+    );
+}
 
 export const Route = createFileRoute("/pricing")({
     staticData: { title: "List Pricing" },
@@ -35,6 +165,8 @@ function PricingPage() {
     const [modalityFilter, setModalityFilter] = useState("all");
     const [featureFilter, setFeatureFilter] = useState("all");
     const [isManualRefreshing, setIsManualRefreshing] = useState(false);
+    const debouncedSearch = useDebounce(search, 150);
+    const isSearching = search !== debouncedSearch;
 
     const handleRefresh = async () => {
         setIsManualRefreshing(true);
@@ -68,38 +200,40 @@ function PricingPage() {
     }, [models]);
 
     const filteredModels = useMemo(() => {
-        const q = search.trim().toLowerCase();
-        return models.filter((item) => {
-            if (q) {
-                const matchId = item.id.toLowerCase().includes(q);
-                const matchName = item.name.toLowerCase().includes(q);
-                const matchDesc = item.description?.toLowerCase().includes(q);
-                if (!matchId && !matchName && !matchDesc) return false;
-            }
+        const q = debouncedSearch.trim().toLowerCase();
+        return models
+            .filter((item) => {
+                if (q) {
+                    const matchId = item.id.toLowerCase().includes(q);
+                    const matchName = item.name.toLowerCase().includes(q);
+                    const matchDesc = item.description?.toLowerCase().includes(q);
+                    if (!matchId && !matchName && !matchDesc) return false;
+                }
 
-            if (providerFilter !== "all" && item.provider !== providerFilter) {
-                return false;
-            }
+                if (providerFilter !== "all" && item.provider !== providerFilter) {
+                    return false;
+                }
 
-            if (familyFilter !== "all" && (item.family || "Other") !== familyFilter) {
-                return false;
-            }
+                if (familyFilter !== "all" && (item.family || "Other") !== familyFilter) {
+                    return false;
+                }
 
-            if (modalityFilter !== "all") {
-                const hasModality =
-                    item.modalities?.input?.includes(modalityFilter) ||
-                    item.modalities?.output?.includes(modalityFilter);
-                if (!hasModality) return false;
-            }
+                if (modalityFilter !== "all") {
+                    const hasModality =
+                        item.modalities?.input?.includes(modalityFilter) ||
+                        item.modalities?.output?.includes(modalityFilter);
+                    if (!hasModality) return false;
+                }
 
-            if (featureFilter === "reasoning" && !item.reasoning) return false;
-            if (featureFilter === "tool_call" && !item.tool_call) return false;
-            if (featureFilter === "free" && (item.cost.input !== 0 || item.cost.output !== 0)) return false;
-            if (featureFilter === "open_weights" && !item.open_weights) return false;
+                if (featureFilter === "reasoning" && !item.reasoning) return false;
+                if (featureFilter === "tool_call" && !item.tool_call) return false;
+                if (featureFilter === "free" && (item.cost.input !== 0 || item.cost.output !== 0)) return false;
+                if (featureFilter === "open_weights" && !item.open_weights) return false;
 
-            return true;
-        });
-    }, [models, search, providerFilter, familyFilter, modalityFilter, featureFilter]);
+                return true;
+            })
+            .sort((a, b) => a.name.localeCompare(b.name));
+    }, [models, debouncedSearch, providerFilter, familyFilter, modalityFilter, featureFilter]);
 
     // Metrics calculations
     const metrics = useMemo(() => {
@@ -201,6 +335,7 @@ function PricingPage() {
                         placeholder="Search model ID or name..."
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
+                        className="pl-8"
                     />
                 </div>
 
@@ -210,16 +345,22 @@ function PricingPage() {
                         value={providerFilter}
                         onValueChange={(value) => setProviderFilter(value ?? "all")}
                     >
-                        <SelectTrigger className="w-auto text-xs">
-                            <SelectValue placeholder="All Providers" />
+                        <SelectTrigger className="w-40 text-xs">
+                            <SelectValue>
+                                {providerFilter === "all" ? (
+                                    "All Providers"
+                                ) : (
+                                    <ProviderFilterLabel providerId={providerFilter} />
+                                )}
+                            </SelectValue>
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent alignItemWithTrigger={false}>
                             <SelectItem value="all">All Providers ({providers.length})</SelectItem>
-                        {providers.map((p) => (
-                            <SelectItem key={p} value={p}>
-                                {p}
-                            </SelectItem>
-                        ))}
+                            {providers.map((p) => (
+                                <SelectItem key={p} value={p}>
+                                    <ProviderFilterLabel providerId={p} />
+                                </SelectItem>
+                            ))}
                         </SelectContent>
                     </Select>
 
@@ -227,16 +368,18 @@ function PricingPage() {
                         value={familyFilter}
                         onValueChange={(value) => setFamilyFilter(value ?? "all")}
                     >
-                        <SelectTrigger className="w-auto text-xs">
-                            <SelectValue placeholder="All Families" />
+                        <SelectTrigger className="w-36 text-xs">
+                            <SelectValue>
+                                {familyFilter === "all" ? "All Families" : <FamilyFilterLabel family={familyFilter} />}
+                            </SelectValue>
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent alignItemWithTrigger={false}>
                             <SelectItem value="all">All Families ({families.length})</SelectItem>
-                        {families.map((family) => (
-                            <SelectItem key={family} value={family}>
-                                {family}
-                            </SelectItem>
-                        ))}
+                            {families.map((family) => (
+                                <SelectItem key={family} value={family}>
+                                    <FamilyFilterLabel family={family} />
+                                </SelectItem>
+                            ))}
                         </SelectContent>
                     </Select>
 
@@ -245,15 +388,17 @@ function PricingPage() {
                         value={modalityFilter}
                         onValueChange={(value) => setModalityFilter(value ?? "all")}
                     >
-                        <SelectTrigger className="w-auto text-xs">
-                            <SelectValue placeholder="All Modalities" />
+                        <SelectTrigger className="w-36 text-xs">
+                            <SelectValue>
+                                {modalityFilter === "all" ? "All Modalities" : <ModalityFilterLabel modality={modalityFilter} />}
+                            </SelectValue>
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent alignItemWithTrigger={false}>
                             <SelectItem value="all">All Modalities</SelectItem>
-                            <SelectItem value="image">Vision / Image</SelectItem>
-                            <SelectItem value="audio">Audio</SelectItem>
-                            <SelectItem value="video">Video</SelectItem>
-                            <SelectItem value="pdf">PDF / Document</SelectItem>
+                            <SelectItem value="image"><ModalityFilterLabel modality="image" /></SelectItem>
+                            <SelectItem value="audio"><ModalityFilterLabel modality="audio" /></SelectItem>
+                            <SelectItem value="video"><ModalityFilterLabel modality="video" /></SelectItem>
+                            <SelectItem value="pdf"><ModalityFilterLabel modality="pdf" /></SelectItem>
                         </SelectContent>
                     </Select>
 
@@ -262,22 +407,28 @@ function PricingPage() {
                         value={featureFilter}
                         onValueChange={(value) => setFeatureFilter(value ?? "all")}
                     >
-                        <SelectTrigger className="w-auto text-xs">
-                            <SelectValue placeholder="All Features" />
+                        <SelectTrigger className="w-36 text-xs">
+                            <SelectValue>
+                                {featureFilter === "all" ? "All Features" : <FeatureFilterLabel feature={featureFilter} />}
+                            </SelectValue>
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent alignItemWithTrigger={false}>
                             <SelectItem value="all">All Features</SelectItem>
-                            <SelectItem value="free">Free Tier Only</SelectItem>
-                            <SelectItem value="reasoning">Reasoning Models</SelectItem>
-                            <SelectItem value="tool_call">Tool Calling</SelectItem>
-                            <SelectItem value="open_weights">Open Weights</SelectItem>
+                            <SelectItem value="free"><FeatureFilterLabel feature="free" /></SelectItem>
+                            <SelectItem value="reasoning"><FeatureFilterLabel feature="reasoning" /></SelectItem>
+                            <SelectItem value="tool_call"><FeatureFilterLabel feature="tool_call" /></SelectItem>
+                            <SelectItem value="open_weights"><FeatureFilterLabel feature="open_weights" /></SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
             </div>
 
             {/* Data Table */}
-            <PricingTable models={filteredModels} />
+            {isSearching ? (
+                <PricingSearchSkeleton />
+            ) : (
+                <PricingTable models={filteredModels} />
+            )}
         </div>
     );
 }

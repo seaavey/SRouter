@@ -57,3 +57,26 @@ export function PricingSkeleton() {
         </div>
     );
 }
+
+export function PricingSearchSkeleton() {
+    return (
+        <div className="overflow-hidden rounded-lg border border-border/80 bg-card font-mono">
+            <div className="border-b border-border/70 bg-secondary/30 px-3.5 py-3">
+                <Skeleton className="h-3 w-28 rounded" />
+            </div>
+            <div className="divide-y divide-border/60">
+                {Array.from({ length: 8 }).map((_, index) => (
+                    <div key={index} className="flex items-center gap-4 px-3.5 py-3">
+                        <div className="min-w-0 flex-1 space-y-1.5">
+                            <Skeleton className="h-3.5 w-40 max-w-full rounded" />
+                            <Skeleton className="h-2.5 w-28 max-w-full rounded" />
+                        </div>
+                        <Skeleton className="hidden h-3 w-16 rounded sm:block" />
+                        <Skeleton className="hidden h-3 w-16 rounded sm:block" />
+                        <Skeleton className="h-3 w-12 rounded" />
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}

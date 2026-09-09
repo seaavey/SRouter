@@ -6,4 +6,4 @@ export { LogsSkeleton } from "./skeletons.logs";
 export { QuotaSkeleton } from "./skeletons.quota";
 export { SettingsSkeleton } from "./skeletons.settings";
 export { AnalyticsSkeleton } from "./skeletons.analytics";
-export { PricingSkeleton } from "./skeletons.pricing";
+export { PricingSearchSkeleton, PricingSkeleton } from "./skeletons.pricing";

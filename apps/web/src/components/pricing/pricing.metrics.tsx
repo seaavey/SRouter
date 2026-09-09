@@ -1,14 +1,9 @@
-import { Coins, DollarSign, Sparkles, Tag } from "lucide-react";
-import { Card } from "@/components/ui/card";
-
 interface PricingSummaryMetricsProps {
     totalModels: number;
     freeModels: number;
     medianInputPrice: number;
     medianOutputPrice: number;
 }
-
-const metricIcons = [Coins, Tag, DollarSign, Sparkles] as const;
 
 export function PricingSummaryMetrics({
     totalModels,
@@ -17,27 +12,26 @@ export function PricingSummaryMetrics({
     medianOutputPrice
 }: PricingSummaryMetricsProps) {
     const stats = [
-        ["Total Models", String(totalModels), "in catalog"],
-        ["Free Tier", String(freeModels), "zero token cost"],
-        ["Median Input", `$${medianInputPrice.toFixed(2)}`, "per 1M tokens"],
-        ["Median Output", `$${medianOutputPrice.toFixed(2)}`, "per 1M tokens"]
+        ["Models", String(totalModels), "in catalog"],
+        ["Free", String(freeModels), "zero token cost"],
+        ["Input median", `$${medianInputPrice.toFixed(2)}`, "per 1M tokens"],
+        ["Output median", `$${medianOutputPrice.toFixed(2)}`, "per 1M tokens"]
     ] as const;
 
     return (
-        <section aria-label="Pricing summary" className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {stats.map(([label, value, description], index) => {
-                const Icon = metricIcons[index];
+        <section
+            aria-label="Pricing summary"
+            className="grid grid-cols-2 divide-x divide-y divide-border/70 border-y border-border/70 sm:grid-cols-4 sm:divide-y-0"
+        >
+            {stats.map(([label, value, description]) => {
                 return (
-                    <Card key={label} className="gap-1 rounded-lg p-3 shadow-2xs">
-                        <div className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                            <span>{label}</span>
-                            <Icon aria-hidden="true" className="size-3.5 text-muted-foreground/70" />
+                    <div key={label} className="min-w-0 px-3 py-2.5 first:pl-0 sm:px-4 sm:first:pl-0">
+                        <div className="text-[10px] text-muted-foreground">{label}</div>
+                        <div className="mt-0.5 flex items-baseline gap-2">
+                            <span className="text-lg font-bold tracking-tight text-foreground tabular-nums">{value}</span>
+                            <span className="hidden truncate text-[10px] text-muted-foreground/70 lg:inline">{description}</span>
                         </div>
-                        <div className="text-lg font-bold tracking-tight text-foreground tabular-nums">
-                            {value}
-                        </div>
-                        <div className="truncate text-[10px] text-muted-foreground/70">{description}</div>
-                    </Card>
+                    </div>
                 );
             })}
         </section>

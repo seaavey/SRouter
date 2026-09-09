@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import type { ModelPricingItem } from "@srouter/types";
 import { Coins } from "lucide-react";
 import { CapabilityIcons, ModalityIcons } from "./pricing.icons";
@@ -16,6 +17,14 @@ import {
     TableHeader,
     TableRow
 } from "@/components/ui/table";
+import {
+    Pagination,
+    PaginationContent,
+    PaginationItem,
+    PaginationLink,
+    PaginationNext,
+    PaginationPrevious
+} from "@/components/ui/pagination";
 
 interface PricingTableProps {
     models: ModelPricingItem[];
@@ -35,13 +44,36 @@ function formatTokens(count?: number): string {
     return String(count);
 }
 
+function getPaginationItems(currentPage: number, pageCount: number): Array<number | "ellipsis"> {
+    if (pageCount <= 4) {
+        return Array.from({ length: pageCount }, (_, index) => index);
+    }
+
+    if (currentPage <= 1) {
+        return [0, 1, 2, "ellipsis"];
+    }
+
+    if (currentPage >= pageCount - 2) {
+        return [0, "ellipsis", pageCount - 3, pageCount - 2, pageCount - 1];
+    }
+
+    return [0, "ellipsis", currentPage - 1, currentPage, currentPage + 1, "ellipsis"];
+}
+
 export function PricingTable({ models }: PricingTableProps) {
+    const [pageIndex, setPageIndex] = useState(0);
+    const [pageSize, setPageSize] = useState(25);
+
+    useEffect(() => {
+        setPageIndex(0);
+    }, [models]);
+
     if (models.length === 0) {
         return (
-            <Empty className="rounded-lg border border-dashed border-border/70 bg-card/60 p-12">
+            <Empty className="min-h-56 rounded-lg border border-dashed border-border/70 bg-card/60 p-12">
                 <EmptyHeader>
-                    <EmptyMedia variant="icon">
-                        <Coins className="text-muted-foreground/60" />
+                    <EmptyMedia className="mb-1 size-10 rounded-md border border-border/70 bg-secondary/50 text-muted-foreground">
+                        <Coins className="size-5" />
                     </EmptyMedia>
                     <EmptyTitle>No models match your filters</EmptyTitle>
                     <EmptyDescription>Try broadening your search or adjusting filters.</EmptyDescription>
@@ -50,8 +82,16 @@ export function PricingTable({ models }: PricingTableProps) {
         );
     }
 
+    const pageCount = Math.ceil(models.length / pageSize);
+    const currentPage = Math.min(pageIndex, pageCount - 1);
+    const startRow = currentPage * pageSize;
+    const visibleModels = models.slice(startRow, startRow + pageSize);
+    const endRow = Math.min(startRow + visibleModels.length, models.length);
+    const pageItems = getPaginationItems(currentPage, pageCount);
+
     return (
-        <div className="overflow-hidden rounded-lg border border-border/80 bg-card font-mono shadow-2xs">
+        <div className="space-y-3">
+            <div className="overflow-hidden rounded-lg border border-border/80 bg-card font-mono shadow-2xs">
             <Table className="border-collapse">
                 <TableHeader>
                     <TableRow className="text-[11px] uppercase tracking-wider">
@@ -66,7 +106,7 @@ export function PricingTable({ models }: PricingTableProps) {
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {models.map((item) => {
+                    {visibleModels.map((item) => {
                         const isFree = item.cost.input === 0 && item.cost.output === 0;
                         return (
                             <TableRow key={item.id}>
@@ -124,7 +164,70 @@ export function PricingTable({ models }: PricingTableProps) {
                         );
                     })}
                 </TableBody>
-            </Table>
+                </Table>
+            </div>
+
+            <div className="flex flex-col gap-3 px-1 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    Showing <span className="font-semibold text-foreground">{startRow + 1}-{endRow}</span> of{" "}
+                    <span className="font-semibold text-foreground">{models.length}</span> models
+                </div>
+
+                <div className="flex items-center gap-3 self-end sm:self-auto">
+                    <label className="flex items-center gap-1.5">
+                        <span>Rows:</span>
+                        <select
+                            value={pageSize}
+                            onChange={(event) => {
+                                setPageSize(Number(event.target.value));
+                                setPageIndex(0);
+                            }}
+                            className="rounded border border-border/80 bg-card px-2 py-0.5 text-xs text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50"
+                        >
+                            <option value={25}>25</option>
+                            <option value={50}>50</option>
+                            <option value={100}>100</option>
+                        </select>
+                    </label>
+
+                    <Pagination className="mx-0 w-auto">
+                        <PaginationContent>
+                            <PaginationItem>
+                                <PaginationPrevious
+                                    onClick={() => setPageIndex((page) => Math.max(0, page - 1))}
+                                    disabled={currentPage === 0}
+                                />
+                            </PaginationItem>
+                            {pageItems.map((item, index) =>
+                                item === "ellipsis" ? (
+                                    <PaginationItem key={`ellipsis-${index}`}>
+                                        <span className="flex size-7 items-center justify-center text-muted-foreground">
+                                            ...
+                                        </span>
+                                    </PaginationItem>
+                                ) : (
+                                    <PaginationItem key={item}>
+                                        <PaginationLink
+                                            type="button"
+                                            isActive={item === currentPage}
+                                            onClick={() => setPageIndex(item)}
+                                            aria-label={`Go to page ${item + 1}`}
+                                        >
+                                            {item + 1}
+                                        </PaginationLink>
+                                    </PaginationItem>
+                                )
+                            )}
+                            <PaginationItem>
+                                <PaginationNext
+                                    onClick={() => setPageIndex((page) => Math.min(pageCount - 1, page + 1))}
+                                    disabled={currentPage === pageCount - 1}
+                                />
+                            </PaginationItem>
+                        </PaginationContent>
+                    </Pagination>
+                </div>
+            </div>
         </div>
     );
 }
