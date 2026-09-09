@@ -1,6 +1,7 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { toast } from "sonner";
 import { APP_VERSION } from "@srouter/constants";
+import { api } from "@/lib/api";
 
 export interface AppSettings {
     // Appearance
@@ -39,6 +40,18 @@ const DEFAULT_SETTINGS: AppSettings = {
 
 const STORAGE_KEY = "srouter_app_settings";
 
+const SERVER_SETTING_KEYS: Partial<Record<keyof AppSettings, string>> = {
+    requestTimeoutSec: "request_timeout_sec",
+    autoRetryOn429: "auto_retry_on_429",
+    maxRetries: "max_retries",
+    retryDelayMs: "retry_delay_ms",
+    tokenRefreshLeadMin: "token_refresh_lead_min",
+    loggingLevel: "logging_level",
+    logRetentionDays: "log_retention_days",
+    recordTokenUsage: "record_token_usage",
+    maskSensitiveHeaders: "mask_sensitive_headers"
+};
+
 export function useSettings() {
     const [settings, setSettings] = useState<AppSettings>(() => {
         if (typeof window === "undefined") return DEFAULT_SETTINGS;
@@ -50,12 +63,49 @@ export function useSettings() {
         }
     });
 
+    useEffect(() => {
+        void api.get<{ settings?: Record<string, string> }>("/v1/settings").then((response) => {
+            const server = response.settings ?? {};
+            const keys = Object.values(SERVER_SETTING_KEYS).filter(
+                (key): key is string => key !== undefined
+            );
+            if (!keys.some((key) => key in server)) {
+                const migrated: Record<string, string> = {};
+                for (const [key, serverKey] of Object.entries(SERVER_SETTING_KEYS)) {
+                    if (serverKey) migrated[serverKey] = String(settings[key as keyof AppSettings]);
+                }
+                void api.patch("/v1/settings", { settings: migrated });
+                return;
+            }
+            const hydrated = { ...settings };
+            for (const [key, serverKey] of Object.entries(SERVER_SETTING_KEYS)) {
+                const value = serverKey ? server[serverKey] : undefined;
+                if (value === undefined) continue;
+                const settingKey = key as keyof AppSettings;
+                const current = settings[settingKey];
+                hydrated[settingKey] = (typeof current === "boolean"
+                    ? value === "true"
+                    : typeof current === "number"
+                      ? Number(value)
+                      : value) as never;
+            }
+            setSettings(hydrated);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(hydrated));
+        }).catch(() => undefined);
+    }, []);
+
     const updateSetting = useCallback(
         <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
             setSettings((prev) => {
                 const updated = { ...prev, [key]: value };
                 try {
                     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+                    const serverKey = SERVER_SETTING_KEYS[key];
+                    if (serverKey) {
+                        void api.patch("/v1/settings", {
+                            settings: { [serverKey]: String(value) }
+                        });
+                    }
                 } catch (e) {
                     console.error("Failed to save settings to localStorage", e);
                 }

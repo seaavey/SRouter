@@ -214,6 +214,22 @@ const TABLES: TableDef[] = [
             { name: "created_at", definition: "INTEGER NOT NULL" },
             { name: "PRIMARY KEY (provider_id, model_id)", definition: "" }
         ]
+    },
+    {
+        name: "hidden_models",
+        columns: [
+            { name: "provider_id", definition: "TEXT NOT NULL" },
+            { name: "model_id", definition: "TEXT NOT NULL" },
+            { name: "created_at", definition: "INTEGER NOT NULL" },
+            { name: "PRIMARY KEY (provider_id, model_id)", definition: "" }
+        ]
+    },
+    {
+        name: "favorite_models",
+        columns: [
+            { name: "model_id", definition: "TEXT PRIMARY KEY" },
+            { name: "created_at", definition: "INTEGER NOT NULL" }
+        ]
     }
 ];
 
@@ -224,7 +240,9 @@ const INDEXES: IndexDef[] = [
     { sql: "CREATE INDEX IF NOT EXISTS idx_request_logs_model ON request_logs(model);" },
     { sql: "CREATE INDEX IF NOT EXISTS idx_fallback_rules_priority ON fallback_rules(priority ASC, created_at ASC);" },
     { sql: "CREATE INDEX IF NOT EXISTS idx_providers_provider_id ON providers(provider_id);" },
-    { sql: "CREATE INDEX IF NOT EXISTS idx_custom_models_provider ON custom_models(provider_id, created_at ASC);" }
+    { sql: "CREATE INDEX IF NOT EXISTS idx_custom_models_provider ON custom_models(provider_id, created_at ASC);" },
+    { sql: "CREATE INDEX IF NOT EXISTS idx_hidden_models_provider ON hidden_models(provider_id, created_at ASC);" },
+    { sql: "CREATE INDEX IF NOT EXISTS idx_favorite_models_created ON favorite_models(created_at ASC);" }
 ];
 
 const ADMIN_TABLES = (pg: boolean) => {

@@ -47,7 +47,10 @@ function ProviderDetailPage() {
         deleteMutation,
         toggleRoundRobinMutation,
         addModelMutation,
-        deleteModelMutation
+        deleteModelMutation,
+        hiddenModelIds,
+        hideModelMutation,
+        restoreModelMutation
     } = useProvider(providerId);
 
     const [modelSearch, setModelSearch] = useState("");
@@ -59,47 +62,21 @@ function ProviderDetailPage() {
     const { copied, copy } = useCopy();
     const { isFavorite } = useFavorites();
 
-    const storageKey = `srouter_deleted_models_${providerId}`;
-    const [deletedModelIds, setDeletedModelIds] = useState<string[]>(() => {
-        try {
-            const saved = localStorage.getItem(storageKey);
-            return saved ? JSON.parse(saved) : [];
-        } catch {
-            return [];
-        }
-    });
+    const deletedModelIds = hiddenModelIds;
 
     const handleRestoreModel = (modelId: string) => {
-        setDeletedModelIds((prev) => {
-            const updated = prev.filter((id) => id !== modelId);
-            try {
-                localStorage.setItem(storageKey, JSON.stringify(updated));
-            } catch {}
-            return updated;
-        });
+        restoreModelMutation.mutate(modelId);
         toast.success(`Model "${modelId}" restored`);
     };
 
     const handleRestoreMultiple = (modelIds: string[]) => {
         const removeSet = new Set(modelIds);
-        setDeletedModelIds((prev) => {
-            const updated = prev.filter((id) => !removeSet.has(id));
-            try {
-                localStorage.setItem(storageKey, JSON.stringify(updated));
-            } catch {}
-            return updated;
-        });
+        for (const modelId of modelIds) restoreModelMutation.mutate(modelId);
         toast.success(`Restored ${modelIds.length} hidden model${modelIds.length > 1 ? "s" : ""}`);
     };
 
     const handleDeleteModel = (modelId: string) => {
-        setDeletedModelIds((prev) => {
-            const updated = prev.includes(modelId) ? prev : [...prev, modelId];
-            try {
-                localStorage.setItem(storageKey, JSON.stringify(updated));
-            } catch {}
-            return updated;
-        });
+        hideModelMutation.mutate(modelId);
         toast.info(`Model "${modelId}" hidden from list`, {
             action: {
                 label: "Undo",
@@ -109,14 +86,7 @@ function ProviderDetailPage() {
     };
 
     const handleDeleteMultipleModels = (modelIds: string[]) => {
-        setDeletedModelIds((prev) => {
-            const set = new Set([...prev, ...modelIds]);
-            const updated = Array.from(set);
-            try {
-                localStorage.setItem(storageKey, JSON.stringify(updated));
-            } catch {}
-            return updated;
-        });
+        for (const modelId of modelIds) hideModelMutation.mutate(modelId);
         toast.info(`Hidden ${modelIds.length} model${modelIds.length > 1 ? "s" : ""} from list`, {
             action: {
                 label: "Undo",
@@ -127,10 +97,7 @@ function ProviderDetailPage() {
 
     const handleRestoreAllModels = () => {
         const count = deletedModelIds.length;
-        setDeletedModelIds([]);
-        try {
-            localStorage.removeItem(storageKey);
-        } catch {}
+        for (const modelId of deletedModelIds) restoreModelMutation.mutate(modelId);
         toast.success(`Restored ${count} hidden model${count > 1 ? "s" : ""}`);
     };
 
