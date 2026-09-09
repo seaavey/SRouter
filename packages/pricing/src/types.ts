@@ -46,6 +46,7 @@ export interface ModelsDevModel {
         output?: string[];
     };
     open_weights?: boolean;
+    structured_output?: boolean;
     cost?: ModelsDevModelCost;
     limit?: {
         context?: number;

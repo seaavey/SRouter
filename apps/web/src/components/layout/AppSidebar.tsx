@@ -29,7 +29,8 @@ import {
 const mainNavItems = [
     { to: "/", label: "Dashboard", icon: LayoutDashboard },
     { to: "/keys", label: "API Keys", icon: KeyRound },
-    { to: "/providers", label: "Providers", icon: Boxes }
+    { to: "/providers", label: "Providers", icon: Boxes },
+    { to: "/pricing", label: "List Pricing", icon: Coins }
 ] as const;
 
 const routingNavItems = [
