@@ -32,30 +32,31 @@ export function KeySecretModal({ new_key, onClose }: KeySecretModalProps) {
 
     return (
         <Dialog open={Boolean(new_key)} onOpenChange={(open) => !open && onClose()}>
-            <DialogContent className="w-[calc(100vw-1.5rem)] sm:max-w-md bg-card border-border/80 p-0 overflow-hidden flex flex-col shadow-lg font-mono">
-                <DialogHeader className="px-4 sm:px-5 py-3.5 sm:py-4 border-b border-border/60 bg-secondary/15 shrink-0 text-left">
-                    <DialogTitle className="text-xs sm:text-sm font-bold tracking-tight text-foreground uppercase">
-                        Save Your API Key
+            <DialogContent className="w-[calc(100vw-1.5rem)] sm:max-w-md bg-canvas border border-hairline-soft rounded-3xl p-0 overflow-hidden flex flex-col shadow-none font-sans">
+                <DialogHeader className="px-6 py-5 border-b border-hairline-soft bg-canvas shrink-0 text-left">
+                    <DialogTitle className="text-base font-[650] tracking-tight text-ink font-sans">
+                        Save Your API Key.
                     </DialogTitle>
-                    <DialogDescription className="text-[10.5px] sm:text-[11px] text-muted-foreground leading-tight mt-0.5">
-                        Copy this secret token now. For security reasons, it will not be shown again.
+                    <DialogDescription className="text-xs text-text-muted font-sans mt-0.5">
+                        Copy this secret token now. For security reasons, it will not be shown
+                        again.
                     </DialogDescription>
                 </DialogHeader>
 
                 {active_key ? (
-                    <div className="p-4 sm:p-5 space-y-4 max-h-[calc(100dvh-12rem)] overflow-y-auto">
-                        <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 flex items-start gap-2.5">
+                    <div className="p-6 space-y-4 max-h-[calc(100dvh-12rem)] overflow-y-auto">
+                        <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 flex items-start gap-3">
                             <AlertCircle className="size-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-                            <div className="text-xs text-amber-600 dark:text-amber-400 leading-relaxed">
+                            <div className="text-xs text-amber-600 dark:text-amber-400 leading-relaxed font-sans">
                                 Store this key securely in your environment variables. If you lose
                                 it, you will need to generate a new key.
                             </div>
                         </div>
 
-                        <div className="space-y-1.5">
-                            <div className="flex items-center justify-between text-xs font-medium text-foreground">
-                                <span className="font-mono font-semibold">{active_key.name}</span>
-                                <span className="font-mono text-[10px] text-muted-foreground">
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between text-xs font-medium text-ink">
+                                <span className="font-sans font-semibold">{active_key.name}</span>
+                                <span className="font-mono text-[10px] text-text-muted">
                                     {active_key.id}
                                 </span>
                             </div>
@@ -64,14 +65,14 @@ export function KeySecretModal({ new_key, onClose }: KeySecretModalProps) {
                                     type="text"
                                     readOnly
                                     value={active_key.key}
-                                    className="w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-xs text-foreground select-all focus:outline-none"
+                                    className="w-full rounded-2xl border-0 bg-field px-4 py-2.5 font-mono text-xs text-ink select-all focus:outline-none shadow-none"
                                 />
                                 <Button
                                     type="button"
                                     onClick={() =>
                                         void copy(active_key.key, "API key copied to clipboard")
                                     }
-                                    className="h-8.5 px-3.5 text-xs font-semibold shrink-0 cursor-pointer shadow-xs gap-1.5 w-full sm:w-auto"
+                                    className="h-9 rounded-full px-4 text-xs font-semibold shrink-0 cursor-pointer shadow-none gap-1.5 w-full sm:w-auto"
                                 >
                                     {copied === active_key.key ? (
                                         <>
@@ -91,19 +92,19 @@ export function KeySecretModal({ new_key, onClose }: KeySecretModalProps) {
                         {(active_key.credit_limit > 0 ||
                             active_key.quota_limit > 0 ||
                             active_key.rate_limit > 0) && (
-                            <div className="flex flex-wrap gap-1.5 text-[10.5px] font-mono text-muted-foreground pt-1">
+                            <div className="flex flex-wrap gap-2 text-xs font-mono text-text-muted pt-1">
                                 {active_key.credit_limit > 0 && (
-                                    <span className="rounded border border-border/70 bg-secondary/40 px-2 py-0.5 text-foreground font-semibold">
+                                    <span className="rounded-full border border-hairline-soft bg-canvas-soft px-3 py-1 text-ink font-semibold">
                                         Credit: ${active_key.credit_limit.toFixed(2)} USD
                                     </span>
                                 )}
                                 {active_key.quota_limit > 0 && (
-                                    <span className="rounded border border-border/60 bg-secondary/40 px-2 py-0.5">
+                                    <span className="rounded-full border border-hairline-soft bg-canvas-soft px-3 py-1">
                                         Quota: {active_key.quota_limit.toLocaleString()} tokens
                                     </span>
                                 )}
                                 {active_key.rate_limit > 0 && (
-                                    <span className="rounded border border-border/60 bg-secondary/40 px-2 py-0.5">
+                                    <span className="rounded-full border border-hairline-soft bg-canvas-soft px-3 py-1">
                                         Rate: {active_key.rate_limit.toLocaleString()} req/m
                                     </span>
                                 )}
@@ -111,15 +112,15 @@ export function KeySecretModal({ new_key, onClose }: KeySecretModalProps) {
                         )}
 
                         {active_key.allowed_models && active_key.allowed_models.length > 0 ? (
-                            <div className="space-y-1.5">
-                                <span className="block text-xs font-semibold text-foreground">
+                            <div className="space-y-2">
+                                <span className="block text-xs font-medium text-ink font-sans">
                                     Allowed models
                                 </span>
                                 <div className="flex flex-wrap gap-1.5">
                                     {active_key.allowed_models.map((model) => (
                                         <span
                                             key={model}
-                                            className="inline-flex items-center rounded border border-border/60 bg-secondary/40 px-2 py-0.5 font-mono text-[10px] text-foreground"
+                                            className="inline-flex items-center rounded-full border border-hairline-soft bg-canvas-soft px-2.5 py-0.5 font-mono text-xs text-ink"
                                         >
                                             {model}
                                         </span>
@@ -127,18 +128,18 @@ export function KeySecretModal({ new_key, onClose }: KeySecretModalProps) {
                                 </div>
                             </div>
                         ) : (
-                            <p className="text-[10.5px] text-muted-foreground font-mono">
+                            <p className="text-xs text-text-muted font-sans">
                                 This key can access all models.
                             </p>
                         )}
                     </div>
                 ) : null}
 
-                <DialogFooter className="px-4 sm:px-5 py-3 border-t border-border/60 bg-secondary/15 shrink-0 flex items-center justify-end mt-0">
+                <DialogFooter className="px-6 py-4 border-t border-hairline-soft bg-canvas shrink-0 flex items-center justify-end mt-0">
                     <Button
                         type="button"
                         onClick={onClose}
-                        className="w-full sm:w-auto h-8 px-4 text-xs font-semibold cursor-pointer shadow-xs"
+                        className="w-full sm:w-auto h-9 rounded-full px-5 text-xs font-semibold cursor-pointer shadow-none"
                     >
                         Done
                     </Button>

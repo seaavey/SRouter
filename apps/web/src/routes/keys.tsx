@@ -61,31 +61,34 @@ function KeysPage() {
     }
 
     return (
-        <div className="mx-auto flex w-full max-w-[1360px] flex-col gap-8 font-mono">
-            <header className="flex flex-col justify-between gap-5 border-b border-foreground/15 pb-6 sm:flex-row sm:items-end">
+        <div className="mx-auto flex w-full max-w-[1360px] flex-col gap-8 font-sans">
+            <header className="flex flex-col justify-between gap-4 pb-2 sm:flex-row sm:items-end">
                 <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                        <span className="size-1.5 shrink-0 rounded-full bg-foreground" />
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                    <div className="flex items-center gap-2 mb-2">
+                        <span className="size-2 shrink-0 rounded-full bg-ink" />
+                        <p className="font-mono text-xs font-medium uppercase tracking-wider text-text-muted">
                             Access Control
                         </p>
                     </div>
-                    <h1 className="mt-2 text-3xl font-bold tracking-[-0.04em] text-foreground sm:text-4xl">
-                        API Keys
+                    <h1 className="text-3xl md:text-4xl font-[650] tracking-tight text-ink font-sans">
+                        API Keys.
                     </h1>
-                    <p className="mt-1 max-w-2xl text-xs leading-relaxed text-muted-foreground">
-                        Credentials for client SDKs, downstream applications, and automated pipelines.
+                    <p className="mt-1 text-base font-light text-text-muted font-sans">
+                        Credentials for client SDKs, downstream applications, and automated
+                        pipelines.
                     </p>
                 </div>
 
-                <Button
-                    type="button"
-                    onClick={() => setIsCreateOpen(true)}
-                    className="h-9 shrink-0 gap-2 border border-foreground bg-foreground px-3 text-xs font-semibold text-background hover:bg-foreground/90 cursor-pointer"
-                >
-                    <Plus className="size-3.5" />
-                    <span>Create Key</span>
-                </Button>
+                <div className="flex items-center gap-2 self-start sm:self-auto">
+                    <Button
+                        type="button"
+                        onClick={() => setIsCreateOpen(true)}
+                        className="h-10 shrink-0 gap-2 rounded-full px-5 text-sm font-semibold cursor-pointer shadow-none"
+                    >
+                        <Plus className="size-4" />
+                        <span>Create API Key</span>
+                    </Button>
+                </div>
             </header>
 
             <KeyMetrics

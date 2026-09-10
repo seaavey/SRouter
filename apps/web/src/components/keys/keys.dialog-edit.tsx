@@ -31,7 +31,7 @@ export function EditKeyDialog({
         <KeyFormDialog
             open={open && Boolean(active_key)}
             onOpenChange={onOpenChange}
-            title="API Key Details & Settings"
+            title="API Key Details."
             description="View telemetry and configure rate limits, quotas, and model scopes."
             api_key={active_key}
             submitLabel="Save Changes"

@@ -42,7 +42,8 @@ export function ModelSelector({
     const [model_search, setModelSearch] = useState("");
     const [internalPickerOpen, setInternalPickerOpen] = useState(false);
 
-    const is_picker_open = externalPickerOpen !== undefined ? externalPickerOpen : internalPickerOpen;
+    const is_picker_open =
+        externalPickerOpen !== undefined ? externalPickerOpen : internalPickerOpen;
     const setIsPickerOpen = onPickerOpenChange || setInternalPickerOpen;
 
     const { data: model_data, isPending } = useQuery({
@@ -59,10 +60,10 @@ export function ModelSelector({
 
     const scopeButtonClass = (active: boolean) =>
         cn(
-            "rounded-md border px-3 py-2 text-left text-xs transition-colors cursor-pointer",
+            "rounded-2xl border px-3.5 py-2.5 text-left text-xs transition-colors cursor-pointer shadow-none",
             active
-                ? "border-foreground bg-foreground/5 text-foreground font-semibold"
-                : "border-input bg-background text-muted-foreground hover:text-foreground"
+                ? "border-ink bg-canvas text-ink font-semibold"
+                : "border-hairline-soft bg-field text-text-muted hover:text-ink hover:bg-canvas-soft"
         );
 
     const handleSelectScope = (value: ModelScope) => {
@@ -73,14 +74,16 @@ export function ModelSelector({
     };
 
     return (
-        <div className="space-y-2 pt-1">
+        <div className="space-y-2 pt-1 font-sans">
             <div className="flex items-center justify-between">
-                <Label className="block text-xs font-medium text-foreground">Allowed models</Label>
+                <Label className="block text-xs font-medium text-ink font-sans">
+                    Allowed models
+                </Label>
                 {scope === "restricted" ? (
                     <button
                         type="button"
                         onClick={() => setIsPickerOpen(true)}
-                        className="inline-flex items-center gap-1.5 text-[11px] font-mono text-foreground hover:underline cursor-pointer"
+                        className="inline-flex items-center gap-1.5 text-xs font-mono text-ink hover:underline cursor-pointer"
                     >
                         <SlidersHorizontal className="size-3" />
                         <span>Manage ({selected_models.length})</span>
@@ -99,25 +102,27 @@ export function ModelSelector({
                         <div className="flex items-center justify-between">
                             <span>{title}</span>
                             {value === "restricted" && selected_models.length > 0 ? (
-                                <span className="rounded border border-emerald-500/30 bg-emerald-500/5 px-1.5 py-0.2 text-[10px] font-mono font-normal text-emerald-600 opacity-90 dark:text-emerald-400">
+                                <span className="rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-mono font-medium text-accent">
                                     {selected_models.length}
                                 </span>
                             ) : null}
                         </div>
-                        <span className="block text-[10px] font-normal opacity-70 mt-0.5">{desc}</span>
+                        <span className="block text-[10px] font-normal opacity-70 mt-0.5">
+                            {desc}
+                        </span>
                     </button>
                 ))}
             </div>
 
             {scope === "restricted" ? (
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-md border border-border/70 bg-background/50 p-2.5 text-xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-2xl border border-hairline-soft bg-canvas-soft/60 p-3 text-xs">
                     <div className="min-w-0">
-                        <div className="font-mono text-xs text-foreground font-medium truncate">
+                        <div className="font-mono text-xs text-ink font-medium truncate">
                             {selected_models.length > 0
                                 ? `${selected_models.length} model${selected_models.length === 1 ? "" : "s"} whitelisted`
                                 : "No models selected (unrestricted)"}
                         </div>
-                        <div className="text-[10px] text-muted-foreground font-mono mt-0.5">
+                        <div className="text-[10px] text-text-muted font-sans mt-0.5">
                             {selected_models.length > 0
                                 ? "Downstream calls limited to this pool"
                                 : "Click choose models to restrict access"}
@@ -128,7 +133,7 @@ export function ModelSelector({
                         variant="outline"
                         size="sm"
                         onClick={() => setIsPickerOpen(true)}
-                        className="h-7.5 px-3 text-[11px] font-mono shrink-0 cursor-pointer shadow-2xs w-full sm:w-auto"
+                        className="h-8 px-4 text-xs font-sans rounded-full shrink-0 cursor-pointer shadow-none w-full sm:w-auto"
                     >
                         Choose Models
                     </Button>
@@ -138,37 +143,37 @@ export function ModelSelector({
             {/* Standalone fallback dialog only if NOT controlled by split card parent */}
             {externalPickerOpen === undefined && is_picker_open ? (
                 <Dialog open={is_picker_open} onOpenChange={setIsPickerOpen}>
-                    <DialogContent className="sm:max-w-md bg-card border-border p-4 sm:p-6 max-h-[calc(100dvh-2.5rem)] flex flex-col font-mono">
+                    <DialogContent className="sm:max-w-md bg-canvas border border-hairline-soft rounded-3xl p-6 max-h-[calc(100dvh-2.5rem)] flex flex-col font-sans shadow-none">
                         <DialogHeader className="space-y-1 text-left shrink-0">
-                            <div className="flex items-center gap-2">
-                                <div className="flex size-7 items-center justify-center rounded-md bg-secondary text-foreground">
-                                    <Cpu className="size-3.5" />
+                            <div className="flex items-center gap-2.5">
+                                <div className="flex size-8 items-center justify-center rounded-full bg-canvas-soft text-ink">
+                                    <Cpu className="size-4" />
                                 </div>
-                                <DialogTitle className="text-base font-semibold text-foreground">
-                                    Select Allowed Models
+                                <DialogTitle className="text-base font-[650] tracking-tight text-ink font-sans">
+                                    Select Allowed Models.
                                 </DialogTitle>
                             </div>
-                            <DialogDescription className="text-xs text-muted-foreground leading-relaxed">
-                                Restrict this API key to specific models. If none selected, the key will allow all models.
+                            <DialogDescription className="text-xs text-text-muted leading-relaxed font-sans">
+                                Restrict this API key to specific models. If none selected, the key
+                                will allow all models.
                             </DialogDescription>
                         </DialogHeader>
 
-                        <div className="space-y-3 pt-2 flex-1 min-h-0 flex flex-col">
+                        <div className="space-y-3 pt-3 flex-1 min-h-0 flex flex-col">
                             <div className="relative shrink-0">
-                                <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+                                <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-text-muted" />
                                 <Input
                                     type="text"
                                     value={model_search}
                                     onChange={(e) => setModelSearch(e.target.value)}
                                     placeholder="Search models…"
-                                    className="h-8.5 pl-8 pr-7 font-mono text-xs rounded-md bg-background"
-                                    autoFocus
+                                    className="h-9 pl-9 pr-8 font-mono text-xs rounded-full bg-field border-0 text-ink placeholder:text-text-faint focus-visible:ring-2 focus-visible:ring-ink"
                                 />
                                 {model_search ? (
                                     <button
                                         type="button"
                                         onClick={() => setModelSearch("")}
-                                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xs p-0.5 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-text-muted hover:text-ink transition-colors cursor-pointer"
                                         aria-label="Clear search"
                                     >
                                         <X className="size-3" />
@@ -176,17 +181,17 @@ export function ModelSelector({
                                 ) : null}
                             </div>
 
-                            <div className="flex-1 overflow-y-auto min-h-0 rounded-md border border-border/70 divide-y divide-border/40">
+                            <div className="flex-1 overflow-y-auto min-h-0 rounded-2xl border border-hairline-soft divide-y divide-hairline-soft p-1">
                                 {isPending ? (
-                                    <p className="py-8 text-center font-mono text-xs text-muted-foreground">
+                                    <p className="py-8 text-center font-mono text-xs text-text-muted">
                                         Loading models…
                                     </p>
                                 ) : filteredModels.length === 0 ? (
-                                    <p className="py-8 text-center font-mono text-xs text-muted-foreground">
+                                    <p className="py-8 text-center font-mono text-xs text-text-muted">
                                         No models matched your search.
                                     </p>
                                 ) : (
-                                    <ul className="divide-y divide-border/40">
+                                    <ul className="space-y-0.5">
                                         {filteredModels.map((model) => {
                                             const isSelected = selected_models.includes(model.id);
                                             return (
@@ -195,15 +200,15 @@ export function ModelSelector({
                                                         type="button"
                                                         onClick={() => onToggleModel(model.id)}
                                                         className={cn(
-                                                            "flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left font-mono text-xs transition-colors cursor-pointer",
+                                                            "flex w-full items-center justify-between gap-2 px-3 py-2 rounded-xl text-left font-mono text-xs transition-colors cursor-pointer",
                                                             isSelected
-                                                                ? "bg-emerald-500/5 text-foreground font-medium"
-                                                                : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
+                                                                ? "bg-accent/10 text-ink font-medium border border-accent/20"
+                                                                : "text-text-muted hover:bg-canvas-soft hover:text-ink"
                                                         )}
                                                     >
                                                         <span className="truncate">{model.id}</span>
                                                         {isSelected ? (
-                                                            <Check className="size-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                                                            <Check className="size-3.5 shrink-0 text-accent" />
                                                         ) : null}
                                                     </button>
                                                 </li>
@@ -213,7 +218,7 @@ export function ModelSelector({
                                 )}
                             </div>
 
-                            <div className="flex items-center justify-between text-[11px] text-muted-foreground font-mono shrink-0">
+                            <div className="flex items-center justify-between text-xs text-text-muted font-mono shrink-0">
                                 <span>{selected_models.length} model(s) selected</span>
                                 {model_search ? (
                                     <span>{filteredModels.length} shown</span>
@@ -223,11 +228,11 @@ export function ModelSelector({
                             </div>
                         </div>
 
-                        <DialogFooter className="pt-3 border-t border-border/60 shrink-0 mt-2">
+                        <DialogFooter className="pt-3 border-t border-hairline-soft shrink-0 mt-2">
                             <Button
                                 type="button"
                                 onClick={() => setIsPickerOpen(false)}
-                                className="h-8.5 text-xs font-semibold cursor-pointer w-full sm:w-auto"
+                                className="h-9 rounded-full px-5 text-xs font-semibold cursor-pointer w-full sm:w-auto shadow-none"
                             >
                                 Done
                             </Button>
