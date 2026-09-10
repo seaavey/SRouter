@@ -31,11 +31,11 @@
 - Consumes: Google Fonts / system variable stack for Inter and JetBrains Mono.
 - Produces: CSS variables `--canvas`, `--canvas-soft`, `--field`, `--hairline`, `--hairline-soft`, `--ink`, `--ink-soft`, `--text-muted`, `--text-faint`, `--accent`.
 
-- [ ] **Step 1: Update `apps/web/index.html` to load Inter variable font**
+- [x] **Step 1: Update `apps/web/index.html` to load Inter variable font**
 
 Link Google Fonts preconnect and Inter variable font (`wght@300..700`) in `head` so Inter is immediately accessible across the dashboard alongside JetBrains Mono.
 
-- [ ] **Step 2: Rewrite `apps/web/src/styles.css` with Mobbin theme variables and zero box-shadows**
+- [x] **Step 2: Rewrite `apps/web/src/styles.css` with Mobbin theme variables and zero box-shadows**
 
 Update `@theme` to configure:
 - `--font-sans`: `Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`
@@ -45,12 +45,12 @@ Update `@theme` to configure:
 - Configure `.dark` with inverted monochrome palette: `--canvas: #141414`, `--canvas-soft: #1e1e1e`, `--field: #262626`, `--hairline-soft: #262626`, `--hairline: #333333`, `--ink: #ffffff`, `--accent: #3385ff`.
 - Strip box-shadow defaults.
 
-- [ ] **Step 3: Run web typecheck and build**
+- [x] **Step 3: Run web typecheck and build**
 
 Run: `pnpm --filter web lint && pnpm --filter web build`
 Expected: PASS with 0 errors.
 
-- [ ] **Step 4: Commit Task 1**
+- [x] **Step 4: Commit Task 1**
 
 ```bash
 git add apps/web/index.html apps/web/src/styles.css
@@ -75,7 +75,7 @@ git commit -m "style(web): configure Mobbin design tokens, typography and zero-s
 - Consumes: Design tokens from `styles.css`.
 - Produces: Standardized Mobbin primitives across all pages.
 
-- [ ] **Step 1: Update `button.tsx`**
+- [x] **Step 1: Update `button.tsx`**
 
 Configure `cva` button variants:
 - `default`: `bg-primary text-primary-foreground rounded-full px-5 h-10 font-semibold hover:opacity-90 transition-all shadow-none`
@@ -84,17 +84,17 @@ Configure `cva` button variants:
 - `ghost`: `text-ink rounded-full hover:bg-canvas-soft transition-all`
 - `icon`: `rounded-full w-10 h-10 p-0 flex items-center justify-center`
 
-- [ ] **Step 2: Update `input.tsx` and `textarea.tsx`**
+- [x] **Step 2: Update `input.tsx` and `textarea.tsx`**
 
 Set styling to Mobbin field:
 - `bg-field text-ink placeholder:text-text-faint border-0 rounded-2xl px-4 py-2.5 text-sm transition-colors focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-0 focus-visible:outline-none shadow-none`
 
-- [ ] **Step 3: Update `card.tsx`**
+- [x] **Step 3: Update `card.tsx`**
 
 Set Card container to `rounded-3xl border border-hairline-soft bg-canvas text-card-foreground shadow-none`.
 Ensure Header, Content, and Footer use consistent padding (`p-6`).
 
-- [ ] **Step 4: Update `badge.tsx`**
+- [x] **Step 4: Update `badge.tsx`**
 
 Set Badge variants:
 - `default`: `bg-canvas-soft text-ink rounded-full px-3 py-1 text-xs font-semibold border-0 shadow-none`
@@ -102,21 +102,21 @@ Set Badge variants:
 - `accent`: `bg-accent text-white rounded-full px-3 py-1 text-xs font-semibold shadow-none`
 - `destructive`: `bg-red-500/10 text-red-600 dark:text-red-400 rounded-full px-3 py-1 text-xs font-semibold shadow-none`
 
-- [ ] **Step 5: Verify `dialog.tsx` preserves issue #125 fix with Mobbin geometry**
+- [x] **Step 5: Verify `dialog.tsx` preserves issue #125 fix with Mobbin geometry**
 
 Ensure `DialogOverlay` maintains `bg-black/60 supports-backdrop-filter:backdrop-blur-xs` and `DialogContent` uses `bg-canvas border border-hairline-soft rounded-3xl p-6 md:p-8 overflow-y-auto max-h-[calc(100dvh-2rem)] shadow-none`.
 
-- [ ] **Step 6: Update `table.tsx` and `switch.tsx`**
+- [x] **Step 6: Update `table.tsx` and `switch.tsx`**
 
 - `table.tsx`: `TableHeader` with `bg-canvas-soft text-text-muted text-xs font-mono uppercase tracking-wider`, `TableRow` with `border-b border-hairline-soft hover:bg-canvas-soft/50`.
 - `switch.tsx`: Stadium pill track with smooth monochrome thumb.
 
-- [ ] **Step 7: Run web typecheck and build**
+- [x] **Step 7: Run web typecheck and build**
 
 Run: `pnpm --filter web lint && pnpm --filter web build`
 Expected: PASS with 0 errors.
 
-- [ ] **Step 8: Commit Task 2**
+- [x] **Step 8: Commit Task 2**
 
 ```bash
 git add apps/web/src/components/ui/
@@ -136,7 +136,7 @@ git commit -m "refactor(ui): update core primitives to Mobbin stadium-pill and z
 - Consumes: `AppSidebar`, `Topbar`, and primitives from Task 2.
 - Produces: Persistent dashboard shell adhering to `ex-app-shell-row`.
 
-- [ ] **Step 1: Refactor `AppSidebar.tsx` to Mobbin `ex-app-shell-row` pattern**
+- [x] **Step 1: Refactor `AppSidebar.tsx` to Mobbin `ex-app-shell-row` pattern**
 
 - Set sidebar container to `bg-canvas border-r border-hairline-soft w-64`.
 - Header: SRouter wordmark in Inter 650 with declarative period ("SRouter.") and version chip (`rounded-full bg-canvas-soft text-xs font-mono`).
@@ -145,22 +145,22 @@ git commit -m "refactor(ui): update core primitives to Mobbin stadium-pill and z
 - Inactive link: `text-text-muted hover:text-ink hover:bg-canvas-soft`.
 - Footer: Gateway connection dot indicator and status text.
 
-- [ ] **Step 2: Refactor `Topbar.tsx`**
+- [x] **Step 2: Refactor `Topbar.tsx`**
 
 - Container: `bg-canvas/80 backdrop-blur-md border-b border-hairline-soft h-16 px-6 flex items-center justify-between`.
 - Title: Dynamic route name in Inter 650 sentence case with period (e.g., "Gateway Overview.").
 - Right controls: Search pill (`bg-field text-ink rounded-full px-4 py-1.5 text-sm flex items-center gap-2`), Theme toggle pill button, and GitHub/Docs link pill.
 
-- [ ] **Step 3: Update `__root.tsx` layout wrapping**
+- [x] **Step 3: Update `__root.tsx` layout wrapping**
 
 Ensure the outer viewport uses `bg-canvas text-ink min-h-screen flex` without conflicting legacy background classes or borders.
 
-- [ ] **Step 4: Run web typecheck and build**
+- [x] **Step 4: Run web typecheck and build**
 
 Run: `pnpm --filter web lint && pnpm --filter web build`
 Expected: PASS with 0 errors.
 
-- [ ] **Step 5: Commit Task 3**
+- [x] **Step 5: Commit Task 3**
 
 ```bash
 git add apps/web/src/components/layout/ apps/web/src/routes/__root.tsx
@@ -182,30 +182,30 @@ git commit -m "refactor(layout): reskin AppSidebar and Topbar to Mobbin app-shel
 - Consumes: Usage stats query and network status API.
 - Produces: Polished Mobbin dashboard homepage with zero logic regressions.
 
-- [ ] **Step 1: Refactor Hero & KPI Cards in `src/routes/index.tsx`**
+- [x] **Step 1: Refactor Hero & KPI Cards in `src/routes/index.tsx`**
 
 - Headline: "Gateway is active." in Inter 650 with `text-3xl md:text-4xl`.
 - 4 KPI Cards: `rounded-3xl border border-hairline-soft bg-canvas p-6`, numbers rendered prominently with tabular figures, metric labels in `text-xs text-text-muted font-medium`.
 
-- [ ] **Step 2: Refactor Gateway Topology & Recent Requests Container**
+- [x] **Step 2: Refactor Gateway Topology & Recent Requests Container**
 
 - Wrap topology map in `rounded-3xl border border-hairline-soft bg-canvas-soft overflow-hidden`.
 - Style recent requests card on `bg-canvas rounded-3xl border border-hairline-soft p-6`:
   - Request row: status dot (green 2xx, red 4xx/5xx), model name, prompt/completion tokens in `font-mono`, elapsed time in `text-xs text-text-faint`.
 
-- [ ] **Step 3: Refactor Model Usage Overview & Table**
+- [x] **Step 3: Refactor Model Usage Overview & Table**
 
 - Update `dashboard.usage-by-model-table.tsx` to follow `ex-data-table-cell`:
   - Header row in `bg-canvas-soft font-mono text-xs uppercase text-text-muted`.
   - Body cells in `font-sans text-sm text-ink`, numeric counts and costs in `font-mono text-xs`.
   - Dividers: 1px `border-hairline-soft`.
 
-- [ ] **Step 4: Run web typecheck and build**
+- [x] **Step 4: Run web typecheck and build**
 
 Run: `pnpm --filter web lint && pnpm --filter web build`
 Expected: PASS with 0 errors.
 
-- [ ] **Step 5: Commit Task 4**
+- [x] **Step 5: Commit Task 4**
 
 ```bash
 git add apps/web/src/routes/index.tsx apps/web/src/components/dashboard/
@@ -227,31 +227,31 @@ git commit -m "feat(dashboard): refactor dashboard overview to Mobbin design sys
 - Consumes: Provider hooks and OAuth mutations.
 - Produces: Clean provider grid with 30% squircle icons and robust connection modals.
 
-- [ ] **Step 1: Refactor Provider Grid & Cards in `src/routes/providers/index.tsx`**
+- [x] **Step 1: Refactor Provider Grid & Cards in `src/routes/providers/index.tsx`**
 
 - Container cards: `rounded-3xl border border-hairline-soft bg-canvas p-6 hover:border-hairline transition-colors`.
 - Provider icon: 30% squircle shape (`rounded-[30%] w-12 h-12 flex items-center justify-center bg-canvas-soft`).
 - Badges: `rounded-full` pills for provider type and active status.
 - Primary CTA: Stadium-pill `button-primary` ("Connect" or "Manage").
 
-- [ ] **Step 2: Verify and style Connection & OAuth Modals**
+- [x] **Step 2: Verify and style Connection & OAuth Modals**
 
 - Apply Mobbin modal chrome (`rounded-3xl bg-canvas border border-hairline-soft p-6 md:p-8`).
 - Maintain isolated primitive dependencies in `useEffect` (preserving fix #125).
 - Input fields for API keys / OAuth credentials: `bg-field rounded-2xl border-0 text-ink focus:ring-2 focus:ring-ink`.
 
-- [ ] **Step 3: Refactor Provider Detail View (`$providerId.tsx`)**
+- [x] **Step 3: Refactor Provider Detail View (`$providerId.tsx`)**
 
 - Header lockup with provider squircle icon, provider name, and status badge pill.
 - Model list table in `ex-data-table-cell` styling with search input pill.
 - Add Model dialog styled as Mobbin modal.
 
-- [ ] **Step 4: Run web typecheck and build**
+- [x] **Step 4: Run web typecheck and build**
 
 Run: `pnpm --filter web lint && pnpm --filter web build`
 Expected: PASS with 0 errors.
 
-- [ ] **Step 5: Commit Task 5**
+- [x] **Step 5: Commit Task 5**
 
 ```bash
 git add apps/web/src/routes/providers/ apps/web/src/components/providers/
