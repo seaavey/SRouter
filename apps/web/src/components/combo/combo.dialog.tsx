@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Brain, Eye, Info, Layers, Search, X } from "lucide-react";
+import { Brain, Eye, Layers, Search, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { ProviderIcon } from "@/components/providers";
 import { ANTIGRAVITY_MODELS, KNOWN_PROVIDERS } from "@srouter/constants";
@@ -32,21 +32,56 @@ const ANTIGRAVITY_STATIC_MODELS: ComboModelItem[] = ANTIGRAVITY_MODELS.map((m) =
 
 const FALLBACK_PROVIDER_MODELS: Record<string, ComboModelItem[]> = {
     openai_codex: [
-        { id: "openai_codex/gpt-4o", name: "GPT-4o", providerId: "openai_codex", providerName: "OpenAI" },
-        { id: "openai_codex/gpt-4o-mini", name: "GPT-4o Mini", providerId: "openai_codex", providerName: "OpenAI" },
+        {
+            id: "openai_codex/gpt-4o",
+            name: "GPT-4o",
+            providerId: "openai_codex",
+            providerName: "OpenAI"
+        },
+        {
+            id: "openai_codex/gpt-4o-mini",
+            name: "GPT-4o Mini",
+            providerId: "openai_codex",
+            providerName: "OpenAI"
+        },
         { id: "openai_codex/o1", name: "o1", providerId: "openai_codex", providerName: "OpenAI" },
-        { id: "openai_codex/o3-mini", name: "o3-mini", providerId: "openai_codex", providerName: "OpenAI" }
+        {
+            id: "openai_codex/o3-mini",
+            name: "o3-mini",
+            providerId: "openai_codex",
+            providerName: "OpenAI"
+        }
     ],
     openai: [
         { id: "openai/gpt-4o", name: "GPT-4o", providerId: "openai", providerName: "OpenAI" },
-        { id: "openai/gpt-4o-mini", name: "GPT-4o Mini", providerId: "openai", providerName: "OpenAI" },
+        {
+            id: "openai/gpt-4o-mini",
+            name: "GPT-4o Mini",
+            providerId: "openai",
+            providerName: "OpenAI"
+        },
         { id: "openai/o1", name: "o1", providerId: "openai", providerName: "OpenAI" },
         { id: "openai/o3-mini", name: "o3-mini", providerId: "openai", providerName: "OpenAI" }
     ],
     anthropic: [
-        { id: "anthropic/claude-3-7-sonnet", name: "Claude 3.7 Sonnet (Thinking)", providerId: "anthropic", providerName: "Anthropic" },
-        { id: "anthropic/claude-3-5-sonnet", name: "Claude 3.5 Sonnet", providerId: "anthropic", providerName: "Anthropic" },
-        { id: "anthropic/claude-3-5-haiku", name: "Claude 3.5 Haiku", providerId: "anthropic", providerName: "Anthropic" }
+        {
+            id: "anthropic/claude-3-7-sonnet",
+            name: "Claude 3.7 Sonnet (Thinking)",
+            providerId: "anthropic",
+            providerName: "Anthropic"
+        },
+        {
+            id: "anthropic/claude-3-5-sonnet",
+            name: "Claude 3.5 Sonnet",
+            providerId: "anthropic",
+            providerName: "Anthropic"
+        },
+        {
+            id: "anthropic/claude-3-5-haiku",
+            name: "Claude 3.5 Haiku",
+            providerId: "anthropic",
+            providerName: "Anthropic"
+        }
     ]
 };
 
@@ -223,48 +258,49 @@ export default function ComboModelPickerModal({
 
     return (
         <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4 sm:p-6"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 sm:p-6"
             onClick={onClose}
         >
             <div
-                className="relative flex flex-col w-full max-w-xl max-h-[85vh] rounded-lg border border-border/80 bg-card text-foreground shadow-xl overflow-hidden font-mono"
+                className="relative flex flex-col w-full max-w-xl max-h-[85vh] rounded-3xl border border-hairline-soft bg-canvas text-ink shadow-none overflow-hidden font-sans"
                 onClick={(e) => e.stopPropagation()}
             >
-                <div className="flex items-center justify-between border-b border-border/80 px-4 py-3 bg-secondary/30">
-                    <h3 className="text-sm font-bold text-foreground">Select Cascade Models</h3>
+                <div className="flex items-center justify-between border-b border-hairline-soft px-6 py-5 bg-canvas-soft/30">
+                    <h3 className="text-base font-semibold text-ink font-sans">
+                        Select Cascade Models
+                    </h3>
                     <button
                         type="button"
                         onClick={onClose}
-                        className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer"
+                        className="size-8 inline-flex items-center justify-center rounded-full text-text-muted hover:text-ink hover:bg-canvas-soft transition-colors cursor-pointer"
                     >
                         <X className="size-4" />
                     </button>
                 </div>
 
-                <div className="flex flex-col gap-3.5 p-4 sm:p-5 overflow-y-auto">
+                <div className="flex flex-col gap-4 p-6 overflow-y-auto">
                     <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-text-muted" />
                         <input
                             type="text"
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                             placeholder="Filter available models & providers…"
-                            className="w-full h-8.5 rounded border border-border/80 bg-background pl-9 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-foreground transition-all font-mono"
-                            autoFocus
+                            className="w-full h-10 rounded-full border border-hairline-soft bg-field pl-10 pr-4 text-xs text-ink placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-ink transition-all font-mono"
                         />
                     </div>
 
                     <div className="space-y-4 pt-1">
                         {filteredGroups.length === 0 ? (
-                            <div className="py-8 text-center text-xs text-muted-foreground font-mono">
+                            <div className="py-8 text-center text-xs text-text-muted font-sans font-light">
                                 No models found matching &ldquo;{search}&rdquo;
                             </div>
                         ) : (
                             filteredGroups.map((group) => (
                                 <div key={group.id} className="space-y-2">
-                                    <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                                    <div className="flex items-center gap-2 text-xs font-semibold text-ink font-sans">
                                         {group.isCombo ? (
-                                            <Layers className="size-3.5 text-muted-foreground" />
+                                            <Layers className="size-3.5 text-text-muted" />
                                         ) : (
                                             <ProviderIcon
                                                 providerId={group.id}
@@ -272,12 +308,12 @@ export default function ComboModelPickerModal({
                                             />
                                         )}
                                         <span>{group.name}</span>
-                                        <span className="text-muted-foreground font-normal text-xs ml-0.5">
+                                        <span className="text-text-muted font-normal text-xs ml-0.5">
                                             ({group.models.length})
                                         </span>
                                     </div>
 
-                                    <div className="flex flex-wrap gap-1.5">
+                                    <div className="flex flex-wrap gap-2">
                                         {group.models.map((model) => {
                                             const isSelected = selectedSet.has(model.id);
                                             const { hasVision, hasThinking } = getModelCapabilities(
@@ -290,18 +326,18 @@ export default function ComboModelPickerModal({
                                                     key={model.id}
                                                     type="button"
                                                     onClick={() => onToggleModel(model)}
-                                                    className={`inline-flex items-center gap-1.5 rounded border px-2.5 py-1 text-xs transition-colors cursor-pointer select-none font-mono ${
+                                                    className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition-colors cursor-pointer select-none font-mono ${
                                                         isSelected
-                                                            ? "bg-foreground text-background border-foreground font-semibold"
-                                                            : "bg-card border-border/80 text-foreground hover:bg-secondary/60"
+                                                            ? "bg-ink text-canvas border-ink font-semibold"
+                                                            : "bg-canvas border-hairline-soft text-ink hover:bg-canvas-soft"
                                                     }`}
                                                 >
                                                     <span>{model.name}</span>
                                                     {hasVision && (
-                                                        <Eye className="size-3 opacity-80 shrink-0" />
+                                                        <Eye className="size-3 opacity-70 shrink-0" />
                                                     )}
                                                     {hasThinking && (
-                                                        <Brain className="size-3 opacity-80 shrink-0" />
+                                                        <Brain className="size-3 opacity-70 shrink-0" />
                                                     )}
                                                 </button>
                                             );
@@ -313,11 +349,11 @@ export default function ComboModelPickerModal({
                     </div>
                 </div>
 
-                <div className="flex justify-end border-t border-border/80 px-4 py-3 bg-secondary/30">
+                <div className="flex justify-end border-t border-hairline-soft px-6 py-4 bg-canvas-soft/30">
                     <button
                         type="button"
                         onClick={onClose}
-                        className="rounded bg-foreground text-background hover:bg-foreground/90 px-4 py-1.5 text-xs font-semibold transition-colors cursor-pointer shadow-2xs"
+                        className="rounded-full bg-ink text-canvas hover:opacity-90 px-6 py-2 text-xs font-semibold transition-colors cursor-pointer shadow-none"
                     >
                         Done
                     </button>

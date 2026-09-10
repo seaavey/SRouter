@@ -22,7 +22,7 @@ export function GatewaySettings({ settings, updateSetting }: GatewaySettingsProp
                 description="How long to wait for upstream LLM responses before aborting."
                 control={<ValueBadge>{settings.requestTimeoutSec}s</ValueBadge>}
             />
-            <div className="py-2">
+            <div className="py-2 font-sans">
                 <SegmentedControl
                     options={[30, 60, 120, 180, 300].map((sec) => ({
                         value: sec,
@@ -44,7 +44,7 @@ export function GatewaySettings({ settings, updateSetting }: GatewaySettingsProp
                 }
             />
             {settings.autoRetryOn429 && (
-                <div className="pl-4 space-y-2 py-2">
+                <div className="pl-4 space-y-3 py-2 border-l border-hairline-soft font-sans my-1">
                     <SettingsRow
                         title="Max Retries"
                         control={
@@ -76,7 +76,7 @@ export function GatewaySettings({ settings, updateSetting }: GatewaySettingsProp
                 description="Renew provider OAuth tokens this far before expiry."
                 control={<ValueBadge>{settings.tokenRefreshLeadMin} min</ValueBadge>}
             />
-            <div className="py-2">
+            <div className="py-2 font-sans">
                 <SegmentedControl
                     options={[2, 5, 10, 15].map((min) => ({ value: min, label: `${min} min` }))}
                     value={settings.tokenRefreshLeadMin}

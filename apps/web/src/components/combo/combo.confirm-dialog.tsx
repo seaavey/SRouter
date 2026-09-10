@@ -29,30 +29,32 @@ export function ConfirmDialog({
 }: ConfirmDialogProps) {
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>{title}</DialogTitle>
-                    <DialogDescription>{description}</DialogDescription>
+            <DialogContent className="rounded-3xl border border-hairline-soft bg-canvas p-6 md:p-8 shadow-none font-sans max-w-md">
+                <DialogHeader className="space-y-2 text-left">
+                    <DialogTitle className="text-lg font-semibold text-ink font-sans">
+                        {title}
+                    </DialogTitle>
+                    <DialogDescription className="text-sm text-text-muted font-sans font-light">
+                        {description}
+                    </DialogDescription>
                 </DialogHeader>
-                <DialogFooter>
+                <DialogFooter className="mt-6 flex flex-row items-center justify-end gap-2 sm:space-x-0">
                     <Button
                         type="button"
                         variant="outline"
-                        size="sm"
                         onClick={() => onOpenChange(false)}
-                        className="cursor-pointer"
+                        className="rounded-full border border-hairline-soft bg-canvas px-5 text-xs font-semibold text-ink hover:bg-canvas-soft cursor-pointer shadow-none"
                     >
                         {cancelLabel}
                     </Button>
                     <Button
                         type="button"
                         variant="destructive"
-                        size="sm"
                         onClick={() => {
                             onConfirm();
                             onOpenChange(false);
                         }}
-                        className="cursor-pointer"
+                        className="rounded-full px-5 text-xs font-semibold cursor-pointer shadow-none"
                     >
                         {confirmLabel}
                     </Button>

@@ -7,20 +7,19 @@ import {
     CheckCircle2,
     Copy,
     Check,
-    Terminal,
     ArrowUpCircle
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { useVersion, GITHUB_REPO } from "@/hooks/useVersion";
-import { SettingsSection, SettingsRow } from "./settings.ui";
+import { SettingsSection } from "./settings.ui";
 
 interface SystemSettingsProps {
     apiBase: string;
 }
 
-export function SystemSettings({ apiBase }: SystemSettingsProps) {
+export function SystemSettings({ apiBase: _apiBase }: SystemSettingsProps) {
     const [pingLatency, setPingLatency] = useState<number | null>(null);
     const [isPinging, setIsPinging] = useState(false);
     const [lastPingTime, setLastPingTime] = useState<string | null>(null);
@@ -70,10 +69,10 @@ export function SystemSettings({ apiBase }: SystemSettingsProps) {
             title="System & Diagnostics"
             description="Mesh node status, real-time gateway latency probes, and update channels."
         >
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 py-2">
-                <div className="rounded-md border border-border/70 bg-muted/20 p-3 space-y-1.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 py-3 font-sans">
+                <div className="rounded-2xl border border-hairline-soft bg-canvas-soft/30 p-4 space-y-2">
                     <div className="flex items-center justify-between">
-                        <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted font-mono">
                             Version
                         </span>
                         <button
@@ -83,16 +82,14 @@ export function SystemSettings({ apiBase }: SystemSettingsProps) {
                                 toast.info("Checking GitHub...");
                             }}
                             disabled={isChecking}
-                            className="text-[9px] text-muted-foreground hover:text-foreground cursor-pointer"
+                            className="text-[11px] font-mono text-text-muted hover:text-ink cursor-pointer flex items-center gap-1"
                         >
-                            <RefreshCw
-                                className={`size-2.5 inline ${isChecking ? "animate-spin" : ""}`}
-                            />{" "}
+                            <RefreshCw className={`size-3 ${isChecking ? "animate-spin" : ""}`} />{" "}
                             {isChecking ? "..." : "check"}
                         </button>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-bold font-mono text-xs text-foreground">
+                        <span className="font-bold font-mono text-sm text-ink">
                             {currentVersion}
                         </span>
                         {hasUpdate ? (
@@ -100,38 +97,38 @@ export function SystemSettings({ apiBase }: SystemSettingsProps) {
                                 href={releaseUrl}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="flex items-center gap-1 text-[9px] font-bold text-amber-500 border border-amber-500/30 rounded-sm px-1.5 py-0.5 hover:bg-amber-500/10"
+                                className="flex items-center gap-1 text-[10px] font-bold text-amber-600 dark:text-amber-400 border border-amber-500/30 rounded-full px-2 py-0.5 hover:bg-amber-500/10 font-mono"
                             >
-                                {latestVersion} <ExternalLink className="size-2" />
+                                {latestVersion} <ExternalLink className="size-2.5" />
                             </a>
                         ) : latestVersion ? (
-                            <span className="flex items-center gap-1 text-[9px] text-emerald-500">
-                                <CheckCircle2 className="size-2.5" /> up to date
+                            <span className="flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400 font-sans">
+                                <CheckCircle2 className="size-3" /> up to date
                             </span>
                         ) : null}
                     </div>
                     {lastChecked && (
-                        <div className="text-[9px] font-mono text-muted-foreground/70">
+                        <div className="text-[10px] font-mono text-text-muted">
                             checked {lastChecked.toLocaleTimeString()}
                         </div>
                     )}
                 </div>
-                <div className="rounded-md border border-border/70 bg-muted/20 p-3 space-y-1">
-                    <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+                <div className="rounded-2xl border border-hairline-soft bg-canvas-soft/30 p-4 space-y-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted font-mono">
                         Stack
                     </span>
-                    <div className="text-xs font-bold text-foreground">
+                    <div className="text-sm font-semibold text-ink font-sans">
                         SQLite WAL · Hono · Node.js
                     </div>
                 </div>
             </div>
 
             {hasUpdate && (
-                <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 space-y-2">
+                <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 space-y-3 font-sans my-2">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                            <ArrowUpCircle className="size-3.5 text-amber-500" />
-                            <span className="text-xs font-bold text-foreground">
+                            <ArrowUpCircle className="size-4 text-amber-600 dark:text-amber-500" />
+                            <span className="text-xs font-semibold text-ink">
                                 Update {latestVersion} available
                             </span>
                         </div>
@@ -139,36 +136,36 @@ export function SystemSettings({ apiBase }: SystemSettingsProps) {
                             href={releaseUrl}
                             target="_blank"
                             rel="noreferrer"
-                            className="text-[10px] font-bold text-amber-500 border border-amber-500/30 rounded px-2 py-0.5 hover:bg-amber-500/10"
+                            className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 border border-amber-500/30 rounded-full px-3 py-1 hover:bg-amber-500/10"
                         >
-                            View <ExternalLink className="size-2 inline" />
+                            View <ExternalLink className="size-3 inline ml-0.5" />
                         </a>
                     </div>
-                    <div className="flex items-center justify-between rounded-md bg-background/80 border border-border/70 p-2">
-                        <code className="text-[10px] font-mono text-foreground">
+                    <div className="flex items-center justify-between rounded-2xl bg-canvas border border-hairline-soft p-3 font-mono">
+                        <code className="text-xs text-ink">
                             git pull origin main && pnpm install
                         </code>
                         <button
                             type="button"
                             onClick={handleCopy}
-                            className="flex items-center gap-1 text-[9px] text-muted-foreground hover:text-foreground cursor-pointer"
+                            className="flex items-center gap-1.5 text-xs text-text-muted hover:text-ink cursor-pointer font-sans"
                         >
                             {copiedCommand ? (
-                                <Check className="size-2.5 text-emerald-500" />
+                                <Check className="size-3.5 text-emerald-500" />
                             ) : (
-                                <Copy className="size-2.5" />
+                                <Copy className="size-3.5" />
                             )}{" "}
-                            {copiedCommand ? "done" : "copy"}
+                            <span>{copiedCommand ? "copied" : "copy"}</span>
                         </button>
                     </div>
                 </div>
             )}
 
-            <div className="rounded-md border border-border/70 bg-muted/20 p-3 space-y-2">
+            <div className="rounded-2xl border border-hairline-soft bg-canvas-soft/30 p-4 space-y-3 font-sans my-2">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                        <Activity className="size-3.5 text-emerald-500" />
-                        <span className="text-xs font-semibold text-foreground">
+                        <Activity className="size-4 text-accent" />
+                        <span className="text-xs font-semibold text-ink font-sans">
                             Gateway Latency
                         </span>
                     </div>
@@ -178,46 +175,46 @@ export function SystemSettings({ apiBase }: SystemSettingsProps) {
                         size="sm"
                         disabled={isPinging}
                         onClick={handlePing}
-                        className="cursor-pointer"
+                        className="rounded-full border border-hairline-soft bg-canvas px-4 text-xs font-semibold text-ink hover:bg-canvas-soft cursor-pointer shadow-none gap-1.5"
                     >
                         {isPinging ? (
                             <Loader2 className="size-3 animate-spin" />
                         ) : (
                             <RefreshCw className="size-3" />
                         )}
-                        {isPinging ? "pinging..." : "ping"}
+                        <span>{isPinging ? "pinging..." : "ping"}</span>
                     </Button>
                 </div>
                 {pingLatency !== null && (
-                    <div className="flex items-center justify-between text-[11px] font-mono">
+                    <div className="flex items-center justify-between text-xs font-mono">
                         {pingLatency >= 0 ? (
-                            <span className="text-emerald-500 font-semibold">{pingLatency}ms</span>
+                            <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
+                                {pingLatency}ms
+                            </span>
                         ) : (
                             <span className="text-destructive font-semibold">offline</span>
                         )}
-                        {lastPingTime && (
-                            <span className="text-muted-foreground">at {lastPingTime}</span>
-                        )}
+                        {lastPingTime && <span className="text-text-muted">at {lastPingTime}</span>}
                     </div>
                 )}
             </div>
 
-            <div className="flex gap-2 pt-2">
+            <div className="flex gap-2 pt-3 font-sans">
                 <a
                     href={`https://github.com/${GITHUB_REPO}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="flex items-center gap-1.5 rounded-md border border-border/70 px-2.5 py-1.5 text-[11px] text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
+                    className="flex items-center gap-2 rounded-full border border-hairline-soft bg-canvas hover:bg-canvas-soft px-4 py-2 text-xs font-semibold text-text-muted hover:text-ink transition-colors"
                 >
-                    GitHub <ExternalLink className="size-2.5" />
+                    GitHub <ExternalLink className="size-3" />
                 </a>
                 <a
                     href={tagsUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="flex items-center gap-1.5 rounded-md border border-border/70 px-2.5 py-1.5 text-[11px] text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
+                    className="flex items-center gap-2 rounded-full border border-hairline-soft bg-canvas hover:bg-canvas-soft px-4 py-2 text-xs font-semibold text-text-muted hover:text-ink transition-colors"
                 >
-                    Releases <ExternalLink className="size-2.5" />
+                    Releases <ExternalLink className="size-3" />
                 </a>
             </div>
         </SettingsSection>

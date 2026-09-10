@@ -23,8 +23,8 @@ export function LoggingSettings({ settings, updateSetting }: LoggingSettingsProp
             title="Logging & Privacy"
             description="Request telemetry retention, token tracking granularity, and sensitive header redaction."
         >
-            <div className="py-2.5">
-                <div className="flex gap-1.5 font-mono">
+            <div className="py-3 font-sans">
+                <div className="flex gap-2 font-sans flex-wrap">
                     {levels.map(({ id, label }) => {
                         const isActive = settings.loggingLevel === id;
                         return (
@@ -32,14 +32,14 @@ export function LoggingSettings({ settings, updateSetting }: LoggingSettingsProp
                                 key={id}
                                 type="button"
                                 onClick={() => updateSetting("loggingLevel", id)}
-                                className={`flex items-center gap-1.5 rounded border px-2.5 py-1 text-[11px] font-medium cursor-pointer transition-colors ${
+                                className={`flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-semibold cursor-pointer transition-colors shadow-none ${
                                     isActive
-                                        ? "border-foreground bg-foreground text-background font-semibold"
-                                        : "border-border/80 bg-card text-muted-foreground hover:text-foreground"
+                                        ? "border-ink bg-ink text-canvas font-semibold"
+                                        : "border-hairline-soft bg-canvas text-text-muted hover:text-ink hover:bg-canvas-soft"
                                 }`}
                             >
-                                {label}
-                                {isActive && <Check className="size-2.5" />}
+                                <span>{label}</span>
+                                {isActive && <Check className="size-3" />}
                             </button>
                         );
                     })}
@@ -57,7 +57,7 @@ export function LoggingSettings({ settings, updateSetting }: LoggingSettingsProp
                     </ValueBadge>
                 }
             />
-            <div className="py-2">
+            <div className="py-2 font-sans">
                 <SegmentedControl
                     options={[7, 14, 30, 90, 365].map((days) => ({
                         value: days,

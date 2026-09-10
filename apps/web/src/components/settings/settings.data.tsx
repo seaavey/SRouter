@@ -11,7 +11,7 @@ import {
     DialogHeader,
     DialogTitle
 } from "@/components/ui/dialog";
-import { SettingsSection, SettingsRow, ValueBadge } from "./settings.ui";
+import { SettingsSection } from "./settings.ui";
 import type { StorageStats } from "@/hooks/useSettings";
 import type { DatabaseImportResult } from "@/lib/api";
 import { downloadDatabaseBlob } from "@/lib/databaseTransfer";
@@ -92,7 +92,10 @@ export function DataSettings(props: DataSettingsProps) {
         },
         onError: (error) => {
             toast.error("Database import failed", {
-                description: error instanceof Error ? error.message : "Choose a valid SRouter database and try again."
+                description:
+                    error instanceof Error
+                        ? error.message
+                        : "Choose a valid SRouter database and try again."
             });
         }
     });
@@ -160,63 +163,63 @@ export function DataSettings(props: DataSettingsProps) {
             title="Local Data & Storage"
             description="Client-side configuration snapshot backup, restore, and storage clearing."
         >
-            <div className="flex items-center justify-between py-2">
+            <div className="flex items-center justify-between py-3 font-sans">
                 <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-foreground">LocalStorage Usage</span>
+                    <span className="text-sm font-medium text-ink">LocalStorage Usage</span>
                 </div>
-                <span className="font-mono text-[11px] font-bold tabular-nums text-foreground">
+                <span className="font-mono text-xs font-bold tabular-nums text-ink">
                     {formatBytes(stats.totalBytes)} ({stats.itemsCount} keys)
                 </span>
             </div>
 
-            <div className="flex flex-wrap gap-2 py-2">
+            <div className="flex flex-wrap gap-2 py-3 font-sans">
                 <Button
                     type="button"
                     variant="outline"
                     size="sm"
                     onClick={exportSettings}
-                    className="text-[11px] cursor-pointer"
+                    className="rounded-full border border-hairline-soft bg-canvas px-4 text-xs font-semibold text-ink hover:bg-canvas-soft cursor-pointer shadow-none gap-1.5"
                 >
-                    <Download className="size-3" /> Export
+                    <Download className="size-3.5" /> Export
                 </Button>
                 <Button
                     type="button"
                     variant="outline"
                     size="sm"
                     onClick={() => setIsImportOpen(true)}
-                    className="text-[11px] cursor-pointer"
+                    className="rounded-full border border-hairline-soft bg-canvas px-4 text-xs font-semibold text-ink hover:bg-canvas-soft cursor-pointer shadow-none gap-1.5"
                 >
-                    <Upload className="size-3" /> Import
+                    <Upload className="size-3.5" /> Import
                 </Button>
                 <Button
                     type="button"
                     variant="destructive"
                     size="sm"
                     onClick={() => setIsClearOpen(true)}
-                    className="text-[11px] cursor-pointer"
+                    className="rounded-full px-4 text-xs font-semibold cursor-pointer shadow-none gap-1.5"
                 >
-                    <Trash2 className="size-3" /> Clear Cache
+                    <Trash2 className="size-3.5" /> Clear Cache
                 </Button>
                 <Button
                     type="button"
                     variant="outline"
                     size="sm"
                     onClick={() => setIsResetOpen(true)}
-                    className="text-[11px] text-amber-500 cursor-pointer"
+                    className="rounded-full border border-hairline-soft bg-canvas px-4 text-xs font-semibold text-amber-600 dark:text-amber-500 hover:bg-canvas-soft cursor-pointer shadow-none gap-1.5"
                 >
-                    <RotateCcw className="size-3" /> Reset
+                    <RotateCcw className="size-3.5" /> Reset
                 </Button>
             </div>
 
-            <div className="border-t border-border/50 py-4">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="border-t border-hairline-soft py-5 font-sans">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0 pr-4">
-                        <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
+                        <div className="flex items-center gap-2 text-sm font-semibold text-ink">
                             <span>Server database migration</span>
                         </div>
-                        <p className="mt-1 max-w-2xl text-[11px] leading-relaxed text-muted-foreground">
-                            Move the complete SQLite database, including API keys and provider credentials.
-                            Export files contain sensitive plaintext data.
+                        <p className="mt-1 max-w-2xl text-xs leading-relaxed text-text-muted font-light">
+                            Move the complete SQLite database, including API keys and provider
+                            credentials. Export files contain sensitive plaintext data.
                         </p>
                     </div>
                     <div className="flex shrink-0 flex-wrap gap-2">
@@ -226,10 +229,14 @@ export function DataSettings(props: DataSettingsProps) {
                             size="sm"
                             disabled={databaseExportMutation.isPending}
                             onClick={() => databaseExportMutation.mutate()}
-                            className="cursor-pointer text-[11px]"
+                            className="rounded-full border border-hairline-soft bg-canvas px-4 text-xs font-semibold text-ink hover:bg-canvas-soft cursor-pointer shadow-none gap-1.5"
                         >
-                            <Download className="size-3" />
-                            {databaseExportMutation.isPending ? "Exporting..." : "Export Database"}
+                            <Download className="size-3.5" />
+                            <span>
+                                {databaseExportMutation.isPending
+                                    ? "Exporting..."
+                                    : "Export Database"}
+                            </span>
                         </Button>
                         <input
                             ref={databaseFileInputRef}
@@ -244,9 +251,9 @@ export function DataSettings(props: DataSettingsProps) {
                             size="sm"
                             disabled={databaseImportMutation.isPending}
                             onClick={() => databaseFileInputRef.current?.click()}
-                            className="cursor-pointer text-[11px]"
+                            className="rounded-full border border-hairline-soft bg-canvas px-4 text-xs font-semibold text-ink hover:bg-canvas-soft cursor-pointer shadow-none gap-1.5"
                         >
-                            <Upload className="size-3" /> Import Database
+                            <Upload className="size-3.5" /> <span>Import Database</span>
                         </Button>
                     </div>
                 </div>
@@ -258,44 +265,47 @@ export function DataSettings(props: DataSettingsProps) {
                     if (!open) closeDatabaseImport();
                 }}
             >
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2 text-sm font-bold text-rose-500">
-                            <AlertTriangle className="size-4" /> Replace server database?
+                <DialogContent className="rounded-3xl border border-hairline-soft bg-canvas p-6 md:p-8 shadow-none font-sans max-w-lg">
+                    <DialogHeader className="space-y-2 text-left">
+                        <DialogTitle className="flex items-center gap-2 text-lg font-semibold text-destructive font-sans">
+                            <AlertTriangle className="size-5" /> Replace server database?
                         </DialogTitle>
-                        <DialogDescription>
-                            This operation replaces all current SRouter data. API keys and provider credentials
-                            from the file will be restored. The current database will be backed up first, but this
-                            cannot be undone from the dashboard.
+                        <DialogDescription className="text-sm text-text-muted font-light font-sans">
+                            This operation replaces all current SRouter data. API keys and provider
+                            credentials from the file will be restored. The current database will be
+                            backed up first, but this cannot be undone from the dashboard.
                         </DialogDescription>
                     </DialogHeader>
                     {databaseFile && (
-                        <div className="rounded border border-border/70 bg-muted/20 p-3 text-[11px]">
-                            <div className="font-semibold text-foreground">{databaseFile.name}</div>
-                            <div className="mt-1 text-muted-foreground">{formatBytes(databaseFile.size)}</div>
+                        <div className="rounded-2xl border border-hairline-soft bg-canvas-soft/40 p-4 text-xs font-mono">
+                            <div className="font-semibold text-ink">{databaseFile.name}</div>
+                            <div className="mt-1 text-text-muted">
+                                {formatBytes(databaseFile.size)}
+                            </div>
                         </div>
                     )}
                     {databaseImportMutation.isError && (
-                        <p role="alert" className="text-xs text-rose-600 dark:text-rose-400">
+                        <p role="alert" className="text-xs text-destructive font-medium">
                             {databaseImportMutation.error instanceof Error
                                 ? databaseImportMutation.error.message
                                 : "Import failed. Choose a valid database file and try again."}
                         </p>
                     )}
                     {databaseImportMutation.isSuccess && (
-                        <p className="text-xs text-emerald-700 dark:text-emerald-400">
+                        <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
                             Database backed up at {databaseImportMutation.data.backup_path}.
                             {databaseImportMutation.data.restart_required &&
                                 " Restart SRouter before continuing to use the dashboard."}
                         </p>
                     )}
-                    <DialogFooter>
+                    <DialogFooter className="mt-6 flex flex-row items-center justify-end gap-2 sm:space-x-0">
                         <Button
                             type="button"
                             variant="outline"
                             size="sm"
                             disabled={databaseImportMutation.isPending}
                             onClick={closeDatabaseImport}
+                            className="rounded-full border border-hairline-soft bg-canvas px-5 text-xs font-semibold text-ink hover:bg-canvas-soft cursor-pointer shadow-none"
                         >
                             Cancel
                         </Button>
@@ -303,7 +313,10 @@ export function DataSettings(props: DataSettingsProps) {
                             type="button"
                             variant="destructive"
                             size="sm"
-                            disabled={databaseImportMutation.isPending || (!databaseFile && !databaseImportMutation.isSuccess)}
+                            disabled={
+                                databaseImportMutation.isPending ||
+                                (!databaseFile && !databaseImportMutation.isSuccess)
+                            }
                             onClick={() => {
                                 if (databaseImportMutation.isSuccess) {
                                     closeDatabaseImport();
@@ -311,6 +324,7 @@ export function DataSettings(props: DataSettingsProps) {
                                 }
                                 handleDatabaseImport();
                             }}
+                            className="rounded-full px-5 text-xs font-semibold cursor-pointer shadow-none"
                         >
                             {databaseImportMutation.isPending
                                 ? "Importing..."
@@ -323,14 +337,16 @@ export function DataSettings(props: DataSettingsProps) {
             </Dialog>
 
             <Dialog open={isImportOpen} onOpenChange={setIsImportOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle className="text-sm font-bold">Import Settings</DialogTitle>
-                        <DialogDescription className="text-xs">
+                <DialogContent className="rounded-3xl border border-hairline-soft bg-canvas p-6 md:p-8 shadow-none font-sans max-w-lg">
+                    <DialogHeader className="space-y-2 text-left">
+                        <DialogTitle className="text-lg font-semibold text-ink font-sans">
+                            Import Settings
+                        </DialogTitle>
+                        <DialogDescription className="text-sm text-text-muted font-light font-sans">
                             Paste exported JSON or select a file.
                         </DialogDescription>
                     </DialogHeader>
-                    <div className="space-y-2 py-2">
+                    <div className="space-y-3 py-3 font-sans">
                         <input
                             type="file"
                             accept=".json,application/json"
@@ -343,24 +359,25 @@ export function DataSettings(props: DataSettingsProps) {
                             variant="outline"
                             size="sm"
                             onClick={() => fileInputRef.current?.click()}
-                            className="w-full cursor-pointer"
+                            className="w-full rounded-full border border-hairline-soft bg-canvas px-4 py-2 text-xs font-semibold text-ink hover:bg-canvas-soft cursor-pointer shadow-none gap-1.5"
                         >
-                            <Upload className="size-3" /> Choose File
+                            <Upload className="size-3.5" /> Choose File
                         </Button>
                         <textarea
                             rows={5}
                             value={importText}
                             onChange={(e) => setImportText(e.target.value)}
                             placeholder="Or paste JSON here..."
-                            className="w-full rounded-md border border-border/70 bg-muted/20 p-2.5 font-mono text-[11px] text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                            className="w-full rounded-2xl border border-hairline-soft bg-field p-3 font-mono text-xs text-ink focus:outline-none focus:ring-2 focus:ring-ink"
                         />
                     </div>
-                    <DialogFooter>
+                    <DialogFooter className="mt-6 flex flex-row items-center justify-end gap-2 sm:space-x-0">
                         <Button
                             type="button"
                             variant="outline"
                             size="sm"
                             onClick={() => setIsImportOpen(false)}
+                            className="rounded-full border border-hairline-soft bg-canvas px-5 text-xs font-semibold text-ink hover:bg-canvas-soft cursor-pointer shadow-none"
                         >
                             Cancel
                         </Button>
@@ -368,7 +385,7 @@ export function DataSettings(props: DataSettingsProps) {
                             type="button"
                             size="sm"
                             onClick={handleImport}
-                            className="font-semibold"
+                            className="rounded-full bg-ink text-canvas hover:opacity-90 px-5 text-xs font-semibold cursor-pointer shadow-none"
                         >
                             Apply Import
                         </Button>
@@ -377,22 +394,23 @@ export function DataSettings(props: DataSettingsProps) {
             </Dialog>
 
             <Dialog open={isClearOpen} onOpenChange={setIsClearOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle className="text-sm font-bold text-rose-500">
+                <DialogContent className="rounded-3xl border border-hairline-soft bg-canvas p-6 md:p-8 shadow-none font-sans max-w-md">
+                    <DialogHeader className="space-y-2 text-left">
+                        <DialogTitle className="text-lg font-semibold text-destructive font-sans">
                             Clear cached browser data?
                         </DialogTitle>
-                        <DialogDescription className="text-xs">
+                        <DialogDescription className="text-sm text-text-muted font-light font-sans">
                             Removes cached conversations and temporary data from this browser.
                             Settings are preserved. Cannot be undone.
                         </DialogDescription>
                     </DialogHeader>
-                    <DialogFooter>
+                    <DialogFooter className="mt-6 flex flex-row items-center justify-end gap-2 sm:space-x-0">
                         <Button
                             type="button"
                             variant="outline"
                             size="sm"
                             onClick={() => setIsClearOpen(false)}
+                            className="rounded-full border border-hairline-soft bg-canvas px-5 text-xs font-semibold text-ink hover:bg-canvas-soft cursor-pointer shadow-none"
                         >
                             Cancel
                         </Button>
@@ -405,6 +423,7 @@ export function DataSettings(props: DataSettingsProps) {
                                 setIsClearOpen(false);
                                 refresh();
                             }}
+                            className="rounded-full px-5 text-xs font-semibold cursor-pointer shadow-none"
                         >
                             Clear All
                         </Button>
@@ -413,22 +432,23 @@ export function DataSettings(props: DataSettingsProps) {
             </Dialog>
 
             <Dialog open={isResetOpen} onOpenChange={setIsResetOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle className="text-sm font-bold text-amber-500">
+                <DialogContent className="rounded-3xl border border-hairline-soft bg-canvas p-6 md:p-8 shadow-none font-sans max-w-md">
+                    <DialogHeader className="space-y-2 text-left">
+                        <DialogTitle className="text-lg font-semibold text-amber-600 dark:text-amber-500 font-sans">
                             Reset to Defaults?
                         </DialogTitle>
-                        <DialogDescription className="text-xs">
+                        <DialogDescription className="text-sm text-text-muted font-light font-sans">
                             Timeouts, retries, and gateway parameters will be restored to factory
                             values.
                         </DialogDescription>
                     </DialogHeader>
-                    <DialogFooter>
+                    <DialogFooter className="mt-6 flex flex-row items-center justify-end gap-2 sm:space-x-0">
                         <Button
                             type="button"
                             variant="outline"
                             size="sm"
                             onClick={() => setIsResetOpen(false)}
+                            className="rounded-full border border-hairline-soft bg-canvas px-5 text-xs font-semibold text-ink hover:bg-canvas-soft cursor-pointer shadow-none"
                         >
                             Cancel
                         </Button>
@@ -440,7 +460,7 @@ export function DataSettings(props: DataSettingsProps) {
                                 setIsResetOpen(false);
                                 refresh();
                             }}
-                            className="bg-amber-600 hover:bg-amber-700 text-white"
+                            className="rounded-full bg-amber-600 hover:bg-amber-700 text-white px-5 text-xs font-semibold cursor-pointer shadow-none"
                         >
                             Reset
                         </Button>

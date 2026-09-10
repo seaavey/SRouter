@@ -27,32 +27,32 @@ export function AppearanceSettings({
                 title="Color Theme"
                 description="Select interface color scheme or synchronize with operating system."
                 control={
-                    <div className="flex gap-1.5 font-mono">
+                    <div className="flex gap-2 font-sans">
                         <button
                             type="button"
                             onClick={(e) => theme !== "dark" && toggleTheme(e)}
-                            className={`flex items-center gap-1.5 rounded border px-2.5 py-1 text-[11px] font-medium cursor-pointer transition-colors ${
+                            className={`flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-semibold cursor-pointer transition-colors shadow-none ${
                                 theme === "dark"
-                                    ? "border-foreground bg-foreground text-background font-semibold"
-                                    : "border-border/80 bg-card text-muted-foreground hover:text-foreground"
+                                    ? "border-ink bg-ink text-canvas font-semibold"
+                                    : "border-hairline-soft bg-canvas text-text-muted hover:text-ink hover:bg-canvas-soft"
                             }`}
                         >
-                            <Moon className="size-3" />
-                            Dark
-                            {theme === "dark" && <Check className="size-2.5" />}
+                            <Moon className="size-3.5" />
+                            <span>Dark</span>
+                            {theme === "dark" && <Check className="size-3" />}
                         </button>
                         <button
                             type="button"
                             onClick={(e) => theme !== "light" && toggleTheme(e)}
-                            className={`flex items-center gap-1.5 rounded border px-2.5 py-1 text-[11px] font-medium cursor-pointer transition-colors ${
+                            className={`flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-semibold cursor-pointer transition-colors shadow-none ${
                                 theme === "light"
-                                    ? "border-foreground bg-foreground text-background font-semibold"
-                                    : "border-border/80 bg-card text-muted-foreground hover:text-foreground"
+                                    ? "border-ink bg-ink text-canvas font-semibold"
+                                    : "border-hairline-soft bg-canvas text-text-muted hover:text-ink hover:bg-canvas-soft"
                             }`}
                         >
-                            <Sun className="size-3" />
-                            Light
-                            {theme === "light" && <Check className="size-2.5" />}
+                            <Sun className="size-3.5" />
+                            <span>Light</span>
+                            {theme === "light" && <Check className="size-3" />}
                         </button>
                     </div>
                 }
