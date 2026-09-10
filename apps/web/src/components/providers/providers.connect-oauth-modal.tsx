@@ -214,13 +214,9 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
     });
 
     const patMutation = useMutation({
-        mutationFn: (payload: { accessToken: string }) => {
+        mutationFn: (payload: { access_token: string }) => {
             const endpoint = `/v1/auth/${authProviderId}/token`;
-            // Schema requires snake_case; handler mappers read camelCase (passthrough).
-            return api.post(endpoint, {
-                access_token: payload.accessToken,
-                accessToken: payload.accessToken
-            });
+            return api.post(endpoint, payload);
         },
         onSuccess: () => {
             if (provider) {
@@ -247,13 +243,12 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
             const results = await Promise.allSettled(
                 lines.map((line) => {
                     // Codex lines may carry an optional refresh token: "<access>,<refresh>"
-                    const [accessToken, refreshToken] = isCodex
+                    const [access_token, refresh_token] = isCodex
                         ? line.split(",").map((s) => s.trim())
                         : [line];
                     return api.post(`/v1/auth/${authProviderId}/token`, {
-                        access_token: accessToken,
-                        accessToken,
-                        ...(refreshToken ? { refresh_token: refreshToken, refreshToken } : {})
+                        access_token,
+                        ...(refresh_token ? { refresh_token } : {})
                     });
                 })
             );
@@ -331,7 +326,7 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
         }
 
         setError("");
-        patMutation.mutate({ accessToken: token });
+        patMutation.mutate({ access_token: token });
     };
 
     if (!provider) return null;

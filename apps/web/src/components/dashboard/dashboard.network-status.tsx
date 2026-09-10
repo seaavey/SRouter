@@ -48,7 +48,7 @@ export function NetworkStatus() {
     return (
         <section
             aria-labelledby="api-integration-title"
-            className="flex h-full min-w-0 flex-col justify-between rounded-lg border border-border/80 bg-card p-4 sm:p-5"
+            className="flex h-full min-w-0 flex-col rounded-lg border border-border/80 bg-card p-3 sm:p-4"
         >
             {/* Top: API Integration & Base URL */}
             <div className="flex flex-col gap-4">
@@ -115,7 +115,7 @@ export function NetworkStatus() {
             </div>
 
             {/* Bottom: Private Access / Tunneling */}
-            <div className="mt-5 pt-3.5 border-t border-border/60">
+            <div className="mt-4 border-t border-border/60 pt-3">
                 <div className="flex items-center justify-between gap-3 mb-2">
                     <div>
                         <h3 className="text-xs font-bold text-foreground">Private Access</h3>
@@ -146,7 +146,7 @@ export function NetworkStatus() {
                                 </div>
                                 <p className="mt-0.5 truncate text-[10.5px] text-muted-foreground font-mono">
                                     {tunnel?.running
-                                        ? tunnel.domain ?? "Active tunnel"
+                                        ? (tunnel.domain ?? "Active tunnel")
                                         : "Expose gateway without opening inbound ports"}
                                 </p>
                             </div>
@@ -169,9 +169,7 @@ export function NetworkStatus() {
                                 <TailscaleIcon className="size-3.5" />
                             </div>
                             <div className="min-w-0">
-                                <p className="text-xs font-semibold text-foreground">
-                                    Tailscale
-                                </p>
+                                <p className="text-xs font-semibold text-foreground">Tailscale</p>
                                 <p className="mt-0.5 truncate text-[10.5px] text-muted-foreground">
                                     Private mesh network access
                                 </p>
@@ -192,7 +190,6 @@ export function NetworkStatus() {
                 onStart={startTunnel}
                 onStop={stopTunnel}
                 onInstall={installCloudflared}
-                onRefresh={fetchStatus}
             />
         </section>
     );

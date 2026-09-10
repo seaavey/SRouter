@@ -3,19 +3,15 @@ import { api } from "@/lib/api";
 import { toast } from "sonner";
 import type {
     ModelObject,
-    ProviderCategory,
+    CreateProviderZod,
     ProviderDefinition,
     ProviderProtocol
 } from "@srouter/types";
 
-export interface AddConnectionPayload {
-    id?: string;
-    name: string;
-    category: ProviderCategory;
-    protocol: ProviderProtocol;
-    base_url?: string;
-    api_key?: string;
-}
+export type AddConnectionPayload = Pick<
+    CreateProviderZod,
+    "id" | "name" | "category" | "protocol" | "base_url" | "api_key"
+>;
 
 const EMPTY_HIDDEN_MODELS: string[] = [];
 

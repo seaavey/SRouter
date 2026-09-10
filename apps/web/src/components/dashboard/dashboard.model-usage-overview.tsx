@@ -2,7 +2,14 @@ import { useMemo } from "react";
 import { ArrowDown, ArrowUp, Cpu, Layers, BarChart2 } from "lucide-react";
 import type { UsageStats } from "@srouter/types";
 import { ProviderIcon } from "@/components/providers";
-import { Empty, EmptyContent, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
+import {
+    Empty,
+    EmptyContent,
+    EmptyHeader,
+    EmptyMedia,
+    EmptyTitle,
+    EmptyDescription
+} from "@/components/ui/empty";
 import { ResponsiveNumber } from "./dashboard.responsive-number";
 
 type ModelUsageOverviewProps = {
@@ -53,20 +60,17 @@ export function ModelUsageOverview({ models }: ModelUsageOverviewProps) {
 
     return (
         <section
-            className="flex h-full min-w-0 flex-col rounded-lg border border-border/80 bg-card p-4 sm:p-5"
+            className="flex h-full min-w-0 flex-col border-y border-border/80 bg-card px-3 py-3 sm:px-4"
             aria-labelledby="model-usage-title"
         >
             {/* Header */}
-            <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pb-3 border-b border-border/60">
+            <header className="flex flex-col gap-2 border-b border-border/60 pb-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border/80 bg-secondary text-foreground">
-                        <Cpu className="size-3.5" strokeWidth={1.75} />
-                    </div>
                     <div className="min-w-0">
                         <div className="flex items-center gap-2">
                             <h2
                                 id="model-usage-title"
-                                className="text-xs font-bold tracking-tight text-foreground uppercase whitespace-nowrap"
+                                className="text-[11px] font-bold uppercase tracking-[0.12em] text-foreground whitespace-nowrap"
                             >
                                 Model Traffic
                             </h2>
@@ -76,7 +80,7 @@ export function ModelUsageOverview({ models }: ModelUsageOverviewProps) {
                                 </span>
                             )}
                         </div>
-                        <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                        <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
                             Highest token volume in the current telemetry window
                         </p>
                     </div>
@@ -111,7 +115,7 @@ export function ModelUsageOverview({ models }: ModelUsageOverviewProps) {
                     </EmptyHeader>
                 </Empty>
             ) : (
-                <div className="mt-3 space-y-2" aria-label="Top models by token volume">
+                <div className="mt-1" aria-label="Top models by token volume">
                     {topModels.map((model, index) => {
                         const totalTokens = model.totalInputTokens + model.totalOutputTokens;
                         const width =
@@ -128,12 +132,12 @@ export function ModelUsageOverview({ models }: ModelUsageOverviewProps) {
                         return (
                             <div
                                 key={model.model}
-                                className="group rounded-md border border-border/70 bg-secondary/20 p-3 transition-colors hover:border-foreground/20 hover:bg-secondary/40"
+                                className="group border-b border-border/60 py-2.5 transition-colors last:border-b-0 hover:bg-secondary/20"
                             >
-                                <div className="grid min-w-0 grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2">
+                                <div className="grid min-w-0 grid-cols-1 items-center gap-x-3 gap-y-1.5 sm:grid-cols-[minmax(0,1fr)_auto]">
                                     {/* Left: Rank, Icon, Provider & Model Name */}
                                     <div className="flex min-w-0 items-center gap-2.5">
-                                        <span className="flex size-5 shrink-0 items-center justify-center rounded bg-secondary font-mono text-[10px] font-semibold text-muted-foreground border border-border/60">
+                                        <span className="flex size-4 shrink-0 items-center justify-center font-mono text-[9px] font-semibold text-muted-foreground">
                                             {index + 1}
                                         </span>
 
@@ -144,14 +148,14 @@ export function ModelUsageOverview({ models }: ModelUsageOverviewProps) {
 
                                         <div className="flex min-w-0 items-center gap-1.5 font-mono text-xs">
                                             <span
-                                                className="shrink-0 text-muted-foreground font-normal truncate max-w-20 sm:max-w-24"
+                                                className="shrink-0 max-w-20 truncate text-[10px] font-normal text-muted-foreground sm:max-w-24"
                                                 title={`Provider: ${provider}`}
                                             >
                                                 {provider}
                                                 <span className="opacity-40 ml-1">/</span>
                                             </span>
                                             <span
-                                                className="truncate font-semibold text-foreground tracking-tight"
+                                                className="truncate text-[11px] font-semibold tracking-tight text-foreground"
                                                 title={model.model}
                                             >
                                                 {name}
@@ -160,13 +164,13 @@ export function ModelUsageOverview({ models }: ModelUsageOverviewProps) {
                                     </div>
 
                                     {/* Right: Metrics Table */}
-                                    <div className="flex items-center justify-between sm:justify-end gap-2.5 sm:gap-3.5 font-mono tabular-nums text-[10.5px]">
+                                    <div className="flex items-center justify-between gap-2 font-mono tabular-nums text-[10px] sm:justify-end sm:gap-3">
                                         {/* Requests */}
                                         <span
                                             className="text-left sm:w-16 sm:text-right text-muted-foreground"
                                             title={`Requests: ${model.totalRequests.toLocaleString()}`}
                                         >
-                                             <ResponsiveNumber value={model.totalRequests} />{" "}
+                                            <ResponsiveNumber value={model.totalRequests} />{" "}
                                             <span className="text-[9.5px] opacity-70">req</span>
                                         </span>
 
@@ -177,7 +181,7 @@ export function ModelUsageOverview({ models }: ModelUsageOverviewProps) {
                                         >
                                             <ArrowDown className="inline size-2.5 opacity-60 mr-0.5" />
                                             <strong className="font-semibold text-foreground">
-                                                 <ResponsiveNumber value={model.totalInputTokens} />
+                                                <ResponsiveNumber value={model.totalInputTokens} />
                                             </strong>
                                             <span className="text-[9px] opacity-70 ml-0.5">in</span>
                                         </span>
@@ -189,7 +193,7 @@ export function ModelUsageOverview({ models }: ModelUsageOverviewProps) {
                                         >
                                             <ArrowUp className="inline size-2.5 opacity-60 mr-0.5" />
                                             <strong className="font-semibold text-foreground">
-                                                 <ResponsiveNumber value={model.totalOutputTokens} />
+                                                <ResponsiveNumber value={model.totalOutputTokens} />
                                             </strong>
                                             <span className="text-[9px] opacity-70 ml-0.5">
                                                 out
@@ -201,8 +205,8 @@ export function ModelUsageOverview({ models }: ModelUsageOverviewProps) {
                                             className="text-right sm:w-24 flex items-center justify-end gap-1.5"
                                             title={`Total Tokens: ${totalTokens.toLocaleString()} (${sharePercent}% of top models)`}
                                         >
-                                            <span className="text-xs font-semibold text-foreground">
-                                                 <ResponsiveNumber value={totalTokens} />
+                                            <span className="text-[11px] font-semibold text-foreground">
+                                                <ResponsiveNumber value={totalTokens} />
                                             </span>
                                             <span className="text-[9px] text-muted-foreground font-normal">
                                                 tok

@@ -124,8 +124,8 @@ function ProviderDetailPage() {
             name: input.name?.trim() || `${provider.name} Key`,
             category: provider.category,
             protocol: provider.protocol,
-            base_url: input.base_url || input.baseUrl || provider.default_base_url || undefined,
-            api_key: input.apiKey
+            base_url: input.base_url || provider.default_base_url || undefined,
+            api_key: input.api_key
         };
 
         setFormError("");

@@ -33,11 +33,16 @@ import {
     Activity
 } from "lucide-react";
 import { useCatalog } from "@/hooks/useCatalog";
-import { useTokenSaver } from "@/hooks/useTokenSaver";
+
 import { ProviderIcon } from "@/components/providers";
 import { api, getGatewayBaseUrl } from "@/lib/api";
 import { isProviderConnected, getConnectedCount } from "@/utils/provider.utils";
-import type { ProviderDefinition, TokenSaverSettings, RequestLogEntry } from "@srouter/types";
+import {
+    DEFAULT_TOKEN_SAVER_SETTINGS,
+    type ProviderDefinition,
+    type TokenSaverSettings,
+    type RequestLogEntry
+} from "@srouter/types";
 import type { ListResponse } from "@/lib/types";
 
 type CoreNodeData = {
@@ -72,7 +77,7 @@ function CentralCoreHubNode({ data, selected }: NodeProps<Node<CoreNodeData, "ce
                 selected
                     ? "border-foreground ring-1 ring-foreground/20"
                     : hasActiveTraffic
-                        ? "border-foreground ring-1 ring-foreground/20"
+                      ? "border-foreground ring-1 ring-foreground/20"
                       : "border-border/80 hover:border-foreground/30"
             }`}
         >
@@ -110,18 +115,13 @@ function CentralCoreHubNode({ data, selected }: NodeProps<Node<CoreNodeData, "ce
                                 : "border-border/80 bg-secondary text-foreground"
                         }`}
                     >
-                        <Zap
-                            className="size-3"
-                            strokeWidth={2}
-                        />
+                        <Zap className="size-3" strokeWidth={2} />
                     </div>
                     <div className="min-w-0">
                         <span className="block text-[8.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                             Central Hub
                         </span>
-                        <h3 className="text-xs font-bold text-foreground truncate">
-                            SRouter Core
-                        </h3>
+                        <h3 className="text-xs font-bold text-foreground truncate">SRouter Core</h3>
                     </div>
                 </div>
                 <span
@@ -176,9 +176,7 @@ function OrbitProviderNode({ data, selected }: NodeProps<Node<ProviderNodeData, 
             <Handle
                 type="target"
                 position={handlePos}
-                className={`!w-2 !h-2 !border-2 !border-card transition-colors ${
-                    "!bg-foreground"
-                }`}
+                className={`!w-2 !h-2 !border-2 !border-card transition-colors ${"!bg-foreground"}`}
             />
 
             <div className="flex items-center justify-between gap-1.5">
@@ -266,7 +264,8 @@ function NodeDetailInspector({
                                 </span>
                             </div>
                             <p className="text-[11px] text-muted-foreground leading-relaxed">
-                                High-speed proxy middleware hub dispatching requests directly to surrounding upstream providers.
+                                High-speed proxy middleware hub dispatching requests directly to
+                                surrounding upstream providers.
                             </p>
 
                             <div className="space-y-1.5 rounded border border-border/70 bg-secondary/30 p-2.5 text-[10.5px]">
@@ -277,10 +276,10 @@ function NodeDetailInspector({
                                     </code>
                                 </div>
                                 <div className="flex justify-between">
-                                    <span className="text-muted-foreground">Token Compression:</span>
-                                    <span className="font-semibold text-foreground">
-                                        {tokenSaverSettings.enabled ? "Active" : "Disabled"}
+                                    <span className="text-muted-foreground">
+                                        Token Compression:
                                     </span>
+                                    <span className="font-semibold text-foreground">Active</span>
                                 </div>
                                 <div className="flex justify-between">
                                     <span className="text-muted-foreground">Circuit Breaker:</span>
@@ -288,7 +287,9 @@ function NodeDetailInspector({
                                 </div>
                                 <div className="flex justify-between">
                                     <span className="text-muted-foreground">Overhead Latency:</span>
-                                    <span className="font-semibold text-foreground">&lt; 1.2ms</span>
+                                    <span className="font-semibold text-foreground">
+                                        &lt; 1.2ms
+                                    </span>
                                 </div>
                             </div>
                         </div>
@@ -326,7 +327,9 @@ function NodeDetailInspector({
                                 <div className="flex justify-between">
                                     <span className="text-muted-foreground">Status:</span>
                                     <span className="font-bold text-foreground capitalize">
-                                        {selectedNode.data.isOnline ? "Connected & Online" : "Standby"}
+                                        {selectedNode.data.isOnline
+                                            ? "Connected & Online"
+                                            : "Standby"}
                                     </span>
                                 </div>
                                 <div className="flex justify-between">
@@ -444,7 +447,9 @@ function ProviderMatrixView({
                         <Zap className="size-3.5" />
                     </div>
                     <div>
-                        <div className="text-xs font-bold text-foreground">SRouter Core Gateway</div>
+                        <div className="text-xs font-bold text-foreground">
+                            SRouter Core Gateway
+                        </div>
                         <div className="text-[10px] text-muted-foreground truncate max-w-sm">
                             {apiBase}
                         </div>
@@ -452,7 +457,7 @@ function ProviderMatrixView({
                 </div>
                 <div className="flex items-center gap-3 text-[10.5px]">
                     <div className="flex items-center gap-1.5">
-                         <span className="size-1.5 rounded-full bg-foreground" />
+                        <span className="size-1.5 rounded-full bg-foreground" />
                         <span className="text-muted-foreground">Circuit Breaker:</span>
                         <span className="font-semibold text-foreground">Nominal</span>
                     </div>
@@ -467,7 +472,8 @@ function ProviderMatrixView({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5">
                 {displayedProviders.map((p) => {
-                    const isOnline = isProviderConnected(p) || p.id === "opencode_zen" || p.id === "opencode";
+                    const isOnline =
+                        isProviderConnected(p) || p.id === "opencode_zen" || p.id === "opencode";
                     const connCount = getConnectedCount(p);
                     const isReceiving = activeProviderIds.has(p.id.toLowerCase());
 
@@ -503,7 +509,9 @@ function ProviderMatrixView({
                                 )}
                             </div>
                             <div className="mt-2.5 flex items-center justify-between text-[9.5px] text-muted-foreground pt-1.5 border-t border-border/40">
-                                <span>{connCount} key{connCount !== 1 ? "s" : ""}</span>
+                                <span>
+                                    {connCount} key{connCount !== 1 ? "s" : ""}
+                                </span>
                                 <span>{p.models?.length ?? 0} models</span>
                             </div>
                         </Link>
@@ -516,7 +524,6 @@ function ProviderMatrixView({
 
 function GatewayTopologyCanvas() {
     const { allProviders } = useCatalog();
-    const { settings: tokenSaverSettings } = useTokenSaver();
 
     const { data: logsData } = useQuery({
         queryKey: ["recent-logs-topology"],
@@ -529,7 +536,9 @@ function GatewayTopologyCanvas() {
     const [selectedNode, setSelectedNode] = useState<SelectedNodeInfo | null>(null);
     const [viewMode, setViewMode] = useState<"graph" | "matrix">("graph");
 
-    const [activePings, setActivePings] = useState<Record<string, { latency: number; expiresAt: number }>>({});
+    const [activePings, setActivePings] = useState<
+        Record<string, { latency: number; expiresAt: number }>
+    >({});
     const seenLogIdsRef = useRef<Set<string>>(new Set());
     const isFirstMountRef = useRef(true);
 
@@ -648,7 +657,7 @@ function GatewayTopologyCanvas() {
             type: "centralCore",
             position: { x: -128, y: -50 },
             data: {
-                tokenSaverEnabled: tokenSaverSettings?.enabled,
+                tokenSaverEnabled: true,
                 hasActiveTraffic: hasAnyActiveTraffic
             }
         });
@@ -660,7 +669,10 @@ function GatewayTopologyCanvas() {
 
         displayedProviders.forEach((provider, index) => {
             const nodeId = `node-provider-${provider.id}`;
-            const isZen = provider.id === "opencode_zen" || provider.id === "opencode" || (!provider.requires_api_key && !provider.requires_oauth);
+            const isZen =
+                provider.id === "opencode_zen" ||
+                provider.id === "opencode" ||
+                (!provider.requires_api_key && !provider.requires_oauth);
             const isOnline = isZen || isProviderConnected(provider);
             const connCount = getConnectedCount(provider) || (isZen ? 1 : 0);
 
@@ -668,9 +680,7 @@ function GatewayTopologyCanvas() {
             const isReceivingRequest = Boolean(activeTraffic);
 
             const angle =
-                providerCount === 1
-                    ? 0
-                    : (index / providerCount) * 2 * Math.PI - Math.PI / 2;
+                providerCount === 1 ? 0 : (index / providerCount) * 2 * Math.PI - Math.PI / 2;
 
             const posX = Math.round(centerX + radiusX * Math.cos(angle) - 88);
             const posY = Math.round(centerY + radiusY * Math.sin(angle) - 25);
@@ -724,7 +734,7 @@ function GatewayTopologyCanvas() {
                 animated: isReceivingRequest,
                 style: {
                     stroke: isReceivingRequest
-                         ? "var(--foreground)"
+                        ? "var(--foreground)"
                         : isOnline
                           ? "var(--border)"
                           : "var(--muted)",
@@ -736,7 +746,7 @@ function GatewayTopologyCanvas() {
         });
 
         return { nodes: nodeList, edges: edgeList };
-    }, [displayedProviders, tokenSaverSettings?.enabled, activePings, hasAnyActiveTraffic]);
+    }, [displayedProviders, activePings, hasAnyActiveTraffic]);
 
     const handleNodeClick = useCallback<NodeMouseHandler>((_, node) => {
         if (node.type === "orbitProvider") {
@@ -766,14 +776,15 @@ function GatewayTopologyCanvas() {
                                 Mesh Routing Topology
                             </h2>
                             {hasAnyActiveTraffic && (
-                                    <span className="flex items-center gap-1 text-[10px] font-mono text-foreground font-semibold">
-                                     <span className="size-1.5 rounded-full bg-foreground" />
+                                <span className="flex items-center gap-1 text-[10px] font-mono text-foreground font-semibold">
+                                    <span className="size-1.5 rounded-full bg-foreground" />
                                     Routing Traffic
                                 </span>
                             )}
                         </div>
                         <p className="text-[11px] text-muted-foreground mt-0.5">
-                            Hub-and-spoke radial constellation of SRouter Core dispatching directly to all connected providers
+                            Hub-and-spoke radial constellation of SRouter Core dispatching directly
+                            to all connected providers
                         </p>
                     </div>
                 </div>
@@ -833,14 +844,14 @@ function GatewayTopologyCanvas() {
                     <NodeDetailInspector
                         selectedNode={selectedNode}
                         onClose={() => setSelectedNode(null)}
-                        tokenSaverSettings={tokenSaverSettings}
+                        tokenSaverSettings={DEFAULT_TOKEN_SAVER_SETTINGS}
                         onTriggerTestRequest={triggerTestRequest}
                     />
                 </div>
             ) : (
                 <ProviderMatrixView
                     displayedProviders={displayedProviders}
-                    isTokenSaverActive={Boolean(tokenSaverSettings?.enabled)}
+                    isTokenSaverActive
                     activeProviderIds={activeProviderIdsSet}
                 />
             )}

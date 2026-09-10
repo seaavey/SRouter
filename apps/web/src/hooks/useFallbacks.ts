@@ -41,10 +41,14 @@ export function useFallbacks() {
 
             setSaving(true);
             try {
-                const res = await api.post<{ fallback: FallbackRule }>(
-                    "/v1/settings/fallbacks",
-                    data
-                );
+                const res = await api.post<{ fallback: FallbackRule }>("/v1/settings/fallbacks", {
+                    source_model: data.sourceModel,
+                    target_model: data.targetModel,
+                    priority: data.priority,
+                    enabled: data.enabled,
+                    trigger_on_status: data.triggerOnStatus,
+                    max_retries: data.maxRetries
+                });
                 if (res.fallback) {
                     setFallbacks((prev) =>
                         [...prev, res.fallback].sort((a, b) => a.priority - b.priority)
@@ -69,10 +73,14 @@ export function useFallbacks() {
     const updateFallback = useCallback(async (id: string, updates: Partial<FallbackRule>) => {
         setSaving(true);
         try {
-            const res = await api.put<{ fallback: FallbackRule }>(
-                `/v1/settings/fallbacks/${id}`,
-                updates
-            );
+            const res = await api.put<{ fallback: FallbackRule }>(`/v1/settings/fallbacks/${id}`, {
+                source_model: updates.sourceModel,
+                target_model: updates.targetModel,
+                priority: updates.priority,
+                enabled: updates.enabled,
+                trigger_on_status: updates.triggerOnStatus,
+                max_retries: updates.maxRetries
+            });
             if (res.fallback) {
                 setFallbacks((prev) =>
                     prev
@@ -92,24 +100,21 @@ export function useFallbacks() {
         }
     }, []);
 
-    const deleteFallback = useCallback(
-        async (id: string, opts?: { silent?: boolean }) => {
-            setDeletingId(id);
-            try {
-                await api.delete(`/v1/settings/fallbacks/${id}`);
-                setFallbacks((prev) => prev.filter((r) => r.id !== id));
-                if (!opts?.silent) toast.success("Fallback rule deleted");
-                return true;
-            } catch (err) {
-                const msg = err instanceof Error ? err.message : "Failed to delete fallback rule";
-                if (!opts?.silent) toast.error(msg);
-                return false;
-            } finally {
-                setDeletingId(null);
-            }
-        },
-        []
-    );
+    const deleteFallback = useCallback(async (id: string, opts?: { silent?: boolean }) => {
+        setDeletingId(id);
+        try {
+            await api.delete(`/v1/settings/fallbacks/${id}`);
+            setFallbacks((prev) => prev.filter((r) => r.id !== id));
+            if (!opts?.silent) toast.success("Fallback rule deleted");
+            return true;
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : "Failed to delete fallback rule";
+            if (!opts?.silent) toast.error(msg);
+            return false;
+        } finally {
+            setDeletingId(null);
+        }
+    }, []);
 
     return {
         fallbacks,
