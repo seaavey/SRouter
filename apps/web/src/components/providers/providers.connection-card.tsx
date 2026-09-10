@@ -88,23 +88,21 @@ export function ConnectionCard({
 
     return (
         <TooltipProvider>
-            <div className="rounded-lg border border-border/80 bg-card p-4 sm:p-5 font-mono shadow-2xs space-y-4">
+            <div className="rounded-3xl border border-hairline-soft bg-canvas p-5 sm:p-6 font-sans shadow-none space-y-5">
                 {/* Header Row */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/80 pb-3.5">
-                    <div className="flex items-center gap-2.5">
-                        <div className="flex size-7 items-center justify-center rounded-md bg-secondary text-foreground border border-border/80">
-                            <KeyRound className="size-3.5" />
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 border-b border-hairline-soft pb-4">
+                    <div className="flex items-center gap-3">
+                        <div className="flex size-9 items-center justify-center rounded-[30%] bg-canvas-soft text-ink border border-hairline-soft">
+                            <KeyRound className="size-4" />
                         </div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                            <h2 className="text-xs font-bold uppercase tracking-wider text-foreground">
-                                Active Credentials
+                        <div className="flex items-center gap-2.5 flex-wrap">
+                            <h2 className="text-base font-bold tracking-tight text-ink font-sans">
+                                Active Credentials.
                             </h2>
-                            <span className="inline-flex items-center gap-1.5 text-[11px] font-mono text-muted-foreground">
+                            <span className="inline-flex items-center gap-1.5 text-xs font-mono text-text-muted">
                                 <span
                                     className={`size-1.5 rounded-full ${
-                                        activeCount > 0
-                                            ? "bg-emerald-500"
-                                            : "bg-muted-foreground/40"
+                                        activeCount > 0 ? "bg-emerald-500" : "bg-text-muted/40"
                                     }`}
                                 />
                                 <span>
@@ -119,12 +117,10 @@ export function ConnectionCard({
                         <Tooltip>
                             <TooltipTrigger
                                 render={
-                                    <div className="flex items-center gap-2 rounded-md border border-border/80 bg-secondary/30 px-2.5 py-1 text-xs text-muted-foreground cursor-pointer hover:border-foreground/20 hover:bg-secondary/50 transition-colors" />
+                                    <div className="flex items-center gap-2 rounded-full border border-hairline-soft bg-canvas-soft px-3 py-1.5 text-xs text-ink cursor-pointer hover:border-hairline transition-colors" />
                                 }
                             >
-                                <span className="text-[11px] font-medium text-foreground">
-                                    Round Robin
-                                </span>
+                                <span className="text-xs font-medium text-ink">Round Robin</span>
                                 <Switch
                                     checked={roundRobin}
                                     onCheckedChange={onToggleRoundRobin}
@@ -146,11 +142,11 @@ export function ConnectionCard({
                             size="sm"
                             onClick={handleTestConnection}
                             disabled={isTesting || connections.length === 0}
-                            className="h-7.5 text-xs font-semibold cursor-pointer gap-1.5 shadow-2xs border-border/80 bg-card hover:bg-secondary/60"
+                            className="rounded-full px-4 h-8 text-xs font-semibold cursor-pointer gap-1.5 shadow-none border-hairline bg-canvas hover:bg-canvas-soft text-ink"
                         >
                             <RefreshCw
-                                className={`size-3 text-muted-foreground ${
-                                    isTesting ? "animate-spin text-foreground" : ""
+                                className={`size-3.5 text-text-muted ${
+                                    isTesting ? "animate-spin text-ink" : ""
                                 }`}
                             />
                             <span>{isTesting ? "Testing…" : "Test Connection"}</span>
@@ -161,7 +157,7 @@ export function ConnectionCard({
                             type="button"
                             size="sm"
                             onClick={onAdd}
-                            className="h-7.5 text-xs font-semibold cursor-pointer shadow-2xs gap-1.5"
+                            className="rounded-full px-4 h-8 text-xs font-semibold cursor-pointer shadow-none gap-1.5"
                         >
                             <Plus className="size-3.5" />
                             <span>{requiresOAuth ? "Add Connection" : "Add Key"}</span>
@@ -171,18 +167,16 @@ export function ConnectionCard({
 
                 {/* Body / Credentials List */}
                 {connections.length === 0 ? (
-                    <Empty>
+                    <Empty className="p-8">
                         <EmptyHeader>
                             <EmptyMedia variant="icon">
-                                <KeyRound className="size-4.5" strokeWidth={1.75} />
+                                <KeyRound className="size-5" strokeWidth={1.75} />
                             </EmptyMedia>
                             <EmptyTitle>No active credentials configured</EmptyTitle>
                             <EmptyDescription>
                                 Add an API key or OAuth session for{" "}
-                                <span className="text-foreground font-semibold">
-                                    {providerName}
-                                </span>{" "}
-                                to enable live routing.
+                                <span className="text-ink font-semibold">{providerName}</span> to
+                                enable live routing.
                             </EmptyDescription>
                         </EmptyHeader>
                         <EmptyContent>
@@ -190,7 +184,7 @@ export function ConnectionCard({
                                 type="button"
                                 size="sm"
                                 onClick={onAdd}
-                                className="h-8 text-xs font-semibold cursor-pointer shadow-xs gap-1.5"
+                                className="rounded-full px-5 h-9 text-xs font-semibold cursor-pointer shadow-none gap-1.5"
                             >
                                 <Plus className="size-3.5" />
                                 <span>Add Connection</span>
@@ -198,43 +192,37 @@ export function ConnectionCard({
                         </EmptyContent>
                     </Empty>
                 ) : (
-                    <div className="grid grid-cols-1 gap-2.5">
+                    <div className="grid grid-cols-1 gap-3">
                         {connections.map((connection, index) => {
-                            const maskedKey = connection.apiKey
-                                ? `${connection.apiKey.slice(0, 4)}••••${connection.apiKey.slice(-4)}`
-                                : connection.accessToken
-                                  ? `${connection.accessToken.slice(0, 4)}••••`
-                                  : null;
-
                             return (
                                 <div
                                     key={connection.id}
-                                    className="group relative flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 rounded-lg border border-border/60 bg-secondary/20 hover:bg-secondary/40 hover:border-border/80 p-3.5 transition-all text-xs shadow-2xs"
+                                    className="group relative flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 rounded-2xl border border-hairline-soft bg-canvas-soft hover:border-hairline p-4 transition-all text-xs shadow-none"
                                 >
-                                    <div className="flex items-center gap-3 min-w-0 flex-1">
-                                        <div className="flex size-8 shrink-0 items-center justify-center rounded-md border border-border/70 bg-background/80 text-muted-foreground group-hover:text-foreground group-hover:border-border transition-colors">
-                                            <ShieldCheck className="size-4 text-emerald-500" />
+                                    <div className="flex items-center gap-3.5 min-w-0 flex-1">
+                                        <div className="flex size-9 shrink-0 items-center justify-center rounded-[30%] border border-hairline-soft bg-canvas text-text-muted group-hover:border-hairline transition-colors">
+                                            <ShieldCheck className="size-4.5 text-emerald-500" />
                                         </div>
 
                                         <div className="flex flex-col gap-1 min-w-0 flex-1">
                                             <div className="flex items-center gap-2 flex-wrap">
-                                                <span className="font-semibold text-foreground text-xs">
+                                                <span className="font-semibold text-ink text-xs font-sans">
                                                     {getConnectionDisplayTitle(connection)}
                                                 </span>
 
                                                 {connection.enabled ? (
-                                                    <span className="inline-flex items-center gap-1.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                                                    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
                                                         <span className="size-1.5 rounded-full bg-emerald-500" />
                                                         Active
                                                     </span>
                                                 ) : (
-                                                    <span className="inline-flex items-center gap-1.5 text-[10px] text-muted-foreground font-medium">
-                                                        <span className="size-1.5 rounded-full bg-muted-foreground/40" />
+                                                    <span className="inline-flex items-center gap-1.5 rounded-full bg-canvas px-2.5 py-0.5 text-xs text-text-muted font-medium">
+                                                        <span className="size-1.5 rounded-full bg-text-muted/40" />
                                                         Disabled
                                                     </span>
                                                 )}
 
-                                                <span className="rounded border border-border/70 bg-secondary/60 px-1.5 py-0.2 text-[9.5px] font-semibold text-muted-foreground">
+                                                <span className="rounded-full border border-hairline-soft bg-canvas px-2 py-0.5 text-[10px] font-mono text-text-muted">
                                                     Slot #{index + 1}
                                                 </span>
                                             </div>
@@ -246,7 +234,7 @@ export function ConnectionCard({
                                             type="button"
                                             onClick={() => onDelete(connection.id)}
                                             disabled={isDeleting}
-                                            className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10 disabled:opacity-50 cursor-pointer transition-all border border-transparent hover:border-destructive/20"
+                                            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs text-text-muted hover:text-destructive hover:bg-destructive/10 disabled:opacity-50 cursor-pointer transition-all border border-transparent hover:border-destructive/20"
                                             title="Delete this credential"
                                         >
                                             <Trash2 className="size-3.5" />

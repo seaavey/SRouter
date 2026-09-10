@@ -2,7 +2,6 @@ import {
     Boxes,
     CheckCircle2,
     Cpu,
-    Gauge,
     LayoutGrid,
     Layers,
     List,
@@ -50,17 +49,17 @@ export function CatalogToolbar({
     onAddCustom
 }: CatalogToolbarProps) {
     return (
-        <div className="space-y-6 font-mono">
+        <div className="space-y-6">
             {/* Editorial Header */}
-            <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end border-b border-border/80 pb-5">
+            <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end border-b border-hairline-soft pb-5">
                 <div className="min-w-0">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/80">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-text-muted">
                         Telemetry & Routing Catalog
                     </p>
-                    <h1 className="mt-1.5 text-2xl font-bold tracking-tight text-foreground">
-                        Provider Registry
+                    <h1 className="mt-1 text-3xl md:text-4xl font-bold tracking-tight text-ink font-sans">
+                        Provider Registry.
                     </h1>
-                    <p className="mt-1 max-w-2xl text-xs text-muted-foreground leading-relaxed">
+                    <p className="mt-1.5 max-w-2xl text-sm text-text-muted leading-relaxed">
                         Manage upstream LLM executors, API credentials, and live inference
                         connections across OpenAI, Anthropic, and gateway providers.
                     </p>
@@ -72,7 +71,7 @@ export function CatalogToolbar({
                             type="button"
                             size="sm"
                             onClick={onAddCustom}
-                            className="h-8 text-xs font-medium cursor-pointer gap-1.5 shadow-2xs"
+                            className="rounded-full px-5 h-9 text-xs font-semibold cursor-pointer gap-1.5 shadow-none"
                         >
                             <Plus className="size-3.5" />
                             <span>Add Custom Provider</span>
@@ -84,10 +83,10 @@ export function CatalogToolbar({
                         size="sm"
                         onClick={onRefresh}
                         disabled={isFetching}
-                        className="h-8 text-xs font-medium cursor-pointer gap-1.5 border-border/80 bg-card hover:bg-secondary/60 transition-colors shadow-2xs"
+                        className="rounded-full px-4 h-9 text-xs font-semibold cursor-pointer gap-1.5 border-hairline bg-canvas hover:bg-canvas-soft transition-colors shadow-none text-ink"
                     >
                         <RefreshCw
-                            className={`size-3.5 text-muted-foreground ${isFetching ? "animate-spin" : ""}`}
+                            className={`size-3.5 text-text-muted ${isFetching ? "animate-spin" : ""}`}
                         />
                         <span>{isFetching ? "Syncing…" : "Refresh"}</span>
                     </Button>
@@ -96,7 +95,7 @@ export function CatalogToolbar({
 
             {/* Tactical Summary KPI Strip (if summary items available) */}
             {summaryItems && summaryItems.length > 0 && (
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                     {summaryItems.map((item) => {
                         const Icon = summaryIcons[item.label as keyof typeof summaryIcons] ?? Boxes;
                         const isConnectedCategory = item.label === "Connected";
@@ -106,26 +105,26 @@ export function CatalogToolbar({
                         return (
                             <div
                                 key={item.label}
-                                className="relative flex flex-col justify-between rounded-lg border border-border/80 bg-card p-3.5 transition-colors shadow-2xs hover:border-foreground/20"
+                                className="relative flex flex-col justify-between rounded-3xl border border-hairline-soft bg-canvas p-5 transition-colors shadow-none hover:border-hairline"
                             >
-                                <div className="flex items-center justify-between text-muted-foreground">
-                                    <span className="text-[10px] font-semibold uppercase tracking-[0.14em]">
+                                <div className="flex items-center justify-between text-text-muted">
+                                    <span className="text-xs font-semibold uppercase tracking-wider">
                                         {item.label}
                                     </span>
-                                    <Icon className="size-3.5 text-muted-foreground/70" />
+                                    <Icon className="size-4 text-text-muted/70" />
                                 </div>
-                                <div className="mt-2.5 flex items-baseline gap-2">
-                                    <span className="text-2xl font-bold tracking-tight text-foreground tabular-nums">
+                                <div className="mt-3 flex items-baseline gap-2">
+                                    <span className="text-3xl font-bold tracking-tight text-ink tabular-nums font-mono">
                                         {item.value}
                                     </span>
                                     {hasConnections && (
-                                        <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
                                             <span className="size-1.5 rounded-full bg-emerald-500" />
                                             Active
                                         </span>
                                     )}
                                 </div>
-                                <p className="mt-1 text-[11px] text-muted-foreground truncate">
+                                <p className="mt-1.5 text-xs text-text-muted truncate">
                                     {item.detail}
                                 </p>
                             </div>
@@ -135,12 +134,12 @@ export function CatalogToolbar({
             )}
 
             {/* Controls Bar: Filter Tabs, Search & View Toggle */}
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between border border-border/80 p-2.5 bg-card/50 rounded-lg">
-                {/* Category Filter Tabs */}
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between border border-hairline-soft p-2 bg-canvas-soft rounded-3xl lg:rounded-full">
+                {/* Category Filter Tabs: Segmented Control Stadium Pills */}
                 <div
                     role="tablist"
                     aria-label="Filter providers by category"
-                    className="flex flex-wrap items-center gap-1"
+                    className="flex flex-wrap items-center gap-1 p-0.5"
                 >
                     {filterOptions.map((option) => {
                         const isActive = filter === option.value;
@@ -151,18 +150,18 @@ export function CatalogToolbar({
                                 role="tab"
                                 aria-selected={isActive}
                                 onClick={() => onFilterChange(option.value)}
-                                className={`rounded-md px-2.5 py-1 text-[11px] font-mono transition-colors cursor-pointer flex items-center gap-1.5 ${
+                                className={`rounded-full px-4 py-1.5 text-xs transition-colors cursor-pointer flex items-center gap-1.5 ${
                                     isActive
-                                        ? "bg-foreground text-background font-semibold"
-                                        : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
+                                        ? "bg-ink text-canvas font-semibold shadow-none"
+                                        : "text-text-muted hover:text-ink hover:bg-canvas/50 font-medium"
                                 }`}
                             >
                                 <span>{option.label}</span>
                                 <span
-                                    className={`rounded px-1 py-0.2 text-[9px] tabular-nums font-semibold ${
+                                    className={`rounded-full px-1.5 py-0.2 text-[10px] tabular-nums font-mono font-semibold ${
                                         isActive
-                                            ? "bg-background/20 text-background"
-                                            : "bg-secondary text-muted-foreground"
+                                            ? "bg-canvas/20 text-canvas"
+                                            : "bg-field text-text-muted"
                                     }`}
                                 >
                                     {option.count}
@@ -173,10 +172,10 @@ export function CatalogToolbar({
                 </div>
 
                 {/* Search & View Mode Switcher */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 px-1">
                     <div className="relative w-full sm:w-64">
                         <Search
-                            className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
+                            className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-text-muted"
                             strokeWidth={1.75}
                         />
                         <Input
@@ -184,13 +183,13 @@ export function CatalogToolbar({
                             value={search}
                             onChange={(e) => onSearchChange(e.target.value)}
                             placeholder="Search providers & models…"
-                            className="h-8 pl-8 pr-7 font-mono text-xs rounded-md bg-card border-border/80"
+                            className="h-9 pl-9 pr-8 text-xs rounded-full bg-field border-0 text-ink placeholder:text-text-faint focus-visible:ring-2 focus-visible:ring-ink shadow-none font-mono"
                         />
                         {search && (
                             <button
                                 type="button"
                                 onClick={() => onSearchChange("")}
-                                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xs p-0.5 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-1 text-text-muted hover:text-ink transition-colors cursor-pointer"
                                 aria-label="Clear search"
                             >
                                 <X className="size-3" />
@@ -199,14 +198,14 @@ export function CatalogToolbar({
                     </div>
 
                     {/* View Toggle */}
-                    <div className="flex items-center rounded-md border border-border/80 bg-card p-0.5 shadow-2xs">
+                    <div className="flex items-center rounded-full bg-field p-0.5 border border-hairline-soft">
                         <button
                             type="button"
                             onClick={() => onViewModeChange("grid")}
-                            className={`flex size-7 items-center justify-center rounded-xs transition-colors cursor-pointer ${
+                            className={`flex size-8 items-center justify-center rounded-full transition-colors cursor-pointer ${
                                 viewMode === "grid"
-                                    ? "bg-foreground text-background font-semibold"
-                                    : "text-muted-foreground hover:text-foreground"
+                                    ? "bg-ink text-canvas font-semibold shadow-none"
+                                    : "text-text-muted hover:text-ink"
                             }`}
                             title="Grid view"
                             aria-label="Grid view"
@@ -216,10 +215,10 @@ export function CatalogToolbar({
                         <button
                             type="button"
                             onClick={() => onViewModeChange("list")}
-                            className={`flex size-7 items-center justify-center rounded-xs transition-colors cursor-pointer ${
+                            className={`flex size-8 items-center justify-center rounded-full transition-colors cursor-pointer ${
                                 viewMode === "list"
-                                    ? "bg-foreground text-background font-semibold"
-                                    : "text-muted-foreground hover:text-foreground"
+                                    ? "bg-ink text-canvas font-semibold shadow-none"
+                                    : "text-text-muted hover:text-ink"
                             }`}
                             title="List view"
                             aria-label="List view"

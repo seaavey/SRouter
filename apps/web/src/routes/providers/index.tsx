@@ -20,15 +20,15 @@ function ProvidersPage() {
     if (isPending || !data) {
         if (!data && error) {
             return (
-                <div className="mx-auto flex w-full max-w-7xl flex-col font-mono">
-                    <div className="flex min-h-64 flex-col items-center justify-center rounded-xl border border-destructive/30 bg-destructive/5 px-6 py-14 text-center">
-                        <div className="flex size-10 items-center justify-center rounded-full bg-destructive/10 text-destructive mb-3.5">
+                <div className="mx-auto flex w-full max-w-7xl flex-col font-sans">
+                    <div className="flex min-h-64 flex-col items-center justify-center rounded-3xl border border-destructive/30 bg-destructive/5 px-6 py-14 text-center">
+                        <div className="flex size-11 items-center justify-center rounded-full bg-destructive/10 text-destructive mb-3.5">
                             <TriangleAlert className="size-5" strokeWidth={1.75} />
                         </div>
-                        <h2 className="text-sm font-bold text-foreground">
+                        <h2 className="text-base font-bold text-ink">
                             Unable to load provider catalog
                         </h2>
-                        <p className="mt-1 max-w-md text-xs text-muted-foreground leading-relaxed">
+                        <p className="mt-1.5 max-w-md text-xs text-text-muted leading-relaxed font-mono">
                             {error instanceof Error
                                 ? error.message
                                 : "The gateway returned an unexpected network response."}
@@ -37,10 +37,10 @@ function ProvidersPage() {
                             type="button"
                             variant="outline"
                             size="sm"
-                            className="mt-4 h-8 text-xs cursor-pointer gap-1.5"
+                            className="mt-5 rounded-full px-5 h-9 text-xs font-semibold cursor-pointer gap-1.5 shadow-none"
                             onClick={() => void refetch()}
                         >
-                            <RefreshCw className="size-3" />
+                            <RefreshCw className="size-3.5" />
                             <span>Retry Connection</span>
                         </Button>
                     </div>
@@ -51,7 +51,7 @@ function ProvidersPage() {
     }
 
     return (
-        <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
+        <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 font-sans">
             <CatalogToolbar
                 isFetching={isFetching}
                 onRefresh={() => void refetch()}
