@@ -321,30 +321,30 @@ git commit -m "feat(keys): refactor API keys management to Mobbin design system"
 - Consumes: Quota live query and usage telemetry analytics query.
 - Produces: Clean telemetry dashboards with electric blue decisive accents.
 
-- [ ] **Step 1: Refactor Quota Tracker Cards (`src/routes/quota.tsx`)**
+- [x] **Step 1: Refactor Quota Tracker Cards (`src/routes/quota.tsx`)**
 
 - Responsive 2-column grid (`grid-cols-1 lg:grid-cols-2 gap-6`).
 - Account cards: `rounded-3xl border border-hairline-soft bg-canvas p-6`.
 - Progress bars: monochrome track (`bg-canvas-soft`) with electric blue (`bg-accent`) for available quota.
 - Countdown & reset timestamps: `font-mono text-xs text-text-muted`.
 
-- [ ] **Step 2: Refactor Analytics Stat Cards & Timeframe Segmented Control**
+- [x] **Step 2: Refactor Analytics Stat Cards & Timeframe Segmented Control**
 
 - Timeframe filter: Mobbin segmented-control stadium pill (`bg-canvas-soft rounded-full p-1` with `bg-canvas` active pill).
 - KPI cards: `rounded-3xl bg-canvas border border-hairline-soft p-6`.
 
-- [ ] **Step 3: Refactor Analytics Charts (`traffic-chart.tsx`, `latency-chart.tsx`)**
+- [x] **Step 3: Refactor Analytics Charts (`traffic-chart.tsx`, `latency-chart.tsx`)**
 
 - Recharts containers wrapped in `rounded-3xl border border-hairline-soft bg-canvas p-6`.
 - Remove dark/glowing gradients; use crisp solid strokes (`#141414` / `#0066ff` / `#707070`).
 - Custom tooltip: `bg-canvas border border-hairline-soft rounded-2xl p-3 shadow-none text-xs font-mono`.
 
-- [ ] **Step 4: Run web typecheck and build**
+- [x] **Step 4: Run web typecheck and build**
 
 Run: `pnpm --filter web lint && pnpm --filter web build`
 Expected: PASS with 0 errors.
 
-- [ ] **Step 5: Commit Task 7**
+- [x] **Step 5: Commit Task 7**
 
 ```bash
 git add apps/web/src/routes/quota.tsx apps/web/src/routes/analytics.tsx apps/web/src/components/analytics/
