@@ -80,6 +80,7 @@ function SettingsPage() {
         }
     }, [serverSettings]);
 
+    // Track scroll position to update active section pill
     useEffect(() => {
         const sections = SECTIONS.map(({ id }) => document.getElementById(id)).filter(
             (section): section is HTMLElement => section !== null
@@ -88,6 +89,9 @@ function SettingsPage() {
 
         const scrollContainer = document.getElementById("dashboard-scroll-container");
         if (!scrollContainer) return;
+
+        const isMobile = window.innerWidth < 1024;
+        const topMargin = isMobile ? "-60px" : "-16px";
 
         const observer = new IntersectionObserver(
             (entries) => {
@@ -102,7 +106,7 @@ function SettingsPage() {
             },
             {
                 root: scrollContainer,
-                rootMargin: "-112px 0px -65% 0px",
+                rootMargin: `${topMargin} 0px -60% 0px`,
                 threshold: 0
             }
         );
@@ -115,6 +119,20 @@ function SettingsPage() {
             observer.disconnect();
         };
     }, [isLoadingServerSettings]);
+
+    // On mobile, keep the active section tab centered in the horizontal scroll view
+    useEffect(() => {
+        if (typeof window !== "undefined" && window.innerWidth < 1024) {
+            const activeBtn = document.querySelector(`[data-section-nav="${activeSection}"]`);
+            if (activeBtn) {
+                activeBtn.scrollIntoView({
+                    behavior: "smooth",
+                    inline: "center",
+                    block: "nearest"
+                });
+            }
+        }
+    }, [activeSection]);
 
     const updateServerMutation = useMutation({
         mutationFn: (newRequireApiKey: boolean) =>
@@ -142,12 +160,14 @@ function SettingsPage() {
         const el = document.getElementById(id);
         const scrollContainer = document.getElementById("dashboard-scroll-container");
         if (el && scrollContainer) {
+            const isMobile = window.innerWidth < 1024;
+            const navOffset = isMobile ? 60 : 16;
             scrollContainer.scrollTo({
                 top:
                     el.getBoundingClientRect().top -
                     scrollContainer.getBoundingClientRect().top +
                     scrollContainer.scrollTop -
-                    16,
+                    navOffset,
                 behavior: "smooth"
             });
         }
@@ -158,7 +178,7 @@ function SettingsPage() {
     }
 
     return (
-        <div className="mx-auto flex w-full max-w-[1360px] flex-col gap-8 font-sans pb-16">
+        <div className="mx-auto flex w-full max-w-[1360px] flex-col gap-6 sm:gap-8 font-sans pb-16">
             {/* Header */}
             <header className="flex flex-col justify-between gap-4 pb-2 sm:flex-row sm:items-end">
                 <div className="min-w-0">
@@ -168,21 +188,21 @@ function SettingsPage() {
                             System Preferences
                         </p>
                     </div>
-                    <div className="flex items-center gap-3 flex-wrap">
-                        <h1 className="text-3xl md:text-4xl font-[650] tracking-tight text-ink font-sans">
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                        <h1 className="text-2xl sm:text-3xl md:text-4xl font-[650] tracking-tight text-ink font-sans">
                             Gateway Settings.
                         </h1>
-                        <span className="inline-flex h-6 items-center whitespace-nowrap rounded-full border border-hairline-soft bg-canvas px-3 text-xs font-semibold font-mono text-text-muted">
+                        <span className="inline-flex h-6 items-center whitespace-nowrap rounded-full border border-hairline-soft bg-canvas px-2.5 text-xs font-semibold font-mono text-text-muted">
                             v{currentVersion}
                         </span>
                         {hasUpdate && latestVersion && (
-                            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400 font-sans">
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400 font-sans">
                                 <span className="size-1.5 rounded-full bg-emerald-500" />
                                 Update: {latestVersion}
                             </span>
                         )}
                     </div>
-                    <p className="mt-1 text-base font-light text-text-muted font-sans max-w-3xl">
+                    <p className="mt-1 text-xs sm:text-sm text-text-muted font-light font-sans max-w-3xl leading-relaxed">
                         Configure upstream routing policies, security gates, logging pipelines, and
                         client preferences for this SRouter gateway node.
                     </p>
@@ -193,7 +213,7 @@ function SettingsPage() {
                     <button
                         type="button"
                         onClick={exportSettings}
-                        className="inline-flex items-center gap-2 rounded-full border border-hairline-soft bg-canvas hover:bg-canvas-soft text-ink px-5 py-2 text-xs font-semibold cursor-pointer transition-colors shadow-none font-sans"
+                        className="inline-flex items-center gap-1.5 rounded-full border border-hairline-soft bg-canvas hover:bg-canvas-soft text-ink px-4 py-1.5 sm:px-5 sm:py-2 text-xs font-semibold cursor-pointer transition-colors shadow-none font-sans"
                     >
                         <UploadCloud className="size-3.5" />
                         <span>Export</span>
@@ -201,7 +221,7 @@ function SettingsPage() {
                     <button
                         type="button"
                         onClick={resetToDefaults}
-                        className="inline-flex items-center gap-2 rounded-full border border-hairline-soft bg-canvas hover:bg-destructive/10 hover:border-destructive/30 text-text-muted hover:text-destructive px-5 py-2 text-xs font-semibold cursor-pointer transition-colors shadow-none font-sans"
+                        className="inline-flex items-center gap-1.5 rounded-full border border-hairline-soft bg-canvas hover:bg-destructive/10 hover:border-destructive/30 text-text-muted hover:text-destructive px-4 py-1.5 sm:px-5 sm:py-2 text-xs font-semibold cursor-pointer transition-colors shadow-none font-sans"
                     >
                         <RotateCcw className="size-3.5" />
                         <span>Reset</span>
@@ -210,26 +230,29 @@ function SettingsPage() {
             </header>
 
             <div className="lg:grid lg:grid-cols-[12rem_minmax(0,1fr)] lg:items-start lg:gap-8">
-                <aside className="sticky top-14 z-20 -mx-3 border-y border-hairline-soft bg-canvas/95 px-3 py-2 backdrop-blur-md sm:-mx-5 sm:px-5 lg:top-20 lg:mx-0 lg:self-start lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
+                {/* On mobile: pinned directly under Topbar without gaps (-top-4 -mx-4)
+                    On desktop: sticky vertical sidebar in left column (lg:sticky lg:top-4) */}
+                <aside className="sticky -top-4 -mx-4 z-20 border-b border-hairline-soft bg-canvas/95 px-4 py-2 backdrop-blur-md sm:-top-6 sm:-mx-6 sm:px-6 lg:static lg:top-4 lg:mx-0 lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none lg:w-48 lg:self-start lg:sticky">
                     <nav
                         aria-label="Settings sections"
-                        className="flex items-center gap-1 overflow-x-auto no-scrollbar rounded-3xl border border-hairline-soft bg-canvas p-1.5 lg:w-48 lg:flex-col lg:items-stretch shadow-none"
+                        className="flex items-center gap-1.5 overflow-x-auto no-scrollbar lg:flex-col lg:items-stretch lg:rounded-3xl lg:border lg:border-hairline-soft lg:bg-canvas lg:p-1.5 shadow-none"
                     >
                         {SECTIONS.map(({ id, label, icon: Icon }) => {
                             const isActive = activeSection === id;
                             return (
                                 <button
                                     key={id}
+                                    data-section-nav={id}
                                     type="button"
                                     onClick={() => scrollToSection(id)}
                                     aria-current={isActive ? "location" : undefined}
-                                    className={`inline-flex min-h-10 shrink-0 cursor-pointer items-center gap-2 rounded-full px-4 py-2 text-xs font-sans font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink lg:justify-start ${
+                                    className={`inline-flex min-h-8 sm:min-h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-sans font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink lg:justify-start ${
                                         isActive
                                             ? "bg-ink text-canvas font-semibold shadow-none"
                                             : "text-text-muted hover:bg-canvas-soft hover:text-ink"
                                     }`}
                                 >
-                                    <Icon className="size-4" />
+                                    <Icon className="size-3.5 sm:size-4" />
                                     <span>{label}</span>
                                 </button>
                             );
@@ -237,7 +260,7 @@ function SettingsPage() {
                     </nav>
                 </aside>
 
-                <main className="space-y-6">
+                <main className="space-y-6 min-w-0 pt-4 lg:pt-0">
                     <SecuritySettings
                         requireApiKey={requireApiKey}
                         onToggleRequireApiKey={handleToggleRequireApiKey}
