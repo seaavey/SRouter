@@ -22,7 +22,13 @@ import {
 import type { UsageStats } from "@srouter/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
+import {
+    Empty,
+    EmptyHeader,
+    EmptyMedia,
+    EmptyTitle,
+    EmptyDescription
+} from "@/components/ui/empty";
 import {
     Table,
     TableBody,
@@ -66,13 +72,13 @@ export function UsageByModelTable({ models }: UsageByModelTableProps) {
                         <button
                             type="button"
                             onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                            className="flex items-center gap-1.5 hover:text-foreground transition-colors cursor-pointer"
+                            className="flex items-center gap-1.5 hover:text-ink transition-colors cursor-pointer text-text-muted select-none"
                         >
                             <span>Model</span>
                             {isSorted === "asc" ? (
-                                <ArrowUp className="size-3 text-foreground" />
+                                <ArrowUp className="size-3 text-ink" />
                             ) : isSorted === "desc" ? (
-                                <ArrowDown className="size-3 text-foreground" />
+                                <ArrowDown className="size-3 text-ink" />
                             ) : (
                                 <ArrowUpDown className="size-3 opacity-40 hover:opacity-100" />
                             )}
@@ -81,7 +87,7 @@ export function UsageByModelTable({ models }: UsageByModelTableProps) {
                 },
                 cell: ({ row }) => (
                     <span
-                        className="block max-w-64 truncate font-mono font-medium text-foreground"
+                        className="block max-w-64 truncate font-sans text-sm font-medium text-ink"
                         title={row.original.model}
                     >
                         {row.original.model}
@@ -96,13 +102,13 @@ export function UsageByModelTable({ models }: UsageByModelTableProps) {
                         <button
                             type="button"
                             onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                            className="flex items-center justify-end gap-1.5 ml-auto hover:text-foreground transition-colors cursor-pointer"
+                            className="flex items-center justify-end gap-1.5 ml-auto hover:text-ink transition-colors cursor-pointer text-text-muted select-none"
                         >
                             <span>Requests</span>
                             {isSorted === "asc" ? (
-                                <ArrowUp className="size-3 text-foreground" />
+                                <ArrowUp className="size-3 text-ink" />
                             ) : isSorted === "desc" ? (
-                                <ArrowDown className="size-3 text-foreground" />
+                                <ArrowDown className="size-3 text-ink" />
                             ) : (
                                 <ArrowUpDown className="size-3 opacity-40 hover:opacity-100" />
                             )}
@@ -111,10 +117,10 @@ export function UsageByModelTable({ models }: UsageByModelTableProps) {
                 },
                 cell: ({ row }) => (
                     <span
-                        className="font-mono text-foreground tabular-nums cursor-default"
+                        className="font-mono text-xs text-ink tabular-nums cursor-default"
                         title={`Requests: ${row.original.totalRequests.toLocaleString()}`}
                     >
-                         <ResponsiveNumber value={row.original.totalRequests} />
+                        <ResponsiveNumber value={row.original.totalRequests} />
                     </span>
                 )
             },
@@ -126,13 +132,13 @@ export function UsageByModelTable({ models }: UsageByModelTableProps) {
                         <button
                             type="button"
                             onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                            className="flex items-center justify-end gap-1.5 ml-auto hover:text-foreground transition-colors cursor-pointer"
+                            className="flex items-center justify-end gap-1.5 ml-auto hover:text-ink transition-colors cursor-pointer text-text-muted select-none"
                         >
                             <span>Input</span>
                             {isSorted === "asc" ? (
-                                <ArrowUp className="size-3 text-foreground" />
+                                <ArrowUp className="size-3 text-ink" />
                             ) : isSorted === "desc" ? (
-                                <ArrowDown className="size-3 text-foreground" />
+                                <ArrowDown className="size-3 text-ink" />
                             ) : (
                                 <ArrowUpDown className="size-3 opacity-40 hover:opacity-100" />
                             )}
@@ -141,10 +147,10 @@ export function UsageByModelTable({ models }: UsageByModelTableProps) {
                 },
                 cell: ({ row }) => (
                     <span
-                        className="font-mono text-muted-foreground tabular-nums cursor-default"
+                        className="font-mono text-xs text-text-muted tabular-nums cursor-default"
                         title={`Prompt Tokens: ${row.original.totalInputTokens.toLocaleString()}`}
                     >
-                         <ResponsiveNumber value={row.original.totalInputTokens} />
+                        <ResponsiveNumber value={row.original.totalInputTokens} />
                     </span>
                 )
             },
@@ -156,13 +162,13 @@ export function UsageByModelTable({ models }: UsageByModelTableProps) {
                         <button
                             type="button"
                             onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                            className="flex items-center justify-end gap-1.5 ml-auto hover:text-foreground transition-colors cursor-pointer"
+                            className="flex items-center justify-end gap-1.5 ml-auto hover:text-ink transition-colors cursor-pointer text-text-muted select-none"
                         >
                             <span>Output</span>
                             {isSorted === "asc" ? (
-                                <ArrowUp className="size-3 text-foreground" />
+                                <ArrowUp className="size-3 text-ink" />
                             ) : isSorted === "desc" ? (
-                                <ArrowDown className="size-3 text-foreground" />
+                                <ArrowDown className="size-3 text-ink" />
                             ) : (
                                 <ArrowUpDown className="size-3 opacity-40 hover:opacity-100" />
                             )}
@@ -171,10 +177,10 @@ export function UsageByModelTable({ models }: UsageByModelTableProps) {
                 },
                 cell: ({ row }) => (
                     <span
-                        className="font-mono text-muted-foreground tabular-nums cursor-default"
+                        className="font-mono text-xs text-text-muted tabular-nums cursor-default"
                         title={`Completion Tokens: ${row.original.totalOutputTokens.toLocaleString()}`}
                     >
-                         <ResponsiveNumber value={row.original.totalOutputTokens} />
+                        <ResponsiveNumber value={row.original.totalOutputTokens} />
                     </span>
                 )
             },
@@ -186,13 +192,13 @@ export function UsageByModelTable({ models }: UsageByModelTableProps) {
                         <button
                             type="button"
                             onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                            className="flex items-center justify-end gap-1.5 ml-auto hover:text-foreground transition-colors cursor-pointer"
+                            className="flex items-center justify-end gap-1.5 ml-auto hover:text-ink transition-colors cursor-pointer text-text-muted select-none"
                         >
                             <span>Cached</span>
                             {isSorted === "asc" ? (
-                                <ArrowUp className="size-3 text-foreground" />
+                                <ArrowUp className="size-3 text-ink" />
                             ) : isSorted === "desc" ? (
-                                <ArrowDown className="size-3 text-foreground" />
+                                <ArrowDown className="size-3 text-ink" />
                             ) : (
                                 <ArrowUpDown className="size-3 opacity-40 hover:opacity-100" />
                             )}
@@ -201,10 +207,10 @@ export function UsageByModelTable({ models }: UsageByModelTableProps) {
                 },
                 cell: ({ row }) => (
                     <span
-                        className="font-mono text-muted-foreground tabular-nums cursor-default"
+                        className="font-mono text-xs text-text-muted tabular-nums cursor-default"
                         title={`Cached Tokens: ${row.original.totalCachedTokens.toLocaleString()}`}
                     >
-                         <ResponsiveNumber value={row.original.totalCachedTokens} />
+                        <ResponsiveNumber value={row.original.totalCachedTokens} />
                     </span>
                 )
             },
@@ -217,13 +223,13 @@ export function UsageByModelTable({ models }: UsageByModelTableProps) {
                         <button
                             type="button"
                             onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                            className="flex items-center justify-end gap-1.5 ml-auto hover:text-foreground transition-colors cursor-pointer"
+                            className="flex items-center justify-end gap-1.5 ml-auto hover:text-ink transition-colors cursor-pointer text-text-muted select-none"
                         >
                             <span>Total</span>
                             {isSorted === "asc" ? (
-                                <ArrowUp className="size-3 text-foreground" />
+                                <ArrowUp className="size-3 text-ink" />
                             ) : isSorted === "desc" ? (
-                                <ArrowDown className="size-3 text-foreground" />
+                                <ArrowDown className="size-3 text-ink" />
                             ) : (
                                 <ArrowUpDown className="size-3 opacity-40 hover:opacity-100" />
                             )}
@@ -234,10 +240,10 @@ export function UsageByModelTable({ models }: UsageByModelTableProps) {
                     const total = row.original.totalInputTokens + row.original.totalOutputTokens;
                     return (
                         <span
-                            className="font-mono font-medium text-foreground tabular-nums cursor-default"
+                            className="font-mono text-xs font-semibold text-ink tabular-nums cursor-default"
                             title={`Total Tokens: ${total.toLocaleString()} (${row.original.totalInputTokens.toLocaleString()} in · ${row.original.totalOutputTokens.toLocaleString()} out)`}
                         >
-                             <ResponsiveNumber value={total} />
+                            <ResponsiveNumber value={total} />
                         </span>
                     );
                 }
@@ -250,13 +256,13 @@ export function UsageByModelTable({ models }: UsageByModelTableProps) {
                         <button
                             type="button"
                             onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                            className="flex items-center justify-end gap-1.5 ml-auto hover:text-foreground transition-colors cursor-pointer"
+                            className="flex items-center justify-end gap-1.5 ml-auto hover:text-ink transition-colors cursor-pointer text-text-muted select-none"
                         >
                             <span>Est. cost</span>
                             {isSorted === "asc" ? (
-                                <ArrowUp className="size-3 text-foreground" />
+                                <ArrowUp className="size-3 text-ink" />
                             ) : isSorted === "desc" ? (
-                                <ArrowDown className="size-3 text-foreground" />
+                                <ArrowDown className="size-3 text-ink" />
                             ) : (
                                 <ArrowUpDown className="size-3 opacity-40 hover:opacity-100" />
                             )}
@@ -264,7 +270,7 @@ export function UsageByModelTable({ models }: UsageByModelTableProps) {
                     );
                 },
                 cell: ({ row }) => (
-                    <span className="font-mono font-semibold text-foreground tabular-nums">
+                    <span className="font-mono text-xs font-semibold text-ink tabular-nums">
                         ${row.original.estCost.toFixed(4)}
                     </span>
                 )
@@ -296,34 +302,36 @@ export function UsageByModelTable({ models }: UsageByModelTableProps) {
     const endRow = Math.min((currentPage + 1) * pageSize, totalRows);
 
     return (
-        <Card className="min-w-0 gap-0 overflow-hidden p-0 border border-border/80 bg-card">
-            <CardHeader className="flex flex-col justify-between gap-3 border-b border-border/60 px-4 py-3 sm:flex-row sm:items-center">
-                <div className="flex min-w-0 items-center gap-2.5">
-                    <div className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border/80 bg-secondary text-foreground">
-                        <Database className="size-3.5" strokeWidth={1.75} />
+        <Card className="min-w-0 gap-0 overflow-hidden p-0 border border-hairline-soft bg-canvas shadow-none">
+            <CardHeader className="flex flex-col justify-between gap-4 border-b border-hairline-soft p-6 sm:flex-row sm:items-center">
+                <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-canvas-soft text-ink">
+                        <Database className="size-4" strokeWidth={1.75} />
                     </div>
                     <div className="min-w-0">
-                        <CardTitle className="text-xs font-bold tracking-tight text-foreground uppercase">Usage By Model</CardTitle>
-                        <CardDescription className="text-[11px] text-muted-foreground">
+                        <CardTitle className="font-heading text-base font-semibold text-ink">
+                            Usage by Model.
+                        </CardTitle>
+                        <CardDescription className="text-xs text-text-muted">
                             Exact token usage and estimated spend for every model
                         </CardDescription>
                     </div>
                 </div>
 
                 <div className="relative w-full sm:w-64">
-                    <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                    <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-text-muted" />
                     <Input
                         type="text"
                         placeholder="Search models…"
                         value={searchModel}
                         onChange={(event) => setSearchModel(event.target.value)}
-                        className="h-8 pl-8 pr-7 font-mono text-xs bg-secondary/30 border-border/70 focus-visible:ring-1"
+                        className="h-9 pl-9 pr-8 font-mono text-xs bg-field border-0 rounded-full text-ink placeholder:text-text-faint focus-visible:ring-2 focus-visible:ring-ink focus-visible:outline-none shadow-none"
                     />
                     {searchModel && (
                         <button
                             type="button"
                             onClick={() => setSearchModel("")}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xs p-0.5 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-1 text-text-muted hover:text-ink transition-colors cursor-pointer"
                             aria-label="Clear search"
                         >
                             <X className="size-3" />
@@ -334,12 +342,14 @@ export function UsageByModelTable({ models }: UsageByModelTableProps) {
 
             <CardContent className="p-0">
                 {filteredModels.length === 0 ? (
-                    <Empty className="min-h-44">
+                    <Empty className="min-h-44 p-8">
                         <EmptyHeader>
                             <EmptyMedia variant="icon">
                                 <Search className="size-5" strokeWidth={1.5} />
                             </EmptyMedia>
-                            <EmptyTitle>{hasUsage ? "No matching models" : "No model usage yet"}</EmptyTitle>
+                            <EmptyTitle>
+                                {hasUsage ? "No matching models" : "No model usage yet"}
+                            </EmptyTitle>
                             <EmptyDescription>
                                 {hasUsage
                                     ? `No models match “${searchModel.trim()}”. Try a different search.`
@@ -393,16 +403,14 @@ export function UsageByModelTable({ models }: UsageByModelTableProps) {
                         </Table>
 
                         {totalRows > 10 && (
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-border/60 bg-muted/15 px-4 py-2.5 text-xs text-muted-foreground font-mono">
-                                <div className="flex items-center gap-2 text-[11px]">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-hairline-soft bg-canvas-soft/30 px-6 py-3.5 text-xs text-text-muted font-mono">
+                                <div className="flex items-center gap-2">
                                     <span>Showing</span>
-                                    <span className="font-semibold text-foreground">
+                                    <span className="font-semibold text-ink">
                                         {startRow}-{endRow}
                                     </span>
                                     <span>of</span>
-                                    <span className="font-semibold text-foreground">
-                                        {totalRows}
-                                    </span>
+                                    <span className="font-semibold text-ink">{totalRows}</span>
                                     <span>models</span>
                                 </div>
 
@@ -411,19 +419,19 @@ export function UsageByModelTable({ models }: UsageByModelTableProps) {
                                         type="button"
                                         onClick={() => table.previousPage()}
                                         disabled={!table.getCanPreviousPage()}
-                                        className="flex size-6 items-center justify-center rounded-md border border-border/70 bg-background text-foreground hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors shadow-2xs"
+                                        className="flex size-7 items-center justify-center rounded-full border border-hairline bg-canvas text-ink hover:bg-canvas-soft disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors shadow-none"
                                         title="Previous page"
                                     >
                                         <ChevronLeft className="size-3.5" />
                                     </button>
-                                    <span className="px-1 text-[11px] text-foreground font-medium">
+                                    <span className="px-1.5 text-xs text-ink font-medium">
                                         {currentPage + 1} / {pageCount}
                                     </span>
                                     <button
                                         type="button"
                                         onClick={() => table.nextPage()}
                                         disabled={!table.getCanNextPage()}
-                                        className="flex size-6 items-center justify-center rounded-md border border-border/70 bg-background text-foreground hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors shadow-2xs"
+                                        className="flex size-7 items-center justify-center rounded-full border border-hairline bg-canvas text-ink hover:bg-canvas-soft disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors shadow-none"
                                         title="Next page"
                                     >
                                         <ChevronRight className="size-3.5" />

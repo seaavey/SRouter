@@ -48,24 +48,24 @@ export function NetworkStatus() {
     return (
         <section
             aria-labelledby="api-integration-title"
-            className="flex h-full min-w-0 flex-col justify-between rounded-lg border border-border/80 bg-card p-4 sm:p-5"
+            className="flex h-full min-w-0 flex-col justify-between rounded-3xl border border-hairline-soft bg-canvas p-6 shadow-none"
         >
             {/* Top: API Integration & Base URL */}
             <div className="flex flex-col gap-4">
                 {/* Header */}
-                <header className="flex items-center justify-between gap-3 pb-3 border-b border-border/60">
-                    <div className="flex min-w-0 items-center gap-2.5">
-                        <div className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border/80 bg-secondary text-foreground">
-                            <Code2 className="size-3.5" strokeWidth={1.75} />
+                <header className="flex items-center justify-between gap-3 pb-4 border-b border-hairline-soft">
+                    <div className="flex min-w-0 items-center gap-3">
+                        <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-canvas-soft text-ink">
+                            <Code2 className="size-4" strokeWidth={1.75} />
                         </div>
                         <div className="min-w-0">
                             <h2
                                 id="api-integration-title"
-                                className="text-xs font-bold tracking-tight text-foreground uppercase"
+                                className="font-heading text-base font-semibold text-ink"
                             >
-                                API Integration
+                                API Integration.
                             </h2>
-                            <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                            <p className="mt-0.5 truncate text-xs text-text-muted">
                                 OpenAI and Anthropic compatible endpoint
                             </p>
                         </div>
@@ -73,10 +73,10 @@ export function NetworkStatus() {
                 </header>
 
                 {/* Base URL Card */}
-                <div className="space-y-1.5">
-                    <div className="flex items-center justify-between text-[10.5px] font-medium uppercase tracking-wider text-muted-foreground">
+                <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs font-medium text-text-muted">
                         <span>Gateway Base URL</span>
-                        <span className="text-[10px] font-normal lowercase tracking-normal text-muted-foreground/70">
+                        <span className="text-[11px] font-normal text-text-faint">
                             click to copy
                         </span>
                     </div>
@@ -91,10 +91,10 @@ export function NetworkStatus() {
                                 void handleCopy();
                             }
                         }}
-                        className="group flex items-center justify-between gap-2.5 rounded-md border border-border/80 bg-secondary/30 px-3 py-2 transition-colors hover:border-foreground/30 hover:bg-secondary/50 cursor-pointer"
+                        className="group flex items-center justify-between gap-3 rounded-2xl border border-hairline-soft bg-field px-4 py-3 transition-colors hover:border-hairline cursor-pointer"
                     >
                         <div className="flex items-center gap-2 min-w-0">
-                            <code className="truncate font-mono text-xs text-foreground font-medium select-all">
+                            <code className="truncate font-mono text-xs text-ink font-medium select-all">
                                 {apiBase}
                             </code>
                         </div>
@@ -102,12 +102,12 @@ export function NetworkStatus() {
                         <button
                             type="button"
                             aria-label="Copy base URL"
-                            className="inline-flex size-6 shrink-0 items-center justify-center rounded border border-border/70 bg-background text-muted-foreground transition-colors group-hover:text-foreground hover:border-foreground/40 cursor-pointer"
+                            className="inline-flex size-7 shrink-0 items-center justify-center rounded-full border border-hairline bg-canvas text-text-muted transition-colors group-hover:text-ink hover:bg-canvas-soft cursor-pointer"
                         >
                             {copied ? (
-                                <Check className="size-3 text-foreground" />
+                                <Check className="size-3.5 text-ink" />
                             ) : (
-                                <Copy className="size-3" />
+                                <Copy className="size-3.5" />
                             )}
                         </button>
                     </div>
@@ -115,38 +115,40 @@ export function NetworkStatus() {
             </div>
 
             {/* Bottom: Private Access / Tunneling */}
-            <div className="mt-5 pt-3.5 border-t border-border/60">
-                <div className="flex items-center justify-between gap-3 mb-2">
+            <div className="mt-6 pt-4 border-t border-hairline-soft">
+                <div className="flex items-center justify-between gap-3 mb-3">
                     <div>
-                        <h3 className="text-xs font-bold text-foreground">Private Access</h3>
-                        <p className="mt-0.5 text-[10.5px] text-muted-foreground">
+                        <h3 className="text-sm font-semibold text-ink font-sans">
+                            Private Access.
+                        </h3>
+                        <p className="mt-0.5 text-xs text-text-muted">
                             Encrypted tunnels for remote client connectivity
                         </p>
                     </div>
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-2.5">
                     {/* Cloudflare Tunnel Row */}
-                    <div className="flex items-center justify-between gap-3 rounded-md border border-border/70 bg-secondary/20 p-2.5 transition-colors hover:border-foreground/20">
-                        <div className="flex items-center gap-2.5 min-w-0">
-                            <div className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border/80 bg-secondary text-foreground">
-                                <CloudflareIcon className="size-3.5" />
+                    <div className="flex items-center justify-between gap-3 rounded-2xl border border-hairline-soft bg-canvas-soft/40 p-3.5 transition-colors hover:border-hairline hover:bg-canvas-soft">
+                        <div className="flex items-center gap-3 min-w-0">
+                            <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-canvas text-ink border border-hairline-soft">
+                                <CloudflareIcon className="size-4" />
                             </div>
                             <div className="min-w-0">
-                                <div className="flex items-center gap-1.5">
-                                    <p className="text-xs font-semibold text-foreground">
+                                <div className="flex items-center gap-2">
+                                    <p className="text-xs font-semibold text-ink font-sans">
                                         Cloudflare Tunnel
                                     </p>
                                     {tunnel?.running && (
-                                        <span className="flex items-center gap-1 text-[10px] font-semibold text-foreground font-mono">
-                                            <span className="size-1.5 rounded-full bg-foreground" />
+                                        <span className="flex items-center gap-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 text-[10px] font-mono font-semibold">
+                                            <span className="size-1.5 rounded-full bg-emerald-500" />
                                             Live
                                         </span>
                                     )}
                                 </div>
-                                <p className="mt-0.5 truncate text-[10.5px] text-muted-foreground font-mono">
+                                <p className="mt-0.5 truncate text-[11px] text-text-muted font-mono">
                                     {tunnel?.running
-                                        ? tunnel.domain ?? "Active tunnel"
+                                        ? (tunnel.domain ?? "Active tunnel")
                                         : "Expose gateway without opening inbound ports"}
                                 </p>
                             </div>
@@ -155,7 +157,7 @@ export function NetworkStatus() {
                         <button
                             type="button"
                             onClick={() => setModalOpen(true)}
-                            className="inline-flex h-7 shrink-0 items-center gap-1 rounded border border-border/80 bg-background px-2.5 font-mono text-[11px] font-medium text-foreground transition-colors hover:bg-secondary cursor-pointer"
+                            className="inline-flex h-8 shrink-0 items-center gap-1 rounded-full border border-hairline bg-canvas px-3 font-mono text-xs font-medium text-ink transition-colors hover:bg-canvas-soft cursor-pointer"
                         >
                             <span>{tunnel?.running ? "Manage" : "Configure"}</span>
                             <ArrowUpRight className="size-3 opacity-60" />
@@ -163,22 +165,22 @@ export function NetworkStatus() {
                     </div>
 
                     {/* Tailscale Row */}
-                    <div className="flex items-center justify-between gap-3 rounded-md border border-border/50 bg-secondary/10 p-2.5 opacity-70">
-                        <div className="flex items-center gap-2.5 min-w-0">
-                            <div className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border/60 bg-secondary/40 text-foreground">
-                                <TailscaleIcon className="size-3.5" />
+                    <div className="flex items-center justify-between gap-3 rounded-2xl border border-hairline-soft bg-canvas-soft/20 p-3.5 opacity-60">
+                        <div className="flex items-center gap-3 min-w-0">
+                            <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-canvas text-text-muted border border-hairline-soft">
+                                <TailscaleIcon className="size-4" />
                             </div>
                             <div className="min-w-0">
-                                <p className="text-xs font-semibold text-foreground">
+                                <p className="text-xs font-semibold text-ink font-sans">
                                     Tailscale
                                 </p>
-                                <p className="mt-0.5 truncate text-[10.5px] text-muted-foreground">
+                                <p className="mt-0.5 truncate text-[11px] text-text-muted">
                                     Private mesh network access
                                 </p>
                             </div>
                         </div>
 
-                        <span className="text-[10px] font-mono uppercase text-muted-foreground/80">
+                        <span className="rounded-full bg-canvas-soft text-text-faint px-2.5 py-0.5 text-[10px] font-mono uppercase">
                             Coming soon
                         </span>
                     </div>

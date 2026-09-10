@@ -6,7 +6,10 @@ type AnimatedNumberProps = {
     format?: (value: number) => string;
 };
 
-export function AnimatedNumber({ value, format = (current) => current.toLocaleString("en-US") }: AnimatedNumberProps) {
+export function AnimatedNumber({
+    value,
+    format = (current) => current.toLocaleString("en-US")
+}: AnimatedNumberProps) {
     const prefersReducedMotion = useReducedMotion();
     const [displayValue, setDisplayValue] = useState(value);
     const currentValue = useRef(value);
@@ -39,7 +42,10 @@ export function AnimatedNumber({ value, format = (current) => current.toLocaleSt
     return (
         <span className="flex min-w-0 overflow-hidden whitespace-nowrap" aria-label={text}>
             {Array.from(text).map((character, index) => (
-                <span key={`${index}-${character}`} className="relative inline-block overflow-hidden">
+                <span
+                    key={`${index}-${character}`}
+                    className="relative inline-block overflow-hidden"
+                >
                     <AnimatePresence initial={false} mode="popLayout">
                         <motion.span
                             key={character}
