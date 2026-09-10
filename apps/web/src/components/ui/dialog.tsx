@@ -23,7 +23,7 @@ function DialogOverlay({ className, ...props }: DialogPrimitive.Backdrop.Props) 
         <DialogPrimitive.Backdrop
             data-slot="dialog-overlay"
             className={cn(
-                "fixed inset-0 z-50 backdrop-blur-xs transition-opacity duration-150 data-ending-style:opacity-0 data-starting-style:opacity-0",
+                "fixed inset-0 z-50 bg-black/60 transition-opacity duration-150 data-ending-style:opacity-0 data-starting-style:opacity-0 supports-backdrop-filter:backdrop-blur-xs",
                 className
             )}
             {...props}
@@ -38,7 +38,7 @@ function DialogContent({ className, children, ...props }: DialogPrimitive.Popup.
             <DialogPrimitive.Popup
                 data-slot="dialog-content"
                 className={cn(
-                    "fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 max-h-[calc(100dvh-2rem)] flex flex-col rounded-xl border border-border/80 bg-card p-4 sm:p-6 text-foreground shadow-2xl transition duration-150 data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0 outline-none overflow-hidden",
+                    "fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 max-h-[calc(100dvh-2rem)] flex flex-col rounded-xl border border-border/80 bg-card p-4 sm:p-6 text-foreground shadow-2xl transition duration-150 data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0 outline-none overflow-y-auto",
                     className
                 )}
                 {...props}
