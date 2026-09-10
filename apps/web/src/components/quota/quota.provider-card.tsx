@@ -33,35 +33,35 @@ export function QuotaProviderCard({
     onToggleCollapse,
     onRefresh
 }: QuotaProviderCardProps) {
-    const total_accounts = accounts.length;
-    const all_quotas = accounts.flatMap((acc) => acc.quotas || []);
+    const totalAccounts = accounts.length;
+    const allQuotas = accounts.flatMap((acc) => acc.quotas || []);
 
     return (
-        <div className="rounded-[12px] border border-[var(--line)] bg-[var(--surface)] p-5 space-y-4 shadow-2xs transition-all font-mono">
+        <article className="rounded-3xl border border-hairline-soft bg-canvas p-6 shadow-none transition-colors hover:border-hairline space-y-5 font-sans">
             {/* Provider Group Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--line)] pb-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-hairline-soft pb-4">
                 <div
                     onClick={() => onToggleCollapse(groupKey)}
-                    className="flex items-center gap-3 cursor-pointer group flex-1 select-none"
+                    className="flex items-center gap-3.5 cursor-pointer group flex-1 select-none min-w-0"
                 >
-                    <div className="flex size-9 shrink-0 items-center justify-center rounded-[8px] border border-[var(--line)] bg-[var(--field)] p-1.5 shadow-2xs group-hover:border-[var(--line-strong)] transition-colors">
+                    <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl border border-hairline-soft bg-field p-2 transition-colors group-hover:border-hairline">
                         <ProviderIcon providerId={providerName} className="size-5" />
                     </div>
                     <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                            <h3 className="text-sm font-bold text-[var(--ink)] group-hover:text-amber-500 transition-colors capitalize">
+                            <h3 className="text-base font-bold text-ink transition-colors capitalize">
                                 {providerName}
                             </h3>
-                            <span className="inline-flex items-center gap-1 rounded-[4px] bg-[var(--field)] border border-[var(--line)] px-1.5 py-0.2 text-[9.5px] font-semibold text-[var(--ink-2)]">
-                                {total_accounts} {total_accounts === 1 ? "account" : "accounts"}
+                            <span className="inline-flex items-center rounded-full bg-canvas-soft px-2.5 py-0.5 text-xs font-mono font-medium text-text-muted">
+                                {totalAccounts} {totalAccounts === 1 ? "account" : "accounts"}
                             </span>
-                            <span className="inline-flex items-center rounded-[4px] bg-[var(--field)] border border-[var(--line)] px-1.5 py-0.2 text-[9.5px] font-semibold text-[var(--ink-2)]">
-                                {all_quotas.length} quotas
+                            <span className="inline-flex items-center rounded-full bg-canvas-soft px-2.5 py-0.5 text-xs font-mono font-medium text-text-muted">
+                                {allQuotas.length} quotas
                             </span>
                         </div>
-                        <p className="text-[11px] text-[var(--ink-3)] mt-0.5">
+                        <p className="text-xs text-text-muted mt-1 truncate">
                             Accounts:{" "}
-                            <span className="text-[var(--ink-2)]">
+                            <span className="font-mono text-ink">
                                 {accounts.map((a) => a.account).join(", ")}
                             </span>
                         </p>
@@ -73,7 +73,7 @@ export function QuotaProviderCard({
                             e.stopPropagation();
                             onToggleCollapse(groupKey);
                         }}
-                        className="flex size-7 items-center justify-center rounded-[4px] border border-[var(--line)] bg-[var(--field)] text-[var(--ink-3)] group-hover:text-[var(--ink)] transition-colors cursor-pointer shrink-0"
+                        className="flex size-8 items-center justify-center rounded-full border border-hairline-soft bg-canvas-soft text-text-muted hover:text-ink hover:bg-field transition-colors cursor-pointer shrink-0"
                         title={isCollapsed ? "Expand provider" : "Collapse provider"}
                     >
                         <ChevronDown
@@ -89,17 +89,17 @@ export function QuotaProviderCard({
                         type="button"
                         onClick={() => onRefresh(providerName)}
                         disabled={isSpinning}
-                        className="inline-flex items-center gap-1 rounded-[4px] border border-[var(--line)] bg-[var(--field)] hover:bg-[var(--hover)] px-2 py-1 text-[11px] text-[var(--ink-2)] hover:text-[var(--ink)] transition-colors cursor-pointer disabled:opacity-50"
+                        className="inline-flex items-center gap-1.5 rounded-full border border-hairline-soft bg-canvas-soft hover:bg-field px-3.5 h-8 text-xs font-medium text-ink transition-colors cursor-pointer disabled:opacity-50"
                         title="Refresh this provider"
                     >
-                        <RefreshCw className={`size-3 ${isSpinning ? "animate-spin" : ""}`} />
+                        <RefreshCw className={`size-3.5 ${isSpinning ? "animate-spin" : ""}`} />
                         <span>Sync</span>
                     </button>
 
                     <Link
                         to="/providers/$providerId"
                         params={{ providerId: providerName }}
-                        className="inline-flex items-center gap-1 text-xs text-amber-500 hover:text-amber-400 transition-colors"
+                        className="inline-flex items-center gap-1 rounded-full border border-hairline px-3.5 h-8 text-xs font-semibold text-ink hover:bg-canvas-soft transition-colors"
                     >
                         <span>Manage</span>
                         <ArrowUpRight className="size-3.5" />
@@ -109,51 +109,55 @@ export function QuotaProviderCard({
 
             {/* Collapsible Body */}
             {!isCollapsed && (
-                <div className="space-y-6 pt-2 animate-in fade-in-50 duration-150">
+                <div className="space-y-4 pt-1 animate-in fade-in-50 duration-150">
                     {accounts.map((acc) => {
-                        const has_quotas = acc.quotas && acc.quotas.length > 0;
-                        const has_metrics = acc.usageMetrics && acc.usageMetrics.length > 0;
+                        const hasQuotas = acc.quotas && acc.quotas.length > 0;
+                        const hasMetrics = acc.usageMetrics && acc.usageMetrics.length > 0;
 
                         return (
                             <div
                                 key={acc.id}
-                                className="rounded-[10px] border border-[var(--line)] bg-[var(--field)]/25 p-4 space-y-3"
+                                className="rounded-2xl border border-hairline-soft bg-canvas-soft/40 p-5 space-y-4"
                             >
                                 {/* Account Sub-Header */}
-                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[var(--line)] pb-2.5">
-                                    <div className="flex items-center gap-2 min-w-0">
-                                        <div className="size-2 rounded-full bg-amber-500 shrink-0" />
-                                        <span className="font-bold text-xs text-[var(--ink)] truncate">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-hairline-soft pb-3">
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                        <div
+                                            className={`size-2 rounded-full shrink-0 ${
+                                                acc.enabled ? "bg-accent" : "bg-text-faint"
+                                            }`}
+                                        />
+                                        <span className="font-semibold text-sm text-ink truncate">
                                             {acc.account}
                                         </span>
                                         <span
-                                            className={`inline-flex items-center gap-1 rounded-[4px] px-1.5 py-0.2 text-[9px] font-semibold ${
+                                            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold font-mono ${
                                                 acc.enabled
-                                                    ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
-                                                    : "bg-[var(--field)] text-[var(--ink-3)]"
+                                                    ? "bg-accent/10 text-accent"
+                                                    : "bg-canvas-soft text-text-muted"
                                             }`}
                                         >
                                             {acc.enabled ? "Active" : "Disabled"}
                                         </span>
                                     </div>
-                                    <div className="text-[10.5px] text-[var(--ink-3)] font-mono">
-                                        ID: <span className="text-[var(--ink-2)]">{acc.id}</span>
+                                    <div className="text-xs text-text-muted font-mono">
+                                        ID: <span className="text-ink">{acc.id}</span>
                                     </div>
                                 </div>
 
-                                {has_quotas ? (
+                                {hasQuotas ? (
                                     <div className="space-y-2">
                                         <QuotaTableView quotas={acc.quotas} dense />
                                     </div>
                                 ) : (
-                                    <div className="text-[11px] text-[var(--ink-3)] py-2">
+                                    <div className="text-xs text-text-muted py-2 font-mono">
                                         No active quotas reported for this account.
                                     </div>
                                 )}
 
-                                {has_metrics && (
-                                    <div className="space-y-1.5 pt-2">
-                                        <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--ink-3)]">
+                                {hasMetrics && (
+                                    <div className="space-y-2 pt-2">
+                                        <div className="font-mono text-xs font-medium uppercase tracking-wider text-text-muted">
                                             Usage Consumption History
                                         </div>
                                         <UsageMetricsTable metrics={acc.usageMetrics} />
@@ -164,6 +168,6 @@ export function QuotaProviderCard({
                     })}
                 </div>
             )}
-        </div>
+        </article>
     );
 }

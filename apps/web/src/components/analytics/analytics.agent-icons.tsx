@@ -71,7 +71,9 @@ export function AgentBadgeIcon({ agentName, className = "size-5" }: AgentBadgeIc
 
     // Default fallback
     return (
-        <div className={`flex items-center justify-center rounded bg-secondary/50 text-foreground border border-border/60 ${className}`}>
+        <div
+            className={`flex items-center justify-center rounded-xl bg-field text-ink border border-hairline-soft ${className}`}
+        >
             <Bot className="size-3.5" />
         </div>
     );
