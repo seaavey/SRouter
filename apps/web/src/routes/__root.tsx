@@ -19,18 +19,20 @@ export const Route = createRootRouteWithContext<RouterContext>()({
     component: () => (
         <TooltipProvider>
             <AdminAuthGate>
-                <SidebarProvider>
-                    <AppSidebar />
-                    <SidebarInset className="h-svh min-h-0 overflow-hidden bg-background">
-                        <Topbar />
-                        <main
-                            id="dashboard-scroll-container"
-                            className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-grid-pattern p-4 sm:p-6"
-                        >
-                            <Outlet />
-                        </main>
-                    </SidebarInset>
-                </SidebarProvider>
+                <div className="bg-canvas text-ink min-h-screen flex w-full">
+                    <SidebarProvider>
+                        <AppSidebar />
+                        <SidebarInset className="h-svh min-h-0 overflow-hidden bg-canvas">
+                            <Topbar />
+                            <main
+                                id="dashboard-scroll-container"
+                                className="flex min-h-0 flex-1 flex-col overflow-y-auto p-4 sm:p-6"
+                            >
+                                <Outlet />
+                            </main>
+                        </SidebarInset>
+                    </SidebarProvider>
+                </div>
             </AdminAuthGate>
         </TooltipProvider>
     )
