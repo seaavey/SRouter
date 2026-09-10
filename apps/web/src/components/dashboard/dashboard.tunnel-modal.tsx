@@ -23,12 +23,12 @@ function ConfirmStopDialog({
 }) {
     return (
         <Dialog open={open} onOpenChange={(o) => !o && onCancel()}>
-            <DialogContent className="sm:max-w-sm bg-card border-border p-6">
+            <DialogContent className="sm:max-w-md bg-canvas border border-hairline-soft rounded-3xl p-6 md:p-8 shadow-none">
                 <DialogHeader className="space-y-1 text-left">
-                    <DialogTitle className="text-base font-semibold text-foreground">
+                    <DialogTitle className="font-heading text-lg font-semibold text-ink">
                         Stop Cloudflare Tunnel?
                     </DialogTitle>
-                    <DialogDescription className="text-xs text-muted-foreground leading-relaxed">
+                    <DialogDescription className="text-xs text-text-muted leading-relaxed font-sans">
                         Remote clients will immediately lose access to the gateway. The tunnel URL
                         will change the next time you start it.
                     </DialogDescription>
@@ -39,7 +39,7 @@ function ConfirmStopDialog({
                         variant="ghost"
                         onClick={onCancel}
                         disabled={busy}
-                        className="h-8 text-xs font-semibold cursor-pointer"
+                        className="rounded-full h-9 text-xs font-semibold cursor-pointer"
                     >
                         Cancel
                     </Button>
@@ -48,7 +48,7 @@ function ConfirmStopDialog({
                         variant="destructive"
                         onClick={onConfirm}
                         disabled={busy}
-                        className="h-8 px-3.5 text-xs font-semibold cursor-pointer gap-1.5"
+                        className="rounded-full h-9 px-4 text-xs font-semibold cursor-pointer gap-1.5"
                     >
                         <Square className="size-3" />
                         {busy ? "Stopping…" : "Yes, stop it"}
@@ -84,19 +84,16 @@ function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) 
         <button
             type="button"
             onClick={() => void handleCopy()}
-            className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md border border-border/70 bg-background/70 px-2.5 text-[11px] font-semibold text-muted-foreground transition-[color,background-color,transform] hover:bg-secondary hover:text-foreground active:translate-y-px"
+            className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full border border-hairline bg-canvas px-3 text-xs font-medium text-ink transition-colors hover:bg-canvas-soft active:translate-y-px cursor-pointer"
         >
-            {copied ? <Check className="size-3 text-foreground" /> : <Copy className="size-3" />}
-            <span className={copied ? "text-foreground" : undefined}>
-                {copied ? "Copied" : label}
-            </span>
+            {copied ? <Check className="size-3 text-ink" /> : <Copy className="size-3" />}
+            <span>{copied ? "Copied" : label}</span>
         </button>
     );
 }
 
 function StatusBadge({ status }: { status: TunnelStatus | null }) {
     const installing = status?.install?.inProgress ?? false;
-    // Running but no URL yet → still connecting to Cloudflare's edge.
     const connecting = Boolean(status?.running && !status.domain);
     const label = status?.running
         ? connecting
@@ -105,25 +102,28 @@ function StatusBadge({ status }: { status: TunnelStatus | null }) {
         : installing
           ? "Installing"
           : "Offline";
+
     const tone = connecting
-        ? "border-foreground/40 bg-foreground/10 text-foreground"
+        ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
         : status?.running
-          ? "border-foreground/40 bg-foreground/10 text-foreground"
+          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
           : installing
-          ? "border-foreground/40 bg-foreground/10 text-foreground"
-            : "border-border/50 bg-secondary/25 text-muted-foreground";
+            ? "bg-sky-500/10 text-sky-600 dark:text-sky-400"
+            : "bg-canvas-soft text-text-muted";
+
     const dot = connecting
-        ? "bg-foreground animate-pulse"
+        ? "bg-amber-500 animate-pulse"
         : status?.running
-          ? "bg-foreground"
+          ? "bg-emerald-500"
           : installing
-          ? "bg-foreground animate-pulse"
-            : "bg-muted-foreground/50";
+            ? "bg-sky-500 animate-pulse"
+            : "bg-text-faint";
+
     return (
         <span
-            className={`flex items-center gap-1.5 rounded-full border px-2 py-0.5 font-mono text-[8.5px] ${tone}`}
+            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 font-mono text-[10px] font-semibold ${tone}`}
         >
-            <span className={`size-1 rounded-full ${dot}`} aria-hidden="true" />
+            <span className={`size-1.5 rounded-full ${dot}`} aria-hidden="true" />
             {label}
         </span>
     );
@@ -147,12 +147,9 @@ export function TunnelModal({
 
     const installing = status?.install?.inProgress ?? false;
     const cloudflaredMissing = status !== null && !status.cloudflaredAvailable && !installing;
-    // Running but the assigned URL hasn't arrived yet (quick tunnels take ~10s).
     const connecting = Boolean(status?.running && !status.domain);
-    // Hard lock: buttons stay disabled until SSE confirms the state change.
     const locked = tunnelBusy || pendingAction !== null || connecting;
 
-    // Clear the action lock once the backend state matches what we asked for.
     useEffect(() => {
         if (!pendingAction || !status) return;
         if (pendingAction === "start" && status.running) setPendingAction(null);
@@ -217,18 +214,20 @@ export function TunnelModal({
 
     return (
         <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-            <DialogContent className="sm:max-w-md bg-card border-border p-6">
+            <DialogContent className="sm:max-w-md bg-canvas border border-hairline-soft rounded-3xl p-6 md:p-8 shadow-none overflow-y-auto max-h-[calc(100dvh-2rem)]">
                 <DialogHeader className="space-y-1 text-left">
-                    <DialogTitle className="flex items-center gap-2 text-base font-semibold text-foreground">
-                        <Cloud className="size-4 text-foreground" strokeWidth={1.75} />
-                        Cloudflare Tunnel
+                    <DialogTitle className="flex items-center gap-2.5 font-heading text-lg font-semibold text-ink">
+                        <div className="flex size-7 items-center justify-center rounded-full bg-canvas-soft text-ink">
+                            <Cloud className="size-4" strokeWidth={1.75} />
+                        </div>
+                        Cloudflare Tunnel.
                     </DialogTitle>
-                    <DialogDescription className="text-xs text-muted-foreground leading-relaxed">
+                    <DialogDescription className="text-xs text-text-muted leading-relaxed font-sans">
                         Expose the gateway to remote clients without opening any ports.
                     </DialogDescription>
                 </DialogHeader>
 
-                <div className="flex items-center justify-between gap-3 py-1">
+                <div className="flex items-center justify-between gap-3 py-2">
                     <StatusBadge status={status} />
                     {status?.running && status.domain ? (
                         <CopyButton text={status.domain} label="Copy URL" />
@@ -237,10 +236,10 @@ export function TunnelModal({
 
                 {/* Installing */}
                 {installing && (
-                    <div className="space-y-1.5 py-1">
-                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary/40">
+                    <div className="space-y-2 py-1">
+                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-field">
                             <div
-                                className="h-full rounded-full bg-foreground transition-[width] duration-300"
+                                className="h-full rounded-full bg-ink transition-[width] duration-300"
                                 style={{
                                     width: `${
                                         status?.install?.totalBytes && status.install.totalBytes > 0
@@ -257,7 +256,7 @@ export function TunnelModal({
                                 }}
                             />
                         </div>
-                        <p className="font-mono text-[9px] leading-relaxed text-muted-foreground/70">
+                        <p className="font-mono text-[10px] leading-relaxed text-text-muted">
                             {status?.install?.error
                                 ? `Install failed: ${status.install.error}`
                                 : status?.install?.platform
@@ -268,23 +267,25 @@ export function TunnelModal({
                 )}
 
                 {status?.install?.error && !installing ? (
-                    <p className="font-mono text-[9px] leading-relaxed text-muted-foreground">
+                    <p className="font-mono text-[10px] leading-relaxed text-red-600 dark:text-red-400">
                         {status.install.error}
                     </p>
                 ) : null}
 
                 {/* Missing binary */}
                 {cloudflaredMissing && (
-                    <div className="space-y-2 rounded-lg border border-border/50 bg-secondary/30 p-3">
-                        <p className="text-[11px] text-muted-foreground">
-                            The <code className="font-mono">cloudflared</code> binary isn't
-                            installed on the server. Install it automatically to continue.
+                    <div className="space-y-3 rounded-2xl border border-hairline-soft bg-canvas-soft/50 p-4">
+                        <p className="text-xs text-text-muted font-sans leading-relaxed">
+                            The{" "}
+                            <code className="font-mono text-ink font-semibold">cloudflared</code>{" "}
+                            binary isn't installed on the server. Install it automatically to
+                            continue.
                         </p>
                         <Button
                             type="button"
                             onClick={() => void handleInstall()}
                             disabled={installBusy}
-                            className="h-8 px-3.5 text-xs font-semibold cursor-pointer shadow-xs gap-1.5"
+                            className="rounded-full h-9 px-4 text-xs font-semibold cursor-pointer shadow-none gap-1.5"
                         >
                             <Download className="size-3.5" />
                             {installBusy ? "Installing…" : "Install cloudflared"}
@@ -294,25 +295,25 @@ export function TunnelModal({
 
                 {/* Running */}
                 {status?.running ? (
-                    <div className="space-y-3 py-1">
+                    <div className="space-y-4 py-1">
                         {status.domain ? (
                             <div className="space-y-2">
-                                <div className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/80">
+                                <div className="flex items-center justify-between text-xs font-medium text-text-muted">
                                     <span>Tunnel URL</span>
                                     <CopyButton text={status.domain} label="Copy" />
                                 </div>
-                                <div className="flex items-center justify-between rounded-lg border border-border/50 bg-secondary/30 px-3 py-2">
-                                    <code className="truncate font-mono text-[11.5px] text-foreground select-all">
+                                <div className="flex items-center justify-between rounded-2xl border border-hairline-soft bg-field px-4 py-3">
+                                    <code className="truncate font-mono text-xs text-ink font-medium select-all">
                                         {status.domain}
                                     </code>
                                 </div>
-                                <p className="font-mono text-[9px] leading-relaxed text-muted-foreground/70">
+                                <p className="font-sans text-xs leading-relaxed text-text-muted">
                                     Use this URL as the Base URL in your OpenAI/Anthropic clients to
                                     reach this gateway from anywhere.
                                 </p>
                             </div>
                         ) : (
-                            <p className="font-mono text-[9px] leading-relaxed text-muted-foreground/70">
+                            <p className="font-sans text-xs leading-relaxed text-text-muted">
                                 Tunnel is starting: the assigned URL will appear shortly.
                             </p>
                         )}
@@ -326,12 +327,12 @@ export function TunnelModal({
                                     ? "Tunnel is still starting: wait for the URL first"
                                     : undefined
                             }
-                            className="h-8 w-full text-xs font-semibold cursor-pointer gap-1.5"
+                            className="rounded-full h-10 w-full text-xs font-semibold cursor-pointer gap-2 shadow-none"
                         >
                             {connecting ? (
-                                <Loader2 className="size-3 animate-spin" />
+                                <Loader2 className="size-3.5 animate-spin" />
                             ) : (
-                                <Square className="size-3" />
+                                <Square className="size-3.5" />
                             )}
                             {connecting ? "Starting…" : "Stop Tunnel"}
                         </Button>
@@ -339,28 +340,28 @@ export function TunnelModal({
                 ) : (
                     !cloudflaredMissing &&
                     !installing && (
-                        <div className="space-y-3 py-1">
+                        <div className="space-y-4 py-1">
                             <Button
                                 type="button"
                                 onClick={() => void handleStart()}
                                 disabled={locked}
-                                className="h-8 w-full text-xs font-semibold cursor-pointer shadow-xs gap-1.5"
+                                className="rounded-full h-10 w-full text-xs font-semibold cursor-pointer shadow-none gap-2"
                             >
                                 {pendingAction === "start" ? (
-                                    <Loader2 className="size-3 animate-spin" />
+                                    <Loader2 className="size-3.5 animate-spin" />
                                 ) : (
-                                    <Play className="size-3" />
+                                    <Play className="size-3.5" />
                                 )}
                                 {pendingAction === "start" ? "Starting…" : "Start quick tunnel"}
                             </Button>
-                            <div className="space-y-2 rounded-lg border border-border/50 bg-secondary/30 p-3">
-                                <p className="font-mono text-[9px] leading-relaxed text-muted-foreground/70">
+                            <div className="space-y-3 rounded-2xl border border-hairline-soft bg-canvas-soft/50 p-4">
+                                <p className="font-sans text-xs leading-relaxed text-text-muted">
                                     Optional: use a named tunnel with your own hostname. A quick
                                     tunnel needs no token and gives a random *.trycloudflare.com
                                     URL.
                                 </p>
                                 <div className="space-y-1.5">
-                                    <label className="text-[11px] font-medium text-foreground">
+                                    <label className="text-xs font-medium text-ink font-sans">
                                         Tunnel Token
                                     </label>
                                     <input
@@ -368,11 +369,11 @@ export function TunnelModal({
                                         value={token}
                                         onChange={(e) => setToken(e.target.value)}
                                         placeholder="Cloudflare Tunnel Token (eyJ...)"
-                                        className="w-full rounded-md border border-border/50 bg-background px-2.5 py-1.5 font-mono text-[10.5px] text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring"
+                                        className="w-full rounded-2xl border-0 bg-field px-4 py-2.5 font-mono text-xs text-ink placeholder:text-text-faint focus-visible:ring-2 focus-visible:ring-ink focus-visible:outline-none shadow-none"
                                     />
                                 </div>
                                 <div className="space-y-1.5">
-                                    <label className="text-[11px] font-medium text-foreground">
+                                    <label className="text-xs font-medium text-ink font-sans">
                                         Custom Domain
                                     </label>
                                     <input
@@ -380,18 +381,18 @@ export function TunnelModal({
                                         value={domain}
                                         onChange={(e) => setDomain(e.target.value)}
                                         placeholder="router.example.com (optional)"
-                                        className="w-full rounded-md border border-border/50 bg-background px-2.5 py-1.5 font-mono text-[10.5px] text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring"
+                                        className="w-full rounded-2xl border-0 bg-field px-4 py-2.5 font-mono text-xs text-ink placeholder:text-text-faint focus-visible:ring-2 focus-visible:ring-ink focus-visible:outline-none shadow-none"
                                     />
                                 </div>
                                 <Button
                                     type="button"
                                     onClick={() => void handleCustomConnect()}
                                     disabled={!token.trim() || locked}
-                                    className="h-8 w-full text-xs font-semibold cursor-pointer shadow-xs"
+                                    className="rounded-full h-9 w-full text-xs font-semibold cursor-pointer shadow-none mt-1"
                                 >
                                     {pendingAction === "start" ? (
                                         <>
-                                            <Loader2 className="size-3 animate-spin" />
+                                            <Loader2 className="size-3.5 animate-spin" />
                                             Connecting…
                                         </>
                                     ) : (
@@ -408,7 +409,7 @@ export function TunnelModal({
                         type="button"
                         variant="ghost"
                         onClick={onClose}
-                        className="h-8 text-xs font-semibold cursor-pointer"
+                        className="rounded-full h-9 px-4 text-xs font-semibold cursor-pointer"
                     >
                         Close
                     </Button>

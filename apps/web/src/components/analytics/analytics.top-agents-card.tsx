@@ -10,17 +10,20 @@ interface Props {
 export function TopCodingAgentsCard({ agents = [], totalRequests }: Props) {
     if (!agents || agents.length === 0) {
         return (
-            <div className="rounded-xl border border-border/70 bg-card/60 p-4 shadow-2xs font-mono">
-                <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground/80">
-                    Top Coding Agents
-                </h3>
-                <p className="text-xs text-muted-foreground">No agent telemetry recorded in this window.</p>
-            </div>
+            <article className="rounded-3xl border border-hairline-soft bg-canvas p-6 shadow-none font-sans">
+                <h3 className="text-sm font-semibold text-ink font-sans">Top Coding Agents.</h3>
+                <p className="mt-3 text-xs text-text-muted font-mono">
+                    No agent telemetry recorded in this window.
+                </p>
+            </article>
         );
     }
 
     // Aggregate parsed agents (e.g. various OpenCode or Cursor versions into one group)
-    const aggregated = new Map<string, { agentName: string; totalRequests: number; totalTokens: number }>();
+    const aggregated = new Map<
+        string,
+        { agentName: string; totalRequests: number; totalTokens: number }
+    >();
     for (const item of agents) {
         const parsed = parseUserAgent(item.rawUserAgent || item.agent);
         const key = parsed.name;
@@ -39,40 +42,44 @@ export function TopCodingAgentsCard({ agents = [], totalRequests }: Props) {
     );
 
     return (
-        <div className="rounded-xl border border-border/70 bg-card/60 p-4 shadow-2xs font-mono">
-            <div className="flex items-center justify-between mb-3 border-b border-border/40 pb-2">
-                <h3 className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground/80">
-                    Top Coding Agents
-                </h3>
-                <span className="text-[10px] text-muted-foreground">
-                    Telemetry by User-Agent
-                </span>
+        <article className="rounded-3xl border border-hairline-soft bg-canvas p-6 shadow-none transition-colors hover:border-hairline font-sans space-y-4">
+            <div className="flex items-center justify-between border-b border-hairline-soft pb-3">
+                <div>
+                    <h3 className="text-sm font-semibold text-ink font-sans">Top Coding Agents.</h3>
+                    <p className="text-xs text-text-muted mt-0.5 font-sans">
+                        Telemetry classified by User-Agent header
+                    </p>
+                </div>
             </div>
 
-            <div className="space-y-3">
+            <div className="divide-y divide-hairline-soft">
                 {sortedList.map((item) => {
-                    const share = totalRequests > 0 ? (item.totalRequests / totalRequests) * 100 : 0;
+                    const share =
+                        totalRequests > 0 ? (item.totalRequests / totalRequests) * 100 : 0;
                     return (
-                        <div key={item.agentName} className="flex items-center gap-3">
-                            <div className="size-6 shrink-0 flex items-center justify-center rounded border border-border/60 bg-secondary/30">
+                        <div key={item.agentName} className="py-3 flex items-center gap-3">
+                            <div className="flex size-9 shrink-0 items-center justify-center rounded-2xl border border-hairline-soft bg-field p-1.5">
                                 <AgentBadgeIcon agentName={item.agentName} className="size-4" />
                             </div>
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center justify-between gap-2">
-                                    <span className="text-xs font-medium text-foreground truncate">
+                                    <span className="text-xs font-semibold text-ink truncate">
                                         {item.agentName}
                                     </span>
-                                    <span className="text-[10px] font-mono text-muted-foreground tabular-nums">
-                                        {item.totalRequests} req ({share.toFixed(1)}%)
+                                    <span className="text-xs font-mono text-text-muted tabular-nums whitespace-nowrap">
+                                        {item.totalRequests.toLocaleString()} req{" "}
+                                        <span className="text-text-faint">
+                                            ({share.toFixed(1)}%)
+                                        </span>
                                     </span>
                                 </div>
-                                <div className="mt-1 h-1.5 w-full rounded-full bg-secondary/30 overflow-hidden">
+                                <div className="mt-1.5 h-1.5 w-full rounded-full bg-canvas-soft overflow-hidden">
                                     <div
-                                        className="h-full rounded-full bg-foreground/60 transition-all duration-300"
+                                        className="h-full rounded-full bg-ink transition-all duration-300"
                                         style={{ width: `${Math.max(share, 1.5)}%` }}
                                     />
                                 </div>
-                                <div className="flex justify-between text-[9px] text-muted-foreground/70 mt-0.5">
+                                <div className="flex justify-between text-[10.5px] font-mono text-text-muted mt-1">
                                     <span>{item.totalTokens.toLocaleString()} tokens routed</span>
                                 </div>
                             </div>
@@ -80,6 +87,6 @@ export function TopCodingAgentsCard({ agents = [], totalRequests }: Props) {
                     );
                 })}
             </div>
-        </div>
+        </article>
     );
 }

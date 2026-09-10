@@ -7,7 +7,9 @@ const STORAGE_KEY = "srouter_favorite_models";
 function loadLegacyFavorites(): string[] {
     try {
         const parsed: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-        return Array.isArray(parsed) && parsed.every((id): id is string => typeof id === "string") ? parsed : [];
+        return Array.isArray(parsed) && parsed.every((id): id is string => typeof id === "string")
+            ? parsed
+            : [];
     } catch {
         return [];
     }
@@ -43,33 +45,53 @@ export function useFavorites() {
     const favorites = query.data ?? [];
     const favoriteSet = useMemo(() => new Set(favorites), [favorites]);
 
-    const toggleFavorite = useCallback((modelId: string) => {
-        mutation.mutate({ modelId, favorite: !favoriteSet.has(modelId) });
-    }, [favoriteSet, mutation]);
+    const toggleFavorite = useCallback(
+        (modelId: string) => {
+            mutation.mutate({ modelId, favorite: !favoriteSet.has(modelId) });
+        },
+        [favoriteSet, mutation]
+    );
 
-    const addFavorite = useCallback((modelId: string) => {
-        if (!favoriteSet.has(modelId)) mutation.mutate({ modelId, favorite: true });
-    }, [favoriteSet, mutation]);
-
-    const removeFavorite = useCallback((modelId: string) => {
-        if (favoriteSet.has(modelId)) mutation.mutate({ modelId, favorite: false });
-    }, [favoriteSet, mutation]);
-
-    const addMultipleFavorites = useCallback((modelIds: string[]) => {
-        for (const modelId of modelIds) {
+    const addFavorite = useCallback(
+        (modelId: string) => {
             if (!favoriteSet.has(modelId)) mutation.mutate({ modelId, favorite: true });
-        }
-    }, [favoriteSet, mutation]);
+        },
+        [favoriteSet, mutation]
+    );
 
-    const removeMultipleFavorites = useCallback((modelIds: string[]) => {
-        for (const modelId of modelIds) {
+    const removeFavorite = useCallback(
+        (modelId: string) => {
             if (favoriteSet.has(modelId)) mutation.mutate({ modelId, favorite: false });
-        }
-    }, [favoriteSet, mutation]);
+        },
+        [favoriteSet, mutation]
+    );
+
+    const addMultipleFavorites = useCallback(
+        (modelIds: string[]) => {
+            for (const modelId of modelIds) {
+                if (!favoriteSet.has(modelId)) mutation.mutate({ modelId, favorite: true });
+            }
+        },
+        [favoriteSet, mutation]
+    );
+
+    const removeMultipleFavorites = useCallback(
+        (modelIds: string[]) => {
+            for (const modelId of modelIds) {
+                if (favoriteSet.has(modelId)) mutation.mutate({ modelId, favorite: false });
+            }
+        },
+        [favoriteSet, mutation]
+    );
+
+    const isFavorite = useCallback(
+        (modelId: string): boolean => favoriteSet.has(modelId),
+        [favoriteSet]
+    );
 
     return {
         favorites,
-        isFavorite: (modelId: string): boolean => favoriteSet.has(modelId),
+        isFavorite,
         toggleFavorite,
         addFavorite,
         removeFavorite,

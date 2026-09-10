@@ -64,34 +64,40 @@ export function useSettings() {
     });
 
     useEffect(() => {
-        void api.get<{ settings?: Record<string, string> }>("/v1/settings").then((response) => {
-            const server = response.settings ?? {};
-            const keys = Object.values(SERVER_SETTING_KEYS).filter(
-                (key): key is string => key !== undefined
-            );
-            if (!keys.some((key) => key in server)) {
-                const migrated: Record<string, string> = {};
-                for (const [key, serverKey] of Object.entries(SERVER_SETTING_KEYS)) {
-                    if (serverKey) migrated[serverKey] = String(settings[key as keyof AppSettings]);
+        void api
+            .get<{ settings?: Record<string, string> }>("/v1/settings")
+            .then((response) => {
+                const server = response.settings ?? {};
+                const keys = Object.values(SERVER_SETTING_KEYS).filter(
+                    (key): key is string => key !== undefined
+                );
+                if (!keys.some((key) => key in server)) {
+                    const migrated: Record<string, string> = {};
+                    for (const [key, serverKey] of Object.entries(SERVER_SETTING_KEYS)) {
+                        if (serverKey)
+                            migrated[serverKey] = String(settings[key as keyof AppSettings]);
+                    }
+                    void api.patch("/v1/settings", { settings: migrated });
+                    return;
                 }
-                void api.patch("/v1/settings", { settings: migrated });
-                return;
-            }
-            const hydrated = { ...settings };
-            for (const [key, serverKey] of Object.entries(SERVER_SETTING_KEYS)) {
-                const value = serverKey ? server[serverKey] : undefined;
-                if (value === undefined) continue;
-                const settingKey = key as keyof AppSettings;
-                const current = settings[settingKey];
-                hydrated[settingKey] = (typeof current === "boolean"
-                    ? value === "true"
-                    : typeof current === "number"
-                      ? Number(value)
-                      : value) as never;
-            }
-            setSettings(hydrated);
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(hydrated));
-        }).catch(() => undefined);
+                const hydrated = { ...settings };
+                for (const [key, serverKey] of Object.entries(SERVER_SETTING_KEYS)) {
+                    const value = serverKey ? server[serverKey] : undefined;
+                    if (value === undefined) continue;
+                    const settingKey = key as keyof AppSettings;
+                    const current = settings[settingKey];
+                    hydrated[settingKey] = (
+                        typeof current === "boolean"
+                            ? value === "true"
+                            : typeof current === "number"
+                              ? Number(value)
+                              : value
+                    ) as never;
+                }
+                setSettings(hydrated);
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(hydrated));
+            })
+            .catch(() => undefined);
     }, []);
 
     const updateSetting = useCallback(

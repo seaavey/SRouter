@@ -118,29 +118,29 @@ export default function ComboForm({
     return (
         <>
             <div
-                className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4"
+                className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 sm:p-6"
                 onClick={onCancel}
             >
                 <div
-                    className="relative flex flex-col w-full max-w-lg rounded-lg border border-border/80 bg-card text-foreground shadow-xl overflow-hidden font-mono"
+                    className="relative flex flex-col w-full max-w-lg rounded-3xl border border-hairline-soft bg-canvas text-ink shadow-none overflow-hidden font-sans"
                     onClick={(e) => e.stopPropagation()}
                 >
-                    <div className="flex items-center justify-between border-b border-border/80 px-4 py-3 bg-secondary/30">
-                        <h2 className="text-sm font-bold text-foreground">
+                    <div className="flex items-center justify-between border-b border-hairline-soft px-6 py-5 bg-canvas-soft/30">
+                        <h2 className="text-base font-semibold text-ink font-sans">
                             {isEditMode ? "Edit Combo" : "Create Model Combo"}
                         </h2>
                         <button
                             type="button"
                             onClick={onCancel}
-                            className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer"
+                            className="size-8 inline-flex items-center justify-center rounded-full text-text-muted hover:text-ink hover:bg-canvas-soft transition-colors cursor-pointer"
                         >
                             <X className="size-4" />
                         </button>
                     </div>
 
-                    <form onSubmit={handleSubmit} className="flex flex-col gap-4 p-4 sm:p-5">
-                        <div className="space-y-1.5 text-left">
-                            <label className="text-xs font-semibold text-foreground block">
+                    <form onSubmit={handleSubmit} className="flex flex-col gap-5 p-6">
+                        <div className="space-y-2 text-left">
+                            <label className="text-xs font-semibold text-ink block font-sans">
                                 Combo Name *
                             </label>
                             <input
@@ -149,35 +149,35 @@ export default function ComboForm({
                                 onChange={(e) => setComboName(e.target.value)}
                                 placeholder="e.g. smart-router, fallback-cascade"
                                 disabled={isEditMode}
-                                className="w-full h-8.5 rounded border border-border/80 bg-background px-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-foreground transition-all font-mono disabled:opacity-60 disabled:cursor-not-allowed"
-                                autoFocus={!isEditMode}
+                                className="w-full h-10 rounded-2xl border border-hairline-soft bg-field px-4 text-xs text-ink placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-ink transition-all font-mono disabled:opacity-60 disabled:cursor-not-allowed"
                             />
                             <p
-                                className={`text-[10.5px] ${
+                                className={`text-[11px] font-sans ${
                                     comboName.trim() && !isNameValid
                                         ? "text-destructive font-medium"
-                                        : "text-muted-foreground"
+                                        : "text-text-muted font-light"
                                 }`}
                             >
-                                Only letters, numbers, -, _ and . allowed (used in endpoint /v1/chat/completions)
+                                Only letters, numbers, -, _ and . allowed (used in endpoint
+                                /v1/chat/completions)
                             </p>
                         </div>
 
-                        <div className="space-y-1.5 text-left">
-                            <label className="text-xs font-semibold text-foreground block">
+                        <div className="space-y-2 text-left">
+                            <label className="text-xs font-semibold text-ink block font-sans">
                                 Target Priority Sequence *
                             </label>
 
-                            <div className="rounded border border-border/80 bg-secondary/15 p-3 space-y-2.5">
+                            <div className="rounded-2xl border border-hairline-soft bg-canvas-soft/30 p-4 space-y-3">
                                 {selectedModels.length === 0 ? (
-                                    <div className="flex flex-col items-center justify-center py-6 text-center">
-                                        <Layers className="size-6 text-muted-foreground/60 mb-2" />
-                                        <span className="text-xs font-medium text-muted-foreground">
+                                    <div className="flex flex-col items-center justify-center py-8 text-center font-sans">
+                                        <Layers className="size-8 text-text-muted/60 mb-2" />
+                                        <span className="text-xs font-medium text-text-muted">
                                             No fallback models added yet
                                         </span>
                                     </div>
                                 ) : (
-                                    <div className="space-y-1.5 max-h-52 overflow-y-auto pr-0.5">
+                                    <div className="space-y-2 max-h-56 overflow-y-auto pr-0.5">
                                         {selectedModels.map((model, idx) => {
                                             const { hasVision, hasThinking } = getModelCapabilities(
                                                 model.id,
@@ -186,39 +186,39 @@ export default function ComboForm({
                                             return (
                                                 <div
                                                     key={model.id}
-                                                    className="flex items-center justify-between gap-2 rounded border border-border/80 bg-card px-2.5 py-1.5 text-xs text-foreground shadow-2xs"
+                                                    className="flex items-center justify-between gap-3 rounded-2xl border border-hairline-soft bg-canvas px-3.5 py-2.5 text-xs text-ink shadow-none font-sans"
                                                 >
-                                                    <div className="flex items-center gap-2 min-w-0">
-                                                        <span className="flex size-4 items-center justify-center rounded bg-secondary text-[9px] font-bold text-foreground border border-border/80">
+                                                    <div className="flex items-center gap-2.5 min-w-0">
+                                                        <span className="flex size-5 items-center justify-center rounded-full bg-canvas-soft text-[10px] font-bold text-ink border border-hairline-soft font-mono">
                                                             {idx + 1}
                                                         </span>
                                                         <ProviderIcon
                                                             providerId={model.providerId}
-                                                            className="size-3.5 shrink-0"
+                                                            className="size-4 shrink-0"
                                                         />
-                                                        <span className="font-semibold truncate">
+                                                        <span className="font-medium truncate text-ink">
                                                             {model.name ||
                                                                 formatModelDisplayName(model.id)}
                                                         </span>
                                                         <div className="flex items-center gap-1 shrink-0">
                                                             {hasVision && (
-                                                                <Eye className="size-3 text-muted-foreground/80" />
+                                                                <Eye className="size-3 text-text-muted shrink-0" />
                                                             )}
                                                             {hasThinking && (
-                                                                <Brain className="size-3 text-muted-foreground/80" />
+                                                                <Brain className="size-3 text-text-muted shrink-0" />
                                                             )}
                                                         </div>
                                                     </div>
 
-                                                    <div className="flex items-center gap-0.5 shrink-0">
+                                                    <div className="flex items-center gap-1 shrink-0">
                                                         <button
                                                             type="button"
                                                             disabled={idx === 0}
                                                             onClick={() => moveModel(idx, idx - 1)}
-                                                            className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30 cursor-pointer rounded"
+                                                            className="size-7 inline-flex items-center justify-center text-text-muted hover:text-ink disabled:opacity-30 cursor-pointer rounded-full hover:bg-canvas-soft transition-colors"
                                                             title="Move up priority"
                                                         >
-                                                            <ChevronUp className="size-3" />
+                                                            <ChevronUp className="size-3.5" />
                                                         </button>
                                                         <button
                                                             type="button"
@@ -226,20 +226,20 @@ export default function ComboForm({
                                                                 idx === selectedModels.length - 1
                                                             }
                                                             onClick={() => moveModel(idx, idx + 1)}
-                                                            className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30 cursor-pointer rounded"
+                                                            className="size-7 inline-flex items-center justify-center text-text-muted hover:text-ink disabled:opacity-30 cursor-pointer rounded-full hover:bg-canvas-soft transition-colors"
                                                             title="Move down priority"
                                                         >
-                                                            <ChevronDown className="size-3" />
+                                                            <ChevronDown className="size-3.5" />
                                                         </button>
                                                         <button
                                                             type="button"
                                                             onClick={() =>
                                                                 handleRemoveModel(model.id)
                                                             }
-                                                            className="p-1 text-muted-foreground hover:text-destructive cursor-pointer rounded"
+                                                            className="size-7 inline-flex items-center justify-center text-text-muted hover:text-destructive cursor-pointer rounded-full hover:bg-destructive/10 transition-colors"
                                                             title="Remove model"
                                                         >
-                                                            <Trash2 className="size-3" />
+                                                            <Trash2 className="size-3.5" />
                                                         </button>
                                                     </div>
                                                 </div>
@@ -251,7 +251,7 @@ export default function ComboForm({
                                 <button
                                     type="button"
                                     onClick={() => setIsPickerOpen(true)}
-                                    className="flex w-full items-center justify-center gap-1.5 rounded border border-dashed border-border/90 hover:border-foreground/40 bg-card hover:bg-secondary/40 py-2 text-xs font-semibold text-foreground transition-colors cursor-pointer shadow-2xs"
+                                    className="flex w-full items-center justify-center gap-2 rounded-full border border-dashed border-hairline bg-canvas hover:bg-canvas-soft py-2.5 text-xs font-semibold text-ink transition-colors cursor-pointer shadow-none font-sans"
                                 >
                                     <Plus className="size-3.5" />
                                     <span>Select Models to Cascade</span>
@@ -259,18 +259,18 @@ export default function ComboForm({
                             </div>
                         </div>
 
-                        <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/80">
+                        <div className="flex items-center justify-end gap-2 pt-3 border-t border-hairline-soft font-sans">
                             <button
                                 type="button"
                                 onClick={onCancel}
-                                className="px-3.5 py-1.5 rounded border border-border/80 text-xs font-medium text-muted-foreground hover:text-foreground bg-card hover:bg-secondary transition-colors cursor-pointer"
+                                className="rounded-full border border-hairline-soft px-5 py-2 text-xs font-semibold text-text-muted hover:text-ink bg-canvas hover:bg-canvas-soft transition-colors cursor-pointer shadow-none"
                             >
                                 Cancel
                             </button>
                             <button
                                 type="submit"
                                 disabled={!canSubmit}
-                                className="px-4 py-1.5 rounded text-xs font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed bg-foreground text-background hover:bg-foreground/90 cursor-pointer shadow-2xs"
+                                className="rounded-full px-6 py-2 text-xs font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed bg-ink text-canvas hover:opacity-90 cursor-pointer shadow-none"
                             >
                                 {saving
                                     ? isEditMode

@@ -17,6 +17,8 @@ export interface AddConnectionPayload {
     api_key?: string;
 }
 
+const EMPTY_HIDDEN_MODELS: string[] = [];
+
 /**
  * Loads a provider definition and exposes add/delete connection mutations with
  * query invalidation for both the detail view and the catalog.
@@ -33,13 +35,18 @@ export function useProvider(providerId: string) {
     const hiddenModelsQuery = useQuery({
         queryKey: ["providers", providerId, "hidden-models"],
         queryFn: async () => {
-            const response = await api.get<{ models: string[] }>(`/v1/providers/${providerId}/hidden-models`);
+            const response = await api.get<{ models: string[] }>(
+                `/v1/providers/${providerId}/hidden-models`
+            );
             if (response.models.length > 0 || typeof window === "undefined") return response;
             const legacyKey = `srouter_deleted_models_${providerId}`;
             let legacyModels: string[] = [];
             try {
                 const parsed: unknown = JSON.parse(localStorage.getItem(legacyKey) || "[]");
-                if (Array.isArray(parsed) && parsed.every((id): id is string => typeof id === "string")) {
+                if (
+                    Array.isArray(parsed) &&
+                    parsed.every((id): id is string => typeof id === "string")
+                ) {
                     legacyModels = parsed;
                 }
             } catch {
@@ -89,7 +96,9 @@ export function useProvider(providerId: string) {
             void queryClient.invalidateQueries({ queryKey: ["providers", providerId] });
             void queryClient.invalidateQueries({ queryKey: ["providers", "catalog"] });
             toast.success(
-                data.roundRobin ? "Round-robin load balancing enabled" : "Round-robin load balancing disabled"
+                data.roundRobin
+                    ? "Round-robin load balancing enabled"
+                    : "Round-robin load balancing disabled"
             );
         },
         onError: (err: Error) => {
@@ -126,24 +135,30 @@ export function useProvider(providerId: string) {
     });
 
     const hideModelMutation = useMutation({
-        mutationFn: (modelId: string) => api.post(`/v1/providers/${providerId}/hidden-models`, { model_id: modelId }),
+        mutationFn: (modelId: string) =>
+            api.post(`/v1/providers/${providerId}/hidden-models`, { model_id: modelId }),
         onSuccess: () => {
             void queryClient.invalidateQueries({ queryKey: ["providers", providerId] });
-            void queryClient.invalidateQueries({ queryKey: ["providers", providerId, "hidden-models"] });
+            void queryClient.invalidateQueries({
+                queryKey: ["providers", providerId, "hidden-models"]
+            });
         }
     });
 
     const restoreModelMutation = useMutation({
-        mutationFn: (modelId: string) => api.delete(`/v1/providers/${providerId}/hidden-models/${encodeURIComponent(modelId)}`),
+        mutationFn: (modelId: string) =>
+            api.delete(`/v1/providers/${providerId}/hidden-models/${encodeURIComponent(modelId)}`),
         onSuccess: () => {
             void queryClient.invalidateQueries({ queryKey: ["providers", providerId] });
-            void queryClient.invalidateQueries({ queryKey: ["providers", providerId, "hidden-models"] });
+            void queryClient.invalidateQueries({
+                queryKey: ["providers", providerId, "hidden-models"]
+            });
         }
     });
 
     return {
         ...query,
-        hiddenModelIds: hiddenModelsQuery.data?.models ?? [],
+        hiddenModelIds: hiddenModelsQuery.data?.models ?? EMPTY_HIDDEN_MODELS,
         addMutation,
         deleteMutation,
         toggleRoundRobinMutation,

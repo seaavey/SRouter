@@ -13,38 +13,38 @@ export function ProviderCard({ provider }: { provider: ProviderDefinition }) {
         <Link
             to="/providers/$providerId"
             params={{ providerId: provider.id }}
-            className="group relative flex flex-col justify-between rounded-lg border border-border/80 bg-card p-4 transition-all duration-150 hover:border-foreground/30 hover:bg-card/80 active:scale-[0.99] font-mono cursor-pointer shadow-2xs"
+            className="group relative flex flex-col justify-between rounded-3xl border border-hairline-soft bg-canvas p-5 sm:p-6 transition-all duration-150 hover:border-hairline font-sans cursor-pointer shadow-none"
         >
             {/* Top: Icon + Name & Status */}
             <div>
                 <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                        {/* Machine-bezel Icon Box */}
-                        <div className="relative flex size-9 shrink-0 items-center justify-center rounded-md border border-border/80 bg-secondary/40 p-1.5 shadow-2xs group-hover:border-foreground/20 transition-colors">
-                            <ProviderIcon providerId={provider.id} className="size-5" />
+                    <div className="flex items-center gap-3.5 min-w-0">
+                        {/* 30% Squircle Icon Box */}
+                        <div className="relative flex size-11 shrink-0 items-center justify-center rounded-[30%] border border-hairline-soft bg-canvas-soft p-2 transition-colors group-hover:border-hairline">
+                            <ProviderIcon providerId={provider.id} className="size-6" />
                         </div>
                         <div className="min-w-0">
-                            <h3 className="truncate text-xs font-semibold text-foreground">
+                            <h3 className="truncate text-sm font-semibold text-ink tracking-tight">
                                 {provider.name}
                             </h3>
                             <div className="flex items-center gap-1.5 mt-0.5">
-                                <span className="text-[10px] text-muted-foreground font-mono">
+                                <span className="text-xs text-text-muted font-mono">
                                     {provider.id}
                                 </span>
                             </div>
                         </div>
                     </div>
 
-                    {/* Status Dot / Clean Status Indicator (Anti-slop) */}
+                    {/* Status Pill */}
                     <div className="shrink-0 flex items-center">
                         {isConnected ? (
-                            <span className="inline-flex items-center gap-1.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
                                 <span className="size-1.5 rounded-full bg-emerald-500" />
                                 <span>{connectedCount} live</span>
                             </span>
                         ) : (
-                            <span className="inline-flex items-center gap-1.5 text-[10px] text-muted-foreground font-medium">
-                                <span className="size-1.5 rounded-full bg-muted-foreground/40" />
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-canvas-soft px-2.5 py-0.5 text-xs text-text-muted font-medium">
+                                <span className="size-1.5 rounded-full bg-text-muted/40" />
                                 <span>Ready</span>
                             </span>
                         )}
@@ -53,24 +53,24 @@ export function ProviderCard({ provider }: { provider: ProviderDefinition }) {
             </div>
 
             {/* Bottom: Action & Model Telemetry */}
-            <div className="mt-4 pt-3 border-t border-border/60 flex items-center justify-between text-xs">
-                <div className="flex items-center gap-1.5 text-[10.5px] text-muted-foreground">
+            <div className="mt-5 pt-4 border-t border-hairline-soft flex items-center justify-between text-xs">
+                <div className="flex items-center gap-1.5 text-xs text-text-muted font-mono">
                     {modelCount > 0 ? (
                         <>
-                            <Layers className="size-3 text-muted-foreground/70" />
+                            <Layers className="size-3.5 text-text-muted/70" />
                             <span>
                                 {modelCount} {modelCount === 1 ? "model" : "models"}
                             </span>
                         </>
                     ) : (
-                        <span className="text-muted-foreground/60">
+                        <span className="text-text-muted/60">
                             {isConnected ? "Connected Driver" : "Driver Ready"}
                         </span>
                     )}
                 </div>
 
-                {/* Subtle Text Action */}
-                <div className="inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground group-hover:text-foreground transition-colors">
+                {/* Stadium-Pill Action Indicator */}
+                <div className="inline-flex items-center gap-1 rounded-full bg-canvas-soft px-3.5 py-1.5 text-xs font-semibold text-ink group-hover:bg-ink group-hover:text-canvas transition-colors">
                     <span>{isConnected ? "Configure" : "Connect"}</span>
                     <ArrowUpRight className="size-3.5 stroke-[2] transition-transform duration-150 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
                 </div>

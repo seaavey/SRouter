@@ -13,10 +13,10 @@ export function CreateKeyDialog({ open, creating, onOpenChange, onSubmit }: Crea
         <KeyFormDialog
             open={open}
             onOpenChange={onOpenChange}
-            title="Create API Key"
+            title="Create API Key."
             description="Generate a bearer token for SDKs, clients, and automated workloads."
-            submitLabel="Create API Key"
-            submittingLabel="Creating…"
+            submitLabel="Generate Key"
+            submittingLabel="Generating…"
             isSubmitting={creating}
             onSubmit={onSubmit}
         />

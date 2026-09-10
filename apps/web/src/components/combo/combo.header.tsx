@@ -1,4 +1,4 @@
-import { GitFork, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface ComboHeaderProps {
@@ -8,30 +8,32 @@ interface ComboHeaderProps {
 
 export function ComboHeader({ isAdding, onToggleAdd }: ComboHeaderProps) {
     return (
-        <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end border-b border-border/80 pb-5 font-mono">
-            <div className="space-y-1 text-left min-w-0">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/80">
-                    High Availability & Failover
-                </p>
-                <h1 className="text-2xl font-bold tracking-tight text-foreground">
-                    Model Combos
+        <header className="flex flex-col justify-between gap-4 pb-2 sm:flex-row sm:items-end font-sans">
+            <div className="min-w-0">
+                <div className="flex items-center gap-2 mb-2">
+                    <span className="size-2 shrink-0 rounded-full bg-ink" />
+                    <p className="font-mono text-xs font-medium uppercase tracking-wider text-text-muted">
+                        Resilience & Failover
+                    </p>
+                </div>
+                <h1 className="text-3xl md:text-4xl font-[650] tracking-tight text-ink font-sans">
+                    Fallback Pipelines.
                 </h1>
-                <p className="text-xs text-muted-foreground max-w-2xl leading-relaxed">
-                    Configure multi-model fallback cascades. When a primary model encounters
-                    rate limits (429), quota exhaustion (403), or provider errors (5xx), SRouter cascades
+                <p className="mt-1 text-base font-light text-text-muted font-sans max-w-3xl">
+                    Configure multi-model fallback cascades. When a primary model encounters rate
+                    limits (429), quota exhaustion (403), or provider errors (5xx), SRouter cascades
                     down your priority sequence seamlessly.
                 </p>
             </div>
 
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
                 {!isAdding && (
                     <Button
                         type="button"
-                        size="sm"
                         onClick={onToggleAdd}
-                        className="h-8 px-3.5 text-xs font-semibold gap-1.5 cursor-pointer shadow-2xs"
+                        className="h-10 shrink-0 gap-2 rounded-full px-5 text-sm font-semibold cursor-pointer shadow-none"
                     >
-                        <Plus className="size-3.5" />
+                        <Plus className="size-4" />
                         <span>Create Combo</span>
                     </Button>
                 )}

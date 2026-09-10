@@ -5,13 +5,21 @@ import {
     ChevronsUpDown,
     Gauge,
     Plus,
-    RefreshCw
+    RefreshCw,
+    TriangleAlert
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { QuotaSkeleton } from "@/components/skeletons";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Empty, EmptyContent, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
+import {
+    Empty,
+    EmptyContent,
+    EmptyHeader,
+    EmptyMedia,
+    EmptyTitle,
+    EmptyDescription
+} from "@/components/ui/empty";
 import { cn } from "@/lib/utils";
 import { useQuota } from "@/hooks/useQuota";
 import { api } from "@/lib/api";
@@ -58,18 +66,28 @@ function QuotaPage() {
 
     if (error || (!data && !isLoading)) {
         return (
-            <div className="mx-auto w-full max-w-6xl space-y-4 font-mono">
-                <div className="rounded-[12px] border border-rose-500/30 bg-rose-500/10 p-6 text-xs text-rose-500 space-y-2">
-                    <p className="font-bold text-sm">Failed to load quota & limits information</p>
-                    <p className="text-[var(--ink-3)]">
-                        {error instanceof Error ? error.message : "Unknown error"}
+            <div className="mx-auto flex w-full max-w-[1360px] flex-col font-sans">
+                <div className="flex min-h-64 flex-col items-center justify-center rounded-3xl border border-destructive/30 bg-destructive/5 px-6 py-14 text-center">
+                    <div className="flex size-11 items-center justify-center rounded-full bg-destructive/10 text-destructive mb-3.5">
+                        <TriangleAlert className="size-5" strokeWidth={1.75} />
+                    </div>
+                    <h2 className="text-base font-bold text-ink">
+                        Failed to load quota & limits information
+                    </h2>
+                    <p className="mt-1.5 max-w-md text-xs text-text-muted leading-relaxed font-mono">
+                        {error instanceof Error
+                            ? error.message
+                            : "The gateway returned an unexpected error."}
                     </p>
                     <Button
                         type="button"
+                        variant="outline"
+                        size="sm"
                         onClick={() => void handleRefresh()}
-                        className="mt-2 text-xs bg-[var(--ink)] text-[var(--canvas)] cursor-pointer"
+                        className="mt-5 rounded-full px-5 h-9 text-xs font-semibold cursor-pointer gap-1.5 shadow-none"
                     >
-                        Try Again
+                        <RefreshCw className="size-3.5" />
+                        <span>Try Again</span>
                     </Button>
                 </div>
             </div>
@@ -83,7 +101,8 @@ function QuotaPage() {
     );
 
     const isAllCollapsed =
-        activeProviders.length > 0 && activeProviders.every((p) => collapsedMap[p.provider.toLowerCase()] === true);
+        activeProviders.length > 0 &&
+        activeProviders.every((p) => collapsedMap[p.provider.toLowerCase()] === true);
 
     const toggleAll = () => {
         const nextState = !isAllCollapsed;
@@ -122,38 +141,44 @@ function QuotaPage() {
     }
 
     const groupedProviders = Object.entries(
-        activeProviders.reduce((acc, account) => {
-            const groupKey = account.provider.toLowerCase();
-            if (!acc[groupKey]) {
-                acc[groupKey] = {
-                    providerName: account.provider,
-                    accounts: [] as QuotaAccountItem[]
-                };
-            }
-            acc[groupKey].accounts.push(account);
-            return acc;
-        }, {} as Record<string, { providerName: string; accounts: QuotaAccountItem[] }>)
+        activeProviders.reduce(
+            (acc, account) => {
+                const groupKey = account.provider.toLowerCase();
+                if (!acc[groupKey]) {
+                    acc[groupKey] = {
+                        providerName: account.provider,
+                        accounts: [] as QuotaAccountItem[]
+                    };
+                }
+                acc[groupKey].accounts.push(account);
+                return acc;
+            },
+            {} as Record<string, { providerName: string; accounts: QuotaAccountItem[] }>
+        )
     );
 
     return (
-        <div className="mx-auto w-full max-w-6xl flex flex-col gap-6 font-mono">
-            {/* Editorial Header Section */}
-            <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end border-b border-border/80 pb-5">
+        <div className="mx-auto flex w-full max-w-[1360px] flex-col gap-8 font-sans">
+            {/* Header Section */}
+            <header className="flex flex-col justify-between gap-4 pb-2 sm:flex-row sm:items-end">
                 <div className="min-w-0">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/80">
-                        Capacity & Usage
-                    </p>
-                    <h1 className="mt-1.5 text-2xl font-bold tracking-tight text-foreground">
-                        Quotas & Limits
+                    <div className="flex items-center gap-2 mb-2">
+                        <span className="size-2 shrink-0 rounded-full bg-ink" />
+                        <p className="font-mono text-xs font-medium uppercase tracking-wider text-text-muted">
+                            Capacity & Usage
+                        </p>
+                    </div>
+                    <h1 className="text-3xl md:text-4xl font-[650] tracking-tight text-ink font-sans">
+                        Quotas & Limits.
                     </h1>
-                    <p className="mt-1 max-w-2xl text-xs text-muted-foreground leading-relaxed">
+                    <p className="mt-1 text-base font-light text-text-muted font-sans">
                         Upstream provider rate limits, live token quotas, and per-account usage
                         consumption.
                     </p>
                 </div>
 
-                <div className="flex shrink-0 items-center gap-2">
-                    <span className="hidden xl:inline-block text-[10.5px] text-muted-foreground mr-1">
+                <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+                    <span className="hidden xl:inline-block font-mono text-xs text-text-muted mr-1">
                         Updated{" "}
                         {lastUpdated.toLocaleTimeString([], {
                             hour: "2-digit",
@@ -168,19 +193,19 @@ function QuotaPage() {
                             variant="outline"
                             size="sm"
                             onClick={toggleAll}
-                            className="h-8 text-xs font-medium cursor-pointer gap-1.5 border-border/80 bg-card hover:bg-secondary/60 transition-colors shadow-2xs"
+                            className="rounded-full px-4 h-9 text-xs font-medium cursor-pointer gap-1.5 shadow-none"
                             title={
                                 isAllCollapsed ? "Expand all providers" : "Collapse all providers"
                             }
                         >
                             {isAllCollapsed ? (
                                 <>
-                                    <ChevronsUpDown className="size-3.5 text-muted-foreground" />
+                                    <ChevronsUpDown className="size-3.5 text-text-muted" />
                                     <span>Expand All</span>
                                 </>
                             ) : (
                                 <>
-                                    <ChevronsDownUp className="size-3.5 text-muted-foreground" />
+                                    <ChevronsDownUp className="size-3.5 text-text-muted" />
                                     <span>Collapse All</span>
                                 </>
                             )}
@@ -193,11 +218,11 @@ function QuotaPage() {
                         size="sm"
                         onClick={() => void handleRefresh()}
                         disabled={isSpinning}
-                        className="h-8 text-xs font-medium cursor-pointer gap-1.5 border-border/80 bg-card hover:bg-secondary/60 transition-colors shadow-2xs"
+                        className="rounded-full px-4 h-9 text-xs font-medium cursor-pointer gap-1.5 shadow-none"
                         title="Refresh live quota and usage stats"
                     >
                         <RefreshCw
-                            className={`size-3.5 ${isSpinning ? "animate-spin text-amber-500" : "text-muted-foreground"}`}
+                            className={`size-3.5 ${isSpinning ? "animate-spin text-accent" : "text-text-muted"}`}
                         />
                         <span>{isSpinning ? "Refreshing…" : "Refresh"}</span>
                     </Button>
@@ -206,7 +231,7 @@ function QuotaPage() {
                         to="/providers"
                         className={cn(
                             buttonVariants({ size: "sm" }),
-                            "h-8 text-xs font-semibold cursor-pointer shadow-xs gap-1.5"
+                            "rounded-full px-5 h-9 text-xs font-semibold cursor-pointer shadow-none gap-1.5"
                         )}
                     >
                         <Plus className="size-3.5" />
@@ -226,21 +251,26 @@ function QuotaPage() {
 
             {/* Provider Accounts Quota List */}
             {activeProviders.length === 0 ? (
-                <Empty className="p-12">
+                <Empty className="rounded-3xl border border-hairline-soft bg-canvas p-12">
                     <EmptyHeader>
                         <EmptyMedia variant="icon">
-                            <Gauge className="size-5" />
+                            <Gauge className="size-5 text-text-muted" />
                         </EmptyMedia>
-                        <EmptyTitle>No Active Quotas or Usage Data Yet</EmptyTitle>
-                        <EmptyDescription>
-                            Live quota progress and per-model consumption will appear here as soon as
-                            upstream sessions are synced or gateway requests are processed.
+                        <EmptyTitle className="text-ink font-bold">
+                            No Active Quotas or Usage Data Yet
+                        </EmptyTitle>
+                        <EmptyDescription className="text-text-muted text-xs">
+                            Live quota progress and per-model consumption will appear here as soon
+                            as upstream sessions are synced or gateway requests are processed.
                         </EmptyDescription>
                     </EmptyHeader>
                     <EmptyContent>
                         <Link
                             to="/providers"
-                            className="inline-flex items-center gap-1.5 rounded-[6px] bg-[var(--ink)] text-[var(--canvas)] px-3.5 py-1.5 text-xs font-semibold hover:opacity-90 transition-transform active:scale-[0.98] shadow-xs cursor-pointer"
+                            className={cn(
+                                buttonVariants({ size: "sm" }),
+                                "rounded-full px-5 h-9 text-xs font-semibold cursor-pointer shadow-none gap-1.5"
+                            )}
                         >
                             <Plus className="size-3.5" />
                             <span>Go to Providers Catalog</span>
@@ -248,7 +278,7 @@ function QuotaPage() {
                     </EmptyContent>
                 </Empty>
             ) : (
-                <div className="space-y-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
                     {groupedProviders.map(([groupKey, group]) => (
                         <QuotaProviderCard
                             key={groupKey}

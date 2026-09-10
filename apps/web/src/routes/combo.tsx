@@ -47,7 +47,7 @@ function ComboPage() {
     };
 
     return (
-        <div className="mx-auto w-full max-w-5xl flex flex-col gap-6 font-mono pb-12">
+        <div className="mx-auto flex w-full max-w-[1360px] flex-col gap-8 font-sans pb-16">
             {/* Top Branding & Metrics Header */}
             <ComboHeader
                 isAdding={isAdding || Boolean(editingCombo)}

@@ -1,223 +1,140 @@
 import { Link } from "@tanstack/react-router";
+import type { ComponentType } from "react";
 import {
+    BarChart2,
     Boxes,
     Coins,
-    Cpu,
     Gauge,
     GitFork,
     KeyRound,
     LayoutDashboard,
     ScrollText,
-    Settings,
-    Zap,
-    BarChart2
+    Settings
 } from "lucide-react";
-import {
-    Sidebar,
-    SidebarContent,
-    SidebarFooter,
-    SidebarGroup,
-    SidebarGroupContent,
-    SidebarGroupLabel,
-    SidebarHeader,
-    SidebarMenu,
-    SidebarMenuButton,
-    SidebarMenuItem,
-    SidebarRail
-} from "@/components/ui/sidebar";
+import { Sidebar } from "@/components/ui/sidebar";
+import { CURRENT_VERSION } from "@/hooks/useVersion";
 
-const mainNavItems = [
-    { to: "/", label: "Dashboard", icon: LayoutDashboard },
-    { to: "/keys", label: "API Keys", icon: KeyRound },
-    { to: "/providers", label: "Providers", icon: Boxes },
-    { to: "/pricing", label: "List Pricing", icon: Coins },
-    { to: "/combo", label: "Combo", icon: GitFork }
-] as const;
+type NavItem = {
+    to: string;
+    label: string;
+    icon: ComponentType<{ strokeWidth?: number; className?: string }>;
+};
 
-const observabilityNavItems = [
-    { to: "/quota", label: "Quotas & Limits", icon: Gauge },
-    { to: "/analytics", label: "Analytics", icon: BarChart2 },
-    { to: "/logs", label: "Audit Logs", icon: ScrollText }
-] as const;
+type NavGroup = {
+    /** Group heading. Omitted for the leading unlabeled group. */
+    label?: string;
+    items: NavItem[];
+};
+
+const navGroups: NavGroup[] = [
+    {
+        items: [{ to: "/", label: "Overview", icon: LayoutDashboard }]
+    },
+    {
+        label: "Gateway",
+        items: [
+            { to: "/providers", label: "Providers", icon: Boxes },
+            { to: "/keys", label: "API Keys", icon: KeyRound },
+            { to: "/combo", label: "Combos", icon: GitFork }
+        ]
+    },
+    {
+        label: "Insights",
+        items: [
+            { to: "/quota", label: "Quotas", icon: Gauge },
+            { to: "/analytics", label: "Analytics", icon: BarChart2 },
+            { to: "/logs", label: "Logs", icon: ScrollText },
+            { to: "/pricing", label: "Pricing", icon: Coins }
+        ]
+    },
+    {
+        label: "System",
+        items: [{ to: "/settings", label: "Settings", icon: Settings }]
+    }
+];
 
 export function AppSidebar() {
     return (
-        <Sidebar collapsible="icon" className="border-r border-border/80 bg-sidebar/95 font-mono">
-            {/* Header: Machined Branding */}
-            <SidebarHeader className="h-12 min-h-12 shrink-0 justify-center border-b border-border/80 px-3">
-                <SidebarMenu className="items-center">
-                    <SidebarMenuItem className="w-full">
-                        <SidebarMenuButton
-                            size="lg"
-                            render={<Link to="/" aria-label="SRouter dashboard" />}
-                            className="group h-10 w-full rounded-lg px-2 text-foreground transition-all duration-150 hover:bg-secondary/60 group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0! cursor-pointer"
-                        >
-                            {/* Logo Mark: Double-bezel Machined Emblem with Beacon */}
-                            <div className="relative flex size-7.5 shrink-0 items-center justify-center rounded-lg border border-border/80 bg-linear-to-b from-secondary/90 via-secondary/50 to-background p-1 text-foreground shadow-2xs transition-all duration-200 group-hover:border-foreground/30 group-hover:bg-secondary/80">
-                                <svg
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    className="size-4 text-foreground transition-transform duration-200 group-hover:scale-105"
-                                >
-                                    <path
-                                        d="M13 2.5L5 13H11.5L9.5 21.5L18.5 10H12L13.5 2.5Z"
-                                        fill="currentColor"
-                                        fillOpacity="0.92"
-                                        stroke="currentColor"
-                                        strokeWidth="0.5"
-                                        strokeLinejoin="round"
-                                    />
-                                </svg>
-                                <span
-                                    className="absolute -right-0.5 -top-0.5 size-1.5 rounded-full border border-background bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]"
-                                    title="Gateway Online"
-                                    aria-hidden="true"
-                                />
-                            </div>
-
-                            {/* Label & Tactical Subtitle */}
-                            <div className="flex flex-col min-w-0 group-data-[collapsible=icon]:hidden text-left pl-1">
-                                <div className="flex items-center gap-1.5">
-                                    <span className="text-[13px] font-bold tracking-tight text-foreground leading-tight">
-                                        SRouter
-                                    </span>
-                                    <span className="rounded-xs border border-border/70 bg-secondary/70 px-1 py-0.2 font-mono text-[8px] font-semibold text-muted-foreground/80 leading-none">
-                                        MESH
-                                    </span>
-                                </div>
-                                <span className="text-[9px] font-mono font-medium text-muted-foreground/75 tracking-[0.14em] uppercase mt-0.5 truncate">
-                                    Gateway Proxy
-                                </span>
-                            </div>
-                        </SidebarMenuButton>
-                    </SidebarMenuItem>
-                </SidebarMenu>
-            </SidebarHeader>
-
-            <SidebarContent className="px-2.5 py-4">
-                <nav aria-label="Primary navigation" className="space-y-6">
-                    {/* Workspace Group */}
-                    <SidebarGroup className="p-0">
-                        <SidebarGroupLabel className="mb-1.5 h-5 px-2 text-[9px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/80">
-                            Workspace
-                        </SidebarGroupLabel>
-                        <SidebarGroupContent>
-                            <SidebarMenu className="gap-1">
-                                {mainNavItems.map(({ to, label, icon: Icon }) => (
-                                    <SidebarMenuItem key={to}>
-                                        <SidebarMenuButton
-                                            render={
-                                                <Link
-                                                    to={to}
-                                                    activeOptions={{ exact: true }}
-                                                    activeProps={{
-                                                        className:
-                                                            "bg-secondary text-foreground font-semibold border border-border/80 shadow-2xs",
-                                                        "aria-current": "page"
-                                                    }}
-                                                    inactiveProps={{
-                                                        className:
-                                                            "text-muted-foreground hover:bg-secondary/40 hover:text-foreground border border-transparent"
-                                                    }}
-                                                />
-                                            }
-                                            tooltip={label}
-                                            className="h-8.5 rounded-md px-2.5 transition-all text-xs cursor-pointer group-data-[collapsible=icon]:justify-center"
-                                        >
-                                            <Icon
-                                                strokeWidth={1.75}
-                                                className="size-3.5 shrink-0"
-                                            />
-                                            <span className="text-xs truncate">{label}</span>
-                                        </SidebarMenuButton>
-                                    </SidebarMenuItem>
-                                ))}
-                            </SidebarMenu>
-                        </SidebarGroupContent>
-                    </SidebarGroup>
-
-                    {/* Observability Group */}
-                    <SidebarGroup className="border-t border-border/60 p-0 pt-4">
-                        <SidebarGroupLabel className="mb-1.5 h-5 px-2 text-[9px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/80">
-                            Observability
-                        </SidebarGroupLabel>
-                        <SidebarGroupContent>
-                            <SidebarMenu className="gap-1">
-                                {observabilityNavItems.map(({ to, label, icon: Icon }) => (
-                                    <SidebarMenuItem key={to}>
-                                        <SidebarMenuButton
-                                            render={
-                                                <Link
-                                                    to={to}
-                                                    activeOptions={{ exact: true }}
-                                                    activeProps={{
-                                                        className:
-                                                            "bg-secondary text-foreground font-semibold border border-border/80 shadow-2xs",
-                                                        "aria-current": "page"
-                                                    }}
-                                                    inactiveProps={{
-                                                        className:
-                                                            "text-muted-foreground hover:bg-secondary/40 hover:text-foreground border border-transparent"
-                                                    }}
-                                                />
-                                            }
-                                            tooltip={label}
-                                            className="h-8.5 rounded-md px-2.5 transition-all text-xs cursor-pointer group-data-[collapsible=icon]:justify-center"
-                                        >
-                                            <Icon
-                                                strokeWidth={1.75}
-                                                className="size-3.5 shrink-0"
-                                            />
-                                            <span className="text-xs truncate">{label}</span>
-                                        </SidebarMenuButton>
-                                    </SidebarMenuItem>
-                                ))}
-                            </SidebarMenu>
-                        </SidebarGroupContent>
-                    </SidebarGroup>
-                </nav>
-            </SidebarContent>
-
-            {/* Footer with Settings & Node Telemetry */}
-            <SidebarFooter className="border-t border-border/80 p-2.5 space-y-2">
-                <SidebarMenu>
-                    <SidebarMenuItem>
-                        <SidebarMenuButton
-                            render={
-                                <Link
-                                    to="/settings"
-                                    activeOptions={{ exact: true }}
-                                    activeProps={{
-                                        className:
-                                            "bg-secondary text-foreground font-semibold border border-border/80 shadow-2xs",
-                                        "aria-current": "page"
-                                    }}
-                                    inactiveProps={{
-                                        className:
-                                            "text-muted-foreground hover:bg-secondary/40 hover:text-foreground border border-transparent"
-                                    }}
-                                />
-                            }
-                            tooltip="Settings"
-                            className="h-8.5 rounded-md px-2.5 transition-all text-xs cursor-pointer group-data-[collapsible=icon]:justify-center"
-                        >
-                            <Settings strokeWidth={1.75} className="size-3.5 shrink-0" />
-                            <span className="text-xs">Settings & Ops</span>
-                        </SidebarMenuButton>
-                    </SidebarMenuItem>
-                </SidebarMenu>
-
-                {/* Micro Node Info */}
-                <div className="hidden group-data-[collapsible=icon]:hidden px-2 py-1.5 rounded-md bg-secondary/30 border border-border/50 text-[10px] text-muted-foreground flex items-center justify-between">
-                    <div className="flex items-center gap-1.5">
-                        <Cpu className="size-3 text-muted-foreground/80" />
-                        <span>Node SQLite</span>
+        <Sidebar className="bg-canvas border-r border-hairline-soft w-64 flex flex-col h-full">
+            <div className="flex flex-col h-full justify-between p-4 bg-canvas">
+                <div className="flex flex-col gap-6 min-h-0 flex-1">
+                    {/* Header: SRouter wordmark in Inter 650 + version pill */}
+                    <div className="flex items-center justify-between px-2 py-1 shrink-0">
+                        <Link to="/" className="flex items-center gap-1.5 group">
+                            <span className="text-xl font-[650] tracking-tight text-ink font-sans">
+                                SRouter<span className="text-ink">.</span>
+                            </span>
+                        </Link>
+                        <span className="rounded-full bg-canvas-soft text-ink px-2.5 py-0.5 text-xs font-mono">
+                            {CURRENT_VERSION}
+                        </span>
                     </div>
-                    <span className="font-semibold text-foreground/80">WAL</span>
-                </div>
-            </SidebarFooter>
 
-            <SidebarRail />
+                    {/* Nav: categorized stadium pill items */}
+                    <nav
+                        aria-label="Main navigation"
+                        className="flex flex-col gap-5 overflow-y-auto"
+                    >
+                        {navGroups.map(({ label, items }, groupIndex) => (
+                            <div key={label ?? `group-${groupIndex}`} className="flex flex-col gap-1">
+                                {label ? (
+                                    <p
+                                        id={`nav-group-${label.toLowerCase()}`}
+                                        className="px-4 pb-1 font-mono text-[10px] font-medium uppercase tracking-wider text-text-muted"
+                                    >
+                                        {label}
+                                    </p>
+                                ) : null}
+                                <ul
+                                    aria-labelledby={
+                                        label ? `nav-group-${label.toLowerCase()}` : undefined
+                                    }
+                                    className="flex flex-col gap-1 list-none p-0 m-0"
+                                >
+                                    {items.map(({ to, label: itemLabel, icon: Icon }) => (
+                                        <li key={to}>
+                                            <Link
+                                                to={to}
+                                                activeOptions={{ exact: to === "/" }}
+                                                className="flex items-center gap-3 rounded-full px-4 py-2.5 text-sm transition-colors"
+                                                activeProps={{
+                                                    className:
+                                                        "bg-ink text-canvas font-semibold shadow-none",
+                                                    "aria-current": "page"
+                                                }}
+                                                inactiveProps={{
+                                                    className:
+                                                        "text-text-muted hover:text-ink hover:bg-canvas-soft font-medium"
+                                                }}
+                                            >
+                                                <Icon
+                                                    strokeWidth={1.75}
+                                                    className="size-4 shrink-0"
+                                                />
+                                                <span className="truncate">{itemLabel}</span>
+                                            </Link>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        ))}
+                    </nav>
+                </div>
+
+                {/* Footer: Gateway connection dot indicator and status text */}
+                <div className="pt-4 border-t border-hairline-soft shrink-0">
+                    <div className="flex items-center justify-between px-3.5 py-2.5 rounded-full bg-canvas-soft text-xs text-text-muted">
+                        <div className="flex items-center gap-2">
+                            <span
+                                className="size-2 rounded-full bg-emerald-500 shrink-0"
+                                aria-hidden="true"
+                            />
+                            <span className="font-medium text-ink">Gateway Online</span>
+                        </div>
+                        <span className="font-mono text-[11px] text-text-muted">Active</span>
+                    </div>
+                </div>
+            </div>
         </Sidebar>
     );
 }

@@ -79,7 +79,13 @@ export function ProviderIcon({
     const [hasError, setHasError] = useState(false);
     const id = providerId.toLowerCase().trim();
 
-    if (id === "opencode" || id === "opencode_zen" || id === "opencode-zen" || id === "zen" || id.includes("opencode")) {
+    if (
+        id === "opencode" ||
+        id === "opencode_zen" ||
+        id === "opencode-zen" ||
+        id === "zen" ||
+        id.includes("opencode")
+    ) {
         return (
             <svg
                 fill="currentColor"
@@ -98,7 +104,7 @@ export function ProviderIcon({
         const initial = providerId.trim().charAt(0).toUpperCase() || "P";
         return (
             <div
-                className={`${className} flex items-center justify-center rounded-md bg-secondary text-[10.5px] font-bold text-foreground select-none shrink-0 font-mono group-data-highlighted/item:bg-accent group-data-highlighted/item:text-accent-foreground`}
+                className={`${className} flex items-center justify-center rounded-[30%] bg-canvas-soft text-[11px] font-bold text-ink select-none shrink-0 font-mono group-data-highlighted/item:bg-accent group-data-highlighted/item:text-accent-foreground`}
                 title={providerId}
             >
                 {initial}
@@ -123,7 +129,7 @@ export function ProviderIcon({
         const initial = providerId.trim().charAt(0).toUpperCase() || "P";
         return (
             <div
-                className={`${className} flex items-center justify-center rounded-md bg-secondary text-[10.5px] font-bold text-foreground select-none shrink-0 font-mono group-data-highlighted/item:bg-accent group-data-highlighted/item:text-accent-foreground`}
+                className={`${className} flex items-center justify-center rounded-[30%] bg-canvas-soft text-[11px] font-bold text-ink select-none shrink-0 font-mono group-data-highlighted/item:bg-accent group-data-highlighted/item:text-accent-foreground`}
                 title={providerId}
             >
                 {initial}
@@ -137,7 +143,7 @@ export function ProviderIcon({
         <img
             src={src}
             alt={providerId}
-            className={`${className} rounded object-contain shrink-0 ${themeAwareClass}`}
+            className={`${className} rounded-[30%] object-contain shrink-0 ${themeAwareClass}`}
             onError={() => {
                 setHasError(true);
             }}

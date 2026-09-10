@@ -182,7 +182,7 @@ export function ProviderModelTable({
                         <button
                             type="button"
                             onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                            className="flex items-center gap-1.5 hover:text-[var(--ink)] transition-colors cursor-pointer"
+                            className="flex items-center gap-1.5 hover:text-ink transition-colors cursor-pointer"
                         >
                             <span>Model ID</span>
                             {isSorted === "asc" ? (
@@ -200,15 +200,15 @@ export function ProviderModelTable({
                     const isFav = isFavorite(model.id);
 
                     return (
-                        <div className="flex items-center gap-2 min-w-0">
+                        <div className="flex items-center gap-2.5 min-w-0">
                             {/* Favorite / Pin Star Button */}
                             <button
                                 type="button"
                                 onClick={() => toggleFavorite(model.id)}
-                                className={`p-1 rounded-[4px] transition-all cursor-pointer shrink-0 ${
+                                className={`p-1 rounded-full transition-all cursor-pointer shrink-0 ${
                                     isFav
                                         ? "text-amber-500 hover:text-amber-400 bg-amber-500/10"
-                                        : "text-[var(--ink-3)] hover:text-amber-500 opacity-40 group-hover:opacity-100 hover:bg-[var(--field)]"
+                                        : "text-text-muted hover:text-amber-500 opacity-40 group-hover:opacity-100 hover:bg-canvas-soft"
                                 }`}
                                 title={
                                     isFav
@@ -224,22 +224,23 @@ export function ProviderModelTable({
                                 />
                             </button>
 
-                            <div className="flex size-6 shrink-0 items-center justify-center rounded-[4px] bg-[var(--field)] text-[var(--ink-2)]">
+                            <div className="flex size-7 shrink-0 items-center justify-center rounded-[30%] bg-canvas-soft text-text-muted">
                                 <Bot className="size-3.5" />
                             </div>
 
                             <span
-                                className={`font-bold truncate max-w-[220px] sm:max-w-md md:max-w-lg block text-xs ${
+                                className={`font-mono text-xs font-semibold truncate max-w-[220px] sm:max-w-md md:max-w-lg block ${
                                     isFav
-                                        ? "text-amber-500 dark:text-amber-400"
-                                        : "text-[var(--ink)]"
+                                        ? "text-amber-500 dark:text-amber-400 font-bold"
+                                        : "text-ink"
                                 }`}
                                 title={model.id}
                             >
                                 {model.id}
                             </span>
+
                             {model.custom && (
-                                <span className="inline-flex items-center rounded-[4px] bg-sky-500/10 px-1.5 py-0.2 text-[9.5px] font-bold text-sky-600 dark:text-sky-400 border border-sky-500/20 shrink-0">
+                                <span className="inline-flex items-center rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-bold text-accent shrink-0">
                                     Custom
                                 </span>
                             )}
@@ -247,13 +248,13 @@ export function ProviderModelTable({
                             <button
                                 type="button"
                                 onClick={() => onCopy(model.id)}
-                                className="text-[var(--ink-3)] hover:text-[var(--ink)] p-1 rounded hover:bg-[var(--field)] transition-colors opacity-0 group-hover:opacity-100 cursor-pointer shrink-0"
+                                className="text-text-muted hover:text-ink p-1 rounded-full hover:bg-canvas-soft transition-colors opacity-0 group-hover:opacity-100 cursor-pointer shrink-0"
                                 title="Copy Model ID"
                             >
                                 {copied === model.id ? (
-                                    <Check className="size-3 text-emerald-500" />
+                                    <Check className="size-3.5 text-emerald-500" />
                                 ) : (
-                                    <Copy className="size-3" />
+                                    <Copy className="size-3.5" />
                                 )}
                             </button>
                         </div>
@@ -267,12 +268,12 @@ export function ProviderModelTable({
                     const isFav = isFavorite(row.original.id);
                     return (
                         <div className="flex items-center gap-2">
-                            <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 text-[10.5px] font-semibold">
-                                <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 text-xs font-semibold">
+                                <span className="size-1.5 rounded-full bg-emerald-500" />
                                 <span>Active</span>
                             </span>
                             {isFav && (
-                                <span className="hidden md:inline-flex items-center gap-0.5 rounded-[4px] bg-amber-500/10 px-1.5 py-0.2 text-[9.5px] font-bold text-amber-500 border border-amber-500/20">
+                                <span className="hidden md:inline-flex items-center gap-0.5 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-500">
                                     ★ Pinned
                                 </span>
                             )}
@@ -291,10 +292,10 @@ export function ProviderModelTable({
                                 <button
                                     type="button"
                                     onClick={() => onDelete(model.id)}
-                                    className="text-[var(--ink-3)] hover:text-rose-500 hover:bg-rose-500/10 p-1 rounded transition-colors cursor-pointer"
+                                    className="text-text-muted hover:text-destructive hover:bg-destructive/10 p-1.5 rounded-full transition-colors cursor-pointer"
                                     title="Hide model from list"
                                 >
-                                    <Trash2 className="size-3" />
+                                    <Trash2 className="size-3.5" />
                                 </button>
                             )}
                         </div>
@@ -328,7 +329,6 @@ export function ProviderModelTable({
         getPaginationRowModel: getPaginationRowModel()
     });
 
-    const pageCount = table.getPageCount();
     const currentPage = table.getState().pagination.pageIndex;
     const pageSize = table.getState().pagination.pageSize;
     const totalRows = models.length;
@@ -336,26 +336,26 @@ export function ProviderModelTable({
     const endRow = Math.min((currentPage + 1) * pageSize, totalRows);
 
     return (
-        <div className="space-y-3 font-mono">
-            {/* Floating Bulk Action HUD Dock (Persists on scroll with Glassmorphism) */}
+        <div className="space-y-3 font-sans">
+            {/* Floating Bulk Action HUD Dock */}
             {selectedIds.length > 0 && (
-                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-2 rounded-full border border-border/80 bg-card/95 backdrop-blur-md shadow-2xl ring-1 ring-black/10 dark:ring-white/10 animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-4 duration-200">
+                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-2.5 rounded-full border border-hairline bg-canvas/95 backdrop-blur-md shadow-none ring-1 ring-hairline-soft animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-4 duration-200">
                     <div className="flex items-center gap-2 pr-1">
-                        <span className="flex size-5 items-center justify-center rounded-full bg-amber-500 text-black text-[10px] font-bold">
+                        <span className="flex size-5 items-center justify-center rounded-full bg-ink text-canvas text-[10px] font-bold">
                             {selectedIds.length}
                         </span>
-                        <span className="text-xs font-semibold text-foreground whitespace-nowrap">
+                        <span className="text-xs font-semibold text-ink whitespace-nowrap">
                             {selectedIds.length} selected
                         </span>
                     </div>
 
-                    <div className="h-4 w-px bg-border/80" />
+                    <div className="h-4 w-px bg-hairline-soft" />
 
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-2">
                         <button
                             type="button"
                             onClick={handleBulkFavorite}
-                            className="inline-flex items-center gap-1.5 rounded-full bg-secondary hover:bg-secondary/80 px-3 py-1.5 text-xs font-semibold text-foreground transition-all cursor-pointer border border-border/60 shadow-2xs hover:scale-105 active:scale-95"
+                            className="inline-flex items-center gap-1.5 rounded-full bg-canvas-soft hover:bg-field px-3.5 py-1.5 text-xs font-semibold text-ink transition-colors cursor-pointer border border-hairline-soft"
                             title="Pin selected models to favorites"
                         >
                             <Star className="size-3.5 text-amber-500 fill-amber-500" />
@@ -366,7 +366,7 @@ export function ProviderModelTable({
                             <button
                                 type="button"
                                 onClick={handleBulkDelete}
-                                className="inline-flex items-center gap-1.5 rounded-full bg-destructive/10 hover:bg-destructive/20 px-3 py-1.5 text-xs font-semibold text-destructive transition-all cursor-pointer border border-destructive/30 shadow-2xs hover:scale-105 active:scale-95"
+                                className="inline-flex items-center gap-1.5 rounded-full bg-destructive/10 hover:bg-destructive/20 px-3.5 py-1.5 text-xs font-semibold text-destructive transition-colors cursor-pointer border border-destructive/20"
                                 title="Hide selected models from list"
                             >
                                 <Trash2 className="size-3.5" />
@@ -377,12 +377,12 @@ export function ProviderModelTable({
                         <button
                             type="button"
                             onClick={() => setSelectedIds([])}
-                            className="inline-flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
+                            className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs text-text-muted hover:text-ink cursor-pointer transition-colors"
                             title="Clear selection (Esc)"
                         >
                             <X className="size-3.5" />
                             <span className="hidden sm:inline">Clear</span>
-                            <kbd className="hidden sm:inline-block rounded border border-border/60 bg-muted px-1 text-[9px] text-muted-foreground font-mono">
+                            <kbd className="hidden sm:inline-block rounded-full border border-hairline-soft bg-field px-1.5 text-[9px] text-text-muted font-mono">
                                 Esc
                             </kbd>
                         </button>
@@ -391,18 +391,18 @@ export function ProviderModelTable({
             )}
 
             {/* Table Container using @/components/ui/table & TanStack React Table */}
-            <div className="rounded-lg border border-border/80 bg-card shadow-2xs overflow-hidden">
+            <div className="rounded-3xl border border-hairline-soft bg-canvas shadow-none overflow-hidden">
                 <Table>
                     <TableHeader>
                         {table.getHeaderGroups().map((headerGroup) => (
                             <TableRow
                                 key={headerGroup.id}
-                                className="border-b border-border/80 bg-secondary/30 hover:bg-secondary/30"
+                                className="border-b border-hairline-soft bg-canvas-soft hover:bg-canvas-soft"
                             >
                                 {headerGroup.headers.map((header) => (
                                     <TableHead
                                         key={header.id}
-                                        className={`py-2.5 px-4 font-mono text-[10.5px] font-bold uppercase tracking-wider text-muted-foreground ${
+                                        className={`py-3 px-4 font-mono text-xs font-bold uppercase tracking-wider text-text-muted ${
                                             header.id === "status"
                                                 ? "hidden sm:table-cell"
                                                 : header.id === "actions"
@@ -427,16 +427,16 @@ export function ProviderModelTable({
                             return (
                                 <TableRow
                                     key={row.id}
-                                    className={`group transition-colors ${
+                                    className={`group transition-colors border-b border-hairline-soft last:border-b-0 ${
                                         isSelected
                                             ? "bg-amber-500/10 hover:bg-amber-500/15 dark:bg-amber-500/15 dark:hover:bg-amber-500/20"
-                                            : "hover:bg-secondary/40"
+                                            : "hover:bg-canvas-soft/50"
                                     }`}
                                 >
                                     {row.getVisibleCells().map((cell) => (
                                         <TableCell
                                             key={cell.id}
-                                            className={`py-2 px-4 ${
+                                            className={`py-2.5 px-4 ${
                                                 cell.column.id === "status"
                                                     ? "hidden sm:table-cell"
                                                     : cell.column.id === "actions"
@@ -458,25 +458,25 @@ export function ProviderModelTable({
             </div>
 
             {/* Pagination Controls */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-1 text-xs text-muted-foreground font-mono">
-                <div className="flex items-center gap-2 text-[11px]">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-2 pt-1 text-xs text-text-muted font-sans">
+                <div className="flex items-center gap-2">
                     <span>Showing</span>
-                    <span className="font-semibold text-foreground">
+                    <span className="font-semibold text-ink font-mono">
                         {totalRows === 0 ? 0 : `${startRow}-${endRow}`}
                     </span>
                     <span>of</span>
-                    <span className="font-semibold text-foreground">{totalRows}</span>
+                    <span className="font-semibold text-ink font-mono">{totalRows}</span>
                     <span>models</span>
                 </div>
 
                 <div className="flex items-center gap-3 self-end sm:self-auto">
                     {/* Page Size Selector */}
-                    <div className="flex items-center gap-1.5 text-[11px]">
+                    <div className="flex items-center gap-1.5">
                         <span>Rows:</span>
                         <select
                             value={pageSize}
                             onChange={(e) => table.setPageSize(Number(e.target.value))}
-                            className="rounded border border-border/80 bg-card px-2 py-0.5 text-[11px] text-foreground focus:outline-none cursor-pointer"
+                            className="rounded-full border border-hairline bg-canvas px-3 py-1 text-xs text-ink focus:outline-none cursor-pointer font-mono"
                         >
                             <option value={10}>10</option>
                             <option value={25}>25</option>
@@ -486,26 +486,25 @@ export function ProviderModelTable({
                     </div>
 
                     {/* Page Navigation */}
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1.5">
                         <button
                             type="button"
                             onClick={() => table.previousPage()}
                             disabled={!table.getCanPreviousPage()}
-                            className="flex size-6 items-center justify-center rounded border border-border/80 bg-card text-foreground hover:bg-secondary disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                            className="flex size-7 items-center justify-center rounded-full border border-hairline bg-canvas text-ink hover:bg-canvas-soft disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors shadow-none"
                             title="Previous page"
                         >
                             <ChevronLeft className="size-3.5" />
                         </button>
-                        <span className="px-2 text-[11px] text-foreground">
-                            {table.getPageCount() === 0
-                                ? 0
-                                : pagination.pageIndex + 1} / {table.getPageCount()}
+                        <span className="px-2 font-mono text-xs text-ink">
+                            {table.getPageCount() === 0 ? 0 : pagination.pageIndex + 1} /{" "}
+                            {table.getPageCount()}
                         </span>
                         <button
                             type="button"
                             onClick={() => table.nextPage()}
                             disabled={!table.getCanNextPage()}
-                            className="flex size-6 items-center justify-center rounded border border-border/80 bg-card text-foreground hover:bg-secondary disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                            className="flex size-7 items-center justify-center rounded-full border border-hairline bg-canvas text-ink hover:bg-canvas-soft disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors shadow-none"
                             title="Next page"
                         >
                             <ChevronRight className="size-3.5" />

@@ -24,7 +24,6 @@ import { PricingSummaryMetrics } from "@/components/pricing/pricing.metrics";
 import { PricingTable } from "@/components/pricing/pricing.table";
 import { ProviderIcon } from "@/components/providers";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import {
@@ -227,7 +226,8 @@ function PricingPage() {
 
                 if (featureFilter === "reasoning" && !item.reasoning) return false;
                 if (featureFilter === "tool_call" && !item.tool_call) return false;
-                if (featureFilter === "free" && (item.cost.input !== 0 || item.cost.output !== 0)) return false;
+                if (featureFilter === "free" && (item.cost.input !== 0 || item.cost.output !== 0))
+                    return false;
                 if (featureFilter === "open_weights" && !item.open_weights) return false;
 
                 return true;
@@ -272,51 +272,65 @@ function PricingPage() {
 
     if (error || !data) {
         return (
-            <Card className="mx-auto w-full max-w-6xl gap-2 border-destructive/30 bg-destructive/10 p-6 font-mono text-xs text-destructive">
-                <EmptyHeader className="items-start">
-                    <EmptyTitle className="text-sm">Failed to load pricing catalog</EmptyTitle>
-                    <EmptyDescription>
-                        {error instanceof Error ? error.message : "Unknown error"}
-                    </EmptyDescription>
-                </EmptyHeader>
-                <Button
-                    type="button"
-                    variant="destructive"
-                    onClick={() => void handleRefresh()}
-                    className="mt-2 text-xs"
-                >
-                    Try Again
-                </Button>
-            </Card>
+            <div className="mx-auto flex w-full max-w-[1360px] flex-col gap-6 font-sans">
+                <div className="flex flex-col gap-4 rounded-3xl border border-destructive/20 bg-destructive/5 p-6 font-sans text-destructive">
+                    <EmptyHeader className="items-start">
+                        <EmptyTitle className="text-base font-semibold text-destructive">
+                            Failed to load pricing catalog
+                        </EmptyTitle>
+                        <EmptyDescription className="text-xs text-destructive/80 font-mono">
+                            {error instanceof Error ? error.message : "Unknown error"}
+                        </EmptyDescription>
+                    </EmptyHeader>
+                    <div>
+                        <Button
+                            type="button"
+                            variant="destructive"
+                            onClick={() => void handleRefresh()}
+                            className="rounded-full px-5 text-xs font-semibold cursor-pointer shadow-none"
+                        >
+                            Try Again
+                        </Button>
+                    </div>
+                </div>
+            </div>
         );
     }
 
     return (
-        <div className="mx-auto w-full max-w-7xl space-y-6 font-mono pb-12">
+        <div className="mx-auto flex w-full max-w-[1360px] flex-col gap-8 font-sans pb-16">
             {/* Header section */}
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                    <h1 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
-                        <Coins className="size-5 text-primary" />
-                        List Pricing
+            <header className="flex flex-col justify-between gap-4 pb-2 sm:flex-row sm:items-end">
+                <div className="min-w-0">
+                    <div className="flex items-center gap-2 mb-2">
+                        <span className="size-2 shrink-0 rounded-full bg-ink" />
+                        <p className="font-mono text-xs font-medium uppercase tracking-wider text-text-muted">
+                            Cost & Limits
+                        </p>
+                    </div>
+                    <h1 className="text-3xl md:text-4xl font-[650] tracking-tight text-ink font-sans">
+                        Pricing Catalog.
                     </h1>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                        Token pricing, context limits, and capabilities across all catalog models. Cached for instant access.
+                    <p className="mt-1 text-base font-light text-text-muted font-sans">
+                        Token pricing, context limits, and capabilities across all catalog models.
+                        Cached for instant access.
                     </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 self-start sm:self-auto">
                     <Button
+                        type="button"
                         variant="outline"
-                        size="sm"
                         onClick={() => void handleRefresh()}
                         disabled={isManualRefreshing}
-                        className="h-8 text-xs cursor-pointer gap-1.5"
+                        className="h-10 shrink-0 gap-2 rounded-full border border-hairline-soft bg-canvas px-5 text-sm font-semibold text-ink hover:bg-canvas-soft transition-colors cursor-pointer shadow-none"
                     >
-                        <RefreshCw className={`size-3.5 ${isManualRefreshing ? "animate-spin" : ""}`} />
-                        Refresh
+                        <RefreshCw
+                            className={`size-4 ${isManualRefreshing ? "animate-spin" : ""}`}
+                        />
+                        <span>Refresh</span>
                     </Button>
                 </div>
-            </div>
+            </header>
 
             {/* Metrics */}
             <PricingSummaryMetrics
@@ -327,15 +341,15 @@ function PricingPage() {
             />
 
             {/* Toolbar: Search and Filters */}
-            <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center justify-between">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center justify-between">
                 <div className="relative flex-1 max-w-md">
-                    <Search className="absolute left-2.5 top-2.5 size-3.5 text-muted-foreground" />
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-text-muted" />
                     <Input
                         type="text"
                         placeholder="Search model ID or name..."
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        className="pl-8"
+                        className="h-10 rounded-full border border-hairline-soft bg-field pl-10 pr-4 text-xs font-mono text-ink placeholder:text-text-muted focus:ring-2 focus:ring-ink"
                     />
                 </div>
 
@@ -345,7 +359,7 @@ function PricingPage() {
                         value={providerFilter}
                         onValueChange={(value) => setProviderFilter(value ?? "all")}
                     >
-                        <SelectTrigger className="w-40 text-xs">
+                        <SelectTrigger className="h-10 rounded-full border border-hairline-soft bg-field px-4 text-xs font-sans text-ink focus:ring-2 focus:ring-ink shadow-none">
                             <SelectValue>
                                 {providerFilter === "all" ? (
                                     "All Providers"
@@ -354,7 +368,10 @@ function PricingPage() {
                                 )}
                             </SelectValue>
                         </SelectTrigger>
-                        <SelectContent alignItemWithTrigger={false}>
+                        <SelectContent
+                            alignItemWithTrigger={false}
+                            className="rounded-2xl border border-hairline-soft bg-canvas shadow-none"
+                        >
                             <SelectItem value="all">All Providers ({providers.length})</SelectItem>
                             {providers.map((p) => (
                                 <SelectItem key={p} value={p}>
@@ -368,12 +385,19 @@ function PricingPage() {
                         value={familyFilter}
                         onValueChange={(value) => setFamilyFilter(value ?? "all")}
                     >
-                        <SelectTrigger className="w-36 text-xs">
+                        <SelectTrigger className="h-10 rounded-full border border-hairline-soft bg-field px-4 text-xs font-sans text-ink focus:ring-2 focus:ring-ink shadow-none">
                             <SelectValue>
-                                {familyFilter === "all" ? "All Families" : <FamilyFilterLabel family={familyFilter} />}
+                                {familyFilter === "all" ? (
+                                    "All Families"
+                                ) : (
+                                    <FamilyFilterLabel family={familyFilter} />
+                                )}
                             </SelectValue>
                         </SelectTrigger>
-                        <SelectContent alignItemWithTrigger={false}>
+                        <SelectContent
+                            alignItemWithTrigger={false}
+                            className="rounded-2xl border border-hairline-soft bg-canvas shadow-none"
+                        >
                             <SelectItem value="all">All Families ({families.length})</SelectItem>
                             {families.map((family) => (
                                 <SelectItem key={family} value={family}>
@@ -388,17 +412,32 @@ function PricingPage() {
                         value={modalityFilter}
                         onValueChange={(value) => setModalityFilter(value ?? "all")}
                     >
-                        <SelectTrigger className="w-36 text-xs">
+                        <SelectTrigger className="h-10 rounded-full border border-hairline-soft bg-field px-4 text-xs font-sans text-ink focus:ring-2 focus:ring-ink shadow-none">
                             <SelectValue>
-                                {modalityFilter === "all" ? "All Modalities" : <ModalityFilterLabel modality={modalityFilter} />}
+                                {modalityFilter === "all" ? (
+                                    "All Modalities"
+                                ) : (
+                                    <ModalityFilterLabel modality={modalityFilter} />
+                                )}
                             </SelectValue>
                         </SelectTrigger>
-                        <SelectContent alignItemWithTrigger={false}>
+                        <SelectContent
+                            alignItemWithTrigger={false}
+                            className="rounded-2xl border border-hairline-soft bg-canvas shadow-none"
+                        >
                             <SelectItem value="all">All Modalities</SelectItem>
-                            <SelectItem value="image"><ModalityFilterLabel modality="image" /></SelectItem>
-                            <SelectItem value="audio"><ModalityFilterLabel modality="audio" /></SelectItem>
-                            <SelectItem value="video"><ModalityFilterLabel modality="video" /></SelectItem>
-                            <SelectItem value="pdf"><ModalityFilterLabel modality="pdf" /></SelectItem>
+                            <SelectItem value="image">
+                                <ModalityFilterLabel modality="image" />
+                            </SelectItem>
+                            <SelectItem value="audio">
+                                <ModalityFilterLabel modality="audio" />
+                            </SelectItem>
+                            <SelectItem value="video">
+                                <ModalityFilterLabel modality="video" />
+                            </SelectItem>
+                            <SelectItem value="pdf">
+                                <ModalityFilterLabel modality="pdf" />
+                            </SelectItem>
                         </SelectContent>
                     </Select>
 
@@ -407,28 +446,39 @@ function PricingPage() {
                         value={featureFilter}
                         onValueChange={(value) => setFeatureFilter(value ?? "all")}
                     >
-                        <SelectTrigger className="w-36 text-xs">
+                        <SelectTrigger className="h-10 rounded-full border border-hairline-soft bg-field px-4 text-xs font-sans text-ink focus:ring-2 focus:ring-ink shadow-none">
                             <SelectValue>
-                                {featureFilter === "all" ? "All Features" : <FeatureFilterLabel feature={featureFilter} />}
+                                {featureFilter === "all" ? (
+                                    "All Features"
+                                ) : (
+                                    <FeatureFilterLabel feature={featureFilter} />
+                                )}
                             </SelectValue>
                         </SelectTrigger>
-                        <SelectContent alignItemWithTrigger={false}>
+                        <SelectContent
+                            alignItemWithTrigger={false}
+                            className="rounded-2xl border border-hairline-soft bg-canvas shadow-none"
+                        >
                             <SelectItem value="all">All Features</SelectItem>
-                            <SelectItem value="free"><FeatureFilterLabel feature="free" /></SelectItem>
-                            <SelectItem value="reasoning"><FeatureFilterLabel feature="reasoning" /></SelectItem>
-                            <SelectItem value="tool_call"><FeatureFilterLabel feature="tool_call" /></SelectItem>
-                            <SelectItem value="open_weights"><FeatureFilterLabel feature="open_weights" /></SelectItem>
+                            <SelectItem value="free">
+                                <FeatureFilterLabel feature="free" />
+                            </SelectItem>
+                            <SelectItem value="reasoning">
+                                <FeatureFilterLabel feature="reasoning" />
+                            </SelectItem>
+                            <SelectItem value="tool_call">
+                                <FeatureFilterLabel feature="tool_call" />
+                            </SelectItem>
+                            <SelectItem value="open_weights">
+                                <FeatureFilterLabel feature="open_weights" />
+                            </SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
             </div>
 
             {/* Data Table */}
-            {isSearching ? (
-                <PricingSearchSkeleton />
-            ) : (
-                <PricingTable models={filteredModels} />
-            )}
+            {isSearching ? <PricingSearchSkeleton /> : <PricingTable models={filteredModels} />}
         </div>
     );
 }

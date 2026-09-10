@@ -51,30 +51,32 @@ const LIMIT_FIELDS: FieldConfig[] = [
 export function KeyLimitsFields({ form, onChange, id_prefix = "" }: KeyLimitsFieldsProps) {
     return (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {LIMIT_FIELDS.map(({ key, label, suffix, id, helper, placeholder, min, step, type }) => (
-                <div key={id} className="space-y-1.5">
-                    <Label
-                        htmlFor={`${id_prefix}${id}`}
-                        className="text-[11px] font-medium text-foreground flex items-center justify-between"
-                    >
-                        <span>{label}</span>
-                        <span className="text-[10px] font-mono text-muted-foreground">
-                            {suffix}
-                        </span>
-                    </Label>
-                    <Input
-                        id={`${id_prefix}${id}`}
-                        type={type}
-                        min={min}
-                        step={step}
-                        value={form[key]}
-                        onChange={(e) => onChange(key, e.target.value)}
-                        placeholder={placeholder}
-                        className="h-8.5 rounded border-input bg-background font-mono text-xs"
-                    />
-                    <p className="text-[10px] text-muted-foreground font-mono leading-tight">{helper}</p>
-                </div>
-            ))}
+            {LIMIT_FIELDS.map(
+                ({ key, label, suffix, id, helper, placeholder, min, step, type }) => (
+                    <div key={id} className="space-y-1.5">
+                        <Label
+                            htmlFor={`${id_prefix}${id}`}
+                            className="text-xs font-medium text-ink flex items-center justify-between font-sans"
+                        >
+                            <span>{label}</span>
+                            <span className="text-[10px] font-mono text-text-muted">{suffix}</span>
+                        </Label>
+                        <Input
+                            id={`${id_prefix}${id}`}
+                            type={type}
+                            min={min}
+                            step={step}
+                            value={form[key]}
+                            onChange={(e) => onChange(key, e.target.value)}
+                            placeholder={placeholder}
+                            className="h-9 rounded-2xl border-0 bg-field px-4 py-2 font-mono text-xs text-ink placeholder:text-text-faint focus-visible:ring-2 focus-visible:ring-ink shadow-none"
+                        />
+                        <p className="text-[10px] text-text-muted font-sans leading-tight">
+                            {helper}
+                        </p>
+                    </div>
+                )
+            )}
         </div>
     );
 }

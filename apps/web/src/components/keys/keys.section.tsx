@@ -1,4 +1,3 @@
-import { CircleDollarSign, KeyRound, Zap } from "lucide-react";
 import { formatCompactNumber } from "@/lib/utils";
 
 type KeyMetricsProps = {
@@ -17,63 +16,63 @@ export default function KeyMetrics({
     return (
         <section
             aria-label="API Keys Summary"
-            className="grid grid-cols-1 divide-y divide-border/70 overflow-hidden border-y border-border/80 sm:grid-cols-3 sm:divide-x sm:divide-y-0 font-mono"
+            className="grid grid-cols-1 gap-4 sm:grid-cols-3 font-sans"
         >
-            <article className="flex min-h-28 flex-col justify-between bg-card p-4 transition-colors hover:bg-muted/20 sm:p-5">
+            <article className="flex min-w-0 min-h-[140px] flex-col justify-between rounded-3xl border border-hairline-soft bg-canvas p-6 shadow-none transition-colors hover:border-hairline font-sans">
                 <div>
-                    <span className="text-[10.5px] font-medium tracking-wider uppercase text-muted-foreground">
+                    <span className="text-xs font-medium text-text-muted font-sans">
                         Active Keys
                     </span>
-                    <div className="mt-2.5 flex items-baseline gap-1.5">
-                        <span className="text-2xl font-bold tracking-tight text-foreground tabular-nums">
+                    <div className="mt-3 flex items-baseline gap-2">
+                        <span className="text-3xl font-bold tracking-tight text-ink font-sans tabular-nums">
                             {activeKeys}
                         </span>
-                        <span className="text-xs text-muted-foreground">
+                        <span className="font-mono text-xs text-text-muted">
                             / {totalKeys} total
                         </span>
                     </div>
                 </div>
-                <p className="mt-3 truncate text-[11px] text-muted-foreground border-t border-border/50 pt-2.5">
+                <p className="mt-4 truncate border-t border-hairline-soft pt-3 text-xs text-text-muted font-sans">
                     Authorized virtual bearer tokens
                 </p>
             </article>
 
-            <article className="flex min-h-28 flex-col justify-between bg-card p-4 transition-colors hover:bg-muted/20 sm:p-5">
+            <article className="flex min-w-0 min-h-[140px] flex-col justify-between rounded-3xl border border-hairline-soft bg-canvas p-6 shadow-none transition-colors hover:border-hairline font-sans">
                 <div>
-                    <span className="text-[10.5px] font-medium tracking-wider uppercase text-muted-foreground">
+                    <span className="text-xs font-medium text-text-muted font-sans">
                         Throughput
                     </span>
                     <div
-                        className="mt-2.5 flex items-baseline gap-1.5 cursor-default"
+                        className="mt-3 flex items-baseline gap-2 cursor-default"
                         title={`Total Token Volume: ${totalUsageTokens.toLocaleString()} tokens`}
                     >
-                        <span className="text-2xl font-bold tracking-tight text-foreground tabular-nums">
+                        <span className="text-3xl font-bold tracking-tight text-ink font-sans tabular-nums">
                             {formatCompactNumber(totalUsageTokens)}
                         </span>
-                        <span className="text-xs text-muted-foreground">tok</span>
+                        <span className="font-mono text-xs text-text-muted">tokens</span>
                     </div>
                 </div>
-                <p className="mt-3 truncate text-[11px] text-muted-foreground border-t border-border/50 pt-2.5">
+                <p className="mt-4 truncate border-t border-hairline-soft pt-3 text-xs text-text-muted font-sans">
                     Cumulative tokens routed via keys
                 </p>
             </article>
 
-            <article className="flex min-h-28 flex-col justify-between bg-card p-4 transition-colors hover:bg-muted/20 sm:p-5">
+            <article className="flex min-w-0 min-h-[140px] flex-col justify-between rounded-3xl border border-hairline-soft bg-canvas p-6 shadow-none transition-colors hover:border-hairline font-sans">
                 <div>
-                    <span className="text-[10.5px] font-medium tracking-wider uppercase text-muted-foreground">
+                    <span className="text-xs font-medium text-text-muted font-sans">
                         Recorded Spend
                     </span>
                     <div
-                        className="mt-2.5 flex items-baseline gap-1.5 cursor-default"
+                        className="mt-3 flex items-baseline gap-2 cursor-default"
                         title={`Total Recorded Cost: $${totalUsageCost.toFixed(4)}`}
                     >
-                        <span className="text-2xl font-bold tracking-tight text-foreground tabular-nums">
+                        <span className="text-3xl font-bold tracking-tight text-ink font-sans tabular-nums">
                             ${totalUsageCost.toFixed(2)}
                         </span>
-                        <span className="text-xs text-muted-foreground">USD</span>
+                        <span className="font-mono text-xs text-text-muted">USD</span>
                     </div>
                 </div>
-                <p className="mt-3 truncate text-[11px] text-muted-foreground border-t border-border/50 pt-2.5">
+                <p className="mt-4 truncate border-t border-hairline-soft pt-3 text-xs text-text-muted font-sans">
                     Estimated balance and credit consumption
                 </p>
             </article>

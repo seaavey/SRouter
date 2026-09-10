@@ -19,14 +19,6 @@ import {
     ChevronRight
 } from "lucide-react";
 import type { RequestLogEntry } from "@srouter/types";
-import {
-    Table,
-    TableHeader,
-    TableBody,
-    TableHead,
-    TableRow,
-    TableCell
-} from "@/components/ui/table";
 import { formatTime } from "@/utils/format";
 import { parseUserAgent } from "@/utils/agent-detector";
 
@@ -53,15 +45,15 @@ export function LogTable({ logs, requireApiKey = false, onSelect }: LogTableProp
                         <button
                             type="button"
                             onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                            className="flex items-center gap-1.5 hover:text-foreground transition-colors cursor-pointer select-none"
+                            className="flex items-center gap-1.5 hover:text-ink transition-colors cursor-pointer select-none"
                         >
                             <span>Time</span>
                             {isSorted === "asc" ? (
-                                <ArrowUp className="size-3 text-foreground" />
+                                <ArrowUp className="size-3 text-ink" />
                             ) : isSorted === "desc" ? (
-                                <ArrowDown className="size-3 text-foreground" />
+                                <ArrowDown className="size-3 text-ink" />
                             ) : (
-                                <ArrowUpDown className="size-3 opacity-30 hover:opacity-100" />
+                                <ArrowUpDown className="size-3 opacity-40 hover:opacity-100" />
                             )}
                         </button>
                     );
@@ -70,11 +62,18 @@ export function LogTable({ logs, requireApiKey = false, onSelect }: LogTableProp
                     const client = parseUserAgent(row.original.userAgent);
                     return (
                         <div className="whitespace-nowrap flex flex-col font-mono leading-tight">
-                            <span className="text-xs font-medium text-foreground">
+                            <span className="text-xs font-medium text-ink">
                                 {formatTime(row.original.createdAt, true)}
                             </span>
-                            <span className="text-[10px] text-muted-foreground/60 truncate max-w-[90px]" title={row.original.userAgent || row.original.ipAddress || "127.0.0.1"}>
-                                {client.isKnownAgent ? client.name : (row.original.ipAddress || "127.0.0.1")}
+                            <span
+                                className="text-[10px] text-text-muted truncate max-w-[100px] mt-0.5"
+                                title={
+                                    row.original.userAgent || row.original.ipAddress || "127.0.0.1"
+                                }
+                            >
+                                {client.isKnownAgent
+                                    ? client.name
+                                    : row.original.ipAddress || "127.0.0.1"}
                             </span>
                         </div>
                     );
@@ -90,14 +89,16 @@ export function LogTable({ logs, requireApiKey = false, onSelect }: LogTableProp
                     return (
                         <span
                             className={[
-                                "inline-flex items-center gap-1 font-mono text-[11px] tabular-nums font-semibold",
-                                is2xx ? "text-foreground" : "text-destructive font-bold"
+                                "inline-flex items-center gap-1 font-mono text-[11px] tabular-nums font-semibold px-2.5 py-0.5 rounded-full border",
+                                is2xx
+                                    ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+                                    : "bg-destructive/10 text-destructive border-destructive/20 font-bold"
                             ].join(" ")}
                         >
                             {is2xx ? (
-                                <CheckCircle2 className="size-3 text-muted-foreground/60" />
+                                <CheckCircle2 className="size-3 text-emerald-500 shrink-0" />
                             ) : (
-                                <AlertCircle className="size-3 text-destructive" />
+                                <AlertCircle className="size-3 text-destructive shrink-0" />
                             )}
                             {status}
                         </span>
@@ -112,15 +113,15 @@ export function LogTable({ logs, requireApiKey = false, onSelect }: LogTableProp
                         <button
                             type="button"
                             onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                            className="flex items-center gap-1.5 hover:text-foreground transition-colors cursor-pointer select-none"
+                            className="flex items-center gap-1.5 hover:text-ink transition-colors cursor-pointer select-none"
                         >
                             <span>Route</span>
                             {isSorted === "asc" ? (
-                                <ArrowUp className="size-3 text-foreground" />
+                                <ArrowUp className="size-3 text-ink" />
                             ) : isSorted === "desc" ? (
-                                <ArrowDown className="size-3 text-foreground" />
+                                <ArrowDown className="size-3 text-ink" />
                             ) : (
-                                <ArrowUpDown className="size-3 opacity-30 hover:opacity-100" />
+                                <ArrowUpDown className="size-3 opacity-40 hover:opacity-100" />
                             )}
                         </button>
                     );
@@ -131,18 +132,18 @@ export function LogTable({ logs, requireApiKey = false, onSelect }: LogTableProp
                     const resolved = row.original.resolvedModel;
 
                     return (
-                        <div className="flex flex-col min-w-0 max-w-sm font-mono leading-tight">
+                        <div className="flex flex-col min-w-0 max-w-sm leading-tight">
                             <div className="flex items-center gap-1.5 truncate">
-                                <span className="text-xs font-medium text-foreground truncate">
+                                <span className="text-xs font-medium text-ink truncate font-sans">
                                     {model}
                                 </span>
                                 {row.original.fallbackOccurred && (
-                                    <span className="shrink-0 text-[9px] text-muted-foreground bg-secondary/50 px-1 rounded">
+                                    <span className="shrink-0 text-[9px] text-text-muted bg-canvas-soft border border-hairline-soft px-1.5 py-0.2 rounded-full font-mono">
                                         fallback
                                     </span>
                                 )}
                             </div>
-                            <span className="text-[10px] text-muted-foreground/60 truncate">
+                            <span className="text-[10px] text-text-muted truncate font-mono mt-0.5">
                                 {provider}
                                 {resolved && resolved !== model ? ` ↳ ${resolved}` : ""}
                             </span>
@@ -160,11 +161,11 @@ export function LogTable({ logs, requireApiKey = false, onSelect }: LogTableProp
                     const keyName = row.original.apiKeyName;
                     const keyId = row.original.apiKeyId;
                     if (!keyId) {
-                        return <span className="font-mono text-[11px] text-muted-foreground/40">—</span>;
+                        return <span className="font-mono text-xs text-text-faint">—</span>;
                     }
                     return (
                         <span
-                            className="font-mono text-[11px] text-muted-foreground truncate block max-w-[120px]"
+                            className="font-mono text-xs text-text-muted truncate block max-w-[120px]"
                             title={keyName || keyId}
                         >
                             {keyName || `${keyId.slice(0, 8)}…`}
@@ -183,21 +184,21 @@ export function LogTable({ logs, requireApiKey = false, onSelect }: LogTableProp
                         <button
                             type="button"
                             onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                            className="flex items-center gap-1.5 hover:text-foreground transition-colors cursor-pointer select-none"
+                            className="flex items-center gap-1.5 hover:text-ink transition-colors cursor-pointer select-none"
                         >
                             <span>Tokens</span>
                             {isSorted === "asc" ? (
-                                <ArrowUp className="size-3 text-foreground" />
+                                <ArrowUp className="size-3 text-ink" />
                             ) : isSorted === "desc" ? (
-                                <ArrowDown className="size-3 text-foreground" />
+                                <ArrowDown className="size-3 text-ink" />
                             ) : (
-                                <ArrowUpDown className="size-3 opacity-30 hover:opacity-100" />
+                                <ArrowUpDown className="size-3 opacity-40 hover:opacity-100" />
                             )}
                         </button>
                     );
                 },
                 cell: ({ row }) => (
-                    <span className="font-mono text-xs text-foreground tabular-nums">
+                    <span className="font-mono text-xs text-ink tabular-nums">
                         {row.original.totalTokens.toLocaleString()}
                     </span>
                 )
@@ -210,15 +211,15 @@ export function LogTable({ logs, requireApiKey = false, onSelect }: LogTableProp
                         <button
                             type="button"
                             onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                            className="flex items-center gap-1.5 hover:text-foreground transition-colors cursor-pointer select-none"
+                            className="flex items-center gap-1.5 hover:text-ink transition-colors cursor-pointer select-none"
                         >
                             <span>Latency</span>
                             {isSorted === "asc" ? (
-                                <ArrowUp className="size-3 text-foreground" />
+                                <ArrowUp className="size-3 text-ink" />
                             ) : isSorted === "desc" ? (
-                                <ArrowDown className="size-3 text-foreground" />
+                                <ArrowDown className="size-3 text-ink" />
                             ) : (
-                                <ArrowUpDown className="size-3 opacity-30 hover:opacity-100" />
+                                <ArrowUpDown className="size-3 opacity-40 hover:opacity-100" />
                             )}
                         </button>
                     );
@@ -227,7 +228,7 @@ export function LogTable({ logs, requireApiKey = false, onSelect }: LogTableProp
                     const ms = row.original.latencyMs;
                     const display = ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`;
                     return (
-                        <span className="font-mono text-xs text-muted-foreground tabular-nums">
+                        <span className="font-mono text-xs text-text-muted tabular-nums">
                             {display}
                         </span>
                     );
@@ -237,9 +238,10 @@ export function LogTable({ logs, requireApiKey = false, onSelect }: LogTableProp
                 accessorKey: "estimatedCost",
                 header: "Cost",
                 cell: ({ row }) => {
-                    const totalCost = row.original.costBreakdown?.totalCost ?? row.original.estimatedCost ?? 0;
+                    const totalCost =
+                        row.original.costBreakdown?.totalCost ?? row.original.estimatedCost ?? 0;
                     return (
-                        <span className="font-mono text-xs text-foreground tabular-nums">
+                        <span className="font-mono text-xs text-ink tabular-nums">
                             ${totalCost.toFixed(4)}
                         </span>
                     );
@@ -256,10 +258,10 @@ export function LogTable({ logs, requireApiKey = false, onSelect }: LogTableProp
                                 e.stopPropagation();
                                 onSelect(row.original);
                             }}
-                            className="inline-flex size-6 items-center justify-center rounded text-muted-foreground/60 hover:text-foreground hover:bg-secondary/40 transition-colors cursor-pointer"
+                            className="inline-flex size-7 items-center justify-center rounded-full text-text-muted hover:text-ink hover:bg-canvas-soft transition-colors cursor-pointer"
                             title="Inspect log details"
                         >
-                            <ChevronRight className="size-3.5" />
+                            <ChevronRight className="size-4" />
                         </button>
                     </div>
                 )
@@ -291,72 +293,80 @@ export function LogTable({ logs, requireApiKey = false, onSelect }: LogTableProp
     const endRow = Math.min((currentPage + 1) * pageSize, totalRows);
 
     return (
-        <div className="space-y-3 font-mono">
-            <div className="rounded-xl border border-border/70 bg-card/40 shadow-2xs overflow-hidden">
-                <Table>
-                    <TableHeader className="bg-secondary/15 border-b border-border/60">
-                        {table.getHeaderGroups().map((headerGroup) => (
-                            <TableRow key={headerGroup.id} className="hover:bg-transparent border-none">
-                                {headerGroup.headers.map((header) => (
-                                    <TableHead
-                                        key={header.id}
-                                        className="h-9 text-[10px] uppercase tracking-wider text-muted-foreground/80 font-semibold px-4"
-                                    >
-                                        {header.isPlaceholder
-                                            ? null
-                                            : flexRender(header.column.columnDef.header, header.getContext())}
-                                    </TableHead>
-                                ))}
-                            </TableRow>
-                        ))}
-                    </TableHeader>
-                    <TableBody>
-                        {table.getRowModel().rows.map((row) => (
-                            <TableRow
-                                key={row.id}
-                                onClick={() => onSelect(row.original)}
-                                className="cursor-pointer border-b border-border/40 hover:bg-secondary/25 transition-colors group"
-                            >
-                                {row.getVisibleCells().map((cell) => (
-                                    <TableCell key={cell.id} className="py-2.5 px-4 text-xs">
-                                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                                    </TableCell>
-                                ))}
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
+        <div className="space-y-4 font-sans">
+            <div className="overflow-hidden rounded-3xl border border-hairline-soft bg-canvas shadow-none">
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                        <thead className="border-b border-hairline-soft bg-canvas-soft text-[11px] uppercase font-mono tracking-wider text-text-muted">
+                            {table.getHeaderGroups().map((headerGroup) => (
+                                <tr key={headerGroup.id}>
+                                    {headerGroup.headers.map((header) => (
+                                        <th
+                                            key={header.id}
+                                            className="h-10 px-5 font-semibold text-text-muted"
+                                        >
+                                            {header.isPlaceholder
+                                                ? null
+                                                : flexRender(
+                                                      header.column.columnDef.header,
+                                                      header.getContext()
+                                                  )}
+                                        </th>
+                                    ))}
+                                </tr>
+                            ))}
+                        </thead>
+                        <tbody className="divide-y divide-hairline-soft">
+                            {table.getRowModel().rows.map((row) => (
+                                <tr
+                                    key={row.id}
+                                    onClick={() => onSelect(row.original)}
+                                    className="cursor-pointer hover:bg-canvas-soft/50 transition-colors group"
+                                >
+                                    {row.getVisibleCells().map((cell) => (
+                                        <td key={cell.id} className="py-3 px-5 text-xs">
+                                            {flexRender(
+                                                cell.column.columnDef.cell,
+                                                cell.getContext()
+                                            )}
+                                        </td>
+                                    ))}
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             {/* Pagination Controls */}
             {totalRows > pageSize && (
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5 px-1 text-xs text-muted-foreground font-mono">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-2 text-xs text-text-muted font-sans">
                     <div>
-                        Showing <span className="text-foreground font-medium">{startRow}</span>–
-                        <span className="text-foreground font-medium">{endRow}</span> of{" "}
-                        <span className="text-foreground font-medium">{totalRows}</span> logs
+                        Showing <span className="text-ink font-semibold font-mono">{startRow}</span>
+                        –<span className="text-ink font-semibold font-mono">{endRow}</span> of{" "}
+                        <span className="text-ink font-semibold font-mono">{totalRows}</span> logs
                     </div>
                     <div className="flex items-center gap-1.5">
                         <button
                             type="button"
                             onClick={() => table.previousPage()}
                             disabled={!table.getCanPreviousPage()}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-border/60 bg-secondary/20 hover:bg-secondary/50 text-foreground disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
+                            className="inline-flex size-8 items-center justify-center rounded-full border border-hairline-soft bg-canvas text-ink hover:bg-canvas-soft disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
+                            aria-label="Previous page"
                         >
-                            <ChevronLeft className="size-3.5" />
-                            <span>Prev</span>
+                            <ChevronLeft className="size-4" />
                         </button>
-                        <span className="px-2 text-[11px] text-muted-foreground tabular-nums">
+                        <span className="px-3 text-xs font-mono text-text-muted tabular-nums">
                             {currentPage + 1} / {pageCount}
                         </span>
                         <button
                             type="button"
                             onClick={() => table.nextPage()}
                             disabled={!table.getCanNextPage()}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-border/60 bg-secondary/20 hover:bg-secondary/50 text-foreground disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
+                            className="inline-flex size-8 items-center justify-center rounded-full border border-hairline-soft bg-canvas text-ink hover:bg-canvas-soft disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
+                            aria-label="Next page"
                         >
-                            <span>Next</span>
-                            <ChevronRight className="size-3.5" />
+                            <ChevronRight className="size-4" />
                         </button>
                     </div>
                 </div>

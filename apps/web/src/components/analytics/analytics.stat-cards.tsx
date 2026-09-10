@@ -12,31 +12,65 @@ export function AnalyticsStatCards({
     p95LatencyMs
 }: Props) {
     const cards = [
-        { label: "RPS (60s)", value: requestsPerSecond.toFixed(2), unit: "req/s" },
-        { label: "Total Requests", value: totalRequests.toLocaleString(), unit: "" },
-        { label: "Error Rate", value: `${(errorRate * 100).toFixed(1)}%`, unit: "" },
-        { label: "p95 Latency", value: p95LatencyMs.toFixed(0), unit: "ms" }
+        {
+            label: "RPS (60s)",
+            value: requestsPerSecond.toFixed(2),
+            unit: "req/s",
+            detail: "Current request throughput"
+        },
+        {
+            label: "Total Requests",
+            value: totalRequests.toLocaleString(),
+            unit: "",
+            detail: "Recorded executions in window"
+        },
+        {
+            label: "Error Rate",
+            value: `${(errorRate * 100).toFixed(1)}%`,
+            unit: "",
+            detail:
+                errorRate > 0.05 ? (
+                    <span className="font-semibold text-rose-600 dark:text-rose-400">
+                        Elevated error response rate
+                    </span>
+                ) : (
+                    "Optimal operational health"
+                )
+        },
+        {
+            label: "p95 Latency",
+            value: p95LatencyMs.toFixed(0),
+            unit: "ms",
+            detail: "95th percentile response duration"
+        }
     ];
 
     return (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 font-sans">
             {cards.map((card) => (
-                <div
+                <article
                     key={card.label}
-                    className="rounded-xl border border-border/60 bg-secondary/10 p-4"
+                    className="flex min-w-0 min-h-[140px] flex-col justify-between rounded-3xl border border-hairline-soft bg-canvas p-6 shadow-none transition-colors hover:border-hairline"
                 >
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/80">
-                        {card.label}
-                    </p>
-                    <p className="mt-1 text-2xl font-bold tracking-tight text-foreground font-mono">
-                        {card.value}
-                        {card.unit && (
-                            <span className="ml-1 text-xs font-normal text-muted-foreground">
-                                {card.unit}
-                            </span>
-                        )}
-                    </p>
-                </div>
+                    <div>
+                        <span className="text-xs font-medium text-text-muted font-sans">
+                            {card.label}
+                        </span>
+                        <div className="mt-3">
+                            <div className="text-3xl font-bold tracking-tight text-ink font-mono tabular-nums">
+                                {card.value}
+                                {card.unit && (
+                                    <span className="ml-1.5 text-xs font-normal text-text-muted font-sans">
+                                        {card.unit}
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                    <div className="mt-4 truncate border-t border-hairline-soft pt-3 text-xs text-text-muted font-sans">
+                        {card.detail}
+                    </div>
+                </article>
             ))}
         </div>
     );

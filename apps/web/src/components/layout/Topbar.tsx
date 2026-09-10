@@ -1,18 +1,31 @@
 import { Link, useMatches } from "@tanstack/react-router";
-import { Moon, Sun, Terminal } from "lucide-react";
+import { BookOpen, ExternalLink, Moon, Search, Sun } from "lucide-react";
 import { useTheme } from "@/context/Theme";
-import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { KNOWN_PROVIDER_MAP, providerBaseId } from "@srouter/constants";
 import { useProvider } from "@/hooks/useProvider";
+import { GITHUB_REPO } from "@/hooks/useVersion";
 
-type BreadcrumbInfo = {
-    section: string;
-    sectionHref?: string;
-    detail?: string;
+const ROUTE_TITLE_MAP: Record<string, string> = {
+    "/": "Gateway Overview",
+    "/providers": "Provider Connections",
+    "/providers/": "Provider Connections",
+    "/keys": "API Keys",
+    "/quota": "Quotas & Limits",
+    "/analytics": "Gateway Analytics",
+    "/pricing": "Model Pricing",
+    "/logs": "Audit Logs",
+    "/combo": "Model Combos",
+    "/settings": "Gateway Settings"
 };
 
-function useBreadcrumb(): BreadcrumbInfo {
+type RouteTitleInfo = {
+    title: string;
+    parentTitle?: string;
+    parentHref?: string;
+};
+
+function useRouteTitle(): RouteTitleInfo {
     const matches = useMatches();
 
     const providerMatch = matches.find((m) => m.routeId === "/providers/$providerId");
@@ -27,75 +40,103 @@ function useBreadcrumb(): BreadcrumbInfo {
         const displayName = providerData?.name || fallbackName;
 
         return {
-            section: "Providers",
-            sectionHref: "/providers",
-            detail: displayName
+            title: displayName.endsWith(".") ? displayName : `${displayName}.`,
+            parentTitle: "Provider Connections",
+            parentHref: "/providers"
         };
     }
 
-    const match = [...matches].reverse().find((item) => item.staticData?.title);
-    return {
-        section: (match?.staticData?.title as string | undefined) ?? "Dashboard"
-    };
+    const match = [...matches]
+        .reverse()
+        .find((item) => ROUTE_TITLE_MAP[item.routeId] || item.staticData?.title);
+    const baseTitle =
+        (match ? ROUTE_TITLE_MAP[match.routeId] : undefined) ??
+        (match?.staticData?.title as string | undefined) ??
+        "Gateway Overview";
+    const title = baseTitle.endsWith(".") ? baseTitle : `${baseTitle}.`;
+
+    return { title };
 }
 
 export function Topbar() {
-    const crumb = useBreadcrumb();
+    const titleInfo = useRouteTitle();
     const { theme, toggleTheme } = useTheme();
 
     return (
-        <header className="sticky top-0 z-30 flex h-12 min-h-12 shrink-0 items-center justify-between gap-4 border-b border-border/80 bg-background/80 px-3 sm:px-5 backdrop-blur-md font-mono">
-            {/* Left: Sidebar toggle + Tactical Breadcrumb */}
-            <div className="flex min-w-0 items-center gap-2.5 sm:gap-3.5">
-                <SidebarTrigger className="size-7 rounded-md text-muted-foreground transition-colors hover:bg-secondary/60 hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring cursor-pointer" />
+        <header className="sticky top-0 z-30 bg-canvas/80 backdrop-blur-md border-b border-hairline-soft h-16 px-6 flex items-center justify-between">
+            {/* Left: Sidebar trigger & Dynamic Route Title */}
+            <div className="flex items-center gap-3 min-w-0">
+                <SidebarTrigger className="size-8 rounded-full text-text-muted hover:text-ink hover:bg-canvas-soft transition-colors cursor-pointer flex items-center justify-center shrink-0" />
 
-                <div className="flex items-center gap-1.5 text-xs">
-                    <span className="hidden sm:inline-flex items-center gap-1 text-[10.5px] font-semibold text-muted-foreground/70 uppercase tracking-wider">
-                        <Terminal className="size-3 text-muted-foreground/60" />
-                        <span>SROUTER</span>
-                        <span className="text-muted-foreground/40">/</span>
-                    </span>
-
-                    {crumb.detail && crumb.sectionHref ? (
-                        <div className="flex items-center gap-1.5 font-bold text-xs tracking-tight">
-                            <Link
-                                to={crumb.sectionHref}
-                                className="text-muted-foreground transition-colors hover:text-foreground"
-                            >
-                                {crumb.section}
-                            </Link>
-                            <span className="text-muted-foreground/40 font-normal">/</span>
-                            <span className="text-foreground">{crumb.detail}</span>
-                        </div>
-                    ) : (
-                        <span className="font-bold text-foreground text-xs tracking-tight">
-                            {crumb.section}
-                        </span>
-                    )}
-                </div>
+                {titleInfo.parentTitle && titleInfo.parentHref ? (
+                    <div className="flex items-center gap-2 truncate">
+                        <Link
+                            to={titleInfo.parentHref}
+                            className="text-text-muted hover:text-ink transition-colors font-medium text-sm truncate"
+                        >
+                            {titleInfo.parentTitle}
+                        </Link>
+                        <span className="text-text-faint text-sm">/</span>
+                        <h1 className="text-lg font-[650] tracking-tight text-ink font-sans truncate">
+                            {titleInfo.title}
+                        </h1>
+                    </div>
+                ) : (
+                    <h1 className="text-lg font-[650] tracking-tight text-ink font-sans truncate">
+                        {titleInfo.title}
+                    </h1>
+                )}
             </div>
 
-            {/* Right: Actions */}
-            <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-                <div className="flex items-center gap-1">
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        onClick={(event) => toggleTheme(event)}
-                        aria-label={
-                            theme === "dark" ? "Switch to light mode" : "Switch to dark mode"
-                        }
-                        className="size-8 rounded-md text-muted-foreground transition-colors hover:bg-secondary/70 hover:text-foreground cursor-pointer"
-                        title={theme === "dark" ? "Light theme" : "Dark theme"}
-                    >
-                        {theme === "dark" ? (
-                            <Sun className="size-3.5" strokeWidth={1.75} />
-                        ) : (
-                            <Moon className="size-3.5" strokeWidth={1.75} />
-                        )}
-                    </Button>
+            {/* Right: Search pill, Theme toggle pill, and Quick Docs link pill */}
+            <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
+                {/* Search Pill */}
+                <div className="hidden sm:flex items-center gap-2 bg-field text-ink rounded-full px-4 py-1.5 text-sm">
+                    <Search className="size-3.5 text-text-muted shrink-0" strokeWidth={2} />
+                    <input
+                        type="search"
+                        placeholder="Search..."
+                        className="bg-transparent text-ink placeholder:text-text-faint text-sm focus:outline-none w-24 md:w-36 lg:w-44"
+                        aria-label="Quick search"
+                    />
+                    <kbd className="hidden lg:inline-flex items-center text-[10px] font-mono text-text-muted bg-canvas-soft rounded px-1.5 py-0.5">
+                        ⌘K
+                    </kbd>
                 </div>
+
+                {/* Theme Toggle Pill Button */}
+                <button
+                    type="button"
+                    onClick={(event) => toggleTheme(event)}
+                    className="flex items-center gap-1.5 rounded-full bg-canvas-soft hover:bg-field text-ink px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer"
+                    aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+                    title={theme === "dark" ? "Light theme" : "Dark theme"}
+                >
+                    {theme === "dark" ? (
+                        <>
+                            <Sun className="size-3.5" strokeWidth={2} />
+                            <span className="hidden sm:inline">Light</span>
+                        </>
+                    ) : (
+                        <>
+                            <Moon className="size-3.5" strokeWidth={2} />
+                            <span className="hidden sm:inline">Dark</span>
+                        </>
+                    )}
+                </button>
+
+                {/* Quick Docs / External Link Pill */}
+                <a
+                    href={`https://github.com/${GITHUB_REPO}#readme`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-1.5 rounded-full bg-canvas-soft hover:bg-field text-ink px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer"
+                    title="Documentation"
+                >
+                    <BookOpen className="size-3.5" strokeWidth={2} />
+                    <span className="hidden sm:inline">Docs</span>
+                    <ExternalLink className="size-3 text-text-muted shrink-0" strokeWidth={2} />
+                </a>
             </div>
         </header>
     );

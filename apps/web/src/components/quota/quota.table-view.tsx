@@ -1,10 +1,5 @@
 import { useMemo } from "react";
-import {
-    type ColumnDef,
-    flexRender,
-    getCoreRowModel,
-    useReactTable
-} from "@tanstack/react-table";
+import { type ColumnDef, flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table";
 import type { LiveModelQuotaItem } from "@srouter/types";
 import {
     Table,
@@ -28,7 +23,7 @@ export function QuotaTableView({ quotas = [], dense = false }: QuotaTableViewPro
                 accessorKey: "name",
                 header: "Quota",
                 cell: ({ row }) => (
-                    <span className="font-semibold text-[var(--ink)]">
+                    <span className="font-medium text-ink font-sans text-xs">
                         {row.original.name}
                     </span>
                 )
@@ -38,20 +33,18 @@ export function QuotaTableView({ quotas = [], dense = false }: QuotaTableViewPro
                 header: () => <div className="text-center">Status</div>,
                 cell: ({ row }) => {
                     const status = row.original.status;
-                    const is_exhausted = status === "exhausted";
-                    const is_warning = status === "warning";
+                    const isExhausted = status === "exhausted";
+                    const isWarning = status === "warning";
 
                     return (
                         <div className="text-center">
                             <span
-                                className={`inline-flex items-center gap-1 rounded-[4px] px-1.5 py-0.2 text-[${
-                                    dense ? "9px" : "9.5px"
-                                }] font-semibold uppercase ${
-                                    is_exhausted
-                                        ? "bg-rose-500/10 text-rose-500 border border-rose-500/30"
-                                        : is_warning
-                                          ? "bg-amber-500/10 text-amber-500 border border-amber-500/30"
-                                          : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
+                                className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider font-mono ${
+                                    isExhausted
+                                        ? "bg-rose-500/10 text-rose-600 dark:text-rose-400"
+                                        : isWarning
+                                          ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                                          : "bg-accent/10 text-accent"
                                 }`}
                             >
                                 {status}
@@ -64,7 +57,7 @@ export function QuotaTableView({ quotas = [], dense = false }: QuotaTableViewPro
                 id: "used_limit",
                 header: () => <div className="text-right">Used / Limit</div>,
                 cell: ({ row }) => (
-                    <div className="text-right tabular-nums text-[var(--ink-2)]">
+                    <div className="text-right font-mono text-xs text-text-muted tabular-nums">
                         {row.original.used.toLocaleString()} / {row.original.limit.toLocaleString()}
                     </div>
                 )
@@ -73,7 +66,7 @@ export function QuotaTableView({ quotas = [], dense = false }: QuotaTableViewPro
                 accessorKey: "percentage",
                 header: () => <div className="text-right">Remaining</div>,
                 cell: ({ row }) => (
-                    <div className="text-right tabular-nums font-semibold text-[var(--ink)]">
+                    <div className="text-right font-mono text-xs font-semibold text-ink tabular-nums">
                         {row.original.percentage}
                     </div>
                 )
@@ -82,18 +75,18 @@ export function QuotaTableView({ quotas = [], dense = false }: QuotaTableViewPro
                 id: "capacity",
                 header: "Capacity",
                 cell: ({ row }) => {
-                    const is_exhausted = row.original.status === "exhausted";
-                    const is_warning = row.original.status === "warning";
+                    const isExhausted = row.original.status === "exhausted";
+                    const isWarning = row.original.status === "warning";
 
                     return (
-                        <div className="h-1.5 w-full rounded-full bg-[var(--line)] overflow-hidden">
+                        <div className="h-1.5 w-full min-w-[80px] rounded-full bg-canvas-soft overflow-hidden">
                             <div
                                 className={`h-full rounded-full transition-all duration-300 ${
-                                    is_exhausted
+                                    isExhausted
                                         ? "bg-rose-500"
-                                        : is_warning
+                                        : isWarning
                                           ? "bg-amber-500"
-                                          : "bg-emerald-500"
+                                          : "bg-accent"
                                 }`}
                                 style={{
                                     width: `${Math.min(100, row.original.percentageValue)}%`
@@ -107,7 +100,7 @@ export function QuotaTableView({ quotas = [], dense = false }: QuotaTableViewPro
                 accessorKey: "resetIn",
                 header: () => <div className="text-right">Resets In</div>,
                 cell: ({ row }) => (
-                    <div className="text-right tabular-nums text-[var(--ink-2)] font-medium">
+                    <div className="text-right font-mono text-xs text-text-muted tabular-nums">
                         {row.original.resetIn || "—"}
                     </div>
                 )
@@ -116,13 +109,13 @@ export function QuotaTableView({ quotas = [], dense = false }: QuotaTableViewPro
                 accessorKey: "resetTime",
                 header: () => <div className="text-right hidden md:block">Reset Time</div>,
                 cell: ({ row }) => (
-                    <div className="text-right text-[var(--ink-3)] hidden md:block">
+                    <div className="text-right font-mono text-xs text-text-muted hidden md:block tabular-nums">
                         {row.original.resetTime ? formatResetTime(row.original.resetTime) : "—"}
                     </div>
                 )
             }
         ],
-        [dense]
+        []
     );
 
     const table = useReactTable({
@@ -134,24 +127,18 @@ export function QuotaTableView({ quotas = [], dense = false }: QuotaTableViewPro
     if (quotas.length === 0) return null;
 
     return (
-        <div
-            className={`overflow-x-auto border border-[var(--line)] font-mono text-xs ${
-                dense ? "rounded-[6px] bg-[var(--surface)]" : "rounded-[8px]"
-            }`}
-        >
+        <div className="overflow-x-auto rounded-2xl border border-hairline-soft bg-canvas">
             <Table>
                 <TableHeader>
                     {table.getHeaderGroups().map((headerGroup) => (
                         <TableRow
                             key={headerGroup.id}
-                            className={`border-b border-[var(--line)] bg-[var(--field)]/${
-                                dense ? "60" : "50"
-                            } text-[${dense ? "9.5px" : "10px"}] uppercase font-bold text-[var(--ink-3)] hover:bg-transparent`}
+                            className="border-b border-hairline-soft bg-canvas-soft hover:bg-canvas-soft"
                         >
                             {headerGroup.headers.map((header) => (
                                 <TableHead
                                     key={header.id}
-                                    className={`${dense ? "py-2 px-3 h-8" : "py-2.5 px-3.5 h-9"} text-[var(--ink-3)] font-bold`}
+                                    className={`${dense ? "py-2 px-3 h-8" : "py-2.5 px-3.5 h-9"} font-mono text-[11px] font-semibold uppercase tracking-wider text-text-muted`}
                                 >
                                     {header.isPlaceholder
                                         ? null
@@ -164,11 +151,11 @@ export function QuotaTableView({ quotas = [], dense = false }: QuotaTableViewPro
                         </TableRow>
                     ))}
                 </TableHeader>
-                <TableBody className="divide-y divide-[var(--line)]">
+                <TableBody>
                     {table.getRowModel().rows.map((row) => (
                         <TableRow
                             key={row.id}
-                            className="border-b border-[var(--line)] hover:bg-[var(--hover)]/30 transition-colors"
+                            className="border-b border-hairline-soft hover:bg-canvas-soft/40 transition-colors last:border-b-0"
                         >
                             {row.getVisibleCells().map((cell) => (
                                 <TableCell

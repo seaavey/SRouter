@@ -2,13 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import type { ReactNode } from "react";
-import {
-    ArrowDownToLine,
-    ArrowUpFromLine,
-    Database,
-    RefreshCw,
-    TriangleAlert
-} from "lucide-react";
+import { ArrowDownToLine, ArrowUpFromLine, Database, RefreshCw, TriangleAlert } from "lucide-react";
 import { api, getGatewayBaseUrl } from "@/lib/api";
 import { formatCompactNumber } from "@/lib/utils";
 import type { UsageStats } from "@srouter/types";
@@ -17,6 +11,7 @@ import {
     AnimatedNumber,
     ModelUsageOverview,
     NetworkStatus,
+    RecentRequestsFeed,
     ResponsiveNumber,
     UsageByModelTable
 } from "@/components/dashboard";
@@ -50,14 +45,12 @@ function StatCard({
     animatedFormat
 }: StatCardProps) {
     return (
-        <article className="flex min-w-0 min-h-32 flex-col justify-between border-border/70 bg-card p-4 transition-colors hover:bg-muted/20 sm:p-5">
+        <article className="flex min-w-0 min-h-[140px] flex-col justify-between rounded-3xl border border-hairline-soft bg-canvas p-6 shadow-none transition-colors hover:border-hairline">
             <div>
-                <span className="text-[10.5px] font-medium tracking-wider uppercase text-muted-foreground">
-                    {label}
-                </span>
+                <span className="text-xs font-medium text-text-muted font-sans">{label}</span>
 
-                <div className="mt-2.5">
-                    <div className="min-w-0 overflow-hidden text-2xl font-bold tracking-tight text-foreground cursor-default tabular-nums">
+                <div className="mt-3">
+                    <div className="min-w-0 overflow-hidden text-3xl font-bold tracking-tight text-ink cursor-default tabular-nums font-sans">
                         {animatedValue !== undefined ? (
                             <AnimatedNumber value={animatedValue} format={animatedFormat} />
                         ) : typeof value === "number" ? (
@@ -69,7 +62,7 @@ function StatCard({
                 </div>
 
                 {subValue && (
-                    <div className="mt-1 text-[11px] font-medium text-muted-foreground tabular-nums">
+                    <div className="mt-1 font-mono text-xs font-medium text-text-muted tabular-nums">
                         {subValue}
                     </div>
                 )}
@@ -77,7 +70,7 @@ function StatCard({
 
             {detailContent ?? (
                 <p
-                    className="mt-3 truncate border-t border-border/50 pt-2.5 text-[11px] text-muted-foreground"
+                    className="mt-4 truncate border-t border-hairline-soft pt-3 text-xs text-text-muted font-sans"
                     title={detail}
                 >
                     {detail}
@@ -128,15 +121,15 @@ function DashboardPage() {
     if (isPending || !stats) {
         if (!stats && error) {
             return (
-                <div className="mx-auto w-full max-w-7xl font-mono">
-                    <div className="flex min-h-64 flex-col items-center justify-center rounded-lg border border-destructive/30 bg-destructive/5 px-6 text-center">
-                        <div className="flex size-10 items-center justify-center rounded-md bg-destructive/10 text-destructive mb-3.5">
+                <div className="mx-auto w-full max-w-7xl font-sans">
+                    <div className="flex min-h-64 flex-col items-center justify-center rounded-3xl border border-destructive/20 bg-canvas p-8 text-center shadow-none">
+                        <div className="flex size-12 items-center justify-center rounded-full bg-red-500/10 text-red-600 dark:text-red-400 mb-4">
                             <TriangleAlert className="size-5" strokeWidth={1.75} />
                         </div>
-                        <h1 className="text-sm font-bold text-foreground">
-                            Unable to load gateway statistics
-                        </h1>
-                        <p className="mt-1 max-w-lg text-xs text-muted-foreground leading-relaxed">
+                        <h2 className="text-base font-semibold text-ink">
+                            Unable to load gateway statistics.
+                        </h2>
+                        <p className="mt-1.5 max-w-lg text-xs text-text-muted leading-relaxed">
                             {error instanceof Error
                                 ? error.message
                                 : "The gateway returned an unknown error."}
@@ -145,7 +138,7 @@ function DashboardPage() {
                             type="button"
                             variant="outline"
                             size="sm"
-                            className="mt-4 h-8 text-xs cursor-pointer gap-1.5"
+                            className="mt-5 cursor-pointer gap-2 rounded-full"
                             onClick={() => void refetch()}
                         >
                             <RefreshCw className="size-3" />
@@ -161,20 +154,20 @@ function DashboardPage() {
     const uncachedInputTokens = Math.max(0, stats.totalInputTokens - stats.totalCachedTokens);
 
     return (
-        <div className="mx-auto flex w-full max-w-[1360px] flex-col gap-8 font-mono">
+        <div className="mx-auto flex w-full max-w-[1360px] flex-col gap-8">
             {/* Header */}
-            <header className="flex flex-col justify-between gap-5 border-b border-foreground/15 pb-6 sm:flex-row sm:items-end">
+            <header className="flex flex-col justify-between gap-4 pb-2 sm:flex-row sm:items-end">
                 <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                        <span className="size-1.5 shrink-0 rounded-full bg-foreground" />
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                    <div className="flex items-center gap-2 mb-2">
+                        <span className="size-2 shrink-0 rounded-full bg-emerald-500" />
+                        <p className="font-mono text-xs font-medium uppercase tracking-wider text-text-muted">
                             Gateway / Overview
                         </p>
                     </div>
-                    <h1 className="mt-2 text-3xl font-bold tracking-[-0.04em] text-foreground sm:text-4xl">
-                        Operations
+                    <h1 className="text-3xl md:text-4xl font-[650] tracking-tight text-ink font-sans">
+                        Gateway is active.
                     </h1>
-                    <p className="mt-1 max-w-2xl text-xs text-muted-foreground leading-relaxed">
+                    <p className="mt-1 text-base font-light text-text-muted font-sans">
                         A quiet view of traffic, routing, and connected providers.
                     </p>
                 </div>
@@ -183,19 +176,19 @@ function DashboardPage() {
                         type="button"
                         variant="outline"
                         size="sm"
-                        className="h-9 gap-2 border-border/80 px-3 text-xs text-muted-foreground hover:bg-foreground hover:text-background cursor-pointer"
+                        className="h-9 gap-2 px-4 cursor-pointer rounded-full font-medium"
                         onClick={() => void refetch()}
                     >
-                        <RefreshCw className="size-3" />
+                        <RefreshCw className="size-3 text-text-muted" />
                         <span>Refresh</span>
                     </Button>
                 </div>
             </header>
 
-            {/* Summary */}
+            {/* 4 KPI Cards */}
             <section
                 aria-label="Gateway usage summary"
-                className="grid grid-cols-1 divide-y divide-border/70 overflow-hidden border-y border-border/80 sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-4"
+                className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"
             >
                 <StatCard
                     label="Total Requests"
@@ -224,22 +217,31 @@ function DashboardPage() {
                     }
                     detailContent={
                         <div
-                            className="mt-2 grid grid-cols-3 gap-1 border-t border-border/50 pt-2 text-[9px] leading-none text-muted-foreground"
+                            className="mt-4 grid grid-cols-3 gap-1 border-t border-hairline-soft pt-3 font-mono text-[11px] text-text-muted"
                             title={`${formatCompactNumber(uncachedInputTokens)} input, ${formatCompactNumber(stats.totalOutputTokens)} output, ${formatCompactNumber(stats.totalCachedTokens)} cached`}
                             aria-label={`${formatCompactNumber(uncachedInputTokens)} input, ${formatCompactNumber(stats.totalOutputTokens)} output, ${formatCompactNumber(stats.totalCachedTokens)} cached`}
                         >
-                            <span className="flex min-w-0 items-center gap-1" aria-label="Input tokens">
-                                <ArrowDownToLine className="size-2.5" aria-hidden="true" />
+                            <span
+                                className="flex min-w-0 items-center gap-1"
+                                aria-label="Input tokens"
+                            >
+                                <ArrowDownToLine className="size-3 shrink-0" aria-hidden="true" />
                                 <span className="sr-only">Input</span>
                                 <ResponsiveNumber value={uncachedInputTokens} />
                             </span>
-                            <span className="flex min-w-0 items-center gap-1" aria-label="Output tokens">
-                                <ArrowUpFromLine className="size-2.5" aria-hidden="true" />
+                            <span
+                                className="flex min-w-0 items-center gap-1"
+                                aria-label="Output tokens"
+                            >
+                                <ArrowUpFromLine className="size-3 shrink-0" aria-hidden="true" />
                                 <span className="sr-only">Output</span>
                                 <ResponsiveNumber value={stats.totalOutputTokens} />
                             </span>
-                            <span className="flex min-w-0 items-center gap-1" aria-label="Cached tokens">
-                                <Database className="size-2.5" aria-hidden="true" />
+                            <span
+                                className="flex min-w-0 items-center gap-1"
+                                aria-label="Cached tokens"
+                            >
+                                <Database className="size-3 shrink-0" aria-hidden="true" />
                                 <span className="sr-only">Cached</span>
                                 <ResponsiveNumber value={stats.totalCachedTokens} />
                             </span>
@@ -271,8 +273,16 @@ function DashboardPage() {
                 <NetworkStatus />
             </section>
 
-            {/* Routing topology */}
-            <GatewayTopologyMap />
+            {/* Gateway Topology & Recent Requests */}
+            <section
+                aria-label="Topology and recent activity"
+                className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(19rem,0.6fr)]"
+            >
+                <div className="min-w-0 rounded-3xl border border-hairline-soft bg-canvas-soft overflow-hidden p-0">
+                    <GatewayTopologyMap />
+                </div>
+                <RecentRequestsFeed />
+            </section>
 
             {/* Tabular Usage Breakdown */}
             <UsageByModelTable models={stats?.byModel ?? []} />

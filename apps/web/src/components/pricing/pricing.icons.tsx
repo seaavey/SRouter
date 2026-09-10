@@ -41,7 +41,7 @@ interface ModalityIconsProps {
 
 export function ModalityIcons({ input = ["text"], output = ["text"] }: ModalityIconsProps) {
     return (
-        <div className="flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
+        <div className="flex items-center gap-1.5 font-mono text-[11px] text-text-muted">
             {/* Input Modalities */}
             <div className="flex items-center gap-1">
                 {input.map((mod) => {
@@ -54,8 +54,8 @@ export function ModalityIcons({ input = ["text"], output = ["text"] }: ModalityI
                         <Tooltip key={`in-${mod}`}>
                             <TooltipTrigger
                                 render={
-                                    <span className="inline-flex size-5 items-center justify-center rounded border border-border/70 bg-secondary/50 text-foreground/80 hover:text-foreground">
-                                        <Icon className="size-3" />
+                                    <span className="inline-flex size-5 items-center justify-center rounded-full border border-hairline-soft bg-canvas-soft text-ink hover:bg-field transition-colors">
+                                        <Icon className="size-2.5" />
                                     </span>
                                 }
                             />
@@ -67,7 +67,7 @@ export function ModalityIcons({ input = ["text"], output = ["text"] }: ModalityI
                 })}
             </div>
 
-            <span className="text-muted-foreground/60 text-[10px] select-none">→</span>
+            <span className="text-text-faint text-[10px] select-none">→</span>
 
             {/* Output Modalities */}
             <div className="flex items-center gap-1">
@@ -81,8 +81,8 @@ export function ModalityIcons({ input = ["text"], output = ["text"] }: ModalityI
                         <Tooltip key={`out-${mod}`}>
                             <TooltipTrigger
                                 render={
-                                    <span className="inline-flex size-5 items-center justify-center rounded border border-border/70 bg-secondary/50 text-foreground/80 hover:text-foreground">
-                                        <Icon className="size-3" />
+                                    <span className="inline-flex size-5 items-center justify-center rounded-full border border-hairline-soft bg-canvas-soft text-ink hover:bg-field transition-colors">
+                                        <Icon className="size-2.5" />
                                     </span>
                                 }
                             />
@@ -112,7 +112,8 @@ export function CapabilityIcons({
     openWeights,
     attachment
 }: CapabilityIconsProps) {
-    const caps: Array<{ key: string; icon: ComponentType<{ className?: string }>; label: string }> = [];
+    const caps: Array<{ key: string; icon: ComponentType<{ className?: string }>; label: string }> =
+        [];
 
     if (reasoning) {
         caps.push({ key: "reasoning", icon: Brain, label: "Reasoning / Thinking" });
@@ -131,7 +132,7 @@ export function CapabilityIcons({
     }
 
     if (caps.length === 0) {
-        return <span className="text-muted-foreground/40 text-[11px] font-mono">-</span>;
+        return <span className="text-text-faint text-[11px] font-mono">-</span>;
     }
 
     return (
@@ -140,8 +141,8 @@ export function CapabilityIcons({
                 <Tooltip key={key}>
                     <TooltipTrigger
                         render={
-                            <span className="inline-flex size-5 items-center justify-center rounded border border-border/60 bg-secondary/30 text-muted-foreground hover:text-foreground">
-                                <Icon className="size-3" />
+                            <span className="inline-flex size-5 items-center justify-center rounded-full border border-hairline-soft bg-canvas-soft text-text-muted hover:text-ink hover:bg-field transition-colors">
+                                <Icon className="size-2.5" />
                             </span>
                         }
                     />

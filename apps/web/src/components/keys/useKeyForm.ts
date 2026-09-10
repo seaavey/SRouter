@@ -1,11 +1,6 @@
 import { useState, useEffect } from "react";
 import type { APIKeyZod } from "@srouter/types";
-import {
-    default_data,
-    getKeyFormData,
-    parseKeyPayload,
-    type KeyFormData
-} from "./keys.form-types";
+import { default_data, getKeyFormData, parseKeyPayload, type KeyFormData } from "./keys.form-types";
 
 export function useKeyForm(data?: APIKeyZod | null, is_open?: boolean) {
     const [form, setForm] = useState<KeyFormData>(() => getKeyFormData(data));

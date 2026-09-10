@@ -28,49 +28,43 @@ export function useKeys() {
         void fetchKeys();
     }, [fetchKeys]);
 
-    const createKey = useCallback(
-        async (data: CreateAPIKeyZod) => {
-            if (!data.name.trim()) {
-                toast.error("Key name is required");
-                return null;
-            }
+    const createKey = useCallback(async (data: CreateAPIKeyZod) => {
+        if (!data.name.trim()) {
+            toast.error("Key name is required");
+            return null;
+        }
 
-            setCreating(true);
-            try {
-                const created = await api.post<APIKeyZod>("/v1/keys", data);
-                setKeys((prev) => [created, ...prev]);
-                setNewlyCreatedKey(created);
-                toast.success(`API Key "${created.name}" created successfully`);
-                return created;
-            } catch (err) {
-                const msg = err instanceof Error ? err.message : "Failed to create API key";
-                toast.error(msg);
-                return null;
-            } finally {
-                setCreating(false);
-            }
-        },
-        []
-    );
+        setCreating(true);
+        try {
+            const created = await api.post<APIKeyZod>("/v1/keys", data);
+            setKeys((prev) => [created, ...prev]);
+            setNewlyCreatedKey(created);
+            toast.success(`API Key "${created.name}" created successfully`);
+            return created;
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : "Failed to create API key";
+            toast.error(msg);
+            return null;
+        } finally {
+            setCreating(false);
+        }
+    }, []);
 
-    const updateKey = useCallback(
-        async (id: string, data: UpdateAPIKeyZod) => {
-            setUpdatingId(id);
-            try {
-                const updated = await api.patch<APIKeyZod>(`/v1/keys/${id}`, data);
-                setKeys((prev) => prev.map((k) => (k.id === id ? updated : k)));
-                toast.success(`API Key "${updated.name}" updated successfully`);
-                return updated;
-            } catch (err) {
-                const msg = err instanceof Error ? err.message : "Failed to update API key";
-                toast.error(msg);
-                return null;
-            } finally {
-                setUpdatingId(null);
-            }
-        },
-        []
-    );
+    const updateKey = useCallback(async (id: string, data: UpdateAPIKeyZod) => {
+        setUpdatingId(id);
+        try {
+            const updated = await api.patch<APIKeyZod>(`/v1/keys/${id}`, data);
+            setKeys((prev) => prev.map((k) => (k.id === id ? updated : k)));
+            toast.success(`API Key "${updated.name}" updated successfully`);
+            return updated;
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : "Failed to update API key";
+            toast.error(msg);
+            return null;
+        } finally {
+            setUpdatingId(null);
+        }
+    }, []);
 
     const addCredit = useCallback(async (id: string, amount: number) => {
         if (!Number.isFinite(amount) || amount <= 0) {

@@ -8,11 +8,9 @@ import {
     Coins,
     Cpu,
     Database,
-    KeyRound,
     RefreshCw,
     Search,
-    ShieldAlert,
-    ShieldCheck
+    ShieldAlert
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { formatCompactNumber } from "@/lib/utils";
@@ -21,7 +19,8 @@ import type { ListResponse } from "@/lib/types";
 import { LogsSkeleton } from "@/components/skeletons";
 import { useLogs } from "@/hooks/useLogs";
 import { LogDetailModal, LogTable } from "@/components/logs";
-import { Empty, EmptyTitle } from "@/components/ui/empty";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import { Button } from "@/components/ui/button";
 
 interface ServerSettingsResponse {
     require_api_key?: boolean;
@@ -42,9 +41,7 @@ function LogsPage() {
         queryFn: () => api.get<ServerSettingsResponse>("/v1/settings")
     });
 
-    const requireApiKey = Boolean(
-        serverSettings?.require_api_key ?? serverSettings?.requireApiKey
-    );
+    const requireApiKey = Boolean(serverSettings?.require_api_key ?? serverSettings?.requireApiKey);
 
     // Fetch API Keys list if requireApiKey is enabled to enrich filters
     const { data: keysData } = useQuery<{ data: APIKeyZod[] }>({
@@ -55,7 +52,7 @@ function LogsPage() {
 
     const keys = keysData?.data ?? [];
 
-    const { data, isLoading, error, refetch } = useQuery({
+    const { data, isLoading, error, refetch, isFetching } = useQuery({
         queryKey: ["logs"],
         queryFn: () => api.get<ListResponse<RequestLogEntry>>("/v1/logs?limit=100"),
         refetchInterval: 10000
@@ -128,98 +125,165 @@ function LogsPage() {
 
     if (error || !data) {
         return (
-            <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-5 text-xs text-destructive font-mono space-y-2">
-                <div className="font-bold flex items-center gap-2">
-                    <ShieldAlert className="size-4" />
-                    Failed to load request audit stream
+            <div className="mx-auto flex w-full max-w-[1360px] flex-col gap-6 font-sans">
+                <div className="flex flex-col gap-4 rounded-3xl border border-destructive/20 bg-destructive/5 p-6 font-sans text-destructive">
+                    <EmptyHeader className="items-start">
+                        <EmptyTitle className="text-base font-semibold text-destructive flex items-center gap-2">
+                            <ShieldAlert className="size-5" />
+                            Failed to load request audit stream
+                        </EmptyTitle>
+                        <EmptyDescription className="text-xs text-destructive/80 font-mono">
+                            {error instanceof Error
+                                ? error.message
+                                : "Unknown gateway connection error"}
+                        </EmptyDescription>
+                    </EmptyHeader>
+                    <div>
+                        <Button
+                            type="button"
+                            variant="destructive"
+                            onClick={() => void refetch()}
+                            className="rounded-full px-5 text-xs font-semibold cursor-pointer shadow-none gap-1.5"
+                        >
+                            <RefreshCw className="size-3.5" />
+                            <span>Retry</span>
+                        </Button>
+                    </div>
                 </div>
-                <div>{error instanceof Error ? error.message : "Unknown gateway connection error"}</div>
-                <button
-                    type="button"
-                    onClick={() => void refetch()}
-                    className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded bg-destructive text-destructive-foreground font-semibold hover:opacity-90 cursor-pointer"
-                >
-                    <RefreshCw className="size-3" /> Retry
-                </button>
             </div>
         );
     }
 
     return (
-        <div className="flex flex-col gap-6 font-mono">
+        <div className="mx-auto flex w-full max-w-[1360px] flex-col gap-8 font-sans pb-16">
+            {/* Header */}
+            <header className="flex flex-col justify-between gap-4 pb-2 sm:flex-row sm:items-end">
+                <div className="min-w-0">
+                    <div className="flex items-center gap-2 mb-2">
+                        <span className="size-2 shrink-0 rounded-full bg-ink" />
+                        <p className="font-mono text-xs font-medium uppercase tracking-wider text-text-muted">
+                            Traffic Telemetry
+                        </p>
+                    </div>
+                    <h1 className="text-3xl md:text-4xl font-[650] tracking-tight text-ink font-sans">
+                        Request Audit.
+                    </h1>
+                    <p className="mt-1 text-base font-light text-text-muted font-sans">
+                        Real-time audit log of routed model completions, token volumes, and
+                        execution latency.
+                    </p>
+                </div>
+                <div className="flex items-center gap-2 self-start sm:self-auto">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => void refetch()}
+                        disabled={isFetching}
+                        className="h-10 shrink-0 gap-2 rounded-full border border-hairline-soft bg-canvas px-5 text-sm font-semibold text-ink hover:bg-canvas-soft transition-colors cursor-pointer shadow-none"
+                    >
+                        <RefreshCw className={`size-4 ${isFetching ? "animate-spin" : ""}`} />
+                        <span>Refresh</span>
+                    </Button>
+                </div>
+            </header>
+
             {/* Metrics Row */}
             <section
                 aria-label="Log Summary Metrics"
-                className="grid grid-cols-1 overflow-hidden rounded-xl border border-border bg-card/70 shadow-2xs sm:grid-cols-2 lg:grid-cols-3 sm:divide-x sm:divide-y-0 divide-border/60"
+                className="grid grid-cols-1 sm:grid-cols-3 gap-4 font-sans"
             >
-                <div className="min-w-0 border-b border-border/60 p-4 last:border-b-0 sm:border-b-0 lg:p-5">
-                    <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                        Total Requests
-                    </span>
-                    <div
-                        className="mt-2 text-2xl font-bold tracking-tight text-foreground tabular-nums lg:text-[1.7rem]"
-                        title={stats.totalRequests.toLocaleString("en-US")}
-                    >
-                        {formatCompactNumber(stats.totalRequests)}
+                <article className="flex min-w-0 min-h-[140px] flex-col justify-between rounded-3xl border border-hairline-soft bg-canvas p-6 shadow-none transition-colors hover:border-hairline">
+                    <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-text-muted font-sans">
+                            Total Requests
+                        </span>
+                        <Activity className="size-4 text-text-muted" />
                     </div>
-                    <span className="mt-1 block text-[11px] text-muted-foreground">
-                        {stats.successRate.toFixed(1)}% success
-                    </span>
-                </div>
+                    <div className="mt-3">
+                        <div
+                            className="text-3xl font-bold tracking-tight text-ink font-mono tabular-nums"
+                            title={stats.totalRequests.toLocaleString("en-US")}
+                        >
+                            {formatCompactNumber(stats.totalRequests)}
+                        </div>
+                    </div>
+                    <div className="mt-4 truncate border-t border-hairline-soft pt-3 text-xs text-text-muted font-sans">
+                        <span className="font-semibold text-ink font-mono">
+                            {stats.successRate.toFixed(1)}%
+                        </span>{" "}
+                        success rate
+                    </div>
+                </article>
 
-                <div className="min-w-0 border-b border-border/60 p-4 last:border-b-0 sm:border-b-0 lg:p-5">
-                    <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                        Tokens
-                    </span>
-                    <div
-                        className="mt-2 text-2xl font-bold tracking-tight text-foreground tabular-nums lg:text-[1.7rem]"
-                        title={stats.totalTokens.toLocaleString("en-US")}
-                    >
-                        {formatCompactNumber(stats.totalTokens)}
+                <article className="flex min-w-0 min-h-[140px] flex-col justify-between rounded-3xl border border-hairline-soft bg-canvas p-6 shadow-none transition-colors hover:border-hairline">
+                    <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-text-muted font-sans">
+                            Total Tokens
+                        </span>
+                        <Cpu className="size-4 text-text-muted" />
                     </div>
-                    <span className="mt-1.5 flex min-w-0 items-center gap-2 whitespace-nowrap text-[11px] text-muted-foreground" title={`${uncachedInputTokens.toLocaleString("en-US")} input · ${stats.totalOutputTokens.toLocaleString("en-US")} output · ${stats.cachedTokens.toLocaleString("en-US")} cached`}>
+                    <div className="mt-3">
+                        <div
+                            className="text-3xl font-bold tracking-tight text-ink font-mono tabular-nums"
+                            title={stats.totalTokens.toLocaleString("en-US")}
+                        >
+                            {formatCompactNumber(stats.totalTokens)}
+                        </div>
+                    </div>
+                    <div
+                        className="mt-4 flex min-w-0 items-center gap-2 whitespace-nowrap border-t border-hairline-soft pt-3 text-xs text-text-muted font-mono"
+                        title={`${uncachedInputTokens.toLocaleString("en-US")} input · ${stats.totalOutputTokens.toLocaleString("en-US")} output · ${stats.cachedTokens.toLocaleString("en-US")} cached`}
+                    >
                         <span className="inline-flex shrink-0 items-center gap-1">
                             <ArrowDownToLine className="size-3" aria-hidden="true" />
                             {formatCompactNumber(uncachedInputTokens)}
                         </span>
-                        <span className="text-border">·</span>
+                        <span className="text-text-faint">·</span>
                         <span className="inline-flex shrink-0 items-center gap-1">
                             <ArrowUpFromLine className="size-3" aria-hidden="true" />
                             {formatCompactNumber(stats.totalOutputTokens)}
                         </span>
-                        <span className="text-border">·</span>
+                        <span className="text-text-faint">·</span>
                         <span className="inline-flex shrink-0 items-center gap-1">
                             <Database className="size-3" aria-hidden="true" />
                             {formatCompactNumber(stats.cachedTokens)}
                         </span>
-                    </span>
-                </div>
-
-                <div className="min-w-0 border-b border-border/60 p-4 last:border-b-0 sm:border-b-0 lg:p-5">
-                    <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                        Est. Cost
-                    </span>
-                    <div className="mt-2 text-2xl font-bold tracking-tight text-foreground tabular-nums lg:text-[1.7rem]">
-                        ${stats.totalCost.toFixed(4)}
                     </div>
-                    <span className="mt-1 block text-[11px] text-muted-foreground">
-                        {stats.isGlobal ? "All-time total" : "Past 100 calls"}
-                    </span>
-                </div>
+                </article>
 
+                <article className="flex min-w-0 min-h-[140px] flex-col justify-between rounded-3xl border border-hairline-soft bg-canvas p-6 shadow-none transition-colors hover:border-hairline">
+                    <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-text-muted font-sans">
+                            Estimated Cost
+                        </span>
+                        <Coins className="size-4 text-text-muted" />
+                    </div>
+                    <div className="mt-3">
+                        <div className="text-3xl font-bold tracking-tight text-ink font-mono tabular-nums">
+                            ${stats.totalCost.toFixed(4)}
+                        </div>
+                    </div>
+                    <div className="mt-4 truncate border-t border-hairline-soft pt-3 text-xs text-text-muted font-sans">
+                        {stats.isGlobal ? "All-time accumulated cost" : "Past 100 executions"}
+                    </div>
+                </article>
             </section>
 
             {/* Filter Toolbar: Unified & Quiet */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 font-sans">
                 <div className="flex flex-1 items-center gap-2 max-w-lg">
                     <div className="relative flex-1">
-                        <Search className="absolute left-3 top-2.5 size-3.5 text-muted-foreground" />
+                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-text-muted" />
                         <input
                             type="text"
-                            placeholder={requireApiKey ? "Search model, IP, key, or provider…" : "Search model, IP, or provider…"}
+                            placeholder={
+                                requireApiKey
+                                    ? "Search model, IP, key, or provider…"
+                                    : "Search model, IP, or provider…"
+                            }
                             value={filter.searchQuery}
                             onChange={(e) => filter.setSearchQuery(e.target.value)}
-                            className="w-full rounded-lg border border-border/70 bg-card/50 pl-8.5 pr-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-ring"
+                            className="w-full h-10 rounded-full border border-hairline-soft bg-field pl-10 pr-4 text-xs font-mono text-ink placeholder:text-text-muted focus:ring-2 focus:ring-ink focus:outline-none"
                         />
                     </div>
 
@@ -227,7 +291,7 @@ function LogsPage() {
                         <select
                             value={filter.apiKeyFilter}
                             onChange={(e) => filter.setApiKeyFilter(e.target.value)}
-                            className="rounded-lg border border-border/70 bg-card/50 px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground focus:outline-none cursor-pointer"
+                            className="h-10 rounded-full border border-hairline-soft bg-field px-4 text-xs font-sans text-ink focus:ring-2 focus:ring-ink outline-none cursor-pointer"
                         >
                             <option value="all">All Keys</option>
                             <option value="none">No Key (Bypass)</option>
@@ -240,14 +304,14 @@ function LogsPage() {
                     )}
                 </div>
 
-                <div className="inline-flex items-center gap-1 rounded-lg border border-border/70 bg-secondary/30 p-0.5 self-start sm:self-auto">
+                <div className="inline-flex items-center gap-1 rounded-full border border-hairline-soft bg-canvas-soft p-1 self-start sm:self-auto font-sans">
                     <button
                         type="button"
                         onClick={() => filter.setStatusFilter("all")}
-                        className={`rounded px-2.5 py-1 text-xs font-medium transition-all cursor-pointer ${
+                        className={`rounded-full px-3.5 py-1 text-xs font-medium transition-all cursor-pointer ${
                             filter.statusFilter === "all"
-                                ? "bg-foreground text-background font-semibold"
-                                : "text-muted-foreground hover:text-foreground"
+                                ? "bg-canvas text-ink font-semibold border border-hairline-soft shadow-none"
+                                : "text-text-muted hover:text-ink"
                         }`}
                     >
                         All ({logs.length})
@@ -255,10 +319,10 @@ function LogsPage() {
                     <button
                         type="button"
                         onClick={() => filter.setStatusFilter("success")}
-                        className={`rounded px-2.5 py-1 text-xs font-medium transition-all cursor-pointer ${
+                        className={`rounded-full px-3.5 py-1 text-xs font-medium transition-all cursor-pointer ${
                             filter.statusFilter === "success"
-                                ? "bg-foreground text-background font-semibold"
-                                : "text-muted-foreground hover:text-foreground"
+                                ? "bg-canvas text-ink font-semibold border border-hairline-soft shadow-none"
+                                : "text-text-muted hover:text-ink"
                         }`}
                     >
                         2xx
@@ -266,10 +330,10 @@ function LogsPage() {
                     <button
                         type="button"
                         onClick={() => filter.setStatusFilter("error")}
-                        className={`rounded px-2.5 py-1 text-xs font-medium transition-all cursor-pointer ${
+                        className={`rounded-full px-3.5 py-1 text-xs font-medium transition-all cursor-pointer ${
                             filter.statusFilter === "error"
-                                ? "bg-foreground text-background font-semibold"
-                                : "text-muted-foreground hover:text-foreground"
+                                ? "bg-canvas text-ink font-semibold border border-hairline-soft shadow-none"
+                                : "text-text-muted hover:text-ink"
                         }`}
                     >
                         Errors
@@ -278,10 +342,15 @@ function LogsPage() {
             </div>
 
             {filter.filteredLogs.length === 0 ? (
-                <Empty className="p-12 border border-dashed border-border/70 rounded-xl">
-                    <EmptyTitle className="text-xs text-muted-foreground">
-                        No matching audit logs for current filters.
-                    </EmptyTitle>
+                <Empty className="min-h-56 rounded-3xl border border-dashed border-hairline bg-canvas p-12">
+                    <EmptyHeader>
+                        <EmptyTitle className="text-base font-semibold text-ink font-sans">
+                            No matching audit logs
+                        </EmptyTitle>
+                        <EmptyDescription className="text-xs text-text-muted font-sans font-light">
+                            No request traces match your current query or filter criteria.
+                        </EmptyDescription>
+                    </EmptyHeader>
                 </Empty>
             ) : (
                 <LogTable

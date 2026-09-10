@@ -26,48 +26,44 @@ export function ProviderRow({ provider }: { provider: ProviderDefinition }) {
         <Link
             to="/providers/$providerId"
             params={{ providerId: provider.id }}
-            className="group flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-md hover:bg-secondary/40 transition-colors font-mono cursor-pointer border-b border-border/40 last:border-b-0"
+            className="group flex items-center justify-between gap-4 px-4 py-3.5 rounded-2xl hover:bg-canvas-soft transition-colors font-sans cursor-pointer border-b border-hairline-soft last:border-b-0"
         >
             {/* Left: Icon & Info */}
-            <div className="flex items-center gap-3 min-w-0">
-                <div className="flex size-8 shrink-0 items-center justify-center rounded-md border border-border/80 bg-secondary/40 shadow-2xs group-hover:border-foreground/20 transition-colors">
-                    <ProviderIcon providerId={provider.id} className="size-4.5" />
+            <div className="flex items-center gap-3.5 min-w-0">
+                <div className="flex size-10 shrink-0 items-center justify-center rounded-[30%] border border-hairline-soft bg-canvas-soft group-hover:border-hairline transition-colors">
+                    <ProviderIcon providerId={provider.id} className="size-5" />
                 </div>
 
                 <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                        <span className="truncate text-xs font-semibold text-foreground">
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                        <span className="truncate text-sm font-semibold text-ink">
                             {provider.name}
                         </span>
 
                         {isConnected ? (
-                            <span className="inline-flex items-center gap-1.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
                                 <span className="size-1.5 rounded-full bg-emerald-500" />
-                                <span>
-                                    {connectedCount} {connectedCount === 1 ? "live" : "live"}
-                                </span>
+                                <span>{connectedCount} live</span>
                             </span>
                         ) : (
-                            <span className="inline-flex items-center gap-1.5 text-[10px] text-muted-foreground font-medium">
-                                <span className="size-1.5 rounded-full bg-muted-foreground/40" />
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-canvas-soft px-2 py-0.5 text-xs font-medium text-text-muted">
+                                <span className="size-1.5 rounded-full bg-text-muted/40" />
                                 <span>Ready</span>
                             </span>
                         )}
                     </div>
 
-                    <div className="mt-0.5 flex items-center gap-2 text-[10.5px] text-muted-foreground">
-                        <span className="truncate text-foreground/80 font-medium">
-                            {provider.id}
-                        </span>
-                        <span className="text-muted-foreground/40">·</span>
+                    <div className="mt-0.5 flex items-center gap-2 text-xs text-text-muted font-mono">
+                        <span className="truncate text-ink font-medium">{provider.id}</span>
+                        <span className="text-text-faint">·</span>
                         <span>{protocolLabels[provider.protocol] ?? provider.protocol}</span>
-                        <span className="text-muted-foreground/40">·</span>
+                        <span className="text-text-faint">·</span>
                         <span>{authLabel(provider)}</span>
                         {modelCount > 0 && (
                             <>
-                                <span className="text-muted-foreground/40">·</span>
-                                <span className="inline-flex items-center gap-1 text-muted-foreground/90">
-                                    <Layers className="size-2.5 text-muted-foreground/70" />
+                                <span className="text-text-faint">·</span>
+                                <span className="inline-flex items-center gap-1 text-text-muted">
+                                    <Layers className="size-3 text-text-muted/70" />
                                     <span>{modelCount} models</span>
                                 </span>
                             </>
@@ -76,11 +72,9 @@ export function ProviderRow({ provider }: { provider: ProviderDefinition }) {
                 </div>
             </div>
 
-            {/* Right: Action */}
-            <div className="flex shrink-0 items-center gap-1.5 text-xs font-semibold text-muted-foreground group-hover:text-foreground transition-colors">
-                <span className="hidden sm:inline text-[11px]">
-                    {isConnected ? "Configure" : "Connect"}
-                </span>
+            {/* Right: Stadium Action Pill */}
+            <div className="flex shrink-0 items-center gap-1.5 rounded-full bg-canvas-soft px-3.5 py-1.5 text-xs font-semibold text-ink group-hover:bg-ink group-hover:text-canvas transition-colors">
+                <span className="hidden sm:inline">{isConnected ? "Configure" : "Connect"}</span>
                 <ArrowUpRight className="size-3.5 stroke-[2] transition-transform duration-150 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
             </div>
         </Link>

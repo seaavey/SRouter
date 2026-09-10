@@ -3,7 +3,6 @@ import {
     AlertCircle,
     Check,
     CheckCircle2,
-    Clock,
     Copy,
     Cpu,
     Coins,
@@ -21,11 +20,7 @@ import {
     Bot
 } from "lucide-react";
 import type { RequestLogEntry } from "@srouter/types";
-import {
-    Dialog,
-    DialogContent,
-    DialogTitle
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { formatTime } from "@/utils/format";
 import { parseUserAgent } from "@/utils/agent-detector";
@@ -68,20 +63,20 @@ export function LogDetailModal({ log, requireApiKey = false, onClose }: LogDetai
 
     return (
         <Dialog open={!!log} onOpenChange={(open) => !open && onClose()}>
-            <DialogContent className="max-w-2xl max-h-[85vh] p-0 flex flex-col font-mono gap-0 overflow-hidden border border-border/80 shadow-2xl bg-card">
+            <DialogContent className="max-w-2xl max-h-[85vh] p-0 flex flex-col font-sans gap-0 overflow-hidden border border-hairline-soft shadow-none bg-canvas rounded-3xl">
                 {log && (
                     <>
                         {/* Header */}
-                        <div className="flex items-center justify-between px-5 py-4 border-b border-border/60 bg-secondary/20 shrink-0">
-                            <div className="flex items-center gap-2.5 min-w-0">
-                                <div className="flex size-7 items-center justify-center rounded-lg bg-secondary/50 text-foreground border border-border/60 shrink-0">
-                                    <ScrollText className="size-3.5" />
+                        <div className="flex items-center justify-between px-6 py-5 border-b border-hairline-soft bg-canvas-soft/40 shrink-0">
+                            <div className="flex items-center gap-3 min-w-0">
+                                <div className="flex size-9 items-center justify-center rounded-full bg-canvas border border-hairline-soft text-ink shrink-0">
+                                    <ScrollText className="size-4" />
                                 </div>
                                 <div className="min-w-0">
-                                    <DialogTitle className="text-sm font-bold text-foreground truncate">
+                                    <DialogTitle className="text-base font-semibold text-ink truncate font-sans">
                                         Request Details
                                     </DialogTitle>
-                                    <p className="text-[10px] text-muted-foreground font-mono truncate">
+                                    <p className="text-xs text-text-muted font-mono truncate mt-0.5">
                                         {log.id}
                                     </p>
                                 </div>
@@ -90,19 +85,23 @@ export function LogDetailModal({ log, requireApiKey = false, onClose }: LogDetai
                             <div className="flex items-center gap-2 shrink-0">
                                 <span
                                     className={[
-                                        "font-mono text-[10px] px-2 py-0.5 rounded border font-semibold tabular-nums inline-flex items-center gap-1",
+                                        "font-mono text-xs px-3 py-1 rounded-full border font-semibold tabular-nums inline-flex items-center gap-1.5",
                                         isOk
-                                            ? "bg-secondary/40 text-foreground border-border/60"
-                                            : "bg-destructive/10 text-destructive border-destructive/30"
+                                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+                                            : "bg-destructive/10 text-destructive border-destructive/20"
                                     ].join(" ")}
                                 >
-                                    {isOk ? <CheckCircle2 className="size-3 opacity-70" /> : <AlertCircle className="size-3" />}
+                                    {isOk ? (
+                                        <CheckCircle2 className="size-3.5" />
+                                    ) : (
+                                        <AlertCircle className="size-3.5" />
+                                    )}
                                     {log.statusCode} {isOk ? "OK" : "ERROR"}
                                 </span>
                                 <button
                                     type="button"
                                     onClick={onClose}
-                                    className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary/50 cursor-pointer transition-colors"
+                                    className="size-8 inline-flex items-center justify-center rounded-full text-text-muted hover:text-ink hover:bg-canvas-soft cursor-pointer transition-colors"
                                 >
                                     <X className="size-4" />
                                 </button>
@@ -110,90 +109,113 @@ export function LogDetailModal({ log, requireApiKey = false, onClose }: LogDetai
                         </div>
 
                         {/* Body */}
-                        <div className="p-5 overflow-y-auto space-y-4 text-xs">
+                        <div className="p-6 overflow-y-auto space-y-4 text-xs">
                             {/* Summary Metadata Table */}
-                            <div className="rounded-xl border border-border/70 bg-card/40 divide-y divide-border/40 shadow-2xs">
-                                <div className="flex items-center justify-between px-3.5 py-2.5 text-[11px]">
-                                    <span className="text-muted-foreground flex items-center gap-1.5">
-                                        <Calendar className="size-3 text-muted-foreground/70" /> Timestamp
+                            <div className="rounded-2xl border border-hairline-soft bg-canvas-soft/30 divide-y divide-hairline-soft">
+                                <div className="flex items-center justify-between px-4 py-3 text-xs font-sans">
+                                    <span className="text-text-muted flex items-center gap-2">
+                                        <Calendar className="size-3.5 text-text-muted" /> Timestamp
                                     </span>
-                                    <span className="text-foreground font-medium">
-                                        {new Date(log.createdAt).toLocaleDateString()} {formatTime(log.createdAt, true)}
+                                    <span className="text-ink font-medium font-mono">
+                                        {new Date(log.createdAt).toLocaleDateString()}{" "}
+                                        {formatTime(log.createdAt, true)}
                                     </span>
                                 </div>
-                                <div className="flex items-center justify-between px-3.5 py-2.5 text-[11px]">
-                                    <span className="text-muted-foreground flex items-center gap-1.5">
-                                        <Server className="size-3 text-muted-foreground/70" /> Provider & Model
+                                <div className="flex items-center justify-between px-4 py-3 text-xs font-sans">
+                                    <span className="text-text-muted flex items-center gap-2">
+                                        <Server className="size-3.5 text-text-muted" /> Provider &
+                                        Model
                                     </span>
-                                    <div className="flex items-center gap-1.5 text-right">
-                                        <span className="px-1.5 py-0.2 rounded bg-secondary/50 text-muted-foreground border border-border/50 text-[10px]">
+                                    <div className="flex items-center gap-2 text-right">
+                                        <span className="px-2 py-0.5 rounded-full bg-field text-text-muted text-[10px] font-mono">
                                             {log.providerId}
                                         </span>
-                                        <span className="text-foreground font-semibold">{log.model}</span>
+                                        <span className="text-ink font-medium font-sans">
+                                            {log.model}
+                                        </span>
                                     </div>
                                 </div>
-                                <div className="flex items-center justify-between px-3.5 py-2.5 text-[11px]">
-                                    <span className="text-muted-foreground flex items-center gap-1.5">
-                                        <Bot className="size-3 text-muted-foreground/70" /> Client Agent
+                                <div className="flex items-center justify-between px-4 py-3 text-xs font-sans">
+                                    <span className="text-text-muted flex items-center gap-2">
+                                        <Bot className="size-3.5 text-text-muted" /> Client Agent
                                     </span>
                                     <div className="flex items-center gap-2 max-w-[280px]">
-                                        <span className={[
-                                            "font-medium truncate",
-                                            clientInfo.isKnownAgent ? "text-foreground font-semibold" : "text-foreground"
-                                        ].join(" ")} title={clientInfo.raw || clientInfo.name}>
+                                        <span
+                                            className={[
+                                                "font-medium truncate font-sans",
+                                                clientInfo.isKnownAgent
+                                                    ? "text-ink font-semibold"
+                                                    : "text-ink"
+                                            ].join(" ")}
+                                            title={clientInfo.raw || clientInfo.name}
+                                        >
                                             {clientInfo.name}
                                         </span>
                                         {clientInfo.isKnownAgent && (
-                                            <span className="text-[9px] uppercase px-1.5 py-0.2 rounded border border-border/60 bg-secondary/50 text-muted-foreground font-semibold shrink-0">
+                                            <span className="text-[10px] uppercase px-2 py-0.5 rounded-full border border-hairline-soft bg-canvas text-text-muted font-mono font-semibold shrink-0">
                                                 Agent
                                             </span>
                                         )}
                                     </div>
                                 </div>
-                                <div className="flex items-center justify-between px-3.5 py-2.5 text-[11px]">
-                                    <span className="text-muted-foreground flex items-center gap-1.5">
-                                        <Globe className="size-3 text-muted-foreground/70" /> Client IP & Latency
+                                <div className="flex items-center justify-between px-4 py-3 text-xs font-sans">
+                                    <span className="text-text-muted flex items-center gap-2">
+                                        <Globe className="size-3.5 text-text-muted" /> Client IP &
+                                        Latency
                                     </span>
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-muted-foreground">{log.ipAddress || "127.0.0.1"}</span>
-                                        <span className="text-border">·</span>
-                                        <span className="text-foreground font-semibold tabular-nums">{log.latencyMs} ms</span>
+                                    <div className="flex items-center gap-2 font-mono">
+                                        <span className="text-text-muted">
+                                            {log.ipAddress || "127.0.0.1"}
+                                        </span>
+                                        <span className="text-text-faint">·</span>
+                                        <span className="text-ink font-semibold tabular-nums">
+                                            {log.latencyMs} ms
+                                        </span>
                                     </div>
                                 </div>
                                 {(requireApiKey || log.apiKeyId) && (
-                                    <div className="flex items-center justify-between px-3.5 py-2.5 text-[11px]">
-                                        <span className="text-muted-foreground flex items-center gap-1.5">
-                                            <KeyRound className="size-3 text-muted-foreground/70" /> Auth Key
+                                    <div className="flex items-center justify-between px-4 py-3 text-xs font-sans">
+                                        <span className="text-text-muted flex items-center gap-2">
+                                            <KeyRound className="size-3.5 text-text-muted" /> Auth
+                                            Key
                                         </span>
-                                        <div className="flex items-center gap-1.5">
-                                            <span className="text-foreground font-medium">{log.apiKeyName || "Virtual Key"}</span>
-                                            <span className="text-[10px] text-muted-foreground">({log.apiKeyId || "bypass"})</span>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-ink font-medium font-sans">
+                                                {log.apiKeyName || "Virtual Key"}
+                                            </span>
+                                            <span className="text-[11px] text-text-muted font-mono">
+                                                ({log.apiKeyId || "bypass"})
+                                            </span>
                                         </div>
                                     </div>
                                 )}
                             </div>
 
                             {/* Routing & Cascade Fallback info */}
-                            {(log.resolvedModel && log.resolvedModel !== log.model) && (
-                                <div className="rounded-xl border border-border/70 bg-secondary/15 p-3 space-y-1">
-                                    <div className="flex items-center gap-1.5 font-semibold text-foreground text-[11px]">
-                                        <Zap className="size-3 text-muted-foreground" />
+                            {log.resolvedModel && log.resolvedModel !== log.model && (
+                                <div className="rounded-2xl border border-hairline-soft bg-canvas-soft/40 p-4 space-y-1">
+                                    <div className="flex items-center gap-2 font-semibold text-ink text-xs font-sans">
+                                        <Zap className="size-3.5 text-accent" />
                                         Auto-Routing
                                     </div>
-                                    <p className="text-[11px] text-muted-foreground">
-                                        Requested <span className="text-foreground">{log.model}</span> ↳ routed to <span className="font-semibold text-foreground">{log.resolvedModel}</span>
+                                    <p className="text-xs text-text-muted font-mono">
+                                        Requested <span className="text-ink">{log.model}</span> ↳
+                                        routed to{" "}
+                                        <span className="font-semibold text-ink">
+                                            {log.resolvedModel}
+                                        </span>
                                     </p>
                                 </div>
                             )}
 
                             {log.fallbackOccurred && (
-                                <div className="rounded-xl border border-border/70 bg-secondary/15 p-3 space-y-1">
-                                    <div className="flex items-center gap-1.5 font-semibold text-foreground text-[11px]">
-                                        <Network className="size-3 text-muted-foreground" />
+                                <div className="rounded-2xl border border-hairline-soft bg-canvas-soft/40 p-4 space-y-1">
+                                    <div className="flex items-center gap-2 font-semibold text-ink text-xs font-sans">
+                                        <Network className="size-3.5 text-accent" />
                                         Cascade Fallback
                                     </div>
                                     {log.fallbackReason && (
-                                        <p className="text-[11px] text-muted-foreground italic">
+                                        <p className="text-xs text-text-muted font-mono italic">
                                             {log.fallbackReason}
                                         </p>
                                     )}
@@ -201,76 +223,100 @@ export function LogDetailModal({ log, requireApiKey = false, onClose }: LogDetai
                             )}
 
                             {/* Token & Cost Cards */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 {/* Token Breakdown */}
-                                <div className="rounded-xl border border-border/70 bg-card/40 p-3.5 space-y-2.5">
-                                    <div className="flex items-center justify-between border-b border-border/40 pb-2">
-                                        <span className="font-semibold uppercase tracking-wider text-[10px] text-muted-foreground flex items-center gap-1.5">
-                                            <Cpu className="size-3" /> Token Consumption
+                                <div className="rounded-2xl border border-hairline-soft bg-canvas-soft/30 p-4 space-y-3">
+                                    <div className="flex items-center justify-between border-b border-hairline-soft pb-2.5">
+                                        <span className="font-medium text-xs text-text-muted flex items-center gap-2 font-sans">
+                                            <Cpu className="size-3.5" /> Token Consumption
                                         </span>
-                                        <span className="font-semibold text-foreground tabular-nums">
+                                        <span className="font-bold text-ink font-mono tabular-nums">
                                             {log.totalTokens.toLocaleString()}
                                         </span>
                                     </div>
-                                    <div className="space-y-1 text-[11px]">
+                                    <div className="space-y-1.5 text-xs font-mono">
                                         <div className="flex justify-between">
-                                            <span className="text-muted-foreground">Prompt Input</span>
-                                            <span className="tabular-nums text-foreground">{log.promptTokens.toLocaleString()}</span>
+                                            <span className="text-text-muted">Prompt Input</span>
+                                            <span className="tabular-nums text-ink">
+                                                {log.promptTokens.toLocaleString()}
+                                            </span>
                                         </div>
                                         <div className="flex justify-between">
-                                            <span className="text-muted-foreground">Completion Output</span>
-                                            <span className="tabular-nums text-foreground">{log.completionTokens.toLocaleString()}</span>
+                                            <span className="text-text-muted">
+                                                Completion Output
+                                            </span>
+                                            <span className="tabular-nums text-ink">
+                                                {log.completionTokens.toLocaleString()}
+                                            </span>
                                         </div>
                                         {cachedTokens > 0 && (
                                             <div className="flex justify-between">
-                                                <span className="text-muted-foreground">Cache Read</span>
-                                                <span className="tabular-nums text-foreground">{cachedTokens.toLocaleString()}</span>
+                                                <span className="text-text-muted">Cache Read</span>
+                                                <span className="tabular-nums text-ink">
+                                                    {cachedTokens.toLocaleString()}
+                                                </span>
                                             </div>
                                         )}
                                         {cacheCreationTokens > 0 && (
                                             <div className="flex justify-between">
-                                                <span className="text-muted-foreground">Cache Write</span>
-                                                <span className="tabular-nums text-foreground">{cacheCreationTokens.toLocaleString()}</span>
+                                                <span className="text-text-muted">Cache Write</span>
+                                                <span className="tabular-nums text-ink">
+                                                    {cacheCreationTokens.toLocaleString()}
+                                                </span>
                                             </div>
                                         )}
                                         {reasoningTokens > 0 && (
                                             <div className="flex justify-between">
-                                                <span className="text-muted-foreground">Reasoning (CoT)</span>
-                                                <span className="tabular-nums text-foreground">{reasoningTokens.toLocaleString()}</span>
+                                                <span className="text-text-muted">
+                                                    Reasoning (CoT)
+                                                </span>
+                                                <span className="tabular-nums text-ink">
+                                                    {reasoningTokens.toLocaleString()}
+                                                </span>
                                             </div>
                                         )}
                                     </div>
                                 </div>
 
                                 {/* Cost Breakdown */}
-                                <div className="rounded-xl border border-border/70 bg-card/40 p-3.5 space-y-2.5">
-                                    <div className="flex items-center justify-between border-b border-border/40 pb-2">
-                                        <span className="font-semibold uppercase tracking-wider text-[10px] text-muted-foreground flex items-center gap-1.5">
-                                            <Coins className="size-3" /> Cost Accounting
+                                <div className="rounded-2xl border border-hairline-soft bg-canvas-soft/30 p-4 space-y-3">
+                                    <div className="flex items-center justify-between border-b border-hairline-soft pb-2.5">
+                                        <span className="font-medium text-xs text-text-muted flex items-center gap-2 font-sans">
+                                            <Coins className="size-3.5" /> Cost Accounting
                                         </span>
-                                        <span className="font-semibold text-foreground tabular-nums">
+                                        <span className="font-bold text-ink font-mono tabular-nums">
                                             ${totalCost.toFixed(5)}
                                         </span>
                                     </div>
-                                    <div className="space-y-1 text-[11px]">
+                                    <div className="space-y-1.5 text-xs font-mono">
                                         <div className="flex justify-between">
-                                            <span className="text-muted-foreground">Input</span>
-                                            <span className="tabular-nums text-foreground">${inputCost.toFixed(5)}</span>
+                                            <span className="text-text-muted">Input</span>
+                                            <span className="tabular-nums text-ink">
+                                                ${inputCost.toFixed(5)}
+                                            </span>
                                         </div>
                                         <div className="flex justify-between">
-                                            <span className="text-muted-foreground">Output</span>
-                                            <span className="tabular-nums text-foreground">${outputCost.toFixed(5)}</span>
+                                            <span className="text-text-muted">Output</span>
+                                            <span className="tabular-nums text-ink">
+                                                ${outputCost.toFixed(5)}
+                                            </span>
                                         </div>
                                         {cacheReadCost > 0 && (
                                             <div className="flex justify-between">
-                                                <span className="text-muted-foreground">Cache Read</span>
-                                                <span className="tabular-nums text-foreground">${cacheReadCost.toFixed(5)}</span>
+                                                <span className="text-text-muted">Cache Read</span>
+                                                <span className="tabular-nums text-ink">
+                                                    ${cacheReadCost.toFixed(5)}
+                                                </span>
                                             </div>
                                         )}
                                         {cacheCreationCost > 0 && (
                                             <div className="flex justify-between">
-                                                <span className="text-muted-foreground">Cache Creation</span>
-                                                <span className="tabular-nums text-foreground">${cacheCreationCost.toFixed(5)}</span>
+                                                <span className="text-text-muted">
+                                                    Cache Creation
+                                                </span>
+                                                <span className="tabular-nums text-ink">
+                                                    ${cacheCreationCost.toFixed(5)}
+                                                </span>
                                             </div>
                                         )}
                                     </div>
@@ -278,14 +324,14 @@ export function LogDetailModal({ log, requireApiKey = false, onClose }: LogDetai
                             </div>
 
                             {/* Collapsible Developer Payload */}
-                            <div className="rounded-xl border border-border/60 bg-card/30 overflow-hidden">
+                            <div className="rounded-2xl border border-hairline-soft bg-canvas-soft/20 overflow-hidden">
                                 <button
                                     type="button"
                                     onClick={() => setShowRawJson(!showRawJson)}
-                                    className="w-full flex items-center justify-between px-3.5 py-2.5 text-[11px] font-medium text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
+                                    className="w-full flex items-center justify-between px-4 py-3 text-xs font-medium text-text-muted hover:text-ink cursor-pointer transition-colors font-sans"
                                 >
-                                    <span className="flex items-center gap-1.5">
-                                        <Code2 className="size-3" />
+                                    <span className="flex items-center gap-2">
+                                        <Code2 className="size-3.5" />
                                         Developer Payload
                                     </span>
                                     <div className="flex items-center gap-2">
@@ -295,16 +341,24 @@ export function LogDetailModal({ log, requireApiKey = false, onClose }: LogDetai
                                                 e.stopPropagation();
                                                 void handleCopyPayload();
                                             }}
-                                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-border/60 bg-secondary/40 text-[10px] hover:text-foreground transition-colors"
+                                            className="inline-flex items-center gap-1.5 rounded-full border border-hairline-soft bg-canvas px-3 py-1 text-[11px] text-text-muted hover:text-ink transition-colors cursor-pointer"
                                         >
-                                            {copied ? <Check className="size-2.5" /> : <Copy className="size-2.5" />}
+                                            {copied ? (
+                                                <Check className="size-3 text-emerald-500" />
+                                            ) : (
+                                                <Copy className="size-3" />
+                                            )}
                                             <span>{copied ? "Copied" : "Copy"}</span>
                                         </button>
-                                        {showRawJson ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
+                                        {showRawJson ? (
+                                            <ChevronDown className="size-4" />
+                                        ) : (
+                                            <ChevronRight className="size-4" />
+                                        )}
                                     </div>
                                 </button>
                                 {showRawJson && (
-                                    <pre className="p-3 border-t border-border/50 bg-secondary/20 font-mono text-[10.5px] text-muted-foreground overflow-x-auto max-h-48 leading-relaxed">
+                                    <pre className="p-4 border-t border-hairline-soft bg-canvas-soft/40 font-mono text-[11px] text-text-muted overflow-x-auto max-h-52 leading-relaxed">
                                         <code>{JSON.stringify(log, null, 2)}</code>
                                     </pre>
                                 )}

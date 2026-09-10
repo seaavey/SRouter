@@ -29,7 +29,14 @@ import { useFavorites } from "@/hooks/useFavorites";
 import { toast } from "sonner";
 import { ProviderDetailSkeleton } from "@/components/skeletons";
 import { CATEGORY_LABELS, getProviderWebsiteUrl } from "@srouter/constants";
-import { Empty, EmptyContent, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
+import {
+    Empty,
+    EmptyContent,
+    EmptyHeader,
+    EmptyMedia,
+    EmptyTitle,
+    EmptyDescription
+} from "@/components/ui/empty";
 
 export const Route = createFileRoute("/providers/$providerId")({
     staticData: { title: "Providers" },
@@ -125,66 +132,67 @@ function ProviderDetailPage() {
         addMutation.mutate(payload, {
             onSuccess: () => {
                 setIsAddOpen(false);
-                setFormError("");
-                toast.success(`API Key for ${provider.name} saved successfully!`);
+                toast.success("API key connection added successfully");
             },
-            onError: (err: Error) => {
-                const msg = err.message || "Failed to add connection";
-                setFormError(msg);
-                toast.error(msg);
+            onError: (err) => {
+                setFormError(err.message || "Failed to add connection");
             }
         });
     };
 
-    const activeModels = useMemo(() => {
-        if (!provider?.models) return [];
-        return provider.models.filter((m) => !deletedModelIds.includes(m.id));
-    }, [provider?.models, deletedModelIds]);
+    const modelsList = provider?.models ?? [];
+    const activeModels = useMemo(
+        () => modelsList.filter((m) => !deletedModelIds.includes(m.id)),
+        [modelsList, deletedModelIds]
+    );
 
     const filteredModels = useMemo(() => {
-        return activeModels.filter((m) => m.id.toLowerCase().includes(modelSearch.toLowerCase()));
+        const q = modelSearch.trim().toLowerCase();
+        if (!q) return activeModels;
+        return activeModels.filter((m) => m.id.toLowerCase().includes(q));
     }, [activeModels, modelSearch]);
 
     const sortedModels = useMemo(() => {
         return [...filteredModels].sort((a, b) => {
-            const favA = isFavorite(a.id) ? 1 : 0;
-            const favB = isFavorite(b.id) ? 1 : 0;
-            if (favA !== favB) return favB - favA;
+            const aFav = isFavorite(a.id) ? 1 : 0;
+            const bFav = isFavorite(b.id) ? 1 : 0;
+            if (aFav !== bFav) return bFav - aFav;
             return a.id.localeCompare(b.id);
         });
     }, [filteredModels, isFavorite]);
 
     if (isLoading || !provider) {
-        if (!provider && error) {
+        if (!isLoading && error) {
             return (
-                <div className="mx-auto flex w-full max-w-7xl flex-col font-mono">
-                    <div className="flex min-h-64 flex-col items-center justify-center rounded-xl border border-destructive/30 bg-destructive/5 px-6 py-14 text-center">
-                        <div className="flex size-10 items-center justify-center rounded-full bg-destructive/10 text-destructive mb-3.5">
+                <div className="mx-auto flex w-full max-w-7xl flex-col font-sans">
+                    <div className="flex min-h-64 flex-col items-center justify-center rounded-3xl border border-destructive/30 bg-destructive/5 px-6 py-14 text-center">
+                        <div className="flex size-11 items-center justify-center rounded-full bg-destructive/10 text-destructive mb-3.5">
                             <AlertTriangle className="size-5" strokeWidth={1.75} />
                         </div>
-                        <h2 className="text-sm font-bold text-foreground">Provider not found</h2>
-                        <p className="mt-1 max-w-md text-xs text-muted-foreground leading-relaxed">
-                            {error instanceof Error
-                                ? error.message
-                                : `Unable to find driver configuration for "${providerId}".`}
+                        <h2 className="text-base font-bold text-ink">
+                            Failed to load provider details
+                        </h2>
+                        <p className="mt-1.5 max-w-md text-xs text-text-muted leading-relaxed font-mono">
+                            {error instanceof Error ? error.message : "Provider not found."}
                         </p>
-                        <div className="mt-4 flex items-center gap-2">
+                        <div className="mt-5 flex gap-2">
+                            <Link to="/providers">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="rounded-full px-4 h-9 text-xs font-semibold cursor-pointer border-hairline bg-canvas hover:bg-canvas-soft text-ink shadow-none"
+                                >
+                                    Back to Catalog
+                                </Button>
+                            </Link>
                             <Button
                                 type="button"
-                                variant="outline"
                                 size="sm"
-                                className="h-8 text-xs cursor-pointer"
+                                className="rounded-full px-5 h-9 text-xs font-semibold cursor-pointer shadow-none"
                                 onClick={() => void refetch()}
                             >
                                 Retry
-                            </Button>
-                            <Button
-                                type="button"
-                                size="sm"
-                                className="h-8 text-xs cursor-pointer"
-                                render={<Link to="/providers" />}
-                            >
-                                Back to Catalog
                             </Button>
                         </div>
                     </div>
@@ -199,12 +207,12 @@ function ProviderDetailPage() {
     const websiteUrl = getProviderWebsiteUrl(provider.id, provider.default_base_url);
 
     return (
-        <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 font-mono">
+        <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 font-sans">
             {/* Top Navigation Back Link */}
             <div>
                 <Link
                     to="/providers"
-                    className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    className="inline-flex items-center gap-2 text-xs font-semibold text-text-muted hover:text-ink transition-colors"
                 >
                     <ArrowLeft className="size-3.5" />
                     <span>Back to Providers Catalog</span>
@@ -212,55 +220,56 @@ function ProviderDetailPage() {
             </div>
 
             {/* Editorial Header Section */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border/80 pb-5">
-                <div className="flex items-center gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-hairline-soft pb-5">
+                <div className="flex items-center gap-3.5">
                     {websiteUrl ? (
                         <a
                             href={websiteUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex size-11 shrink-0 items-center justify-center rounded-lg border border-border/80 bg-secondary/40 p-2 shadow-2xs hover:border-foreground/30 hover:bg-secondary/60 transition-all cursor-pointer"
+                            className="flex size-12 shrink-0 items-center justify-center rounded-[30%] border border-hairline-soft bg-canvas-soft p-2 hover:border-hairline transition-all cursor-pointer"
                             title={`Open ${provider.name} website (${websiteUrl})`}
                         >
                             <ProviderIcon providerId={provider.id} className="size-6" />
                         </a>
                     ) : (
-                        <div className="flex size-11 shrink-0 items-center justify-center rounded-lg border border-border/80 bg-secondary/40 p-2 shadow-2xs">
+                        <div className="flex size-12 shrink-0 items-center justify-center rounded-[30%] border border-hairline-soft bg-canvas-soft p-2">
                             <ProviderIcon providerId={provider.id} className="size-6" />
                         </div>
                     )}
-                    <div className="space-y-0.5">
-                        <div className="flex items-center gap-2 flex-wrap">
+                    <div className="space-y-1">
+                        <div className="flex items-center gap-2.5 flex-wrap">
                             {websiteUrl ? (
                                 <a
                                     href={websiteUrl}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="group inline-flex items-center gap-1.5 text-xl font-bold tracking-tight text-foreground hover:text-foreground/80 transition-colors cursor-pointer"
+                                    className="group inline-flex items-center gap-1.5 text-2xl sm:text-3xl font-bold tracking-tight text-ink hover:opacity-80 transition-opacity cursor-pointer font-sans"
                                     title={`Visit ${provider.name} (${websiteUrl})`}
                                 >
-                                    <span>{provider.name}</span>
-                                    <ExternalLink className="size-3.5 text-muted-foreground group-hover:text-foreground transition-colors" />
+                                    <span>{provider.name}.</span>
+                                    <ExternalLink className="size-4 text-text-muted group-hover:text-ink transition-colors" />
                                 </a>
                             ) : (
-                                <h1 className="text-xl font-bold tracking-tight text-foreground">
-                                    {provider.name}
+                                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-ink font-sans">
+                                    {provider.name}.
                                 </h1>
                             )}
                             {activeConnectionsCount > 0 ? (
-                                <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+                                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
                                     <span className="size-1.5 rounded-full bg-emerald-500" />
                                     <span>{activeConnectionsCount} Connected</span>
                                 </span>
                             ) : (
-                                <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground font-medium">
-                                    <span className="size-1.5 rounded-full bg-muted-foreground/40" />
+                                <span className="inline-flex items-center gap-1.5 rounded-full bg-canvas-soft px-2.5 py-0.5 text-xs text-text-muted font-medium">
+                                    <span className="size-1.5 rounded-full bg-text-muted/40" />
                                     <span>Ready</span>
                                 </span>
                             )}
                         </div>
-                        <p className="text-xs text-muted-foreground font-mono">
-                            Driver ID: <span className="text-foreground">{provider.id}</span> ·{" "}
+                        <p className="text-xs text-text-muted font-mono">
+                            Driver ID: <span className="text-ink font-semibold">{provider.id}</span>{" "}
+                            ·{" "}
                             {CATEGORY_LABELS[provider.category as keyof typeof CATEGORY_LABELS] ??
                                 provider.category}
                         </p>
@@ -272,7 +281,7 @@ function ProviderDetailPage() {
                         type="button"
                         variant="outline"
                         onClick={() => setIsAddModelOpen(true)}
-                        className="h-8 text-xs font-semibold cursor-pointer shadow-2xs gap-1.5 border-border/80 bg-card hover:bg-secondary/60"
+                        className="rounded-full px-4 h-9 text-xs font-semibold cursor-pointer gap-1.5 border-hairline bg-canvas hover:bg-canvas-soft text-ink shadow-none"
                     >
                         <Plus className="size-3.5" />
                         <span>Add Model</span>
@@ -280,7 +289,7 @@ function ProviderDetailPage() {
                     <Button
                         type="button"
                         onClick={handleAddConnection}
-                        className="h-8 text-xs font-semibold cursor-pointer shadow-2xs gap-1.5"
+                        className="rounded-full px-5 h-9 text-xs font-semibold cursor-pointer gap-1.5 shadow-none"
                     >
                         <Plus className="size-3.5" />
                         <span>{provider.requires_oauth ? "Connect Account" : "Add Key"}</span>
@@ -290,11 +299,12 @@ function ProviderDetailPage() {
 
             {/* Notice Alert Banner if OAuth */}
             {provider.requires_oauth && (
-                <div className="flex items-start gap-3 rounded-lg border border-border/80 bg-card p-3.5 text-xs leading-relaxed text-muted-foreground">
-                    <AlertTriangle className="size-4 shrink-0 mt-0.5 text-foreground" />
+                <div className="flex items-start gap-3 rounded-3xl border border-hairline-soft bg-canvas-soft p-4 text-xs leading-relaxed text-text-muted">
+                    <AlertTriangle className="size-4 shrink-0 mt-0.5 text-ink" />
                     <div>
-                        <strong className="text-foreground">OAuth Token Lifecycle:</strong> SRouter manages token lifecycle and
-                        background refresh sweeper automatically for this provider account.
+                        <strong className="text-ink">OAuth Token Lifecycle:</strong> SRouter manages
+                        token lifecycle and background refresh sweeper automatically for this
+                        provider account.
                     </div>
                 </div>
             )}
@@ -305,6 +315,7 @@ function ProviderDetailPage() {
                 connections={connections}
                 roundRobin={provider.roundRobin ?? false}
                 isDeleting={deleteMutation.isPending}
+                requiresOAuth={provider.requires_oauth}
                 onToggleRoundRobin={(enabled) => toggleRoundRobinMutation.mutate(enabled)}
                 onRefresh={() => void refetch()}
                 onAdd={handleAddConnection}
@@ -318,44 +329,47 @@ function ProviderDetailPage() {
 
             {/* Available Models Section */}
             <div className="space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/60 pb-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-hairline-soft pb-3">
                     <div>
-                        <div className="flex items-center gap-2">
-                            <h2 className="text-xs font-bold uppercase tracking-wider text-foreground">
-                                Available Models ({activeModels.length})
+                        <div className="flex items-center gap-2.5">
+                            <h2 className="text-xl font-bold tracking-tight text-ink font-sans">
+                                Available Models.
                             </h2>
+                            <span className="font-mono text-xs text-text-muted">
+                                ({activeModels.length})
+                            </span>
                             {deletedModelIds.length > 0 && (
                                 <button
                                     type="button"
                                     onClick={handleRestoreAllModels}
-                                    className="text-[10.5px] text-amber-500 hover:text-amber-400 hover:underline cursor-pointer flex items-center gap-1"
+                                    className="text-xs text-amber-500 hover:text-amber-400 hover:underline cursor-pointer flex items-center gap-1 font-sans"
                                 >
                                     <RotateCcw className="size-3" />
                                     <span>Restore {deletedModelIds.length} deleted</span>
                                 </button>
                             )}
                         </div>
-                        <p className="text-xs text-muted-foreground mt-0.5">
+                        <p className="text-xs text-text-muted mt-0.5 font-sans">
                             Models exposed by {provider.name} and routed through this gateway.
                         </p>
                     </div>
 
                     <div className="flex items-center gap-2">
                         {/* Search Input */}
-                        <div className="relative w-full sm:w-60">
-                            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                        <div className="relative w-full sm:w-64">
+                            <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-text-muted" />
                             <Input
                                 type="text"
                                 placeholder="Filter model ID…"
                                 value={modelSearch}
                                 onChange={(e) => setModelSearch(e.target.value)}
-                                className="h-8 pl-8 pr-7 font-mono text-xs rounded-md bg-background"
+                                className="h-9 pl-9 pr-8 font-mono text-xs rounded-full bg-field border-0 text-ink placeholder:text-text-faint focus-visible:ring-2 focus-visible:ring-ink focus-visible:outline-none shadow-none"
                             />
                             {modelSearch && (
                                 <button
                                     type="button"
                                     onClick={() => setModelSearch("")}
-                                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xs p-0.5 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                                    className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-1 text-text-muted hover:text-ink transition-colors cursor-pointer"
                                     aria-label="Clear search"
                                 >
                                     <X className="size-3" />
@@ -364,14 +378,14 @@ function ProviderDetailPage() {
                         </div>
 
                         {/* View Mode Switcher (Table / Grid) */}
-                        <div className="flex items-center rounded-md border border-border/70 bg-secondary/30 p-0.5">
+                        <div className="flex items-center rounded-full border border-hairline-soft bg-field p-0.5">
                             <button
                                 type="button"
                                 onClick={() => setViewMode("table")}
-                                className={`flex size-7 items-center justify-center rounded-xs transition-colors cursor-pointer ${
+                                className={`flex size-8 items-center justify-center rounded-full transition-colors cursor-pointer ${
                                     viewMode === "table"
-                                        ? "bg-background text-foreground shadow-xs font-semibold"
-                                        : "text-muted-foreground hover:text-foreground"
+                                        ? "bg-ink text-canvas font-semibold shadow-none"
+                                        : "text-text-muted hover:text-ink"
                                 }`}
                                 title="Table view (Compact)"
                                 aria-label="Table view"
@@ -381,10 +395,10 @@ function ProviderDetailPage() {
                             <button
                                 type="button"
                                 onClick={() => setViewMode("grid")}
-                                className={`flex size-7 items-center justify-center rounded-xs transition-colors cursor-pointer ${
+                                className={`flex size-8 items-center justify-center rounded-full transition-colors cursor-pointer ${
                                     viewMode === "grid"
-                                        ? "bg-background text-foreground shadow-xs font-semibold"
-                                        : "text-muted-foreground hover:text-foreground"
+                                        ? "bg-ink text-canvas font-semibold shadow-none"
+                                        : "text-text-muted hover:text-ink"
                                 }`}
                                 title="Grid view (Cards)"
                                 aria-label="Grid view"
@@ -406,7 +420,7 @@ function ProviderDetailPage() {
                             <button
                                 type="button"
                                 onClick={handleRestoreAllModels}
-                                className="inline-flex items-center gap-1 text-xs text-amber-500 hover:underline cursor-pointer"
+                                className="inline-flex items-center gap-1 text-xs text-amber-500 hover:underline cursor-pointer font-sans"
                             >
                                 <RotateCcw className="size-3" />
                                 <span>Restore all {deletedModelIds.length} models</span>
@@ -422,7 +436,7 @@ function ProviderDetailPage() {
                         onDeleteMultiple={handleDeleteMultipleModels}
                     />
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {sortedModels.map((m) => (
                             <ProviderModelCard
                                 key={m.id}
