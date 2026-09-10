@@ -6,7 +6,7 @@ import {
     getFallbackRuleByIdDB,
     updateFallbackRuleDB
 } from "@srouter/db";
-import { FallbackRuleSchema, UpdateFallbackRuleSchema } from "@srouter/types";
+import { CreateFallbackRuleRequestSchema, UpdateFallbackRuleRequestSchema } from "@srouter/types";
 import { Err, Ok } from "@/utils/response.js";
 
 export class FallbacksController {
@@ -16,13 +16,26 @@ export class FallbacksController {
 
     public static async CreateFallback(c: Context): Promise<Response> {
         const rawBody = await c.req.json().catch(() => null);
-        const parsed = FallbackRuleSchema.safeParse(rawBody);
+        const parsed = CreateFallbackRuleRequestSchema.safeParse(rawBody);
         if (!parsed.success) {
             return Err(c, parsed.error.issues[0]?.message || "Validation failed", 400);
         }
 
         try {
-            return Ok(c, { fallback: await createFallbackRuleDB(parsed.data) }, 201);
+            return Ok(
+                c,
+                {
+                    fallback: await createFallbackRuleDB({
+                        sourceModel: parsed.data.source_model,
+                        targetModel: parsed.data.target_model,
+                        priority: parsed.data.priority ?? 1,
+                        enabled: parsed.data.enabled ?? true,
+                        triggerOnStatus: parsed.data.trigger_on_status,
+                        maxRetries: parsed.data.max_retries
+                    })
+                },
+                201
+            );
         } catch (error) {
             return Err(c, error instanceof Error ? error.message : String(error), 500);
         }
@@ -36,13 +49,22 @@ export class FallbacksController {
         }
 
         const rawBody = await c.req.json().catch(() => null);
-        const parsed = UpdateFallbackRuleSchema.safeParse(rawBody);
+        const parsed = UpdateFallbackRuleRequestSchema.safeParse(rawBody);
         if (!parsed.success) {
             return Err(c, parsed.error.issues[0]?.message || "Validation failed", 400);
         }
 
         try {
-            return Ok(c, { fallback: await updateFallbackRuleDB(id, parsed.data) });
+            return Ok(c, {
+                fallback: await updateFallbackRuleDB(id, {
+                    sourceModel: parsed.data.source_model,
+                    targetModel: parsed.data.target_model,
+                    priority: parsed.data.priority,
+                    enabled: parsed.data.enabled,
+                    triggerOnStatus: parsed.data.trigger_on_status,
+                    maxRetries: parsed.data.max_retries
+                })
+            });
         } catch (error) {
             return Err(c, error instanceof Error ? error.message : String(error), 500);
         }

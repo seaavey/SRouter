@@ -1,9 +1,4 @@
-import type {
-    ChatMessage,
-    ChatCompletionRequest,
-    TokenSaverSettings,
-    TokenSaverPreviewResponse
-} from "@srouter/types";
+import type { ChatMessage, ChatCompletionRequest, TokenSaverSettings } from "@srouter/types";
 
 const ANSI_REGEX = /\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g;
 
@@ -221,7 +216,7 @@ export function CompressSingleToolOutput(
     text: string,
     settings: TokenSaverSettings["compressToolOutput"]
 ): string {
-    if (!settings.enabled || text.length < settings.minCharacterThreshold) {
+    if (text.length < settings.minCharacterThreshold) {
         return text;
     }
 
@@ -270,57 +265,50 @@ export function CompressSingleToolOutput(
 }
 
 export function BuildSystemPromptEnhancements(settings: TokenSaverSettings): string {
-    if (!settings.enabled) return "";
-
     const parts: string[] = [];
 
-    if (settings.lazySeniorDev.enabled) {
-        if (settings.lazySeniorDev.mode === "strict") {
-            parts.push(
-                `[SYSTEM INSTRUCTION: STRICT MINIMALIST SENIOR DEV]\n` +
-                    `- Strictly adhere to YAGNI (You Aren't Gonna Need It): Reject all premature abstractions, helper functions, and unnecessary layers.\n` +
-                    `- Reuse stdlib & existing utilities: Use only built-in language standard libraries and code already present in the workspace. Never add new dependencies.\n` +
-                    `- Surgical edits: Make minimal in-place edits. Delete dead code over adding wrappers. Never rewrite untouched functions or files.\n` +
-                    (settings.lazySeniorDev.customInstructions
-                        ? `- ${settings.lazySeniorDev.customInstructions}\n`
-                        : "")
-            );
-        } else {
-            parts.push(
-                `[SYSTEM INSTRUCTION: LAZY SENIOR DEV]\n` +
-                    `- YAGNI principle: Keep code minimal, direct, and free of speculative extensibility.\n` +
-                    `- Reuse existing stdlib and project utilities rather than importing new packages.\n` +
-                    `- Favor deletion/simplification over addition. Output only targeted, necessary code changes.\n` +
-                    (settings.lazySeniorDev.customInstructions
-                        ? `- ${settings.lazySeniorDev.customInstructions}\n`
-                        : "")
-            );
-        }
+    if (settings.lazySeniorDev.mode === "strict") {
+        parts.push(
+            `[SYSTEM INSTRUCTION: STRICT MINIMALIST SENIOR DEV]\n` +
+                `- Strictly adhere to YAGNI (You Aren't Gonna Need It): Reject all premature abstractions, helper functions, and unnecessary layers.\n` +
+                `- Reuse stdlib & existing utilities: Use only built-in language standard libraries and code already present in the workspace. Never add new dependencies.\n` +
+                `- Surgical edits: Make minimal in-place edits. Delete dead code over adding wrappers. Never rewrite untouched functions or files.\n` +
+                (settings.lazySeniorDev.customInstructions
+                    ? `- ${settings.lazySeniorDev.customInstructions}\n`
+                    : "")
+        );
+    } else {
+        parts.push(
+            `[SYSTEM INSTRUCTION: LAZY SENIOR DEV]\n` +
+                `- YAGNI principle: Keep code minimal, direct, and free of speculative extensibility.\n` +
+                `- Reuse existing stdlib and project utilities rather than importing new packages.\n` +
+                `- Favor deletion/simplification over addition. Output only targeted, necessary code changes.\n` +
+                (settings.lazySeniorDev.customInstructions
+                    ? `- ${settings.lazySeniorDev.customInstructions}\n`
+                    : "")
+        );
     }
 
-    if (settings.compressLlmOutput.enabled) {
-        if (settings.compressLlmOutput.mode === "ultra_terse") {
-            parts.push(
-                `[SYSTEM INSTRUCTION: ULTRA TERSE / CAVEMAN OUTPUT]\n` +
-                    `- Zero conversational pleasantries, preambles, summaries, or pleasant sign-offs.\n` +
-                    `- Telegraphic style: direct, concise, high information density.\n` +
-                    `- Provide code and direct answers immediately with minimal prose (~80% fewer output tokens).\n` +
-                    (settings.compressLlmOutput.customPrompt
-                        ? `- ${settings.compressLlmOutput.customPrompt}\n`
-                        : "")
-            );
-        } else {
-            parts.push(
-                `[SYSTEM INSTRUCTION: TERSE OUTPUT MODE]\n` +
-                    `- Eliminate conversational fluff, redundant greetings, and conclusion summaries.\n` +
-                    `- Go directly to the solution, explanation, and code changes with maximum clarity and density.\n` +
-                    (settings.compressLlmOutput.customPrompt
-                        ? `- ${settings.compressLlmOutput.customPrompt}\n`
-                        : "")
-            );
-        }
+    if (settings.compressLlmOutput.mode === "ultra_terse") {
+        parts.push(
+            `[SYSTEM INSTRUCTION: ULTRA TERSE / CAVEMAN OUTPUT]\n` +
+                `- Zero conversational pleasantries, preambles, summaries, or pleasant sign-offs.\n` +
+                `- Telegraphic style: direct, concise, high information density.\n` +
+                `- Provide code and direct answers immediately with minimal prose (~80% fewer output tokens).\n` +
+                (settings.compressLlmOutput.customPrompt
+                    ? `- ${settings.compressLlmOutput.customPrompt}\n`
+                    : "")
+        );
+    } else {
+        parts.push(
+            `[SYSTEM INSTRUCTION: TERSE OUTPUT MODE]\n` +
+                `- Eliminate conversational fluff, redundant greetings, and conclusion summaries.\n` +
+                `- Go directly to the solution, explanation, and code changes with maximum clarity and density.\n` +
+                (settings.compressLlmOutput.customPrompt
+                    ? `- ${settings.compressLlmOutput.customPrompt}\n`
+                    : "")
+        );
     }
-
     return parts.join("\n\n");
 }
 
@@ -341,20 +329,6 @@ export function ApplyTokenSaver(
     request: ChatCompletionRequest,
     settings: TokenSaverSettings
 ): AppliedTokenSaverResult {
-    if (!settings.enabled) {
-        const tokens = request.messages.reduce((acc, m) => {
-            const content = typeof m.content === "string" ? m.content : JSON.stringify(m.content);
-            return acc + EstimateTokens(content);
-        }, 0);
-        return {
-            request,
-            originalInputTokens: tokens,
-            optimizedInputTokens: tokens,
-            tokensSaved: 0,
-            percentageSaved: 0
-        };
-    }
-
     let original_total_length = 0;
     let optimized_total_length = 0;
 
@@ -363,7 +337,6 @@ export function ApplyTokenSaver(
         original_total_length += raw_content.length;
 
         if (
-            settings.compressToolOutput.enabled &&
             raw_content.length >= settings.compressToolOutput.minCharacterThreshold &&
             (msg.role === "tool" ||
                 msg.role === "user" ||
@@ -415,41 +388,6 @@ export function ApplyTokenSaver(
         originalInputTokens: original_input_tokens,
         optimizedInputTokens: optimized_input_tokens,
         tokensSaved: tokens_saved,
-        percentageSaved: percentage_saved
-    };
-}
-
-export function PreviewTokenSaver(
-    type: "tool_output" | "prompt",
-    text: string,
-    settings: TokenSaverSettings
-): TokenSaverPreviewResponse {
-    const original_tokens_estimate = EstimateTokens(text);
-    let transformed_text = text;
-
-    if (type === "tool_output") {
-        transformed_text = CompressSingleToolOutput(text, settings.compressToolOutput);
-    } else {
-        const enhancements = BuildSystemPromptEnhancements(settings);
-        transformed_text = enhancements ? `${text}\n\n${enhancements}`.trim() : text;
-    }
-
-    const transformed_tokens_estimate = EstimateTokens(transformed_text);
-    const tokens_saved_estimate = Math.max(
-        0,
-        original_tokens_estimate - transformed_tokens_estimate
-    );
-    const percentage_saved =
-        original_tokens_estimate > 0
-            ? Math.round((tokens_saved_estimate / original_tokens_estimate) * 100)
-            : 0;
-
-    return {
-        originalText: text,
-        transformedText: transformed_text,
-        originalTokensEstimate: original_tokens_estimate,
-        transformedTokensEstimate: transformed_tokens_estimate,
-        tokensSavedEstimate: tokens_saved_estimate,
         percentageSaved: percentage_saved
     };
 }

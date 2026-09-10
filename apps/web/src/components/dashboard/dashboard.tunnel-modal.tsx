@@ -66,7 +66,6 @@ type TunnelModalProps = {
     onStart: (payload: { token?: string; domain?: string }) => Promise<boolean>;
     onStop: () => Promise<boolean>;
     onInstall: () => Promise<boolean>;
-    onRefresh: () => Promise<void>;
 };
 
 function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) {
@@ -135,8 +134,7 @@ export function TunnelModal({
     status,
     onStart,
     onStop,
-    onInstall,
-    onRefresh
+    onInstall
 }: TunnelModalProps) {
     const [tunnelBusy, setTunnelBusy] = useState(false);
     const [installBusy, setInstallBusy] = useState(false);
@@ -161,7 +159,6 @@ export function TunnelModal({
         setPendingAction("start");
         try {
             const okStart = await onStart({});
-            await onRefresh();
             if (!okStart) setPendingAction(null);
         } catch {
             setPendingAction(null);
@@ -182,7 +179,6 @@ export function TunnelModal({
             } else {
                 setPendingAction(null);
             }
-            await onRefresh();
         } catch {
             setPendingAction(null);
         } finally {
@@ -197,7 +193,6 @@ export function TunnelModal({
             const okStop = await onStop();
             if (okStop) setConfirmStopOpen(false);
             else setPendingAction(null);
-            await onRefresh();
         } catch {
             setPendingAction(null);
         } finally {
@@ -208,7 +203,6 @@ export function TunnelModal({
     const handleInstall = async () => {
         setInstallBusy(true);
         await onInstall();
-        await onRefresh();
         setInstallBusy(false);
     };
 

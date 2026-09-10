@@ -136,7 +136,7 @@ export function ModelUsageOverview({ models }: ModelUsageOverviewProps) {
                                 key={model.model}
                                 className="group rounded-2xl border border-hairline-soft bg-canvas-soft/40 p-3.5 transition-colors hover:border-hairline hover:bg-canvas-soft"
                             >
-                                <div className="grid min-w-0 grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2">
+                                <div className="grid min-w-0 grid-cols-1 items-center gap-x-3 gap-y-1.5 sm:grid-cols-[minmax(0,1fr)_auto]">
                                     {/* Left: Rank, Icon, Provider & Model Name */}
                                     <div className="flex min-w-0 items-center gap-2.5">
                                         <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-canvas font-mono text-[10px] font-semibold text-text-muted border border-hairline-soft">

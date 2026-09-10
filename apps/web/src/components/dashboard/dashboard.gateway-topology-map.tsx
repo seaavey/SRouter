@@ -33,11 +33,16 @@ import {
     Activity
 } from "lucide-react";
 import { useCatalog } from "@/hooks/useCatalog";
-import { useTokenSaver } from "@/hooks/useTokenSaver";
+
 import { ProviderIcon } from "@/components/providers";
 import { api, getGatewayBaseUrl } from "@/lib/api";
 import { isProviderConnected, getConnectedCount } from "@/utils/provider.utils";
-import type { ProviderDefinition, TokenSaverSettings, RequestLogEntry } from "@srouter/types";
+import {
+    DEFAULT_TOKEN_SAVER_SETTINGS,
+    type ProviderDefinition,
+    type TokenSaverSettings,
+    type RequestLogEntry
+} from "@srouter/types";
 import type { ListResponse } from "@/lib/types";
 
 type CoreNodeData = {
@@ -278,9 +283,7 @@ function NodeDetailInspector({
                                     <span className="text-text-muted font-sans">
                                         Token Compression:
                                     </span>
-                                    <span className="font-semibold text-ink">
-                                        {tokenSaverSettings.enabled ? "Active" : "Disabled"}
-                                    </span>
+                                    <span className="font-semibold text-ink">Active</span>
                                 </div>
                                 <div className="flex justify-between">
                                     <span className="text-text-muted font-sans">
@@ -531,7 +534,6 @@ function ProviderMatrixView({
 
 function GatewayTopologyCanvas() {
     const { allProviders } = useCatalog();
-    const { settings: tokenSaverSettings } = useTokenSaver();
 
     const { data: logsData } = useQuery({
         queryKey: ["recent-logs-topology"],
@@ -665,7 +667,7 @@ function GatewayTopologyCanvas() {
             type: "centralCore",
             position: { x: -128, y: -50 },
             data: {
-                tokenSaverEnabled: tokenSaverSettings?.enabled,
+                tokenSaverEnabled: true,
                 hasActiveTraffic: hasAnyActiveTraffic
             }
         });
@@ -754,7 +756,7 @@ function GatewayTopologyCanvas() {
         });
 
         return { nodes: nodeList, edges: edgeList };
-    }, [displayedProviders, tokenSaverSettings?.enabled, activePings, hasAnyActiveTraffic]);
+    }, [displayedProviders, activePings, hasAnyActiveTraffic]);
 
     const handleNodeClick = useCallback<NodeMouseHandler>((_, node) => {
         if (node.type === "orbitProvider") {
@@ -852,14 +854,14 @@ function GatewayTopologyCanvas() {
                     <NodeDetailInspector
                         selectedNode={selectedNode}
                         onClose={() => setSelectedNode(null)}
-                        tokenSaverSettings={tokenSaverSettings}
+                        tokenSaverSettings={DEFAULT_TOKEN_SAVER_SETTINGS}
                         onTriggerTestRequest={triggerTestRequest}
                     />
                 </div>
             ) : (
                 <ProviderMatrixView
                     displayedProviders={displayedProviders}
-                    isTokenSaverActive={Boolean(tokenSaverSettings?.enabled)}
+                    isTokenSaverActive
                     activeProviderIds={activeProviderIdsSet}
                 />
             )}

@@ -52,11 +52,11 @@ test("POST /settings/fallbacks creates a new fallback rule", async () => {
         method: "POST",
         headers: await getAuthHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({
-            sourceModel: "openai_codex/gpt-4o",
-            targetModel: "antigravity/gemini-2.5-pro",
+            source_model: "openai_codex/gpt-4o",
+            target_model: "antigravity/gemini-2.5-pro",
             priority: 2,
             enabled: true,
-            triggerOnStatus: [429, 500, 502, 503]
+            trigger_on_status: [429, 500, 502, 503]
         })
     });
 
@@ -87,7 +87,7 @@ test("PUT and DELETE /settings/fallbacks/:id updates and removes fallback rule",
         method: "PUT",
         headers: await getAuthHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({
-            targetModel: "test/updated-dst",
+            target_model: "test/updated-dst",
             enabled: false
         })
     });
@@ -107,4 +107,20 @@ test("PUT and DELETE /settings/fallbacks/:id updates and removes fallback rule",
 
     assert.equal(deleteRes.status, 200);
     assert.equal(await await getFallbackRuleByIdDB(rule.id), null);
+});
+
+test("POST /settings/fallbacks rejects camelCase request keys", async () => {
+    const app = new Hono();
+    app.route("/v1", SettingsRouter);
+
+    const res = await app.request("/v1/settings/fallbacks", {
+        method: "POST",
+        headers: await getAuthHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({
+            sourceModel: "openai/gpt-4o",
+            targetModel: "anthropic/claude-3-5-sonnet"
+        })
+    });
+
+    assert.equal(res.status, 400);
 });

@@ -41,10 +41,14 @@ export function useFallbacks() {
 
             setSaving(true);
             try {
-                const res = await api.post<{ fallback: FallbackRule }>(
-                    "/v1/settings/fallbacks",
-                    data
-                );
+                const res = await api.post<{ fallback: FallbackRule }>("/v1/settings/fallbacks", {
+                    source_model: data.sourceModel,
+                    target_model: data.targetModel,
+                    priority: data.priority,
+                    enabled: data.enabled,
+                    trigger_on_status: data.triggerOnStatus,
+                    max_retries: data.maxRetries
+                });
                 if (res.fallback) {
                     setFallbacks((prev) =>
                         [...prev, res.fallback].sort((a, b) => a.priority - b.priority)
@@ -69,10 +73,14 @@ export function useFallbacks() {
     const updateFallback = useCallback(async (id: string, updates: Partial<FallbackRule>) => {
         setSaving(true);
         try {
-            const res = await api.put<{ fallback: FallbackRule }>(
-                `/v1/settings/fallbacks/${id}`,
-                updates
-            );
+            const res = await api.put<{ fallback: FallbackRule }>(`/v1/settings/fallbacks/${id}`, {
+                source_model: updates.sourceModel,
+                target_model: updates.targetModel,
+                priority: updates.priority,
+                enabled: updates.enabled,
+                trigger_on_status: updates.triggerOnStatus,
+                max_retries: updates.maxRetries
+            });
             if (res.fallback) {
                 setFallbacks((prev) =>
                     prev

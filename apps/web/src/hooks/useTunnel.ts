@@ -71,7 +71,10 @@ export function useTunnelStatus() {
 export function useTunnelActions() {
     const startTunnel = useCallback(async (payload: { token?: string; domain?: string }) => {
         try {
-            await api.post("/v1/tunnel/start", payload);
+            await api.post("/v1/tunnel/start", {
+                token: payload.token,
+                domain: payload.domain
+            });
             toast.success("Cloudflare Tunnel started", {
                 description: payload.domain
                     ? `Custom domain: ${payload.domain}`

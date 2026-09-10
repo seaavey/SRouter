@@ -194,7 +194,6 @@ export function NetworkStatus() {
                 onStart={startTunnel}
                 onStop={stopTunnel}
                 onInstall={installCloudflared}
-                onRefresh={fetchStatus}
             />
         </section>
     );

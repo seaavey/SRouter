@@ -8,14 +8,11 @@ import {
     compressGitDiff,
     compressGitStatusOrLog,
     compressGrepOutput,
-    PreviewTokenSaver,
     stripAnsiCodes
 } from "../src/tokenSaver.js";
 
 const DEFAULT_SETTINGS: TokenSaverSettings = {
-    enabled: true,
     compressToolOutput: {
-        enabled: true,
         compressGit: true,
         compressGrep: true,
         compressFileLists: true,
@@ -24,11 +21,9 @@ const DEFAULT_SETTINGS: TokenSaverSettings = {
         minCharacterThreshold: 10
     },
     lazySeniorDev: {
-        enabled: true,
         mode: "balanced"
     },
     compressLlmOutput: {
-        enabled: true,
         mode: "terse",
         stripPleasantries: true
     }
@@ -174,22 +169,4 @@ index 1111111..2222222 100644
 
     assert.ok(result.tokensSaved > 0);
     assert.ok(result.percentageSaved >= 0);
-});
-
-test("previewTokenSaver returns accurate before and after token simulation", () => {
-    const rawDiff = `diff --git a/app.ts b/app.ts
-index 1234567..7654321 100644
---- a/app.ts
-+++ b/app.ts
-@@ -10,3 +10,4 @@
- test content
-+extra line
- end content`;
-
-    const preview = PreviewTokenSaver("tool_output", rawDiff, DEFAULT_SETTINGS);
-    assert.equal(preview.originalText, rawDiff);
-    assert.ok(preview.transformedText.length < preview.originalText.length);
-    assert.ok(preview.transformedTokensEstimate < preview.originalTokensEstimate);
-    assert.ok(preview.tokensSavedEstimate > 0);
-    assert.ok(preview.percentageSaved > 0);
 });
