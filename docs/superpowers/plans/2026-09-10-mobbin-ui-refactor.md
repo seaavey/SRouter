@@ -274,12 +274,12 @@ git commit -m "feat(providers): refactor provider cards, modals and detail view 
 - Consumes: Keys query and create/edit mutations.
 - Produces: Streamlined API Key management with typography contrast.
 
-- [ ] **Step 1: Refactor Keys Telemetry Cards & Action Bar in `keys.tsx`**
+- [x] **Step 1: Refactor Keys Telemetry Cards & Action Bar in `keys.tsx`**
 
 - KPI cards: 24px rounded, hairline borders, bold numbers, clear labels.
 - "Create API Key" CTA: `button-primary` stadium pill.
 
-- [ ] **Step 2: Refactor API Keys Table (`keys.table.tsx`)**
+- [x] **Step 2: Refactor API Keys Table (`keys.table.tsx`)**
 
 - Column headers: `font-mono text-xs uppercase text-text-muted bg-canvas-soft`.
 - Key name: `font-sans font-medium text-ink`.
@@ -287,18 +287,18 @@ git commit -m "feat(providers): refactor provider cards, modals and detail view 
 - Quota / Credit progress indicator: 1px hairline meter with accent electric blue fill.
 - Action dropdown buttons: stadium-pill icon trigger.
 
-- [ ] **Step 3: Refactor Key Creation & Edit Dialogs**
+- [x] **Step 3: Refactor Key Creation & Edit Dialogs**
 
 - Modal surface: `rounded-3xl bg-canvas border border-hairline-soft p-6 md:p-8`.
 - Form inputs: `bg-field rounded-2xl border-0 text-ink focus:ring-2 focus:ring-ink`.
 - Form actions: "Cancel" outline pill + "Generate Key" primary ink pill.
 
-- [ ] **Step 4: Run web typecheck and build**
+- [x] **Step 4: Run web typecheck and build**
 
 Run: `pnpm --filter web lint && pnpm --filter web build`
 Expected: PASS with 0 errors.
 
-- [ ] **Step 5: Commit Task 6**
+- [x] **Step 5: Commit Task 6**
 
 ```bash
 git add apps/web/src/routes/keys.tsx apps/web/src/components/keys/
