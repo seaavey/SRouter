@@ -14,8 +14,7 @@ import { api } from "@/lib/api";
 export interface ConnectionFormInput {
     name?: string;
     base_url?: string;
-    baseUrl?: string;
-    apiKey: string;
+    api_key: string;
 }
 
 type VerifyResponse = {
@@ -107,7 +106,7 @@ export function ConnectionForm({
         onSubmit({
             name: `${providerName} Key`,
             base_url: defaultBaseUrl || undefined,
-            apiKey: trimmedKey
+            api_key: trimmedKey
         });
     };
 
@@ -136,7 +135,8 @@ export function ConnectionForm({
                 <DialogHeader className="p-0 space-y-1">
                     <DialogTitle className="sr-only">Add API Key for {providerName}</DialogTitle>
                     <DialogDescription className="text-xs text-muted-foreground">
-                        Enter credentials for {providerName} and verify the upstream connection before saving.
+                        Enter credentials for {providerName} and verify the upstream connection
+                        before saving.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -148,10 +148,7 @@ export function ConnectionForm({
 
                 <form onSubmit={handleSubmit} className="space-y-4 text-xs">
                     <div className="space-y-1.5">
-                        <label
-                            htmlFor="conn-api-key"
-                            className="font-medium text-foreground block"
-                        >
+                        <label htmlFor="conn-api-key" className="font-medium text-foreground block">
                             API Key / Access Token *
                         </label>
                         <div className="relative">

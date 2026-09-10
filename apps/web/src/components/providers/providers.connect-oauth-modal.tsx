@@ -202,13 +202,9 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
     });
 
     const patMutation = useMutation({
-        mutationFn: (payload: { accessToken: string }) => {
+        mutationFn: (payload: { access_token: string }) => {
             const endpoint = `/v1/auth/${authProviderId}/token`;
-            // Schema requires snake_case; handler mappers read camelCase (passthrough).
-            return api.post(endpoint, {
-                access_token: payload.accessToken,
-                accessToken: payload.accessToken
-            });
+            return api.post(endpoint, payload);
         },
         onSuccess: () => {
             if (provider) {
@@ -235,15 +231,12 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
             const results = await Promise.allSettled(
                 lines.map((line) => {
                     // Codex lines may carry an optional refresh token: "<access>,<refresh>"
-                    const [accessToken, refreshToken] = isCodex
+                    const [access_token, refresh_token] = isCodex
                         ? line.split(",").map((s) => s.trim())
                         : [line];
                     return api.post(`/v1/auth/${authProviderId}/token`, {
-                        access_token: accessToken,
-                        accessToken,
-                        ...(refreshToken
-                            ? { refresh_token: refreshToken, refreshToken }
-                            : {})
+                        access_token,
+                        ...(refresh_token ? { refresh_token } : {})
                     });
                 })
             );
@@ -321,12 +314,12 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
         }
 
         setError("");
-        patMutation.mutate({ accessToken: token });
+        patMutation.mutate({ access_token: token });
     };
 
     if (!provider) return null;
 
-    const tabsCount = (supportsBulk ? 3 : isQoder || isCodeBuddy ? 2 : 1);
+    const tabsCount = supportsBulk ? 3 : isQoder || isCodeBuddy ? 2 : 1;
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -334,7 +327,10 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                 {/* Header */}
                 <DialogHeader className="flex flex-row items-center justify-between pb-3 border-b border-border/60">
                     <div className="flex items-center gap-2.5">
-                        <ProviderIcon providerId={provider.id} className="size-6 rounded-md shadow-2xs" />
+                        <ProviderIcon
+                            providerId={provider.id}
+                            className="size-6 rounded-md shadow-2xs"
+                        />
                         <div>
                             <DialogTitle className="text-sm font-bold tracking-tight text-foreground">
                                 Connect {provider.name}
@@ -423,7 +419,8 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                                 </label>
                                 {bulkInput.split(/\r?\n/).filter((l) => l.trim()).length > 0 && (
                                     <span className="rounded-md bg-secondary px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground">
-                                        {bulkInput.split(/\r?\n/).filter((l) => l.trim()).length} detected
+                                        {bulkInput.split(/\r?\n/).filter((l) => l.trim()).length}{" "}
+                                        detected
                                     </span>
                                 )}
                             </div>
@@ -452,7 +449,11 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                             </p>
                             <textarea
                                 rows={5}
-                                placeholder={isCodex ? "eyJhbGciOi...\neyJhbGciOi..." : "pt-xxx...\npt-yyy..."}
+                                placeholder={
+                                    isCodex
+                                        ? "eyJhbGciOi...\neyJhbGciOi..."
+                                        : "pt-xxx...\npt-yyy..."
+                                }
                                 value={bulkInput}
                                 onChange={(e) => setBulkInput(e.target.value)}
                                 className="w-full resize-y rounded-lg border border-border/60 bg-secondary/20 px-3 py-2 text-xs font-mono text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-ring"
@@ -475,7 +476,9 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                                 disabled={bulkMutation.isPending}
                                 className="h-8 text-xs font-semibold cursor-pointer gap-1.5"
                             >
-                                {bulkMutation.isPending && <Loader2 className="size-3.5 animate-spin" />}
+                                {bulkMutation.isPending && (
+                                    <Loader2 className="size-3.5 animate-spin" />
+                                )}
                                 {bulkMutation.isPending ? "Importing…" : "Import Accounts"}
                             </Button>
                         </div>
@@ -528,7 +531,9 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                             {/* Link Copy Box */}
                             <div className="space-y-1.5">
                                 <div className="flex items-center justify-between text-[11px]">
-                                    <span className="text-muted-foreground">Or copy authorization URL</span>
+                                    <span className="text-muted-foreground">
+                                        Or copy authorization URL
+                                    </span>
                                     <button
                                         type="button"
                                         onClick={() => void handleCopy()}
@@ -632,9 +637,7 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                             </p>
                             <input
                                 type="password"
-                                placeholder={
-                                    isCodeBuddy || isCodex ? "eyJhbGciOi..." : "pt-..."
-                                }
+                                placeholder={isCodeBuddy || isCodex ? "eyJhbGciOi..." : "pt-..."}
                                 value={patInput}
                                 onChange={(e) => setPatInput(e.target.value)}
                                 className="w-full rounded-lg border border-border/60 bg-secondary/20 px-3 py-2 text-xs font-mono text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-ring"

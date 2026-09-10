@@ -3,8 +3,10 @@ import { toast } from "sonner";
 import { api } from "@/lib/api";
 import type {
     TokenSaverPreviewRequest,
+    TokenSaverPreviewRequestPayload,
     TokenSaverPreviewResponse,
-    TokenSaverSettings
+    TokenSaverSettings,
+    TokenSaverSettingsRequest
 } from "@srouter/types";
 
 export const DEFAULT_TOKEN_SAVER_SETTINGS: TokenSaverSettings = {
@@ -53,12 +55,44 @@ export function useTokenSaver() {
         void fetchSettings();
     }, [fetchSettings]);
 
+    const toRequestSettings = (
+        partial: Partial<TokenSaverSettings>
+    ): TokenSaverSettingsRequest => ({
+        enabled: partial.enabled,
+        compress_tool_output: partial.compressToolOutput
+            ? {
+                  enabled: partial.compressToolOutput.enabled,
+                  compress_git: partial.compressToolOutput.compressGit,
+                  compress_grep: partial.compressToolOutput.compressGrep,
+                  compress_file_lists: partial.compressToolOutput.compressFileLists,
+                  compress_logs: partial.compressToolOutput.compressLogs,
+                  strip_ansi_and_whitespace: partial.compressToolOutput.stripAnsiAndWhitespace,
+                  min_character_threshold: partial.compressToolOutput.minCharacterThreshold
+              }
+            : undefined,
+        lazy_senior_dev: partial.lazySeniorDev
+            ? {
+                  enabled: partial.lazySeniorDev.enabled,
+                  mode: partial.lazySeniorDev.mode,
+                  custom_instructions: partial.lazySeniorDev.customInstructions
+              }
+            : undefined,
+        compress_llm_output: partial.compressLlmOutput
+            ? {
+                  enabled: partial.compressLlmOutput.enabled,
+                  mode: partial.compressLlmOutput.mode,
+                  strip_pleasantries: partial.compressLlmOutput.stripPleasantries,
+                  custom_prompt: partial.compressLlmOutput.customPrompt
+              }
+            : undefined
+    });
+
     const updateSettings = useCallback(async (partial: Partial<TokenSaverSettings>) => {
         setSaving(true);
         try {
             const res = await api.patch<{ settings: TokenSaverSettings; message?: string }>(
                 "/v1/settings/token-saver",
-                partial
+                toRequestSettings(partial)
             );
             if (res.settings) {
                 setSettings(res.settings);
@@ -84,8 +118,8 @@ export function useTokenSaver() {
                     "/v1/settings/token-saver/test",
                     {
                         ...req,
-                        settings: req.settings ?? settings
-                    }
+                        settings: toRequestSettings(req.settings ?? settings)
+                    } satisfies TokenSaverPreviewRequestPayload
                 );
                 return res;
             } catch (err) {

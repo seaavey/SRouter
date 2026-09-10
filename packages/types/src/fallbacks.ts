@@ -18,6 +18,17 @@ export type CreateFallbackRuleInput = Omit<FallbackRule, "id" | "createdAt"> & {
 
 export type UpdateFallbackRuleInput = Partial<Omit<FallbackRule, "id" | "createdAt">>;
 
+export interface CreateFallbackRuleRequest {
+    source_model: string;
+    target_model: string;
+    priority?: number;
+    enabled?: boolean;
+    trigger_on_status?: number[];
+    max_retries?: number;
+}
+
+export type UpdateFallbackRuleRequest = Partial<CreateFallbackRuleRequest>;
+
 export const FallbackRuleSchema = z.object({
     id: z.string().optional(),
     sourceModel: z
@@ -36,3 +47,14 @@ export const UpdateFallbackRuleSchema = FallbackRuleSchema.partial();
 
 export type FallbackRuleZod = z.infer<typeof FallbackRuleSchema>;
 export type UpdateFallbackRuleZod = z.infer<typeof UpdateFallbackRuleSchema>;
+
+export const CreateFallbackRuleRequestSchema = z.object({
+    source_model: z.string().min(1, "Field 'source_model' cannot be empty"),
+    target_model: z.string().min(1, "Field 'target_model' cannot be empty"),
+    priority: z.number().int().nonnegative().optional(),
+    enabled: z.boolean().optional(),
+    trigger_on_status: z.array(z.number().int()).optional(),
+    max_retries: z.number().int().nonnegative().optional()
+});
+
+export const UpdateFallbackRuleRequestSchema = CreateFallbackRuleRequestSchema.partial();
