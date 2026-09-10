@@ -410,22 +410,22 @@ git commit -m "feat(settings): refactor pricing, logs, combo and settings to Mob
 - Consumes: All updated files from Tasks 1-8.
 - Produces: Verified, production-ready dashboard build with zero errors.
 
-- [ ] **Step 1: Run TypeScript typecheck across web**
+- [x] **Step 1: Run TypeScript typecheck across web**
 
 Run: `pnpm --filter web lint`
 Expected: PASS with 0 errors.
 
-- [ ] **Step 2: Run Prettier check across modified files**
+- [x] **Step 2: Run Prettier check across modified files**
 
 Run: `pnpm exec prettier --check "apps/web/src/**/*.{ts,tsx,css,html}"`
 Expected: All files properly formatted. If any differ, run `pnpm exec prettier --write "apps/web/src/**/*.{ts,tsx,css,html}"`.
 
-- [ ] **Step 3: Run production build**
+- [x] **Step 3: Run production build**
 
 Run: `pnpm --filter web build`
 Expected: Successful build generating `apps/web/dist`.
 
-- [ ] **Step 4: Verify working tree clean**
+- [x] **Step 4: Verify working tree clean**
 
 Run: `git status`
 Expected: Working tree clean, everything committed.

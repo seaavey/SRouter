@@ -1,9 +1,5 @@
 import type { AnalyticsReport, AnalyticsWindow } from "@srouter/types";
-import {
-    exportDatabase,
-    importDatabase,
-    type DatabaseImportResult
-} from "./databaseTransfer";
+import { exportDatabase, importDatabase, type DatabaseImportResult } from "./databaseTransfer";
 import { ApiError, responseError } from "./apiError";
 
 export type { DatabaseImportResult } from "./databaseTransfer";
@@ -12,7 +8,8 @@ export { ApiError } from "./apiError";
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const res = await fetch(path, {
         credentials: "include",
-        headers: init?.body instanceof FormData ? undefined : { "Content-Type": "application/json" },
+        headers:
+            init?.body instanceof FormData ? undefined : { "Content-Type": "application/json" },
         ...init
     });
 
