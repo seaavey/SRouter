@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -80,6 +80,15 @@ function SettingsPage() {
         }
     }, [serverSettings]);
 
+    const isClickScrollingRef = useRef(false);
+    const clickTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    useEffect(() => {
+        return () => {
+            if (clickTimeoutRef.current) clearTimeout(clickTimeoutRef.current);
+        };
+    }, []);
+
     // Track scroll position to update active section pill
     useEffect(() => {
         const sections = SECTIONS.map(({ id }) => document.getElementById(id)).filter(
@@ -95,6 +104,8 @@ function SettingsPage() {
 
         const observer = new IntersectionObserver(
             (entries) => {
+                if (isClickScrollingRef.current) return;
+
                 const visibleSections = entries
                     .filter((entry) => entry.isIntersecting)
                     .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
@@ -120,16 +131,18 @@ function SettingsPage() {
         };
     }, [isLoadingServerSettings]);
 
-    // On mobile, keep the active section tab centered in the horizontal scroll view
+    // On mobile, keep the active section tab centered in the horizontal scroll view using nav.scrollTo
+    // (Never call scrollIntoView on activeBtn because it cancels the vertical page scroll!)
     useEffect(() => {
         if (typeof window !== "undefined" && window.innerWidth < 1024) {
-            const activeBtn = document.querySelector(`[data-section-nav="${activeSection}"]`);
-            if (activeBtn) {
-                activeBtn.scrollIntoView({
-                    behavior: "smooth",
-                    inline: "center",
-                    block: "nearest"
-                });
+            const nav = document.querySelector('nav[aria-label="Settings sections"]');
+            const activeBtn = document.querySelector(
+                `[data-section-nav="${activeSection}"]`
+            ) as HTMLElement | null;
+            if (nav && activeBtn) {
+                const scrollLeft =
+                    activeBtn.offsetLeft - nav.clientWidth / 2 + activeBtn.clientWidth / 2;
+                nav.scrollTo({ left: Math.max(0, scrollLeft), behavior: "smooth" });
             }
         }
     }, [activeSection]);
@@ -157,6 +170,12 @@ function SettingsPage() {
 
     const scrollToSection = (id: string) => {
         setActiveSection(id);
+        isClickScrollingRef.current = true;
+        if (clickTimeoutRef.current) clearTimeout(clickTimeoutRef.current);
+        clickTimeoutRef.current = setTimeout(() => {
+            isClickScrollingRef.current = false;
+        }, 1000);
+
         const el = document.getElementById(id);
         const scrollContainer = document.getElementById("dashboard-scroll-container");
         if (el && scrollContainer) {
