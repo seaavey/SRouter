@@ -366,33 +366,33 @@ git commit -m "feat(analytics): refactor quota tracker and telemetry charts to M
 - Consumes: Pricing, Logs, Fallback rules, and Settings queries.
 - Produces: Complete consistency across all remaining dashboard routes.
 
-- [ ] **Step 1: Refactor Pricing Catalog (`pricing.tsx`)**
+- [x] **Step 1: Refactor Pricing Catalog (`pricing.tsx`)**
 
 - Filter bar: stadium-pill filters (`rounded-full`).
 - Pricing table: `compare-table` styling with `rounded-3xl` container, hairline dividers, and pricing values in `font-mono`.
 
-- [ ] **Step 2: Refactor Request Logs (`logs.tsx`)**
+- [x] **Step 2: Refactor Request Logs (`logs.tsx`)**
 
 - Search & filter bar: `bg-field rounded-full px-4 py-2 text-sm`.
 - Log audit rows: high-density table with HTTP status badge pills, model name, token metrics, and latency in `font-mono`.
 
-- [ ] **Step 3: Refactor Combo / Fallback Rules (`combo.tsx`)**
+- [x] **Step 3: Refactor Combo / Fallback Rules (`combo.tsx`)**
 
 - Rule cards: `rounded-3xl border border-hairline-soft bg-canvas p-6`.
 - Routing chain visual: clean directional arrows and model squircle chips.
 
-- [ ] **Step 4: Refactor Settings (`settings.tsx` & subcomponents)**
+- [x] **Step 4: Refactor Settings (`settings.tsx` & subcomponents)**
 
 - Vertical tabs: stadium-pill tab list (`rounded-full px-4 py-2 text-sm`).
 - Setting groups: `rounded-3xl border border-hairline-soft bg-canvas p-6`.
 - Form inputs: `bg-field rounded-2xl border-0 text-ink`.
 
-- [ ] **Step 5: Run web typecheck and build**
+- [x] **Step 5: Run web typecheck and build**
 
 Run: `pnpm --filter web lint && pnpm --filter web build`
 Expected: PASS with 0 errors.
 
-- [ ] **Step 6: Commit Task 8**
+- [x] **Step 6: Commit Task 8**
 
 ```bash
 git add apps/web/src/routes/pricing.tsx apps/web/src/routes/logs.tsx apps/web/src/routes/combo.tsx apps/web/src/routes/settings.tsx apps/web/src/components/settings/
