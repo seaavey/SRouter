@@ -50,6 +50,8 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
     const [isLoadingUrl, setIsLoadingUrl] = useState(false);
     const popupRef = useRef<Window | null>(null);
 
+    const providerId = provider?.id;
+    const providerName = provider?.name;
     const baseId = provider?.id.split("_")[0]?.split("-")[0] ?? provider?.id ?? "";
     const authProviderId = provider?.id === "codebuddy-cn" ? "codebuddy-cn" : baseId;
     const isQoder = baseId === "qoder";
@@ -60,7 +62,7 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
 
     // Fetch backend-registered PKCE OAuth session without auto-opening popup
     useEffect(() => {
-        if (!open || !provider) {
+        if (!open || !providerId) {
             setAuthUrl("");
             setOauthState("");
             setError("");
@@ -97,7 +99,7 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                 setIsLoadingUrl(false);
                 setError(err.message || "Failed to initiate OAuth login session");
             });
-    }, [open, provider, baseId, authProviderId]);
+    }, [open, providerId, baseId, authProviderId]);
 
     const handleOpenPopup = () => {
         if (!authUrl) return;
@@ -115,7 +117,7 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
 
     // Listen for postMessage from auto-closing popup window (for redirect-based OAuth)
     useEffect(() => {
-        if (!open || !provider) return;
+        if (!open || !providerId) return;
 
         const handleMessage = (event: MessageEvent) => {
             if (
@@ -127,9 +129,9 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                     popupRef.current.close();
                 }
                 void queryClient.invalidateQueries({ queryKey: ["providers"] });
-                void queryClient.invalidateQueries({ queryKey: ["providers", provider.id] });
+                void queryClient.invalidateQueries({ queryKey: ["providers", providerId] });
                 void queryClient.invalidateQueries({ queryKey: ["providers", "catalog"] });
-                toast.success(`${provider.name} connected successfully!`);
+                toast.success(`${providerName ?? "Provider"} connected successfully!`);
                 onOpenChange(false);
                 setCallbackUrlInput("");
                 setError("");
@@ -138,11 +140,11 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
 
         window.addEventListener("message", handleMessage);
         return () => window.removeEventListener("message", handleMessage);
-    }, [open, provider, queryClient, onOpenChange]);
+    }, [open, providerId, providerName, queryClient, onOpenChange]);
 
     // Active polling for Qoder and CodeBuddy Device/OAuth Flow
     useEffect(() => {
-        if (!open || !provider || !isPolling || !oauthState) return;
+        if (!open || !providerId || !isPolling || !oauthState) return;
 
         const interval = setInterval(async () => {
             try {
@@ -158,9 +160,9 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                         popupRef.current.close();
                     }
                     void queryClient.invalidateQueries({ queryKey: ["providers"] });
-                    void queryClient.invalidateQueries({ queryKey: ["providers", provider.id] });
+                    void queryClient.invalidateQueries({ queryKey: ["providers", providerId] });
                     void queryClient.invalidateQueries({ queryKey: ["providers", "catalog"] });
-                    toast.success(`${provider.name} connected successfully!`);
+                    toast.success(`${providerName ?? "Provider"} connected successfully!`);
                     onOpenChange(false);
                     setError("");
                 }
@@ -170,7 +172,17 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
         }, 2000);
 
         return () => clearInterval(interval);
-    }, [open, provider, isPolling, baseId, authProviderId, oauthState, queryClient, onOpenChange]);
+    }, [
+        open,
+        providerId,
+        providerName,
+        isPolling,
+        baseId,
+        authProviderId,
+        oauthState,
+        queryClient,
+        onOpenChange
+    ]);
 
     const callbackMutation = useMutation({
         mutationFn: (payload: { callback_url: string }) => {

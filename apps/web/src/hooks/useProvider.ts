@@ -13,6 +13,8 @@ export type AddConnectionPayload = Pick<
     "id" | "name" | "category" | "protocol" | "base_url" | "api_key"
 >;
 
+const EMPTY_HIDDEN_MODELS: string[] = [];
+
 /**
  * Loads a provider definition and exposes add/delete connection mutations with
  * query invalidation for both the detail view and the catalog.
@@ -152,7 +154,7 @@ export function useProvider(providerId: string) {
 
     return {
         ...query,
-        hiddenModelIds: hiddenModelsQuery.data?.models ?? [],
+        hiddenModelIds: hiddenModelsQuery.data?.models ?? EMPTY_HIDDEN_MODELS,
         addMutation,
         deleteMutation,
         toggleRoundRobinMutation,

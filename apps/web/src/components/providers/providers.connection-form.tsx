@@ -165,7 +165,6 @@ export function ConnectionForm({
                                         setVerifyStatus("idle");
                                     }
                                 }}
-                                autoFocus
                                 required
                                 className="w-full rounded border border-border/80 bg-background px-3 py-2 pr-9 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-foreground"
                             />

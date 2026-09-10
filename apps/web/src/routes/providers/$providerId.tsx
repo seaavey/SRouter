@@ -313,6 +313,7 @@ function ProviderDetailPage() {
                 connections={connections}
                 roundRobin={provider.roundRobin ?? false}
                 isDeleting={deleteMutation.isPending}
+                requiresOAuth={provider.requires_oauth}
                 onToggleRoundRobin={(enabled) => toggleRoundRobinMutation.mutate(enabled)}
                 onRefresh={() => void refetch()}
                 onAdd={handleAddConnection}
