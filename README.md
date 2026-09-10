@@ -1,10 +1,10 @@
 <div align="center">
 
-# ⚡ SRouter
+# SRouter
 
-**Local-first AI gateway & LLM proxy for OpenAI, Anthropic, and custom models.**
+**A local-first AI gateway and LLM proxy for OpenAI, Anthropic, and custom models.**
 
-Keep a single stable endpoint while SRouter routes requests, refreshes OAuth tokens, enforces quotas, and monitors live telemetry.
+Use one local endpoint to route requests, manage provider authentication, enforce quotas, and inspect usage.
 
 <p>
   <a href="https://github.com/seaavey/SRouter/releases"><img src="https://img.shields.io/badge/version-v0.1.6-6366f1?style=flat-square" alt="Version"></a>
@@ -12,28 +12,31 @@ Keep a single stable endpoint while SRouter routes requests, refreshes OAuth tok
   <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/node-%3E%3D22-339933?style=flat-square&logo=node.js&logoColor=white" alt="Node.js"></a>
   <a href="https://hono.dev/"><img src="https://img.shields.io/badge/Hono-v4.13-e36002?style=flat-square" alt="Hono"></a>
   <a href="https://react.dev/"><img src="https://img.shields.io/badge/React-v19-61dafb?style=flat-square&logo=react&logoColor=black" alt="React"></a>
-  <a href="https://www.sqlite.org/"><img src="https://img.shields.io/badge/SQLite-WAL-003b57?style=flat-square&logo=sqlite&logoColor=white" alt="SQLite"></a>
 </p>
 
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/images/demo-dark.gif">
     <source media="(prefers-color-scheme: light)" srcset="docs/images/demo-light.gif">
-    <img src="docs/images/demo-dark.gif" alt="SRouter Dashboard Walkthrough" width="100%">
+    <img src="docs/images/demo-dark.gif" alt="SRouter dashboard walkthrough" width="100%">
   </picture>
 </p>
 
-[Quick Start](#-quick-start) • [Providers](#-supported-providers) • [Coding Tools](#-connect-coding-tools) • [Integrations](#-integrate) • [API](#-api-endpoints) • [Docker](#-docker)
-
 </div>
 
----
+## Contents
 
-## ⚡ Quick Start
+- [Quick start](#quick-start)
+- [Connect coding tools](#connect-coding-tools)
+- [Configure a client](#configure-a-client)
+- [Supported providers](#supported-providers)
+- [API endpoints](#api-endpoints)
+- [Development](#development)
+- [Docker Compose](#docker-compose)
 
-Get SRouter running locally in under a minute.
+## Quick Start
 
-### Option A: Docker (Recommended)
+### Docker
 
 ```bash
 docker run -d \
@@ -41,13 +44,17 @@ docker run -d \
   --restart unless-stopped \
   -p 3000:3000 \
   -p 1455:1455 \
-  -v $HOME/.srouter:/root/.srouter \
+  -v "$HOME/.srouter:/root/.srouter" \
   ghcr.io/seaavey/srouter:latest
 ```
 
-> Data is persisted on the host at `~/.srouter` (`$HOME/.srouter`). Using a named volume like `srouter_data:/root/.srouter` will store data inside Docker at `/var/lib/docker/volumes/srouter_data/_data` instead of on the host.
+SRouter stores its SQLite database and provider credentials in `~/.srouter` on the host.
 
-### Option B: Local Node.js
+Open `http://localhost:3000` and configure a provider from the dashboard. Then create a virtual API key from **API Keys** and test a model from **Playground**.
+
+### Local Node.js
+
+Requirements: Node.js 22 or later and pnpm 11.
 
 ```bash
 git clone https://github.com/seaavey/SRouter.git
@@ -57,60 +64,44 @@ pnpm build
 pnpm start
 ```
 
-Open **`http://localhost:3000`** to access the dashboard. Configure your provider accounts under **Providers**, generate a virtual key in **API Keys**, and test endpoints immediately in **Playground**.
+The dashboard is available at `http://localhost:3000`.
 
----
+## Connect Coding Tools
 
-## 🔌 Connect Coding Tools
-
-Use `@srouter/cli` to configure AI developer tools with one command:
+Install and configure the CLI from npm:
 
 ```bash
-# Interactive setup wizard
 npx @srouter/cli setup
-
-# Check status & link tools
 npx @srouter/cli doctor
 npx @srouter/cli link claude --model claude-3-7-sonnet
 npx @srouter/cli link opencode --model antigravity/gemini-3.7-flash-high
+```
 
-# Run tools directly wrapped in SRouter environment
+Run a coding tool with SRouter's proxy environment:
+
+```bash
 npx @srouter/cli run claude
 ```
 
-### Manual Configuration (Cursor / Windsurf / Cline / Continue)
+Use `--dry-run` to preview configuration changes without writing files:
 
-Point your editor or extension to your local SRouter instance:
-- **Base URL:** `http://localhost:3000/v1`
-- **API Key:** `sr-live-your_key` (or your master admin key)
-- **Model:** Any model from `http://localhost:3000/v1/models` (e.g. `antigravity/gemini-3.7-flash-high`, `openai_codex/gpt-4o`)
+```bash
+npx @srouter/cli link claude --dry-run
+```
 
----
+The CLI supports Claude Code and OpenCode. Configuration changes are backed up and can be restored with `unlink`.
 
-## 🌐 Supported Providers
+## Configure a Client
 
-SRouter normalizes authentication and protocol differences across all major model providers:
+SRouter exposes OpenAI-compatible and Anthropic-compatible endpoints.
 
-| Provider | Model Prefix | Auth Method | Streaming | Live Quota |
-| :--- | :--- | :--- | :---: | :---: |
-| **Google Antigravity** | `antigravity/*` | OAuth 2.0 PKCE | ✅ | ✅ |
-| **OpenAI Codex / ChatGPT** | `openai_codex/*` | OAuth 2.0 PKCE | ✅ | ✅ |
-| **Anthropic Claude** | `anthropic/*` | API Key / OAuth | ✅ | ✅ |
-| **OpenCode Zen** | `opencode_zen/*` | Free / Access Token | ✅ | ✅ |
-| **Amazon Q / Kiro** | `kiro/*` | SigV4 / API Key | ✅ | ✅ |
-| **Qoder** | `qoder/*` | OAuth / Device Token | ✅ | ✅ |
-| **GoRouter** | `gorouter/*` | API Key | ✅ | ✅ |
-| **BluesMinds** | `bluesminds/*` | API Key | ✅ | ✅ |
-| **SeekAI / TabiToken** | `seekai/*`, `tabitoken/*` | API Key | ✅ | ✅ |
-| **Custom Endpoints** | `custom/*` | Custom Headers | ✅ | Configurable |
+| Setting  | Value                                 |
+| -------- | ------------------------------------- |
+| Base URL | `http://localhost:3000/v1`            |
+| API key  | `sr-live-your_virtual_key`            |
+| Models   | `GET http://localhost:3000/v1/models` |
 
----
-
-## 💻 Integrate
-
-SRouter exposes standard OpenAI and Anthropic compatible interfaces.
-
-### OpenAI SDK (Python)
+### OpenAI SDK
 
 ```python
 from openai import OpenAI
@@ -120,17 +111,17 @@ client = OpenAI(
     api_key="sr-live-your_virtual_key"
 )
 
-stream = client.chat.completions.create(
+response = client.chat.completions.create(
     model="antigravity/gemini-3.7-flash-high",
-    messages=[{"role": "user", "content": "Explain vector embeddings in one sentence."}],
+    messages=[{"role": "user", "content": "Ping!"}],
     stream=True
 )
 
-for chunk in stream:
+for chunk in response:
     print(chunk.choices[0].delta.content or "", end="", flush=True)
 ```
 
-### Anthropic SDK (TypeScript)
+### Anthropic SDK
 
 ```typescript
 import Anthropic from "@anthropic-ai/sdk";
@@ -162,91 +153,119 @@ curl -N http://localhost:3000/v1/chat/completions \
   }'
 ```
 
----
+## Supported Providers
 
-## 🎯 Core Features
+SRouter normalizes authentication, model routing, streaming, quotas, and protocol differences across providers.
 
-- **Unified Protocol Translation:** Translate between OpenAI `chat/completions` and Anthropic `messages` formats dynamically.
-- **Automated OAuth Refresh:** Background daemon automatically keeps short-lived OAuth sessions refreshed without downtime.
-- **Failover & Smart Combo Routing:** Define cascade fallback chains to automatically recover from rate limits (`429`) or provider outages.
-- **Token Saver Engine:** System-level prompt compression and concise coding rules to cut inference cost.
-- **Virtual API Keys:** Issue scoped keys (`sr-live-*`) with individual rate limits, token quotas, and expiration windows.
-- **Built-in Cloudflare Tunnel:** Expose your local gateway securely to the internet with zero open ports directly from the UI.
-- **Embedded Observability:** Track exact token usage, cache efficiency, and estimated costs locally in SQLite WAL mode.
+| Provider               | Model prefix              | Authentication       |  Live quota  |
+| ---------------------- | ------------------------- | -------------------- | :----------: |
+| Google Antigravity     | `antigravity/*`           | OAuth 2.0 PKCE       |     Yes      |
+| OpenAI Codex / ChatGPT | `openai_codex/*`          | OAuth 2.0 PKCE       |     Yes      |
+| Anthropic Claude       | `anthropic/*`             | API key / OAuth      |     Yes      |
+| OpenCode Zen           | `opencode_zen/*`          | Free / access token  |     Yes      |
+| Amazon Q / Kiro        | `kiro/*`                  | SigV4 / API key      |     Yes      |
+| Qoder                  | `qoder/*`                 | OAuth / device token |     Yes      |
+| GoRouter               | `gorouter/*`              | API key              |     Yes      |
+| BluesMinds             | `bluesminds/*`            | API key              |     Yes      |
+| SeekAI / TabiToken     | `seekai/*`, `tabitoken/*` | API key              |     Yes      |
+| Custom endpoints       | `custom/*`                | Custom headers       | Configurable |
 
----
+## What SRouter Handles
 
-## 📡 API Endpoints
+- OpenAI `chat/completions` and Anthropic `messages` protocol translation
+- OAuth token refresh for supported providers
+- Fallback chains for rate limits and provider failures
+- Virtual API keys with rate limits, token quotas, and expiration
+- Cloudflare Tunnel management from the dashboard
+- Request logs, token usage, quota data, and estimated costs
+- Token Saver prompt processing
 
-All gateway endpoints are served under `/v1`:
+## API Endpoints
 
-### Inference & Models
-| Method | Endpoint | Description |
-| :--- | :--- | :--- |
-| `POST` | `/v1/chat/completions` | OpenAI chat completion (streaming supported) |
-| `POST` | `/v1/messages` | Anthropic messages endpoint |
-| `GET` | `/v1/models` | List all discovered & connected models |
-| `GET` | `/v1/models/:model` | Retrieve specific model schema & capabilities |
+Most gateway endpoints use the `/v1` prefix. The health check is available at `/health`.
 
-### Management & Metrics
-| Method | Endpoint | Description |
-| :--- | :--- | :--- |
-| `GET` | `/health` | Server health check |
-| `GET` | `/v1/quota` | Real-time provider balance & reset countdowns |
-| `GET` / `POST` | `/v1/providers` | Read or connect provider accounts |
-| `GET` / `POST` | `/v1/keys` | Manage virtual API keys |
-| `GET` | `/v1/logs` | Query request audit logs and token telemetry |
-| `GET` / `POST` | `/v1/tunnel/*` | Manage Cloudflare Tunnel daemon state |
+| Method         | Endpoint               | Purpose                           |
+| -------------- | ---------------------- | --------------------------------- |
+| `GET`          | `/health`              | Server health check               |
+| `POST`         | `/v1/chat/completions` | OpenAI-compatible chat completion |
+| `POST`         | `/v1/messages`         | Anthropic-compatible messages     |
+| `GET`          | `/v1/models`           | List available models             |
+| `GET`          | `/v1/models/:model`    | Inspect a model                   |
+| `GET` / `POST` | `/v1/providers`        | Manage provider connections       |
+| `GET` / `POST` | `/v1/keys`             | Manage virtual API keys           |
+| `GET`          | `/v1/quota`            | Read provider quota data          |
+| `GET`          | `/v1/logs`             | Read request logs and telemetry   |
+| `GET` / `POST` | `/v1/tunnel/*`         | Manage Cloudflare Tunnel state    |
 
----
+## Configuration
 
-## 🐳 Docker Compose
+Copy `.env.example` to `.env` for local development. The main settings are:
 
-```yaml
-services:
-  srouter:
-    image: ghcr.io/seaavey/srouter:latest
-    container_name: srouter
-    restart: unless-stopped
-    ports:
-      - "3000:3000"
-      - "1455:1455"
-    volumes:
-      - ${HOME}/.srouter:/root/.srouter
-    environment:
-      - PORT=3000
-      - NODE_ENV=production
-```
+| Variable             | Default                 | Purpose                                         |
+| -------------------- | ----------------------- | ----------------------------------------------- |
+| `PORT`               | `3000`                  | Main API and dashboard port                     |
+| `OAUTH_PORT`         | `1455`                  | Local OAuth callback listener                   |
+| `DATABASE_PATH`      | `~/.srouter/srouter.db` | SQLite database path                            |
+| `DATABASE_URL`       | Not set                 | PostgreSQL connection string                    |
+| `WEB_DIST_PATH`      | `apps/web/dist`         | Built dashboard path                            |
+| `SROUTER_PUBLIC_URL` | Not set                 | Public URL for OAuth callbacks on the main port |
+| `NODE_ENV`           | `development`           | Runtime environment                             |
 
----
+When `SROUTER_PUBLIC_URL` is set, OAuth callbacks use the main `PORT` instead of the secondary `OAUTH_PORT` listener.
 
-## 🛠️ Development
+## Development
+
+This repository is a pnpm workspace managed by Turborepo. It contains the API, web dashboard, CLI, and shared packages.
 
 ```bash
-# Install dependencies
 pnpm install
-
-# Start local dev server (API + Dashboard with HMR)
 pnpm dev
+```
 
-# Quality checks for touched files
-cd apps/api
-pnpm exec tsx --test --test-concurrency=1 --import ./tests/setup.ts tests/<focused-file>.test.ts
-pnpm run build
-pnpm exec prettier --check src/<changed-file>.ts tests/<changed-file>.test.ts
+The development servers use these ports:
+
+| Service        | URL                     |
+| -------------- | ----------------------- |
+| API            | `http://localhost:3000` |
+| Web dashboard  | `http://localhost:5173` |
+| OAuth listener | `http://localhost:1455` |
+
+Run focused checks for the app or package you changed:
+
+```bash
+pnpm --filter <app-or-package> build
+pnpm --filter web lint
+pnpm exec prettier --check <changed-files>
 git diff --check
 ```
 
----
+Run one test file with the package's test setup:
 
-## 💬 Community & Updates
+```bash
+cd apps/api
+pnpm exec tsx --test --test-concurrency=1 --import ./tests/setup.ts tests/<focused-file>.test.ts
+```
 
-For the latest news, updates, and community discussions, follow our official WhatsApp Channel:
+Do not run root `pnpm build`, `pnpm test`, or broad lint commands on resource-constrained development machines. CI runs the full build and test workflow.
 
-👉 [**Follow SRouter WhatsApp Channel**](https://whatsapp.com/channel/0029VbDF7112P59gQ8Z3D43K)
+## Docker Compose
 
----
+```yaml
+services:
+    srouter:
+        image: ghcr.io/seaavey/srouter:latest
+        container_name: srouter
+        restart: unless-stopped
+        ports:
+            - "3000:3000"
+            - "1455:1455"
+        volumes:
+            - ${HOME}/.srouter:/root/.srouter
+        environment:
+            PORT: 3000
+            NODE_ENV: production
+```
 
-## 📄 License
+## License
 
-Distributed under the [MIT License](LICENSE).
+SRouter is distributed under the [MIT License](LICENSE).
