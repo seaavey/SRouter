@@ -48,6 +48,10 @@ apps/web/tsconfig.tsbuildinfo
 graphify-out/
 .graphify-out/
 
+# Superpowers agent scratch
+.superpowers/
+
+
 # Lockfiles from alternative package managers (pnpm-lock.yaml is tracked for CI/Docker)
 package-lock.json
 yarn.lock
