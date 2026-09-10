@@ -29,7 +29,14 @@ import { useFavorites } from "@/hooks/useFavorites";
 import { toast } from "sonner";
 import { ProviderDetailSkeleton } from "@/components/skeletons";
 import { CATEGORY_LABELS, getProviderWebsiteUrl } from "@srouter/constants";
-import { Empty, EmptyContent, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
+import {
+    Empty,
+    EmptyContent,
+    EmptyHeader,
+    EmptyMedia,
+    EmptyTitle,
+    EmptyDescription
+} from "@/components/ui/empty";
 
 export const Route = createFileRoute("/providers/$providerId")({
     staticData: { title: "Providers" },
@@ -293,8 +300,9 @@ function ProviderDetailPage() {
                 <div className="flex items-start gap-3 rounded-lg border border-border/80 bg-card p-3.5 text-xs leading-relaxed text-muted-foreground">
                     <AlertTriangle className="size-4 shrink-0 mt-0.5 text-foreground" />
                     <div>
-                        <strong className="text-foreground">OAuth Token Lifecycle:</strong> SRouter manages token lifecycle and
-                        background refresh sweeper automatically for this provider account.
+                        <strong className="text-foreground">OAuth Token Lifecycle:</strong> SRouter
+                        manages token lifecycle and background refresh sweeper automatically for
+                        this provider account.
                     </div>
                 </div>
             )}
@@ -305,6 +313,7 @@ function ProviderDetailPage() {
                 connections={connections}
                 roundRobin={provider.roundRobin ?? false}
                 isDeleting={deleteMutation.isPending}
+                requiresOAuth={provider.requires_oauth}
                 onToggleRoundRobin={(enabled) => toggleRoundRobinMutation.mutate(enabled)}
                 onRefresh={() => void refetch()}
                 onAdd={handleAddConnection}

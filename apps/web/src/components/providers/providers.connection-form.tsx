@@ -136,7 +136,8 @@ export function ConnectionForm({
                 <DialogHeader className="p-0 space-y-1">
                     <DialogTitle className="sr-only">Add API Key for {providerName}</DialogTitle>
                     <DialogDescription className="text-xs text-muted-foreground">
-                        Enter credentials for {providerName} and verify the upstream connection before saving.
+                        Enter credentials for {providerName} and verify the upstream connection
+                        before saving.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -148,10 +149,7 @@ export function ConnectionForm({
 
                 <form onSubmit={handleSubmit} className="space-y-4 text-xs">
                     <div className="space-y-1.5">
-                        <label
-                            htmlFor="conn-api-key"
-                            className="font-medium text-foreground block"
-                        >
+                        <label htmlFor="conn-api-key" className="font-medium text-foreground block">
                             API Key / Access Token *
                         </label>
                         <div className="relative">
@@ -168,7 +166,6 @@ export function ConnectionForm({
                                         setVerifyStatus("idle");
                                     }
                                 }}
-                                autoFocus
                                 required
                                 className="w-full rounded border border-border/80 bg-background px-3 py-2 pr-9 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-foreground"
                             />

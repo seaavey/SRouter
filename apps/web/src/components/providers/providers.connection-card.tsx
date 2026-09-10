@@ -6,13 +6,21 @@ import { Switch } from "@/components/ui/switch";
 import { useCopy } from "@/hooks/useCopy";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
-import { Empty, EmptyContent, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
+import {
+    Empty,
+    EmptyContent,
+    EmptyHeader,
+    EmptyMedia,
+    EmptyTitle,
+    EmptyDescription
+} from "@/components/ui/empty";
 
 interface ConnectionCardProps {
     providerName: string;
     connections: ProviderConfig[];
     roundRobin: boolean;
     isDeleting: boolean;
+    requiresOAuth?: boolean;
     onToggleRoundRobin: (enabled: boolean) => void;
     onRefresh: () => void;
     onAdd: () => void;
@@ -34,7 +42,8 @@ function getConnectionDisplayTitle(connection: ProviderConfig): string {
                     payload.email ||
                     payload["https://api.openai.com/profile"]?.email ||
                     payload.user_metadata?.email ||
-                    (typeof payload.preferred_username === "string" && payload.preferred_username.includes("@")
+                    (typeof payload.preferred_username === "string" &&
+                    payload.preferred_username.includes("@")
                         ? payload.preferred_username
                         : undefined) ||
                     (typeof payload.unique_name === "string" && payload.unique_name.includes("@")
@@ -54,6 +63,7 @@ export function ConnectionCard({
     connections,
     roundRobin,
     isDeleting,
+    requiresOAuth = false,
     onToggleRoundRobin,
     onRefresh,
     onAdd,
@@ -154,7 +164,7 @@ export function ConnectionCard({
                             className="h-7.5 text-xs font-semibold cursor-pointer shadow-2xs gap-1.5"
                         >
                             <Plus className="size-3.5" />
-                            <span>Add Key</span>
+                            <span>{requiresOAuth ? "Add Connection" : "Add Key"}</span>
                         </Button>
                     </div>
                 </div>

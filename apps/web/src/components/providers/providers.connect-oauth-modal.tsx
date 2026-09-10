@@ -50,6 +50,8 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
     const [isLoadingUrl, setIsLoadingUrl] = useState(false);
     const popupRef = useRef<Window | null>(null);
 
+    const providerId = provider?.id;
+    const providerName = provider?.name;
     const baseId = provider?.id.split("_")[0]?.split("-")[0] ?? provider?.id ?? "";
     const authProviderId = provider?.id === "codebuddy-cn" ? "codebuddy-cn" : baseId;
     const isQoder = baseId === "qoder";
@@ -60,7 +62,7 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
 
     // Fetch backend-registered PKCE OAuth session without auto-opening popup
     useEffect(() => {
-        if (!open || !provider) {
+        if (!open || !providerId) {
             setAuthUrl("");
             setOauthState("");
             setError("");
@@ -97,7 +99,7 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                 setIsLoadingUrl(false);
                 setError(err.message || "Failed to initiate OAuth login session");
             });
-    }, [open, provider, baseId, authProviderId]);
+    }, [open, providerId, baseId, authProviderId]);
 
     const handleOpenPopup = () => {
         if (!authUrl) return;
@@ -115,7 +117,7 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
 
     // Listen for postMessage from auto-closing popup window (for redirect-based OAuth)
     useEffect(() => {
-        if (!open || !provider) return;
+        if (!open || !providerId) return;
 
         const handleMessage = (event: MessageEvent) => {
             if (
@@ -127,9 +129,9 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                     popupRef.current.close();
                 }
                 void queryClient.invalidateQueries({ queryKey: ["providers"] });
-                void queryClient.invalidateQueries({ queryKey: ["providers", provider.id] });
+                void queryClient.invalidateQueries({ queryKey: ["providers", providerId] });
                 void queryClient.invalidateQueries({ queryKey: ["providers", "catalog"] });
-                toast.success(`${provider.name} connected successfully!`);
+                toast.success(`${providerName ?? "Provider"} connected successfully!`);
                 onOpenChange(false);
                 setCallbackUrlInput("");
                 setError("");
@@ -138,11 +140,11 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
 
         window.addEventListener("message", handleMessage);
         return () => window.removeEventListener("message", handleMessage);
-    }, [open, provider, queryClient, onOpenChange]);
+    }, [open, providerId, providerName, queryClient, onOpenChange]);
 
     // Active polling for Qoder and CodeBuddy Device/OAuth Flow
     useEffect(() => {
-        if (!open || !provider || !isPolling || !oauthState) return;
+        if (!open || !providerId || !isPolling || !oauthState) return;
 
         const interval = setInterval(async () => {
             try {
@@ -158,9 +160,9 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                         popupRef.current.close();
                     }
                     void queryClient.invalidateQueries({ queryKey: ["providers"] });
-                    void queryClient.invalidateQueries({ queryKey: ["providers", provider.id] });
+                    void queryClient.invalidateQueries({ queryKey: ["providers", providerId] });
                     void queryClient.invalidateQueries({ queryKey: ["providers", "catalog"] });
-                    toast.success(`${provider.name} connected successfully!`);
+                    toast.success(`${providerName ?? "Provider"} connected successfully!`);
                     onOpenChange(false);
                     setError("");
                 }
@@ -170,7 +172,17 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
         }, 2000);
 
         return () => clearInterval(interval);
-    }, [open, provider, isPolling, baseId, authProviderId, oauthState, queryClient, onOpenChange]);
+    }, [
+        open,
+        providerId,
+        providerName,
+        isPolling,
+        baseId,
+        authProviderId,
+        oauthState,
+        queryClient,
+        onOpenChange
+    ]);
 
     const callbackMutation = useMutation({
         mutationFn: (payload: { callback_url: string }) => {
@@ -241,9 +253,7 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                     return api.post(`/v1/auth/${authProviderId}/token`, {
                         access_token: accessToken,
                         accessToken,
-                        ...(refreshToken
-                            ? { refresh_token: refreshToken, refreshToken }
-                            : {})
+                        ...(refreshToken ? { refresh_token: refreshToken, refreshToken } : {})
                     });
                 })
             );
@@ -326,7 +336,7 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
 
     if (!provider) return null;
 
-    const tabsCount = (supportsBulk ? 3 : isQoder || isCodeBuddy ? 2 : 1);
+    const tabsCount = supportsBulk ? 3 : isQoder || isCodeBuddy ? 2 : 1;
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -334,7 +344,10 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                 {/* Header */}
                 <DialogHeader className="flex flex-row items-center justify-between pb-3 border-b border-border/60">
                     <div className="flex items-center gap-2.5">
-                        <ProviderIcon providerId={provider.id} className="size-6 rounded-md shadow-2xs" />
+                        <ProviderIcon
+                            providerId={provider.id}
+                            className="size-6 rounded-md shadow-2xs"
+                        />
                         <div>
                             <DialogTitle className="text-sm font-bold tracking-tight text-foreground">
                                 Connect {provider.name}
@@ -423,7 +436,8 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                                 </label>
                                 {bulkInput.split(/\r?\n/).filter((l) => l.trim()).length > 0 && (
                                     <span className="rounded-md bg-secondary px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground">
-                                        {bulkInput.split(/\r?\n/).filter((l) => l.trim()).length} detected
+                                        {bulkInput.split(/\r?\n/).filter((l) => l.trim()).length}{" "}
+                                        detected
                                     </span>
                                 )}
                             </div>
@@ -452,7 +466,11 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                             </p>
                             <textarea
                                 rows={5}
-                                placeholder={isCodex ? "eyJhbGciOi...\neyJhbGciOi..." : "pt-xxx...\npt-yyy..."}
+                                placeholder={
+                                    isCodex
+                                        ? "eyJhbGciOi...\neyJhbGciOi..."
+                                        : "pt-xxx...\npt-yyy..."
+                                }
                                 value={bulkInput}
                                 onChange={(e) => setBulkInput(e.target.value)}
                                 className="w-full resize-y rounded-lg border border-border/60 bg-secondary/20 px-3 py-2 text-xs font-mono text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-ring"
@@ -475,7 +493,9 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                                 disabled={bulkMutation.isPending}
                                 className="h-8 text-xs font-semibold cursor-pointer gap-1.5"
                             >
-                                {bulkMutation.isPending && <Loader2 className="size-3.5 animate-spin" />}
+                                {bulkMutation.isPending && (
+                                    <Loader2 className="size-3.5 animate-spin" />
+                                )}
                                 {bulkMutation.isPending ? "Importing…" : "Import Accounts"}
                             </Button>
                         </div>
@@ -528,7 +548,9 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                             {/* Link Copy Box */}
                             <div className="space-y-1.5">
                                 <div className="flex items-center justify-between text-[11px]">
-                                    <span className="text-muted-foreground">Or copy authorization URL</span>
+                                    <span className="text-muted-foreground">
+                                        Or copy authorization URL
+                                    </span>
                                     <button
                                         type="button"
                                         onClick={() => void handleCopy()}
@@ -632,9 +654,7 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                             </p>
                             <input
                                 type="password"
-                                placeholder={
-                                    isCodeBuddy || isCodex ? "eyJhbGciOi..." : "pt-..."
-                                }
+                                placeholder={isCodeBuddy || isCodex ? "eyJhbGciOi..." : "pt-..."}
                                 value={patInput}
                                 onChange={(e) => setPatInput(e.target.value)}
                                 className="w-full rounded-lg border border-border/60 bg-secondary/20 px-3 py-2 text-xs font-mono text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-ring"
