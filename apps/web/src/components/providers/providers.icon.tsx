@@ -65,6 +65,8 @@ const ICON_MAPPING: Record<string, string> = {
     xai: "/icons/providers/xai.svg",
     zhipuai: "/icons/providers/zhipu.svg",
     siliconflow: "/icons/providers/siliconflow.png",
+    experientiallabs: "/icons/providers/experientiallabs.svg",
+    explabs: "/icons/providers/experientiallabs.svg",
     opencode: "/icons/providers/opencode.png",
     opencode_zen: "/icons/providers/opencode.png",
     "opencode-zen": "/icons/providers/opencode.png",

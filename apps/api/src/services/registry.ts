@@ -6,18 +6,25 @@ import {
     CODEBUDDY_CN_DOMAIN,
     CODEBUDDY_CN_USER_AGENT,
     DEFAULT_PROVIDERS,
+    EXPERIENTIALLABS_BASE_URL,
     GOROUTER_BASE_URL,
     isProviderBaseId,
     isSeedProvider,
     NEOSANTARA_BASE_URL,
     OPENCODE_ZEN_BASE_URL,
+    providerAlias,
     providerBaseId,
     SEED_MARKER,
     SEEKAI_BASE_URL,
     TABITOKEN_BASE_URL,
     TOKENROUTER_BASE_URL
 } from "@srouter/constants";
-import { deleteProviderDB, getAllProvidersDB, getRoundRobinDB, upsertProviderDB } from "@srouter/db";
+import {
+    deleteProviderDB,
+    getAllProvidersDB,
+    getRoundRobinDB,
+    upsertProviderDB
+} from "@srouter/db";
 import {
     AntigravityExecutor,
     AnthropicExecutor,
@@ -290,8 +297,12 @@ export async function loadSavedProvidersFromDB(): Promise<void> {
                     new OpenAIExecutor({
                         id: p.id || p.providerId,
                         name: p.name,
-                        alias: p.alias,
-                        baseUrl,
+                        alias: p.alias ?? providerAlias(providerBaseId(p.providerId || p.id)),
+                        baseUrl:
+                            baseUrl ||
+                            (providerType === "experientiallabs"
+                                ? EXPERIENTIALLABS_BASE_URL
+                                : undefined),
                         apiKey: p.apiKey,
                         accessToken: p.accessToken
                     })
