@@ -236,7 +236,7 @@ function NodeDetailInspector({
     return (
         <aside
             aria-label="Node Inspector"
-            className="absolute right-3 top-3 bottom-3 z-30 w-80 max-w-[calc(100%-1.5rem)] rounded-3xl border border-hairline-soft bg-canvas p-6 font-mono shadow-none flex flex-col justify-between overflow-hidden"
+            className="absolute inset-x-3 bottom-3 z-30 max-h-[calc(100%-1.5rem)] rounded-3xl border border-hairline-soft bg-canvas p-4 font-mono shadow-none flex flex-col justify-between overflow-hidden md:inset-x-auto md:right-3 md:top-3 md:bottom-3 md:w-80 md:p-6"
         >
             <div>
                 <div className="flex items-center justify-between pb-3 border-b border-hairline-soft">
@@ -412,7 +412,7 @@ function CanvasControls() {
             <button
                 type="button"
                 onClick={() => fitView({ padding: 0.22, duration: 300 })}
-                className="flex size-7 items-center justify-center rounded-full text-text-muted hover:bg-canvas-soft hover:text-ink transition-colors cursor-pointer"
+                className="flex size-10 items-center justify-center rounded-full text-text-muted hover:bg-canvas-soft hover:text-ink transition-colors cursor-pointer"
                 title="Fit & Center View"
             >
                 <Maximize2 className="size-3" />
@@ -421,7 +421,7 @@ function CanvasControls() {
             <button
                 type="button"
                 onClick={() => zoomIn({ duration: 250 })}
-                className="flex size-7 items-center justify-center rounded-full text-text-muted hover:bg-canvas-soft hover:text-ink transition-colors cursor-pointer"
+                className="flex size-10 items-center justify-center rounded-full text-text-muted hover:bg-canvas-soft hover:text-ink transition-colors cursor-pointer"
                 title="Zoom In"
             >
                 <ZoomIn className="size-3" />
@@ -429,7 +429,7 @@ function CanvasControls() {
             <button
                 type="button"
                 onClick={() => zoomOut({ duration: 250 })}
-                className="flex size-7 items-center justify-center rounded-full text-text-muted hover:bg-canvas-soft hover:text-ink transition-colors cursor-pointer"
+                className="flex size-10 items-center justify-center rounded-full text-text-muted hover:bg-canvas-soft hover:text-ink transition-colors cursor-pointer"
                 title="Zoom Out"
             >
                 <ZoomOut className="size-3" />
@@ -544,7 +544,10 @@ function GatewayTopologyCanvas() {
     });
 
     const [selectedNode, setSelectedNode] = useState<SelectedNodeInfo | null>(null);
-    const [viewMode, setViewMode] = useState<"graph" | "matrix">("graph");
+    const [viewMode, setViewMode] = useState<"graph" | "matrix">(() => {
+        if (typeof window === "undefined") return "graph";
+        return window.matchMedia("(max-width: 767px)").matches ? "matrix" : "graph";
+    });
 
     const [activePings, setActivePings] = useState<
         Record<string, { latency: number; expiresAt: number }>
@@ -773,7 +776,7 @@ function GatewayTopologyCanvas() {
     return (
         <section
             aria-label="Gateway Architecture Topology"
-            className="p-6 font-mono relative overflow-hidden"
+            className="p-4 font-mono relative overflow-hidden sm:p-5 lg:p-6"
         >
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-hairline-soft pb-4 mb-4">
                 <div className="flex items-center gap-3">
@@ -828,7 +831,7 @@ function GatewayTopologyCanvas() {
             </div>
 
             {viewMode === "graph" ? (
-                <div className="h-[480px] w-full rounded-2xl border border-hairline-soft bg-canvas overflow-hidden relative">
+                <div className="h-[min(62dvh,380px)] w-full rounded-2xl border border-hairline-soft bg-canvas overflow-hidden relative md:h-[420px] lg:h-[480px]">
                     <ReactFlow
                         nodes={nodes}
                         edges={edges}

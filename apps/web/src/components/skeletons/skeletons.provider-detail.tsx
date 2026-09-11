@@ -3,10 +3,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 export function ProviderDetailSkeleton() {
     return (
         <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 font-sans">
-            {/* Back link */}
             <Skeleton className="h-4 w-32 rounded-full" />
-
-            {/* Provider Detail Header */}
             <div className="flex flex-col justify-between gap-4 border-b border-hairline-soft pb-5 sm:flex-row sm:items-center">
                 <div className="flex items-center gap-4">
                     <Skeleton className="size-12 rounded-[30%]" />
@@ -23,8 +20,6 @@ export function ProviderDetailSkeleton() {
                     <Skeleton className="h-9 w-32 rounded-full" />
                 </div>
             </div>
-
-            {/* Connections Section */}
             <div className="rounded-3xl border border-hairline-soft bg-canvas p-6 space-y-4 shadow-none">
                 <div className="flex items-center justify-between border-b border-hairline-soft pb-4">
                     <Skeleton className="h-5 w-36 rounded-full" />
@@ -51,8 +46,6 @@ export function ProviderDetailSkeleton() {
                     ))}
                 </div>
             </div>
-
-            {/* Model Catalog Table Section */}
             <div className="space-y-4">
                 <div className="flex items-center justify-between border-b border-hairline-soft pb-3">
                     <Skeleton className="h-6 w-44 rounded-full" />

@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { ArrowDown, ArrowUp, Cpu, Layers } from "lucide-react";
+import { Cpu, Layers } from "lucide-react";
 import type { UsageStats } from "@srouter/types";
 import { ProviderIcon } from "@/components/providers";
 import {
@@ -59,10 +59,9 @@ export function ModelUsageOverview({ models }: ModelUsageOverviewProps) {
 
     return (
         <section
-            className="flex h-full min-w-0 flex-col rounded-3xl border border-hairline-soft bg-canvas p-6 shadow-none"
+            className="flex h-full min-w-0 flex-col rounded-3xl border border-hairline-soft bg-canvas p-4 shadow-none sm:p-5 lg:p-6"
             aria-labelledby="model-usage-title"
         >
-            {/* Header */}
             <header className="flex flex-col gap-3 pb-4 border-b border-hairline-soft sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-3 min-w-0">
                     <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-canvas-soft text-ink">
@@ -87,8 +86,6 @@ export function ModelUsageOverview({ models }: ModelUsageOverviewProps) {
                         </p>
                     </div>
                 </div>
-
-                {/* Legend */}
                 {topModels.length > 0 && (
                     <div className="flex items-center gap-3 text-xs text-text-muted font-mono shrink-0">
                         <span className="inline-flex items-center gap-1.5">
@@ -134,12 +131,11 @@ export function ModelUsageOverview({ models }: ModelUsageOverviewProps) {
                         return (
                             <div
                                 key={model.model}
-                                className="group rounded-2xl border border-hairline-soft bg-canvas-soft/40 p-3.5 transition-colors hover:border-hairline hover:bg-canvas-soft"
+                                className="group border-b border-hairline-soft py-3 last:border-b-0 sm:py-3.5"
                             >
                                 <div className="grid min-w-0 grid-cols-1 items-center gap-x-3 gap-y-1.5 sm:grid-cols-[minmax(0,1fr)_auto]">
-                                    {/* Left: Rank, Icon, Provider & Model Name */}
                                     <div className="flex min-w-0 items-center gap-2.5">
-                                        <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-canvas font-mono text-[10px] font-semibold text-text-muted border border-hairline-soft">
+                                        <span className="w-5 shrink-0 text-center font-mono text-[10px] text-text-muted">
                                             {index + 1}
                                         </span>
 
@@ -164,10 +160,7 @@ export function ModelUsageOverview({ models }: ModelUsageOverviewProps) {
                                             </span>
                                         </div>
                                     </div>
-
-                                    {/* Right: Metrics Table */}
                                     <div className="flex items-center justify-between sm:justify-end gap-3 font-mono tabular-nums text-xs">
-                                        {/* Requests */}
                                         <span
                                             className="text-left sm:w-16 sm:text-right text-text-muted"
                                             title={`Requests: ${model.totalRequests.toLocaleString()}`}
@@ -175,13 +168,10 @@ export function ModelUsageOverview({ models }: ModelUsageOverviewProps) {
                                             <ResponsiveNumber value={model.totalRequests} />{" "}
                                             <span className="text-[10px] opacity-70">req</span>
                                         </span>
-
-                                        {/* Input Tokens */}
                                         <span
                                             className="text-right sm:w-20 text-text-muted"
                                             title={`Prompt Tokens: ${model.totalInputTokens.toLocaleString()}`}
                                         >
-                                            <ArrowDown className="inline size-2.5 opacity-60 mr-0.5" />
                                             <strong className="font-semibold text-ink">
                                                 <ResponsiveNumber value={model.totalInputTokens} />
                                             </strong>
@@ -189,13 +179,10 @@ export function ModelUsageOverview({ models }: ModelUsageOverviewProps) {
                                                 in
                                             </span>
                                         </span>
-
-                                        {/* Output Tokens */}
                                         <span
                                             className="text-right sm:w-20 text-text-muted"
                                             title={`Completion Tokens: ${model.totalOutputTokens.toLocaleString()}`}
                                         >
-                                            <ArrowUp className="inline size-2.5 opacity-60 mr-0.5" />
                                             <strong className="font-semibold text-ink">
                                                 <ResponsiveNumber value={model.totalOutputTokens} />
                                             </strong>
@@ -203,8 +190,6 @@ export function ModelUsageOverview({ models }: ModelUsageOverviewProps) {
                                                 out
                                             </span>
                                         </span>
-
-                                        {/* Total Tokens & Share */}
                                         <div
                                             className="text-right sm:w-24 flex items-center justify-end gap-1.5"
                                             title={`Total Tokens: ${totalTokens.toLocaleString()} (${sharePercent}% of top models)`}
@@ -217,8 +202,6 @@ export function ModelUsageOverview({ models }: ModelUsageOverviewProps) {
                                             </span>
                                         </div>
                                     </div>
-
-                                    {/* Bottom: Proportional Distribution Bar */}
                                     <div className="col-span-1 sm:col-span-2 pt-1">
                                         <div
                                             role="progressbar"
@@ -233,13 +216,11 @@ export function ModelUsageOverview({ models }: ModelUsageOverviewProps) {
                                                 className="flex h-full transition-all duration-300 ease-out"
                                                 style={{ width: `${width}%` }}
                                             >
-                                                {/* Input / Prompt Segment */}
                                                 <span
                                                     className="h-full bg-ink/30"
                                                     style={{ width: `${inputRatio}%` }}
                                                     title={`Input: ${model.totalInputTokens.toLocaleString()}`}
                                                 />
-                                                {/* Output / Completion Segment */}
                                                 <span
                                                     className="h-full bg-ink"
                                                     style={{ width: `${outputRatio}%` }}

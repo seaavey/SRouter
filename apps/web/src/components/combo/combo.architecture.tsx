@@ -42,7 +42,6 @@ export function ComboArchitecture() {
 
             {expanded && (
                 <div className="p-6 border-t border-hairline-soft grid grid-cols-1 md:grid-cols-3 gap-4 animate-in fade-in-50 duration-150 font-sans">
-                    {/* Layer 1 */}
                     <div className="rounded-2xl border border-hairline-soft bg-canvas-soft/30 p-5 flex flex-col justify-between space-y-3">
                         <div className="space-y-2">
                             <div className="flex items-center justify-between">
@@ -63,8 +62,6 @@ export function ComboArchitecture() {
                             Per-Key Breaker
                         </span>
                     </div>
-
-                    {/* Layer 2 */}
                     <div className="rounded-2xl border border-hairline-soft bg-canvas-soft/30 p-5 flex flex-col justify-between space-y-3">
                         <div className="space-y-2">
                             <div className="flex items-center justify-between">
@@ -85,8 +82,6 @@ export function ComboArchitecture() {
                             Transparent Rotation
                         </span>
                     </div>
-
-                    {/* Layer 3 */}
                     <div className="rounded-2xl border border-hairline-soft bg-canvas-soft/30 p-5 flex flex-col justify-between space-y-3">
                         <div className="space-y-2">
                             <div className="flex items-center justify-between">

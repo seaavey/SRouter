@@ -21,7 +21,6 @@ export function ProviderModelCard({ model, copied, onCopy, onDelete }: ProviderM
                     : "border-hairline-soft bg-canvas hover:border-hairline"
             }`}
         >
-            {/* Header: Star + Icon + Model ID + Actions */}
             <div className="flex items-start justify-between gap-2.5">
                 <div className="flex items-center gap-2.5 min-w-0 flex-1">
                     <button
@@ -85,8 +84,6 @@ export function ProviderModelCard({ model, copied, onCopy, onDelete }: ProviderM
                     )}
                 </div>
             </div>
-
-            {/* Footer */}
             <div className="pt-3 border-t border-hairline-soft flex items-center justify-between text-xs">
                 <div className="flex items-center gap-2">
                     <span className="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium">

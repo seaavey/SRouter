@@ -208,7 +208,6 @@ function ProviderDetailPage() {
 
     return (
         <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 font-sans">
-            {/* Top Navigation Back Link */}
             <div>
                 <Link
                     to="/providers"
@@ -218,8 +217,6 @@ function ProviderDetailPage() {
                     <span>Back to Providers Catalog</span>
                 </Link>
             </div>
-
-            {/* Editorial Header Section */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-hairline-soft pb-5">
                 <div className="flex items-center gap-3.5">
                     {websiteUrl ? (
@@ -296,8 +293,6 @@ function ProviderDetailPage() {
                     </Button>
                 </div>
             </div>
-
-            {/* Notice Alert Banner if OAuth */}
             {provider.requires_oauth && (
                 <div className="flex items-start gap-3 rounded-3xl border border-hairline-soft bg-canvas-soft p-4 text-xs leading-relaxed text-text-muted">
                     <AlertTriangle className="size-4 shrink-0 mt-0.5 text-ink" />
@@ -308,8 +303,6 @@ function ProviderDetailPage() {
                     </div>
                 </div>
             )}
-
-            {/* Credentials Card */}
             <ConnectionCard
                 providerName={provider.name}
                 connections={connections}
@@ -326,8 +319,6 @@ function ProviderDetailPage() {
                     })
                 }
             />
-
-            {/* Available Models Section */}
             <div className="space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-hairline-soft pb-3">
                     <div>
@@ -355,7 +346,6 @@ function ProviderDetailPage() {
                     </div>
 
                     <div className="flex items-center gap-2">
-                        {/* Search Input */}
                         <div className="relative w-full sm:w-64">
                             <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-text-muted" />
                             <Input
@@ -376,8 +366,6 @@ function ProviderDetailPage() {
                                 </button>
                             )}
                         </div>
-
-                        {/* View Mode Switcher (Table / Grid) */}
                         <div className="flex items-center rounded-full border border-hairline-soft bg-field p-0.5">
                             <button
                                 type="button"
@@ -449,8 +437,6 @@ function ProviderDetailPage() {
                     </div>
                 )}
             </div>
-
-            {/* Add Connection Sheet */}
             <ConnectionForm
                 open={isAddOpen}
                 onOpenChange={setIsAddOpen}
@@ -461,15 +447,11 @@ function ProviderDetailPage() {
                 error={formError}
                 onSubmit={handleAddSubmit}
             />
-
-            {/* Connect OAuth Modal */}
             <ConnectOAuthModal
                 provider={provider}
                 open={isOAuthModalOpen}
                 onOpenChange={setIsOAuthModalOpen}
             />
-
-            {/* Add Custom Model Dialog */}
             <AddModelDialog
                 open={isAddModelOpen}
                 onOpenChange={setIsAddModelOpen}

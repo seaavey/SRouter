@@ -1,15 +1,4 @@
-import {
-    Boxes,
-    CheckCircle2,
-    Cpu,
-    LayoutGrid,
-    Layers,
-    List,
-    Plus,
-    RefreshCw,
-    Search,
-    X
-} from "lucide-react";
+import { LayoutGrid, List, Plus, RefreshCw, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { CatalogSummaryItems, FilterValue } from "@/utils/catalog.utils";
@@ -28,17 +17,9 @@ interface CatalogToolbarProps {
     onAddCustom?: () => void;
 }
 
-const summaryIcons = {
-    Drivers: Cpu,
-    Connected: CheckCircle2,
-    Unconfigured: Boxes,
-    Models: Layers
-};
-
 export function CatalogToolbar({
     isFetching,
     onRefresh,
-    summaryItems,
     filterOptions,
     filter,
     onFilterChange,
@@ -50,7 +31,6 @@ export function CatalogToolbar({
 }: CatalogToolbarProps) {
     return (
         <div className="space-y-6">
-            {/* Editorial Header */}
             <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end border-b border-hairline-soft pb-5">
                 <div className="min-w-0">
                     <p className="text-xs font-semibold uppercase tracking-wider text-text-muted">
@@ -92,54 +72,11 @@ export function CatalogToolbar({
                     </Button>
                 </div>
             </header>
-
-            {/* Tactical Summary KPI Strip (if summary items available) */}
-            {summaryItems && summaryItems.length > 0 && (
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                    {summaryItems.map((item) => {
-                        const Icon = summaryIcons[item.label as keyof typeof summaryIcons] ?? Boxes;
-                        const isConnectedCategory = item.label === "Connected";
-                        const connectedCount = parseInt(item.value, 10) || 0;
-                        const hasConnections = isConnectedCategory && connectedCount > 0;
-
-                        return (
-                            <div
-                                key={item.label}
-                                className="relative flex flex-col justify-between rounded-3xl border border-hairline-soft bg-canvas p-5 transition-colors shadow-none hover:border-hairline"
-                            >
-                                <div className="flex items-center justify-between text-text-muted">
-                                    <span className="text-xs font-semibold uppercase tracking-wider">
-                                        {item.label}
-                                    </span>
-                                    <Icon className="size-4 text-text-muted/70" />
-                                </div>
-                                <div className="mt-3 flex items-baseline gap-2">
-                                    <span className="text-3xl font-bold tracking-tight text-ink tabular-nums font-mono">
-                                        {item.value}
-                                    </span>
-                                    {hasConnections && (
-                                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                                            <span className="size-1.5 rounded-full bg-emerald-500" />
-                                            Active
-                                        </span>
-                                    )}
-                                </div>
-                                <p className="mt-1.5 text-xs text-text-muted truncate">
-                                    {item.detail}
-                                </p>
-                            </div>
-                        );
-                    })}
-                </div>
-            )}
-
-            {/* Controls Bar: Filter Tabs, Search & View Toggle */}
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between border border-hairline-soft p-2 bg-canvas-soft rounded-3xl lg:rounded-full">
-                {/* Category Filter Tabs: Segmented Control Stadium Pills */}
+            <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between border border-hairline-soft p-1.5 bg-canvas-soft rounded-2xl sm:rounded-full">
                 <div
                     role="tablist"
                     aria-label="Filter providers by category"
-                    className="flex flex-wrap items-center gap-1 p-0.5"
+                    className="flex items-center gap-1 p-0.5 overflow-x-auto no-scrollbar scroll-smooth min-w-0"
                 >
                     {filterOptions.map((option) => {
                         const isActive = filter === option.value;
@@ -150,7 +87,7 @@ export function CatalogToolbar({
                                 role="tab"
                                 aria-selected={isActive}
                                 onClick={() => onFilterChange(option.value)}
-                                className={`rounded-full px-4 py-1.5 text-xs transition-colors cursor-pointer flex items-center gap-1.5 ${
+                                className={`rounded-full px-3 py-1.5 text-xs transition-colors cursor-pointer flex items-center gap-1.5 shrink-0 select-none ${
                                     isActive
                                         ? "bg-ink text-canvas font-semibold shadow-none"
                                         : "text-text-muted hover:text-ink hover:bg-canvas/50 font-medium"
@@ -170,10 +107,8 @@ export function CatalogToolbar({
                         );
                     })}
                 </div>
-
-                {/* Search & View Mode Switcher */}
-                <div className="flex items-center gap-2 px-1">
-                    <div className="relative w-full sm:w-64">
+                <div className="flex items-center gap-2 px-1 shrink-0 justify-between sm:justify-end">
+                    <div className="relative flex-1 sm:w-64 sm:flex-initial">
                         <Search
                             className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-text-muted"
                             strokeWidth={1.75}
@@ -183,7 +118,7 @@ export function CatalogToolbar({
                             value={search}
                             onChange={(e) => onSearchChange(e.target.value)}
                             placeholder="Search providers & models…"
-                            className="h-9 pl-9 pr-8 text-xs rounded-full bg-field border-0 text-ink placeholder:text-text-faint focus-visible:ring-2 focus-visible:ring-ink shadow-none font-mono"
+                            className="h-9 pl-9 pr-8 text-xs rounded-full bg-field border-0 text-ink placeholder:text-text-faint focus-visible:ring-2 focus-visible:ring-ink shadow-none font-mono w-full"
                         />
                         {search && (
                             <button
@@ -196,9 +131,7 @@ export function CatalogToolbar({
                             </button>
                         )}
                     </div>
-
-                    {/* View Toggle */}
-                    <div className="flex items-center rounded-full bg-field p-0.5 border border-hairline-soft">
+                    <div className="flex items-center rounded-full bg-field p-0.5 border border-hairline-soft shrink-0">
                         <button
                             type="button"
                             onClick={() => onViewModeChange("grid")}

@@ -1,5 +1,4 @@
-import { ChevronDown, RefreshCw, ArrowUpRight } from "lucide-react";
-import { Link } from "@tanstack/react-router";
+import { ChevronDown, RefreshCw } from "lucide-react";
 import { ProviderIcon } from "@/components/providers";
 import type { LiveModelQuotaItem, ProviderUsageMetric } from "@srouter/types";
 import { QuotaTableView } from "./quota.table-view";
@@ -38,7 +37,6 @@ export function QuotaProviderCard({
 
     return (
         <article className="rounded-3xl border border-hairline-soft bg-canvas p-6 shadow-none transition-colors hover:border-hairline space-y-5 font-sans">
-            {/* Provider Group Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-hairline-soft pb-4">
                 <div
                     onClick={() => onToggleCollapse(groupKey)}
@@ -52,12 +50,6 @@ export function QuotaProviderCard({
                             <h3 className="text-base font-bold text-ink transition-colors capitalize">
                                 {providerName}
                             </h3>
-                            <span className="inline-flex items-center rounded-full bg-canvas-soft px-2.5 py-0.5 text-xs font-mono font-medium text-text-muted">
-                                {totalAccounts} {totalAccounts === 1 ? "account" : "accounts"}
-                            </span>
-                            <span className="inline-flex items-center rounded-full bg-canvas-soft px-2.5 py-0.5 text-xs font-mono font-medium text-text-muted">
-                                {allQuotas.length} quotas
-                            </span>
                         </div>
                         <p className="text-xs text-text-muted mt-1 truncate">
                             Accounts:{" "}
@@ -95,19 +87,8 @@ export function QuotaProviderCard({
                         <RefreshCw className={`size-3.5 ${isSpinning ? "animate-spin" : ""}`} />
                         <span>Sync</span>
                     </button>
-
-                    <Link
-                        to="/providers/$providerId"
-                        params={{ providerId: providerName }}
-                        className="inline-flex items-center gap-1 rounded-full border border-hairline px-3.5 h-8 text-xs font-semibold text-ink hover:bg-canvas-soft transition-colors"
-                    >
-                        <span>Manage</span>
-                        <ArrowUpRight className="size-3.5" />
-                    </Link>
                 </div>
             </div>
-
-            {/* Collapsible Body */}
             {!isCollapsed && (
                 <div className="space-y-4 pt-1 animate-in fade-in-50 duration-150">
                     {accounts.map((acc) => {
@@ -119,7 +100,6 @@ export function QuotaProviderCard({
                                 key={acc.id}
                                 className="rounded-2xl border border-hairline-soft bg-canvas-soft/40 p-5 space-y-4"
                             >
-                                {/* Account Sub-Header */}
                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-hairline-soft pb-3">
                                     <div className="flex items-center gap-2.5 min-w-0">
                                         <div

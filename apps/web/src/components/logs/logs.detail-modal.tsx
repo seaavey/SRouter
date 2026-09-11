@@ -66,7 +66,6 @@ export function LogDetailModal({ log, requireApiKey = false, onClose }: LogDetai
             <DialogContent className="max-w-2xl max-h-[85vh] p-0 flex flex-col font-sans gap-0 overflow-hidden border border-hairline-soft shadow-none bg-canvas rounded-3xl">
                 {log && (
                     <>
-                        {/* Header */}
                         <div className="flex items-center justify-between px-6 py-5 border-b border-hairline-soft bg-canvas-soft/40 shrink-0">
                             <div className="flex items-center gap-3 min-w-0">
                                 <div className="flex size-9 items-center justify-center rounded-full bg-canvas border border-hairline-soft text-ink shrink-0">
@@ -107,10 +106,7 @@ export function LogDetailModal({ log, requireApiKey = false, onClose }: LogDetai
                                 </button>
                             </div>
                         </div>
-
-                        {/* Body */}
                         <div className="p-6 overflow-y-auto space-y-4 text-xs">
-                            {/* Summary Metadata Table */}
                             <div className="rounded-2xl border border-hairline-soft bg-canvas-soft/30 divide-y divide-hairline-soft">
                                 <div className="flex items-center justify-between px-4 py-3 text-xs font-sans">
                                     <span className="text-text-muted flex items-center gap-2">
@@ -190,8 +186,6 @@ export function LogDetailModal({ log, requireApiKey = false, onClose }: LogDetai
                                     </div>
                                 )}
                             </div>
-
-                            {/* Routing & Cascade Fallback info */}
                             {log.resolvedModel && log.resolvedModel !== log.model && (
                                 <div className="rounded-2xl border border-hairline-soft bg-canvas-soft/40 p-4 space-y-1">
                                     <div className="flex items-center gap-2 font-semibold text-ink text-xs font-sans">
@@ -221,10 +215,7 @@ export function LogDetailModal({ log, requireApiKey = false, onClose }: LogDetai
                                     )}
                                 </div>
                             )}
-
-                            {/* Token & Cost Cards */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                {/* Token Breakdown */}
                                 <div className="rounded-2xl border border-hairline-soft bg-canvas-soft/30 p-4 space-y-3">
                                     <div className="flex items-center justify-between border-b border-hairline-soft pb-2.5">
                                         <span className="font-medium text-xs text-text-muted flex items-center gap-2 font-sans">
@@ -277,8 +268,6 @@ export function LogDetailModal({ log, requireApiKey = false, onClose }: LogDetai
                                         )}
                                     </div>
                                 </div>
-
-                                {/* Cost Breakdown */}
                                 <div className="rounded-2xl border border-hairline-soft bg-canvas-soft/30 p-4 space-y-3">
                                     <div className="flex items-center justify-between border-b border-hairline-soft pb-2.5">
                                         <span className="font-medium text-xs text-text-muted flex items-center gap-2 font-sans">
@@ -322,8 +311,6 @@ export function LogDetailModal({ log, requireApiKey = false, onClose }: LogDetai
                                     </div>
                                 </div>
                             </div>
-
-                            {/* Collapsible Developer Payload */}
                             <div className="rounded-2xl border border-hairline-soft bg-canvas-soft/20 overflow-hidden">
                                 <button
                                     type="button"

@@ -53,7 +53,6 @@ export function KeyTable({
         }
     };
 
-    // ── Pure, Minimal Empty State when no keys exist at all ───────────────────
     if (keys.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-hairline bg-canvas py-16 px-6 text-center font-sans">
@@ -78,7 +77,6 @@ export function KeyTable({
         );
     }
 
-    // ── Key Table when keys exist ─────────────────────────────────────────────
     return (
         <div className="overflow-hidden rounded-3xl border border-hairline-soft bg-canvas font-sans shadow-none">
             <div className="flex flex-col justify-between gap-4 border-b border-hairline-soft px-6 py-4 sm:flex-row sm:items-center">
@@ -170,7 +168,6 @@ export function KeyTable({
                                         key={k.id}
                                         className="hover:bg-canvas-soft/50 transition-colors group"
                                     >
-                                        {/* 1. Name & Token & Created Date */}
                                         <td className="py-3.5 px-6 min-w-56">
                                             <div className="font-sans font-medium text-ink text-sm">
                                                 {k.name}
@@ -194,8 +191,6 @@ export function KeyTable({
                                                 </span>
                                             </div>
                                         </td>
-
-                                        {/* 2. Limits & Balance (Consolidated smart cell) */}
                                         <td className="py-3.5 px-6 min-w-48">
                                             {isCompletelyUnlimited ? (
                                                 <span className="text-text-muted/60 font-mono text-xs">
@@ -203,7 +198,6 @@ export function KeyTable({
                                                 </span>
                                             ) : (
                                                 <div className="space-y-1.5">
-                                                    {/* Credit balance if active */}
                                                     {creditLimit > 0 && (
                                                         <div className="flex items-center gap-2.5">
                                                             <span
@@ -227,16 +221,12 @@ export function KeyTable({
                                                             )}
                                                         </div>
                                                     )}
-
-                                                    {/* Quota if active */}
                                                     {quotaLimit > 0 && (
                                                         <div className="text-xs text-text-muted font-mono">
                                                             Quota: {formatCompactNumber(quotaLimit)}{" "}
                                                             tok
                                                         </div>
                                                     )}
-
-                                                    {/* Rate limit & models tags */}
                                                     {(rateLimit > 0 || hasAllowedModels) && (
                                                         <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
                                                             {rateLimit > 0 && (
@@ -260,8 +250,6 @@ export function KeyTable({
                                                 </div>
                                             )}
                                         </td>
-
-                                        {/* 3. Usage */}
                                         <td className="py-3.5 px-6 text-right font-mono tabular-nums whitespace-nowrap">
                                             <div
                                                 className="font-semibold text-ink text-xs cursor-default"
@@ -278,8 +266,6 @@ export function KeyTable({
                                                 </div>
                                             )}
                                         </td>
-
-                                        {/* 4. Status */}
                                         <td className="py-3.5 px-6 text-center whitespace-nowrap">
                                             {k.enabled ? (
                                                 <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400 font-sans">
@@ -293,8 +279,6 @@ export function KeyTable({
                                                 </span>
                                             )}
                                         </td>
-
-                                        {/* 5. Actions */}
                                         <td className="py-3.5 px-6 text-right whitespace-nowrap">
                                             <div className="flex items-center justify-end gap-1">
                                                 <button

@@ -63,35 +63,41 @@ interface UsageByModelDBShape {
     estCost: number;
 }
 
-export async function logRequestDB(entry: Omit<RequestLogEntry, "id" | "createdAt">): Promise<RequestLogEntry> {
+export async function logRequestDB(
+    entry: Omit<RequestLogEntry, "id" | "createdAt">
+): Promise<RequestLogEntry> {
     const Id = generateId("log");
     const CreatedAt = Date.now();
 
-    await db.prepare(`
+    await db
+        .prepare(
+            `
         INSERT INTO request_logs (id, api_key_id, ip_address, user_agent, provider_id, model, prompt_tokens, completion_tokens, total_tokens, status_code, latency_ms, cached_tokens, cache_creation_tokens, reasoning_tokens, estimated_cost, fallback_occurred, fallback_path, fallback_reason, resolved_model, created_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-        Id,
-        entry.apiKeyId ?? null,
-        entry.ipAddress ?? null,
-        entry.userAgent ?? null,
-        entry.providerId,
-        entry.model,
-        entry.promptTokens,
-        entry.completionTokens,
-        entry.totalTokens,
-        entry.statusCode,
-        entry.latencyMs,
-        entry.cachedTokens ?? 0,
-        entry.cacheCreationTokens ?? 0,
-        entry.reasoningTokens ?? 0,
-        entry.estimatedCost ?? 0,
-        entry.fallbackOccurred ? 1 : 0,
-        entry.fallbackPath ?? null,
-        entry.fallbackReason ?? null,
-        entry.resolvedModel ?? null,
-        CreatedAt
-    );
+    `
+        )
+        .run(
+            Id,
+            entry.apiKeyId ?? null,
+            entry.ipAddress ?? null,
+            entry.userAgent ?? null,
+            entry.providerId,
+            entry.model,
+            entry.promptTokens,
+            entry.completionTokens,
+            entry.totalTokens,
+            entry.statusCode,
+            entry.latencyMs,
+            entry.cachedTokens ?? 0,
+            entry.cacheCreationTokens ?? 0,
+            entry.reasoningTokens ?? 0,
+            entry.estimatedCost ?? 0,
+            entry.fallbackOccurred ? 1 : 0,
+            entry.fallbackPath ?? null,
+            entry.fallbackReason ?? null,
+            entry.resolvedModel ?? null,
+            CreatedAt
+        );
 
     return {
         id: Id,
@@ -107,8 +113,56 @@ export async function getRecentLogsDB(limit = 50): Promise<RequestLogEntry[]> {
     return Rows.map(mapLogRow);
 }
 
+export async function getPaginatedLogsDB(
+    page: number = 1,
+    limit: number = 50,
+    status?: "all" | "success" | "error"
+): Promise<{
+    data: RequestLogEntry[];
+    pagination: { page: number; limit: number; total: number; total_pages: number };
+}> {
+    const safePage = Math.max(1, page);
+    const safeLimit = Math.min(500, Math.max(1, limit));
+    const offset = (safePage - 1) * safeLimit;
+
+    let whereClause = "";
+    const params: unknown[] = [];
+
+    if (status === "success") {
+        whereClause = "WHERE status_code >= 200 AND status_code < 300";
+    } else if (status === "error") {
+        whereClause = "WHERE status_code < 200 OR status_code >= 300";
+    }
+
+    const [rows, countRow] = await Promise.all([
+        db
+            .prepare(
+                `SELECT * FROM request_logs ${whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`
+            )
+            .all(...params, safeLimit, offset) as unknown as Promise<RequestLogRow[]>,
+        db
+            .prepare(`SELECT COUNT(*) as count FROM request_logs ${whereClause}`)
+            .get(...params) as unknown as Promise<{ count: number } | undefined>
+    ]);
+
+    const total = num(countRow?.count);
+    const total_pages = Math.ceil(total / safeLimit);
+
+    return {
+        data: rows.map(mapLogRow),
+        pagination: {
+            page: safePage,
+            limit: safeLimit,
+            total,
+            total_pages
+        }
+    };
+}
+
 export async function getUsageSummaryDB(): Promise<UsageSummary> {
-    const Result = (await db.prepare(`
+    const Result = (await db
+        .prepare(
+            `
         SELECT
             COUNT(*) as "totalRequests",
             COALESCE(SUM(CASE WHEN status_code >= 200 AND status_code < 300 THEN 1 ELSE 0 END), 0) as "totalSuccessRequests",
@@ -120,7 +174,9 @@ export async function getUsageSummaryDB(): Promise<UsageSummary> {
             COALESCE(SUM(reasoning_tokens), 0) as "totalReasoningTokens",
             COALESCE(SUM(estimated_cost), 0) as "totalEstimatedCost"
         FROM request_logs
-    `).get()) as unknown as UsageSummaryRow | undefined;
+    `
+        )
+        .get()) as unknown as UsageSummaryRow | undefined;
 
     return {
         totalRequests: num(Result?.totalRequests),
@@ -138,7 +194,9 @@ export async function getUsageSummaryDB(): Promise<UsageSummary> {
 }
 
 export async function getProviderUsageSummaryDB(providerId: string): Promise<UsageSummary> {
-    const Result = (await db.prepare(`
+    const Result = (await db
+        .prepare(
+            `
         SELECT 
             COUNT(*) as "totalRequests",
             COALESCE(SUM(total_tokens), 0) as "totalTokens",
@@ -150,7 +208,9 @@ export async function getProviderUsageSummaryDB(providerId: string): Promise<Usa
             COALESCE(SUM(estimated_cost), 0) as "totalEstimatedCost"
         FROM request_logs
         WHERE provider_id = ?
-    `).get(providerId)) as unknown as UsageSummaryRow | undefined;
+    `
+        )
+        .get(providerId)) as unknown as UsageSummaryRow | undefined;
 
     return {
         totalRequests: num(Result?.totalRequests),
@@ -167,7 +227,9 @@ export async function getProviderUsageSummaryDB(providerId: string): Promise<Usa
 }
 
 export async function getProviderModelUsageDB(providerId: string): Promise<ModelUsageSummaryRow[]> {
-    const Rows = (await db.prepare(`
+    const Rows = (await db
+        .prepare(
+            `
         SELECT 
             model,
             COUNT(*) as "totalRequests",
@@ -181,7 +243,9 @@ export async function getProviderModelUsageDB(providerId: string): Promise<Model
         WHERE provider_id = ?
         GROUP BY model
         ORDER BY "lastUsedAt" DESC
-    `).all(providerId)) as unknown as ModelUsageDBShape[];
+    `
+        )
+        .all(providerId)) as unknown as ModelUsageDBShape[];
 
     return Rows.map((row) => ({
         model: row.model,
@@ -196,7 +260,9 @@ export async function getProviderModelUsageDB(providerId: string): Promise<Model
 }
 
 export async function getUsageByModelDB(): Promise<UsageByModelRow[]> {
-    const Rows = (await db.prepare(`
+    const Rows = (await db
+        .prepare(
+            `
         SELECT 
             model,
             COUNT(*) as "totalRequests",
@@ -207,7 +273,9 @@ export async function getUsageByModelDB(): Promise<UsageByModelRow[]> {
         FROM request_logs
         GROUP BY model
         ORDER BY "totalRequests" DESC
-    `).all()) as unknown as UsageByModelDBShape[];
+    `
+        )
+        .all()) as unknown as UsageByModelDBShape[];
 
     return Rows.map((row) => ({
         model: row.model,
@@ -343,7 +411,9 @@ export async function getAnalyticsDB(window: AnalyticsWindow): Promise<Analytics
         WHERE created_at >= ?
         GROUP BY "bucket" ORDER BY "bucket" ASC
     `;
-    const Buckets = (await db.prepare(BucketsSql).all(BucketSizeMs, BucketSizeMs, Since)) as unknown as AnalyticsBucketRow[];
+    const Buckets = (await db
+        .prepare(BucketsSql)
+        .all(BucketSizeMs, BucketSizeMs, Since)) as unknown as AnalyticsBucketRow[];
 
     const ModelsSql = `
         SELECT model, COUNT(*) AS "totalRequests", SUM(total_tokens) AS "totalTokens",
@@ -366,7 +436,9 @@ export async function getAnalyticsDB(window: AnalyticsWindow): Promise<Analytics
         FROM request_logs WHERE created_at >= ?
         GROUP BY "providerId" ORDER BY "totalRequests" DESC
     `;
-    const Providers = (await db.prepare(ProviderSql).all(Since)) as unknown as AnalyticsProviderRow[];
+    const Providers = (await db
+        .prepare(ProviderSql)
+        .all(Since)) as unknown as AnalyticsProviderRow[];
 
     // p95 latency. COUNT(*) is BIGINT; scale to INT only when the result
     // is guaranteed small (we cap at the table size). Use BIGINT to be safe.
@@ -374,7 +446,8 @@ export async function getAnalyticsDB(window: AnalyticsWindow): Promise<Analytics
            WHERE created_at >= ?
            ORDER BY latency_ms
            LIMIT 1 OFFSET (SELECT CAST(COUNT(*) * 0.95 AS BIGINT) - 1 FROM request_logs WHERE created_at >= ?)`;
-    const P95Row = (await db.prepare(P95Sql).get(Since, Since)) as { latency_ms: number } | undefined;
+    const P95Row = (await db.prepare(P95Sql).get(Since, Since)) as
+        { latency_ms: number } | undefined;
     const P95LatencyMs = P95Row ? num(P95Row.latency_ms) : 0;
 
     // RPS (last 60s rolling average)

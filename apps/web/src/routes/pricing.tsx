@@ -1,4 +1,4 @@
-import { useState, useMemo, type ComponentType } from "react";
+import { useState, useMemo, useRef, useEffect, type ComponentType } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import {
     AudioLines,
@@ -9,18 +9,15 @@ import {
     Cpu,
     FileText,
     Image,
-    RefreshCw,
     Search,
     Unlock,
     Video,
-    Wrench
+    Wrench,
+    X
 } from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
 import { usePricing } from "@/hooks/usePricing";
 import { useDebounce } from "@/hooks/useDebounce";
-import { PricingSearchSkeleton, PricingSkeleton } from "@/components/skeletons";
-import { PricingSummaryMetrics } from "@/components/pricing/pricing.metrics";
+import { PricingSkeleton } from "@/components/skeletons";
 import { PricingTable } from "@/components/pricing/pricing.table";
 import { ProviderIcon } from "@/components/providers";
 import { Button } from "@/components/ui/button";
@@ -106,11 +103,58 @@ function getFamilyIcon(family: string): ComponentType<{ className?: string }> {
     return familyIcons.find(([prefix]) => normalized.includes(prefix))?.[1] ?? Cpu;
 }
 
+function getFamilyProviderId(family: string): string | null {
+    const normalized = family.toLowerCase();
+
+    switch (true) {
+        case normalized.includes("claude"):
+            return "claude";
+        case normalized.includes("gemini"):
+            return "gemini";
+        case normalized.includes("gpt"):
+        case normalized.includes("o1"):
+        case normalized.includes("o3"):
+            return "openai";
+        case normalized.includes("codestral"):
+        case normalized.includes("mistral"):
+            return "mistral";
+        case normalized.includes("command"):
+            return "cohere";
+        case normalized.includes("deepseek"):
+            return "deepseek";
+        case normalized.includes("qwen"):
+            return "qwen";
+        case normalized.includes("llama"):
+            return "meta";
+        case normalized.includes("grok"):
+            return "xai";
+        case normalized.includes("kimi"):
+        case normalized.includes("moonshot"):
+            return "moonshotai";
+        case normalized.includes("minimax"):
+            return "minimax";
+        case normalized.includes("glm"):
+        case normalized.includes("zhipu"):
+            return "zhipuai";
+        case normalized.includes("perplexity"):
+        case normalized.includes("sonar"):
+            return "perplexity";
+        default:
+            return null;
+    }
+}
+
 function FamilyFilterLabel({ family }: { family: string }) {
-    const Icon = getFamilyIcon(family);
+    const providerId = getFamilyProviderId(family);
+    const FallbackIcon = getFamilyIcon(family);
+
     return (
         <span className="flex min-w-0 items-center gap-2">
-            <Icon className="size-4 shrink-0" />
+            {providerId ? (
+                <ProviderIcon providerId={providerId} className="size-4 shrink-0" />
+            ) : (
+                <FallbackIcon className="size-4 shrink-0" />
+            )}
             <span className="truncate">{formatFilterLabel(family)}</span>
         </span>
     );
@@ -156,31 +200,33 @@ export const Route = createFileRoute("/pricing")({
 });
 
 function PricingPage() {
-    const queryClient = useQueryClient();
-    const { data, isLoading, error } = usePricing();
+    const { data, isLoading, error, refetch } = usePricing();
     const [search, setSearch] = useState("");
+    const searchInputRef = useRef<HTMLInputElement>(null);
     const [providerFilter, setProviderFilter] = useState("all");
     const [familyFilter, setFamilyFilter] = useState("all");
     const [modalityFilter, setModalityFilter] = useState("all");
     const [featureFilter, setFeatureFilter] = useState("all");
-    const [isManualRefreshing, setIsManualRefreshing] = useState(false);
-    const debouncedSearch = useDebounce(search, 150);
-    const isSearching = search !== debouncedSearch;
+    const debouncedSearch = useDebounce(search, 100);
 
-    const handleRefresh = async () => {
-        setIsManualRefreshing(true);
-        try {
-            const freshData = await api.get<PricingListResponse>("/v1/pricing/models?refresh=true");
-            queryClient.setQueryData(["pricing", "models"], freshData);
-            toast.success("Pricing catalog refreshed", {
-                description: "Loaded fresh model dataset from server."
-            });
-        } catch {
-            toast.error("Failed to refresh pricing catalog");
-        } finally {
-            setIsManualRefreshing(false);
-        }
-    };
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (
+                e.key === "/" &&
+                document.activeElement?.tagName !== "INPUT" &&
+                document.activeElement?.tagName !== "TEXTAREA"
+            ) {
+                e.preventDefault();
+                searchInputRef.current?.focus();
+            } else if (e.key === "Escape" && document.activeElement === searchInputRef.current) {
+                setSearch("");
+                searchInputRef.current?.blur();
+            }
+        };
+
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, []);
 
     const models = data?.data ?? [];
 
@@ -235,37 +281,6 @@ function PricingPage() {
             .sort((a, b) => a.name.localeCompare(b.name));
     }, [models, debouncedSearch, providerFilter, familyFilter, modalityFilter, featureFilter]);
 
-    // Metrics calculations
-    const metrics = useMemo(() => {
-        if (models.length === 0) {
-            return { total: 0, free: 0, medianInput: 0, medianOutput: 0 };
-        }
-
-        const knownPrices = models.filter(
-            (model) => model.cost.input !== undefined && model.cost.output !== undefined
-        );
-        const free = knownPrices.filter(
-            (model) => model.cost.input === 0 && model.cost.output === 0
-        ).length;
-        const inputCosts = knownPrices.map((model) => model.cost.input ?? 0).sort((a, b) => a - b);
-        const outputCosts = knownPrices
-            .map((model) => model.cost.output ?? 0)
-            .sort((a, b) => a - b);
-        const median = (values: number[]): number => {
-            if (values.length === 0) return 0;
-            const middle = Math.floor(values.length / 2);
-            if (values.length % 2 === 1) return values[middle] ?? 0;
-            return ((values[middle - 1] ?? 0) + (values[middle] ?? 0)) / 2;
-        };
-
-        return {
-            total: models.length,
-            free,
-            medianInput: median(inputCosts),
-            medianOutput: median(outputCosts)
-        };
-    }, [models]);
-
     if (isLoading && !data) {
         return <PricingSkeleton />;
     }
@@ -286,7 +301,7 @@ function PricingPage() {
                         <Button
                             type="button"
                             variant="destructive"
-                            onClick={() => void handleRefresh()}
+                            onClick={() => void refetch()}
                             className="rounded-full px-5 text-xs font-semibold cursor-pointer shadow-none"
                         >
                             Try Again
@@ -299,7 +314,6 @@ function PricingPage() {
 
     return (
         <div className="mx-auto flex w-full max-w-[1360px] flex-col gap-8 font-sans pb-16">
-            {/* Header section */}
             <header className="flex flex-col justify-between gap-4 pb-2 sm:flex-row sm:items-end">
                 <div className="min-w-0">
                     <div className="flex items-center gap-2 mb-2">
@@ -316,45 +330,38 @@ function PricingPage() {
                         Cached for instant access.
                     </p>
                 </div>
-                <div className="flex items-center gap-2 self-start sm:self-auto">
-                    <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => void handleRefresh()}
-                        disabled={isManualRefreshing}
-                        className="h-10 shrink-0 gap-2 rounded-full border border-hairline-soft bg-canvas px-5 text-sm font-semibold text-ink hover:bg-canvas-soft transition-colors cursor-pointer shadow-none"
-                    >
-                        <RefreshCw
-                            className={`size-4 ${isManualRefreshing ? "animate-spin" : ""}`}
-                        />
-                        <span>Refresh</span>
-                    </Button>
-                </div>
             </header>
-
-            {/* Metrics */}
-            <PricingSummaryMetrics
-                totalModels={metrics.total}
-                freeModels={metrics.free}
-                medianInputPrice={metrics.medianInput}
-                medianOutputPrice={metrics.medianOutput}
-            />
-
-            {/* Toolbar: Search and Filters */}
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center justify-between">
-                <div className="relative flex-1 max-w-md">
-                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-text-muted" />
-                    <Input
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 font-sans">
+                <div className="relative flex-1 max-w-lg">
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-text-muted pointer-events-none" />
+                    <input
+                        ref={searchInputRef}
                         type="text"
-                        placeholder="Search model ID or name..."
+                        placeholder="Search model, name, or description… (Press '/' to focus)"
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        className="h-10 rounded-full border border-hairline-soft bg-field pl-10 pr-4 text-xs font-mono text-ink placeholder:text-text-muted focus:ring-2 focus:ring-ink"
+                        className="w-full h-10 rounded-full border border-hairline-soft bg-field pl-10 pr-10 text-xs font-mono text-ink placeholder:text-text-muted focus:ring-2 focus:ring-ink focus:outline-none transition-colors"
                     />
+                    {search ? (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setSearch("");
+                                searchInputRef.current?.focus();
+                            }}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-ink transition-colors cursor-pointer p-0.5"
+                            aria-label="Clear search"
+                        >
+                            <X className="size-3.5" />
+                        </button>
+                    ) : (
+                        <kbd className="absolute right-3.5 top-1/2 -translate-y-1/2 hidden sm:inline-flex h-5 items-center rounded border border-hairline-soft bg-canvas px-1.5 font-mono text-[10px] text-text-muted pointer-events-none select-none">
+                            /
+                        </kbd>
+                    )}
                 </div>
 
                 <div className="flex items-center gap-2 flex-wrap">
-                    {/* Provider Select */}
                     <Select
                         value={providerFilter}
                         onValueChange={(value) => setProviderFilter(value ?? "all")}
@@ -406,8 +413,6 @@ function PricingPage() {
                             ))}
                         </SelectContent>
                     </Select>
-
-                    {/* Modality Filter */}
                     <Select
                         value={modalityFilter}
                         onValueChange={(value) => setModalityFilter(value ?? "all")}
@@ -440,8 +445,6 @@ function PricingPage() {
                             </SelectItem>
                         </SelectContent>
                     </Select>
-
-                    {/* Feature Filter */}
                     <Select
                         value={featureFilter}
                         onValueChange={(value) => setFeatureFilter(value ?? "all")}
@@ -476,9 +479,7 @@ function PricingPage() {
                     </Select>
                 </div>
             </div>
-
-            {/* Data Table */}
-            {isSearching ? <PricingSearchSkeleton /> : <PricingTable models={filteredModels} />}
+            <PricingTable models={filteredModels} />
         </div>
     );
 }

@@ -28,7 +28,6 @@ export function ProviderRow({ provider }: { provider: ProviderDefinition }) {
             params={{ providerId: provider.id }}
             className="group flex items-center justify-between gap-4 px-4 py-3.5 rounded-2xl hover:bg-canvas-soft transition-colors font-sans cursor-pointer border-b border-hairline-soft last:border-b-0"
         >
-            {/* Left: Icon & Info */}
             <div className="flex items-center gap-3.5 min-w-0">
                 <div className="flex size-10 shrink-0 items-center justify-center rounded-[30%] border border-hairline-soft bg-canvas-soft group-hover:border-hairline transition-colors">
                     <ProviderIcon providerId={provider.id} className="size-5" />
@@ -71,8 +70,6 @@ export function ProviderRow({ provider }: { provider: ProviderDefinition }) {
                     </div>
                 </div>
             </div>
-
-            {/* Right: Stadium Action Pill */}
             <div className="flex shrink-0 items-center gap-1.5 rounded-full bg-canvas-soft px-3.5 py-1.5 text-xs font-semibold text-ink group-hover:bg-ink group-hover:text-canvas transition-colors">
                 <span className="hidden sm:inline">{isConnected ? "Configure" : "Connect"}</span>
                 <ArrowUpRight className="size-3.5 stroke-[2] transition-transform duration-150 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />

@@ -1,6 +1,6 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
     Activity,
     ArrowDownToLine,
@@ -12,12 +12,18 @@ import {
     Search,
     ShieldAlert
 } from "lucide-react";
-import { api } from "@/lib/api";
+import { api, getGatewayBaseUrl } from "@/lib/api";
 import { formatCompactNumber } from "@/lib/utils";
-import type { APIKeyZod, RequestLogEntry, UsageStats } from "@srouter/types";
+import type {
+    APIKeyZod,
+    LogsStreamEvent,
+    PaginatedLogsResponse,
+    RequestLogEntry,
+    UsageStats
+} from "@srouter/types";
 import type { ListResponse } from "@/lib/types";
 import { LogsSkeleton } from "@/components/skeletons";
-import { useLogs } from "@/hooks/useLogs";
+import { useLogs, type LogStatusFilter } from "@/hooks/useLogs";
 import { LogDetailModal, LogTable } from "@/components/logs";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Button } from "@/components/ui/button";
@@ -33,6 +39,10 @@ export const Route = createFileRoute("/logs")({
 });
 
 function LogsPage() {
+    const queryClient = useQueryClient();
+    const [page, setPage] = useState(1);
+    const pageSize = 25;
+    const [statusFilter, setStatusFilter] = useState<LogStatusFilter>("all");
     const [selectedLog, setSelectedLog] = useState<RequestLogEntry | null>(null);
 
     // Fetch server settings to determine whether require_api_key is active
@@ -53,16 +63,40 @@ function LogsPage() {
     const keys = keysData?.data ?? [];
 
     const { data, isLoading, error, refetch, isFetching } = useQuery({
-        queryKey: ["logs"],
-        queryFn: () => api.get<ListResponse<RequestLogEntry>>("/v1/logs?limit=100"),
+        queryKey: ["logs", page, pageSize, statusFilter],
+        queryFn: () => {
+            const statusParam = statusFilter !== "all" ? `&status=${statusFilter}` : "";
+            return api.get<PaginatedLogsResponse>(
+                `/v1/logs?page=${page}&limit=${pageSize}${statusParam}`
+            );
+        },
         refetchInterval: 10000
     });
 
     const { data: globalStats } = useQuery<UsageStats>({
         queryKey: ["stats"],
         queryFn: () => api.get<UsageStats>("/v1/logs/stats"),
-        refetchInterval: 10000
+        refetchInterval: false
     });
+
+    useEffect(() => {
+        if (typeof window === "undefined" || typeof window.EventSource === "undefined") return;
+
+        const source = new EventSource(`${getGatewayBaseUrl()}/logs/events`);
+        source.onmessage = (event) => {
+            try {
+                const payload = JSON.parse(event.data) as LogsStreamEvent;
+                if (payload.type === "usage.updated") {
+                    queryClient.setQueryData(["stats"], payload.stats);
+                    void queryClient.invalidateQueries({ queryKey: ["logs"] });
+                }
+            } catch {
+                return;
+            }
+        };
+
+        return () => source.close();
+    }, [queryClient]);
 
     const logs: RequestLogEntry[] = data?.data ?? [];
     const filter = useLogs(logs);
@@ -156,7 +190,6 @@ function LogsPage() {
 
     return (
         <div className="mx-auto flex w-full max-w-[1360px] flex-col gap-8 font-sans pb-16">
-            {/* Header */}
             <header className="flex flex-col justify-between gap-4 pb-2 sm:flex-row sm:items-end">
                 <div className="min-w-0">
                     <div className="flex items-center gap-2 mb-2">
@@ -186,8 +219,6 @@ function LogsPage() {
                     </Button>
                 </div>
             </header>
-
-            {/* Metrics Row */}
             <section
                 aria-label="Log Summary Metrics"
                 className="grid grid-cols-1 sm:grid-cols-3 gap-4 font-sans"
@@ -259,8 +290,15 @@ function LogsPage() {
                         <Coins className="size-4 text-text-muted" />
                     </div>
                     <div className="mt-3">
-                        <div className="text-3xl font-bold tracking-tight text-ink font-mono tabular-nums">
-                            ${stats.totalCost.toFixed(4)}
+                        <div
+                            className="text-3xl font-bold tracking-tight text-ink font-mono tabular-nums"
+                            title={`$${stats.totalCost.toFixed(4)}`}
+                        >
+                            $
+                            {stats.totalCost.toLocaleString("en-US", {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2
+                            })}
                         </div>
                     </div>
                     <div className="mt-4 truncate border-t border-hairline-soft pt-3 text-xs text-text-muted font-sans">
@@ -268,8 +306,6 @@ function LogsPage() {
                     </div>
                 </article>
             </section>
-
-            {/* Filter Toolbar: Unified & Quiet */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 font-sans">
                 <div className="flex flex-1 items-center gap-2 max-w-lg">
                     <div className="relative flex-1">
@@ -307,20 +343,28 @@ function LogsPage() {
                 <div className="inline-flex items-center gap-1 rounded-full border border-hairline-soft bg-canvas-soft p-1 self-start sm:self-auto font-sans">
                     <button
                         type="button"
-                        onClick={() => filter.setStatusFilter("all")}
+                        onClick={() => {
+                            setStatusFilter("all");
+                            filter.setStatusFilter("all");
+                            setPage(1);
+                        }}
                         className={`rounded-full px-3.5 py-1 text-xs font-medium transition-all cursor-pointer ${
-                            filter.statusFilter === "all"
+                            statusFilter === "all"
                                 ? "bg-canvas text-ink font-semibold border border-hairline-soft shadow-none"
                                 : "text-text-muted hover:text-ink"
                         }`}
                     >
-                        All ({logs.length})
+                        All {data?.pagination ? `(${data.pagination.total})` : `(${logs.length})`}
                     </button>
                     <button
                         type="button"
-                        onClick={() => filter.setStatusFilter("success")}
+                        onClick={() => {
+                            setStatusFilter("success");
+                            filter.setStatusFilter("success");
+                            setPage(1);
+                        }}
                         className={`rounded-full px-3.5 py-1 text-xs font-medium transition-all cursor-pointer ${
-                            filter.statusFilter === "success"
+                            statusFilter === "success"
                                 ? "bg-canvas text-ink font-semibold border border-hairline-soft shadow-none"
                                 : "text-text-muted hover:text-ink"
                         }`}
@@ -329,9 +373,13 @@ function LogsPage() {
                     </button>
                     <button
                         type="button"
-                        onClick={() => filter.setStatusFilter("error")}
+                        onClick={() => {
+                            setStatusFilter("error");
+                            filter.setStatusFilter("error");
+                            setPage(1);
+                        }}
                         className={`rounded-full px-3.5 py-1 text-xs font-medium transition-all cursor-pointer ${
-                            filter.statusFilter === "error"
+                            statusFilter === "error"
                                 ? "bg-canvas text-ink font-semibold border border-hairline-soft shadow-none"
                                 : "text-text-muted hover:text-ink"
                         }`}
@@ -357,6 +405,11 @@ function LogsPage() {
                     logs={filter.filteredLogs}
                     requireApiKey={requireApiKey}
                     onSelect={setSelectedLog}
+                    page={page}
+                    pageSize={pageSize}
+                    pageCount={data?.pagination?.total_pages}
+                    totalRows={data?.pagination?.total}
+                    onPageChange={setPage}
                 />
             )}
 

@@ -309,6 +309,15 @@ samp,
     background: oklch(0.4 0 0 / 45%);
 }
 
+.scrollbar-hidden {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.scrollbar-hidden::-webkit-scrollbar {
+    display: none;
+}
+
 /* Fullscreen Circular Ripple Screen Wipe View Transition */
 ::view-transition-old(root),
 ::view-transition-new(root) {

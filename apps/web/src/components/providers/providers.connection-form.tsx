@@ -116,7 +116,6 @@ export function ConnectionForm({
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-md w-full p-6 md:p-8 bg-canvas border border-hairline-soft rounded-3xl space-y-5 shadow-none font-sans max-h-[calc(100dvh-2rem)] overflow-y-auto">
-                {/* Header */}
                 <div className="flex items-center justify-between border-b border-hairline-soft pb-3.5">
                     <h2 className="font-bold text-base text-ink flex items-center gap-2">
                         <Key className="size-4 text-text-muted" />
@@ -186,8 +185,6 @@ export function ConnectionForm({
                             </button>
                         </div>
                     </div>
-
-                    {/* Test connection row */}
                     <div className="flex items-center gap-2.5 pt-1">
                         <button
                             type="button"

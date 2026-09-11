@@ -336,7 +336,6 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-md w-full p-6 md:p-8 bg-canvas border border-hairline-soft rounded-3xl space-y-5 shadow-none overflow-y-auto max-h-[calc(100dvh-2rem)] font-sans">
-                {/* Header */}
                 <DialogHeader className="flex flex-row items-center justify-between pb-3.5 border-b border-hairline-soft">
                     <div className="flex items-center gap-3">
                         <ProviderIcon providerId={provider.id} className="size-7 rounded-[30%]" />
@@ -359,8 +358,6 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                         <X className="size-4" />
                     </button>
                 </DialogHeader>
-
-                {/* Segmented Tab Switcher */}
                 {(isQoder || isCodeBuddy || supportsBulk) && (
                     <div
                         className={`grid w-full gap-1 rounded-full border border-hairline-soft bg-canvas-soft p-1 text-xs ${
@@ -409,8 +406,6 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                         )}
                     </div>
                 )}
-
-                {/* Error Banner */}
                 {error && (
                     <div className="flex items-start gap-2.5 rounded-2xl border border-destructive/30 bg-destructive/10 p-3.5 text-xs text-destructive">
                         <AlertCircle className="size-4 shrink-0 mt-0.5" />
@@ -494,7 +489,6 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                     </form>
                 ) : activeTab === "oauth" ? (
                     <>
-                        {/* Live Waiting Status Banner */}
                         <div className="flex items-center gap-3 rounded-2xl border border-amber-500/25 bg-amber-500/5 px-4 py-3 text-xs">
                             {isLoadingUrl ? (
                                 <Loader2 className="size-4 text-amber-500 animate-spin shrink-0" />
@@ -521,7 +515,6 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                         </div>
 
                         <form onSubmit={handleConnect} className="space-y-4 text-xs">
-                            {/* Step 1: Open in Browser */}
                             <div className="space-y-2">
                                 <label className="font-semibold text-ink block text-xs">
                                     Step 1: Open authorization in browser
@@ -536,8 +529,6 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                                     <span>Open {provider.name} Login Page</span>
                                 </Button>
                             </div>
-
-                            {/* Link Copy Box */}
                             <div className="space-y-1.5">
                                 <div className="flex items-center justify-between text-xs">
                                     <span className="text-text-muted">
@@ -574,7 +565,6 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
 
                             {!isPolling && (
                                 <>
-                                    {/* Step 2 for redirect-based OAuth */}
                                     <div className="space-y-1.5 pt-3 border-t border-hairline-soft">
                                         <label className="font-semibold text-ink block text-xs">
                                             Step 2: Paste callback URL (if not auto-closed)

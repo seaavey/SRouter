@@ -19,7 +19,6 @@ export function TopCodingAgentsCard({ agents = [], totalRequests }: Props) {
         );
     }
 
-    // Aggregate parsed agents (e.g. various OpenCode or Cursor versions into one group)
     const aggregated = new Map<
         string,
         { agentName: string; totalRequests: number; totalTokens: number }

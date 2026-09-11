@@ -139,8 +139,6 @@ export function ModelSelector({
                     </Button>
                 </div>
             ) : null}
-
-            {/* Standalone fallback dialog only if NOT controlled by split card parent */}
             {externalPickerOpen === undefined && is_picker_open ? (
                 <Dialog open={is_picker_open} onOpenChange={setIsPickerOpen}>
                     <DialogContent className="sm:max-w-md bg-canvas border border-hairline-soft rounded-3xl p-6 max-h-[calc(100dvh-2.5rem)] flex flex-col font-sans shadow-none">

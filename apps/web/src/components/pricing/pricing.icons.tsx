@@ -42,7 +42,6 @@ interface ModalityIconsProps {
 export function ModalityIcons({ input = ["text"], output = ["text"] }: ModalityIconsProps) {
     return (
         <div className="flex items-center gap-1.5 font-mono text-[11px] text-text-muted">
-            {/* Input Modalities */}
             <div className="flex items-center gap-1">
                 {input.map((mod) => {
                     const cfg = inputModalityIcons[mod] ?? {
@@ -68,8 +67,6 @@ export function ModalityIcons({ input = ["text"], output = ["text"] }: ModalityI
             </div>
 
             <span className="text-text-faint text-[10px] select-none">→</span>
-
-            {/* Output Modalities */}
             <div className="flex items-center gap-1">
                 {output.map((mod) => {
                     const cfg = outputModalityIcons[mod] ?? {

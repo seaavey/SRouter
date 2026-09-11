@@ -10,7 +10,20 @@ let activeEventStreams = 0;
 
 export class LogsController {
     public static async ListLogs(c: Context): Promise<Response> {
+        const rawPage = c.req.query("page");
         const limit = Number(c.req.query("limit")) || 50;
+        const status = c.req.query("status") as "all" | "success" | "error" | undefined;
+
+        if (rawPage !== undefined) {
+            const page = Number(rawPage) || 1;
+            const result = await LogsLogic.getPaginatedLogs(page, limit, status);
+            return Ok(c, {
+                object: "list",
+                data: result.data,
+                pagination: result.pagination
+            });
+        }
+
         return Ok(c, {
             object: "list",
             data: await LogsLogic.getRecentLogs(limit)

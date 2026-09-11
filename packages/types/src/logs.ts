@@ -33,6 +33,19 @@ export interface RequestLogEntry {
     createdAt: number;
 }
 
+export interface LogPaginationMeta {
+    page: number;
+    limit: number;
+    total: number;
+    total_pages: number;
+}
+
+export interface PaginatedLogsResponse {
+    object: "list";
+    data: RequestLogEntry[];
+    pagination?: LogPaginationMeta;
+}
+
 export interface UsageSummary {
     totalRequests: number;
     totalSuccessRequests?: number;
@@ -74,6 +87,8 @@ export interface UsageStats extends UsageSummary {
     estimated: boolean;
     byModel: UsageByModelRow[];
 }
+
+export type LogsStreamEvent = { type: "connected" } | { type: "usage.updated"; stats: UsageStats };
 
 // --- Analytics ---
 

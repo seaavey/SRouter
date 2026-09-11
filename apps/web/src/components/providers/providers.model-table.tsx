@@ -201,7 +201,6 @@ export function ProviderModelTable({
 
                     return (
                         <div className="flex items-center gap-2.5 min-w-0">
-                            {/* Favorite / Pin Star Button */}
                             <button
                                 type="button"
                                 onClick={() => toggleFavorite(model.id)}
@@ -337,7 +336,6 @@ export function ProviderModelTable({
 
     return (
         <div className="space-y-3 font-sans">
-            {/* Floating Bulk Action HUD Dock */}
             {selectedIds.length > 0 && (
                 <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-2.5 rounded-full border border-hairline bg-canvas/95 backdrop-blur-md shadow-none ring-1 ring-hairline-soft animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-4 duration-200">
                     <div className="flex items-center gap-2 pr-1">
@@ -389,8 +387,6 @@ export function ProviderModelTable({
                     </div>
                 </div>
             )}
-
-            {/* Table Container using @/components/ui/table & TanStack React Table */}
             <div className="rounded-3xl border border-hairline-soft bg-canvas shadow-none overflow-hidden">
                 <Table>
                     <TableHeader>
@@ -456,8 +452,6 @@ export function ProviderModelTable({
                     </TableBody>
                 </Table>
             </div>
-
-            {/* Pagination Controls */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-2 pt-1 text-xs text-text-muted font-sans">
                 <div className="flex items-center gap-2">
                     <span>Showing</span>
@@ -470,7 +464,6 @@ export function ProviderModelTable({
                 </div>
 
                 <div className="flex items-center gap-3 self-end sm:self-auto">
-                    {/* Page Size Selector */}
                     <div className="flex items-center gap-1.5">
                         <span>Rows:</span>
                         <select
@@ -484,8 +477,6 @@ export function ProviderModelTable({
                             <option value={100}>100</option>
                         </select>
                     </div>
-
-                    {/* Page Navigation */}
                     <div className="flex items-center gap-1.5">
                         <button
                             type="button"

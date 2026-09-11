@@ -29,22 +29,6 @@ function formatTokens(count?: number): string {
     return String(count);
 }
 
-function getPaginationItems(currentPage: number, pageCount: number): Array<number | "ellipsis"> {
-    if (pageCount <= 4) {
-        return Array.from({ length: pageCount }, (_, index) => index);
-    }
-
-    if (currentPage <= 1) {
-        return [0, 1, 2, "ellipsis"];
-    }
-
-    if (currentPage >= pageCount - 2) {
-        return [0, "ellipsis", pageCount - 3, pageCount - 2, pageCount - 1];
-    }
-
-    return [0, "ellipsis", currentPage - 1, currentPage, currentPage + 1, "ellipsis"];
-}
-
 export function PricingTable({ models }: PricingTableProps) {
     const [pageIndex, setPageIndex] = useState(0);
     const [pageSize, setPageSize] = useState(25);
@@ -76,7 +60,6 @@ export function PricingTable({ models }: PricingTableProps) {
     const startRow = currentPage * pageSize;
     const visibleModels = models.slice(startRow, startRow + pageSize);
     const endRow = Math.min(startRow + visibleModels.length, models.length);
-    const pageItems = getPaginationItems(currentPage, pageCount);
 
     return (
         <div className="space-y-4 font-sans">
@@ -183,8 +166,6 @@ export function PricingTable({ models }: PricingTableProps) {
                     </table>
                 </div>
             </div>
-
-            {/* Pagination Controls */}
             <div className="flex flex-col gap-3 px-2 text-xs text-text-muted sm:flex-row sm:items-center sm:justify-between font-sans">
                 <div>
                     Showing{" "}
@@ -212,7 +193,7 @@ export function PricingTable({ models }: PricingTableProps) {
                         </select>
                     </label>
 
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1.5">
                         <button
                             type="button"
                             onClick={() => setPageIndex((page) => Math.max(0, page - 1))}
@@ -222,33 +203,44 @@ export function PricingTable({ models }: PricingTableProps) {
                         >
                             <ChevronLeft className="size-4" />
                         </button>
-
-                        {pageItems.map((item, index) =>
-                            item === "ellipsis" ? (
-                                <span
-                                    key={`ellipsis-${index}`}
-                                    className="flex size-8 items-center justify-center text-text-muted font-mono"
-                                >
-                                    …
-                                </span>
-                            ) : (
-                                <button
-                                    key={item}
-                                    type="button"
-                                    onClick={() => setPageIndex(item)}
-                                    className={`inline-flex size-8 items-center justify-center rounded-full font-mono text-xs transition-colors cursor-pointer ${
-                                        item === currentPage
-                                            ? "bg-ink text-canvas font-semibold"
-                                            : "border border-hairline-soft bg-canvas text-ink hover:bg-canvas-soft"
-                                    }`}
-                                    aria-label={`Go to page ${item + 1}`}
-                                    aria-current={item === currentPage ? "page" : undefined}
-                                >
-                                    {item + 1}
-                                </button>
-                            )
-                        )}
-
+                        <form
+                            onSubmit={(e) => {
+                                e.preventDefault();
+                                const parsed = parseInt(String(currentPage + 1), 10);
+                                if (!Number.isNaN(parsed)) {
+                                    setPageIndex(Math.max(0, Math.min(pageCount - 1, parsed - 1)));
+                                }
+                            }}
+                            className="flex items-center gap-1.5"
+                        >
+                            <input
+                                type="number"
+                                min={1}
+                                max={pageCount}
+                                defaultValue={currentPage + 1}
+                                key={currentPage}
+                                onBlur={(e) => {
+                                    const parsed = parseInt(e.target.value, 10);
+                                    if (!Number.isNaN(parsed)) {
+                                        setPageIndex(
+                                            Math.max(0, Math.min(pageCount - 1, parsed - 1))
+                                        );
+                                    } else {
+                                        e.target.value = String(currentPage + 1);
+                                    }
+                                }}
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter") {
+                                        e.currentTarget.blur();
+                                    }
+                                }}
+                                aria-label="Target page number"
+                                className="w-14 h-8 rounded-xl border border-hairline-soft bg-field px-2 text-center font-mono text-xs text-ink focus:border-hairline-strong focus:outline-none transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            />
+                            <span className="font-mono text-xs text-text-muted tabular-nums">
+                                / {pageCount}
+                            </span>
+                        </form>
                         <button
                             type="button"
                             onClick={() =>

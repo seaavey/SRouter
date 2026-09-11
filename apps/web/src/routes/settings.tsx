@@ -198,7 +198,6 @@ function SettingsPage() {
 
     return (
         <div className="mx-auto flex w-full max-w-[1360px] flex-col gap-6 sm:gap-8 font-sans pb-16">
-            {/* Header */}
             <header className="flex flex-col justify-between gap-4 pb-2 sm:flex-row sm:items-end">
                 <div className="min-w-0">
                     <div className="flex items-center gap-2 mb-2">
@@ -226,8 +225,6 @@ function SettingsPage() {
                         client preferences for this SRouter gateway node.
                     </p>
                 </div>
-
-                {/* Action Controls */}
                 <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
                     <button
                         type="button"
@@ -249,8 +246,6 @@ function SettingsPage() {
             </header>
 
             <div className="lg:grid lg:grid-cols-[12rem_minmax(0,1fr)] lg:items-start lg:gap-8">
-                {/* On mobile: pinned directly under Topbar without gaps (-top-4 -mx-4)
-                    On desktop: sticky vertical sidebar in left column (lg:sticky lg:top-4) */}
                 <aside className="sticky -top-4 -mx-4 z-20 border-b border-hairline-soft bg-canvas/95 px-4 py-2 backdrop-blur-md sm:-top-6 sm:-mx-6 sm:px-6 lg:static lg:top-4 lg:mx-0 lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none lg:w-48 lg:self-start lg:sticky">
                     <nav
                         aria-label="Settings sections"

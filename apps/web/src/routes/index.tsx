@@ -11,7 +11,6 @@ import {
     AnimatedNumber,
     ModelUsageOverview,
     NetworkStatus,
-    RecentRequestsFeed,
     ResponsiveNumber,
     UsageByModelTable
 } from "@/components/dashboard";
@@ -45,12 +44,12 @@ function StatCard({
     animatedFormat
 }: StatCardProps) {
     return (
-        <article className="flex min-w-0 min-h-[140px] flex-col justify-between rounded-3xl border border-hairline-soft bg-canvas p-6 shadow-none transition-colors hover:border-hairline">
+        <article className="flex min-w-0 min-h-[132px] flex-col justify-between rounded-xl border border-hairline-soft bg-canvas p-5 shadow-none transition-colors hover:border-hairline sm:min-h-[140px] sm:p-6">
             <div>
                 <span className="text-xs font-medium text-text-muted font-sans">{label}</span>
 
                 <div className="mt-3">
-                    <div className="min-w-0 overflow-hidden text-3xl font-bold tracking-tight text-ink cursor-default tabular-nums font-sans">
+                    <div className="min-w-0 overflow-hidden text-3xl font-bold tracking-tight text-ink cursor-default tabular-nums font-sans sm:text-[2.125rem]">
                         {animatedValue !== undefined ? (
                             <AnimatedNumber value={animatedValue} format={animatedFormat} />
                         ) : typeof value === "number" ? (
@@ -154,8 +153,7 @@ function DashboardPage() {
     const uncachedInputTokens = Math.max(0, stats.totalInputTokens - stats.totalCachedTokens);
 
     return (
-        <div className="mx-auto flex w-full max-w-[1360px] flex-col gap-8">
-            {/* Header */}
+        <div className="mx-auto flex w-full min-w-0 max-w-[1360px] flex-col gap-6 px-4 sm:gap-8 sm:px-5 xl:px-0">
             <header className="flex flex-col justify-between gap-4 pb-2 sm:flex-row sm:items-end">
                 <div className="min-w-0">
                     <div className="flex items-center gap-2 mb-2">
@@ -184,11 +182,9 @@ function DashboardPage() {
                     </Button>
                 </div>
             </header>
-
-            {/* 4 KPI Cards */}
             <section
                 aria-label="Gateway usage summary"
-                className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"
+                className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
             >
                 <StatCard
                     label="Total Requests"
@@ -217,7 +213,7 @@ function DashboardPage() {
                     }
                     detailContent={
                         <div
-                            className="mt-4 grid grid-cols-3 gap-1 border-t border-hairline-soft pt-3 font-mono text-[11px] text-text-muted"
+                            className="mt-4 grid grid-cols-3 gap-2 border-t border-hairline-soft pt-3 font-mono text-[11px] text-text-muted sm:gap-1"
                             title={`${formatCompactNumber(uncachedInputTokens)} input, ${formatCompactNumber(stats.totalOutputTokens)} output, ${formatCompactNumber(stats.totalCachedTokens)} cached`}
                             aria-label={`${formatCompactNumber(uncachedInputTokens)} input, ${formatCompactNumber(stats.totalOutputTokens)} output, ${formatCompactNumber(stats.totalCachedTokens)} cached`}
                         >
@@ -257,14 +253,7 @@ function DashboardPage() {
                         stats?.estimated ? "Calculated from pricing catalog" : "Recorded token cost"
                     }
                 />
-                <StatCard
-                    label="Models Routed"
-                    value={stats.byModel.length}
-                    detail="Active models with traffic"
-                />
             </section>
-
-            {/* Traffic & Access */}
             <section
                 aria-label="Operational overview"
                 className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(19rem,0.6fr)]"
@@ -272,19 +261,11 @@ function DashboardPage() {
                 <ModelUsageOverview models={stats?.byModel ?? []} />
                 <NetworkStatus />
             </section>
-
-            {/* Gateway Topology & Recent Requests */}
-            <section
-                aria-label="Topology and recent activity"
-                className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(19rem,0.6fr)]"
-            >
+            <section aria-label="Topology" className="w-full min-w-0">
                 <div className="min-w-0 rounded-3xl border border-hairline-soft bg-canvas-soft overflow-hidden p-0">
                     <GatewayTopologyMap />
                 </div>
-                <RecentRequestsFeed />
             </section>
-
-            {/* Tabular Usage Breakdown */}
             <UsageByModelTable models={stats?.byModel ?? []} />
         </div>
     );

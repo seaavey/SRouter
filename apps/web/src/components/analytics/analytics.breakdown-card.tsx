@@ -42,7 +42,6 @@ type TabType = "models" | "agents" | "providers";
 export function BreakdownTabsCard({ models, providers, agents = [], totalRequests }: Props) {
     const [activeTab, setActiveTab] = useState<TabType>("models");
 
-    // Aggregate parsed agents
     const aggregatedAgents = new Map<
         string,
         { agentName: string; totalRequests: number; totalTokens: number }
@@ -65,7 +64,6 @@ export function BreakdownTabsCard({ models, providers, agents = [], totalRequest
 
     return (
         <article className="rounded-3xl border border-hairline-soft bg-canvas p-6 shadow-none transition-colors hover:border-hairline font-sans space-y-6">
-            {/* Segmented Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-hairline-soft pb-4">
                 <div>
                     <h3 className="text-base font-bold text-ink font-sans">
@@ -112,8 +110,6 @@ export function BreakdownTabsCard({ models, providers, agents = [], totalRequest
                     </button>
                 </div>
             </div>
-
-            {/* Content List: Clean Flat Rows with Mobbin Hairline Dividers */}
             <div className="divide-y divide-hairline-soft">
                 {activeTab === "models" &&
                     (models.length === 0 ? (

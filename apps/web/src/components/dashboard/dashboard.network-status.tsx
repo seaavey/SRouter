@@ -48,11 +48,9 @@ export function NetworkStatus() {
     return (
         <section
             aria-labelledby="api-integration-title"
-            className="flex h-full min-w-0 flex-col justify-between rounded-3xl border border-hairline-soft bg-canvas p-6 shadow-none"
+            className="flex h-full min-w-0 flex-col gap-6 rounded-3xl border border-hairline-soft bg-canvas p-4 shadow-none sm:p-5 lg:p-6"
         >
-            {/* Top: API Integration & Base URL */}
             <div className="flex flex-col gap-4">
-                {/* Header */}
                 <header className="flex items-center justify-between gap-3 pb-4 border-b border-hairline-soft">
                     <div className="flex min-w-0 items-center gap-3">
                         <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-canvas-soft text-ink">
@@ -71,28 +69,13 @@ export function NetworkStatus() {
                         </div>
                     </div>
                 </header>
-
-                {/* Base URL Card */}
                 <div className="space-y-2">
                     <div className="flex items-center justify-between text-xs font-medium text-text-muted">
                         <span>Gateway Base URL</span>
-                        <span className="text-[11px] font-normal text-text-faint">
-                            click to copy
-                        </span>
+                        <span className="text-[11px] font-normal text-text-muted">Copy URL</span>
                     </div>
 
-                    <div
-                        onClick={() => void handleCopy()}
-                        role="button"
-                        tabIndex={0}
-                        onKeyDown={(e) => {
-                            if (e.key === "Enter" || e.key === " ") {
-                                e.preventDefault();
-                                void handleCopy();
-                            }
-                        }}
-                        className="group flex items-center justify-between gap-3 rounded-2xl border border-hairline-soft bg-field px-4 py-3 transition-colors hover:border-hairline cursor-pointer"
-                    >
+                    <div className="group flex items-center justify-between gap-3 rounded-2xl border border-hairline-soft bg-field px-4 py-3 transition-colors hover:border-hairline">
                         <div className="flex items-center gap-2 min-w-0">
                             <code className="truncate font-mono text-xs text-ink font-medium select-all">
                                 {apiBase}
@@ -102,7 +85,8 @@ export function NetworkStatus() {
                         <button
                             type="button"
                             aria-label="Copy base URL"
-                            className="inline-flex size-7 shrink-0 items-center justify-center rounded-full border border-hairline bg-canvas text-text-muted transition-colors group-hover:text-ink hover:bg-canvas-soft cursor-pointer"
+                            onClick={() => void handleCopy()}
+                            className="inline-flex size-9 shrink-0 items-center justify-center rounded-full border border-hairline bg-canvas text-text-muted transition-colors group-hover:text-ink hover:bg-canvas-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent cursor-pointer"
                         >
                             {copied ? (
                                 <Check className="size-3.5 text-ink" />
@@ -113,8 +97,6 @@ export function NetworkStatus() {
                     </div>
                 </div>
             </div>
-
-            {/* Bottom: Private Access / Tunneling */}
             <div className="mt-6 pt-4 border-t border-hairline-soft">
                 <div className="flex items-center justify-between gap-3 mb-3">
                     <div>
@@ -128,8 +110,7 @@ export function NetworkStatus() {
                 </div>
 
                 <div className="space-y-2.5">
-                    {/* Cloudflare Tunnel Row */}
-                    <div className="flex items-center justify-between gap-3 rounded-2xl border border-hairline-soft bg-canvas-soft/40 p-3.5 transition-colors hover:border-hairline hover:bg-canvas-soft">
+                    <div className="flex flex-col gap-3 rounded-2xl border border-hairline-soft bg-canvas-soft/40 p-3.5 transition-colors hover:border-hairline hover:bg-canvas-soft sm:flex-row sm:items-center sm:justify-between">
                         <div className="flex items-center gap-3 min-w-0">
                             <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-canvas text-ink border border-hairline-soft">
                                 <CloudflareIcon className="size-4" />
@@ -157,14 +138,12 @@ export function NetworkStatus() {
                         <button
                             type="button"
                             onClick={() => setModalOpen(true)}
-                            className="inline-flex h-8 shrink-0 items-center gap-1 rounded-full border border-hairline bg-canvas px-3 font-mono text-xs font-medium text-ink transition-colors hover:bg-canvas-soft cursor-pointer"
+                            className="inline-flex min-h-9 w-full shrink-0 items-center justify-center gap-1 rounded-full border border-hairline bg-canvas px-3 font-mono text-xs font-medium text-ink transition-colors hover:bg-canvas-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent cursor-pointer sm:w-auto"
                         >
                             <span>{tunnel?.running ? "Manage" : "Configure"}</span>
                             <ArrowUpRight className="size-3 opacity-60" />
                         </button>
                     </div>
-
-                    {/* Tailscale Row */}
                     <div className="flex items-center justify-between gap-3 rounded-2xl border border-hairline-soft bg-canvas-soft/20 p-3.5 opacity-60">
                         <div className="flex items-center gap-3 min-w-0">
                             <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-canvas text-text-muted border border-hairline-soft">

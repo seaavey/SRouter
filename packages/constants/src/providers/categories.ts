@@ -15,10 +15,10 @@ export const CATEGORY_ORDER: ProviderCategory[] = [
 ];
 
 export const CATEGORY_LABELS: Record<ProviderCategory, string> = {
-    oauth: "OAuth Provider",
-    api_key: "API Key Provider",
-    custom_provider: "Custom Provider",
-    free_tier: "Free Tier Provider"
+    oauth: "OAuth",
+    api_key: "API Key",
+    custom_provider: "Custom",
+    free_tier: "Free Tier"
 };
 
 export const CATEGORY_DESCRIPTIONS: Record<ProviderCategory, string> = {

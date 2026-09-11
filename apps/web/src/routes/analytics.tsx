@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { BarChart3, TriangleAlert } from "lucide-react";
+import { TriangleAlert } from "lucide-react";
 import { useAnalytics } from "@/hooks/useAnalytics";
 import { AnalyticsSkeleton } from "@/components/skeletons";
 import {
@@ -12,13 +12,6 @@ import {
     BreakdownTabsCard
 } from "@/components/analytics";
 import type { AnalyticsWindow } from "@srouter/types";
-import {
-    Empty,
-    EmptyHeader,
-    EmptyMedia,
-    EmptyTitle,
-    EmptyDescription
-} from "@/components/ui/empty";
 
 export const Route = createFileRoute("/analytics")({
     staticData: { title: "Analytics" },
@@ -55,6 +48,18 @@ function AnalyticsPage() {
 
     const hasData = data.totalRequests > 0;
 
+    const totalCachedTokens = data.buckets.reduce((acc, b) => acc + (b.cachedTokens ?? 0), 0);
+    const totalPromptTokensRaw = data.buckets.reduce((acc, b) => acc + (b.promptTokens ?? 0), 0);
+    const totalPromptTokens = Math.max(0, totalPromptTokensRaw - totalCachedTokens);
+    const totalCompletionTokens = data.buckets.reduce(
+        (acc, b) => acc + (b.completionTokens ?? 0),
+        0
+    );
+    const totalTokensAll = data.buckets.reduce(
+        (acc, b) => acc + (b.totalTokens ?? (b.promptTokens ?? 0) + (b.completionTokens ?? 0)),
+        0
+    );
+
     return (
         <div
             className={`mx-auto flex w-full max-w-[1360px] flex-col gap-8 font-sans transition-opacity duration-200 ${
@@ -68,39 +73,26 @@ function AnalyticsPage() {
             />
 
             <AnalyticsStatCards
-                requestsPerSecond={data.requestsPerSecond}
                 totalRequests={data.totalRequests}
                 errorRate={data.errorRate}
                 p95LatencyMs={data.p95LatencyMs}
+                totalTokens={totalTokensAll}
+                promptTokens={totalPromptTokens}
+                completionTokens={totalCompletionTokens}
+                cachedTokens={totalCachedTokens}
             />
 
-            {!hasData ? (
-                <Empty className="rounded-3xl border border-hairline-soft bg-canvas p-12">
-                    <EmptyHeader>
-                        <EmptyMedia variant="icon">
-                            <BarChart3 className="size-5 text-text-muted" />
-                        </EmptyMedia>
-                        <EmptyTitle className="text-ink font-bold">No Requests Recorded</EmptyTitle>
-                        <EmptyDescription className="text-text-muted text-xs">
-                            No requests recorded in the selected {window} timeframe window.
-                        </EmptyDescription>
-                    </EmptyHeader>
-                </Empty>
-            ) : (
-                <>
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <TrafficChart buckets={data.buckets} bucketSizeMs={data.bucketSizeMs} />
-                        <LatencyChart buckets={data.buckets} />
-                    </div>
-                    <TokenUsageChart buckets={data.buckets} bucketSizeMs={data.bucketSizeMs} />
-                    <BreakdownTabsCard
-                        models={data.topModels}
-                        agents={data.topAgents}
-                        providers={data.providers}
-                        totalRequests={data.totalRequests}
-                    />
-                </>
-            )}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <TrafficChart buckets={data.buckets} bucketSizeMs={data.bucketSizeMs} />
+                <LatencyChart buckets={data.buckets} />
+            </div>
+            <TokenUsageChart buckets={data.buckets} bucketSizeMs={data.bucketSizeMs} />
+            <BreakdownTabsCard
+                models={data.topModels}
+                agents={data.topAgents}
+                providers={data.providers}
+                totalRequests={data.totalRequests}
+            />
         </div>
     );
 }

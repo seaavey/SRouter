@@ -48,7 +48,6 @@ function ComboPage() {
 
     return (
         <div className="mx-auto flex w-full max-w-[1360px] flex-col gap-8 font-sans pb-16">
-            {/* Top Branding & Metrics Header */}
             <ComboHeader
                 isAdding={isAdding || Boolean(editingCombo)}
                 onToggleAdd={() => {
@@ -56,11 +55,7 @@ function ComboPage() {
                     setIsAdding(true);
                 }}
             />
-
-            {/* 3-Tier Gateway Resilience Architecture Explainer */}
             <ComboArchitecture />
-
-            {/* Create/Edit Combo Modal Dialog */}
             <ComboForm
                 open={isAdding || Boolean(editingCombo)}
                 saving={saving}
@@ -73,8 +68,6 @@ function ComboPage() {
                 }}
                 onSubmitCombo={handleSaveCombo}
             />
-
-            {/* Configured Cascades Interactive List */}
             <ComboList
                 fallbacks={fallbacks}
                 loading={loading}

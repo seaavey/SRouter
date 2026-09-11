@@ -32,8 +32,6 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { FallbackRule } from "@srouter/types";
 
-/* ───────── Types ───────── */
-
 interface ComboListProps {
     fallbacks: FallbackRule[];
     loading: boolean;
@@ -51,8 +49,6 @@ interface GroupedCombo {
 }
 
 type StatusFilter = "all" | "active" | "disabled";
-
-/* ───────── Sub-components ───────── */
 
 function StatusFilterTabs({
     value,
@@ -357,8 +353,6 @@ function ComboCardHeader({
     );
 }
 
-/* ───────── Main Component ───────── */
-
 export function ComboList({
     fallbacks,
     loading,
@@ -450,7 +444,6 @@ export function ComboList({
 
     return (
         <section className="space-y-4 font-sans text-left">
-            {/* Toolbar */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-canvas p-3 rounded-3xl border border-hairline-soft shadow-none">
                 <div className="flex items-center gap-2 flex-wrap">
                     <StatusFilterTabs
@@ -476,8 +469,6 @@ export function ComboList({
                     </div>
                 </div>
             </div>
-
-            {/* Content */}
             {loading ? (
                 <Empty className="p-12 rounded-3xl border border-hairline-soft bg-canvas">
                     <EmptyTitle className="text-sm font-sans text-text-muted">

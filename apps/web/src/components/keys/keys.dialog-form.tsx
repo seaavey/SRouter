@@ -74,7 +74,7 @@ export function KeyFormDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="p-0 border-none bg-transparent shadow-none w-auto max-w-none flex items-center justify-center pointer-events-auto">
+            <DialogContent className="p-0 border-none bg-transparent shadow-none w-auto max-w-none flex items-center justify-center pointer-events-auto overflow-visible">
                 <motion.div
                     layout="position"
                     transition={{ type: "spring", stiffness: 350, damping: 32 }}
@@ -83,13 +83,11 @@ export function KeyFormDialog({
                         isSidePanelOpen ? "max-w-3xl lg:max-w-4xl" : "max-w-lg"
                     )}
                 >
-                    {/* Primary Card: API Key Details & Settings */}
                     <motion.div
                         layout="position"
                         transition={{ type: "spring", stiffness: 350, damping: 32 }}
                         className="w-full md:w-[460px] lg:w-[480px] shrink-0 border border-hairline-soft bg-canvas rounded-3xl p-0 flex flex-col shadow-none overflow-hidden max-h-[calc(100dvh-2.5rem)]"
                     >
-                        {/* Header Section */}
                         <div className="px-6 py-5 border-b border-hairline-soft bg-canvas shrink-0">
                             <div className="flex items-center justify-between gap-3">
                                 <div className="flex items-center gap-3 min-w-0">
@@ -113,13 +111,10 @@ export function KeyFormDialog({
                                 ) : null}
                             </div>
                         </div>
-
-                        {/* Form Body with Internal Scroll */}
                         <div className="flex-1 overflow-y-auto min-h-0 px-6 py-5 space-y-4">
                             {api_key ? <KeyTelemetryCard api_key={api_key} /> : null}
 
                             <form id="key-form" onSubmit={handleSubmit} className="space-y-4">
-                                {/* Key Identifier & Status */}
                                 <div className="rounded-2xl border border-hairline-soft bg-canvas-soft/40 p-4 space-y-3">
                                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                                         <div className="flex-1 space-y-1.5">
@@ -174,8 +169,6 @@ export function KeyFormDialog({
                                         </div>
                                     </div>
                                 </div>
-
-                                {/* Guardrails: Rate limit & Quotas */}
                                 <div className="rounded-2xl border border-hairline-soft bg-canvas-soft/40 p-4 space-y-2">
                                     <div className="text-xs font-mono text-text-muted uppercase tracking-wider font-semibold">
                                         Quotas & Limits
@@ -186,8 +179,6 @@ export function KeyFormDialog({
                                         id_prefix={IDPrefix}
                                     />
                                 </div>
-
-                                {/* Model Scope */}
                                 <div className="rounded-2xl border border-hairline-soft bg-canvas-soft/40 p-4 space-y-2">
                                     <ModelSelector
                                         scope={form.model_scope}
@@ -208,8 +199,6 @@ export function KeyFormDialog({
                                 </div>
                             </form>
                         </div>
-
-                        {/* Footer Section */}
                         <div className="px-6 py-4 border-t border-hairline-soft bg-canvas shrink-0 flex flex-row items-center justify-end gap-2 mt-0">
                             <Button
                                 type="button"
@@ -229,8 +218,6 @@ export function KeyFormDialog({
                             </Button>
                         </div>
                     </motion.div>
-
-                    {/* Secondary Card (Separated Card to the Right): Allowed Models Pool with Motion Entrance */}
                     <AnimatePresence>
                         {isSidePanelOpen && (
                             <motion.div
@@ -244,29 +231,27 @@ export function KeyFormDialog({
                                     scale: { duration: 0.2, ease: "easeInOut" },
                                     width: { type: "spring", stiffness: 350, damping: 32 }
                                 }}
-                                className="w-full md:w-72 lg:w-80 border border-hairline-soft bg-canvas rounded-3xl p-0 flex flex-col shadow-none overflow-hidden shrink-0 max-h-[calc(100dvh-2.5rem)] md:h-auto font-sans"
+                                className="w-full md:w-96 lg:w-[420px] border border-hairline-soft bg-canvas rounded-3xl p-0 flex flex-col shadow-none overflow-hidden shrink-0 max-h-[calc(100dvh-2.5rem)] md:h-auto font-sans"
                             >
-                                {/* Panel Header */}
                                 <div className="px-4 py-3.5 border-b border-hairline-soft bg-canvas flex items-center justify-between shrink-0">
                                     <div className="flex items-center gap-2 min-w-0">
-                                        <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-canvas-soft text-ink">
-                                            <Cpu className="size-3.5" />
-                                        </div>
-                                        <h3 className="text-xs font-semibold text-ink truncate uppercase tracking-wider font-mono">
+                                        <h3 className="text-xs font-semibold text-ink truncate font-sans">
                                             Allowed Models
                                         </h3>
+                                        <span className="rounded-full bg-field px-2 py-0.5 text-[10px] font-mono text-text-muted">
+                                            {form.selected_models.length} selected
+                                        </span>
                                     </div>
                                     <button
                                         type="button"
                                         onClick={() => setIsModelPickerExpanded(false)}
                                         className="rounded-full p-1 text-text-muted hover:bg-canvas-soft hover:text-ink transition-colors cursor-pointer"
-                                        title="Close Model Card"
+                                        title="Close model picker"
+                                        aria-label="Close model picker"
                                     >
                                         <X className="size-3.5" />
                                     </button>
                                 </div>
-
-                                {/* Search Filter */}
                                 <div className="p-3 border-b border-hairline-soft shrink-0 bg-canvas">
                                     <div className="relative">
                                         <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-text-muted" />
@@ -289,8 +274,6 @@ export function KeyFormDialog({
                                         )}
                                     </div>
                                 </div>
-
-                                {/* Scrollable Model Checkbox List */}
                                 <div className="flex-1 overflow-y-auto min-h-[220px] max-h-[360px] md:max-h-[420px] p-2 space-y-0.5">
                                     {isModelsPending ? (
                                         <p className="py-8 text-center font-mono text-xs text-text-muted">
@@ -319,7 +302,7 @@ export function KeyFormDialog({
                                                             )}
                                                         >
                                                             <span
-                                                                className="truncate max-w-[200px]"
+                                                                className="truncate flex-1 min-w-0"
                                                                 title={m.id}
                                                             >
                                                                 {m.id}
@@ -334,8 +317,6 @@ export function KeyFormDialog({
                                         </ul>
                                     )}
                                 </div>
-
-                                {/* Panel Summary Footer */}
                                 <div className="px-4 py-3 border-t border-hairline-soft bg-canvas-soft/40 flex items-center justify-between text-xs font-mono text-text-muted shrink-0">
                                     <span>{form.selected_models.length} active</span>
                                     <button

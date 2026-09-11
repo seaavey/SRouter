@@ -76,7 +76,6 @@ export function Catalog({ groups, search, viewMode = "grid" }: CatalogProps) {
         );
     }
 
-    // List view
     return (
         <div className="space-y-6">
             {groups.map((group) => (
@@ -85,7 +84,6 @@ export function Catalog({ groups, search, viewMode = "grid" }: CatalogProps) {
                     aria-labelledby={`category-list-${group.category}`}
                     className="rounded-3xl border border-hairline-soft bg-canvas overflow-hidden shadow-none"
                 >
-                    {/* Category Header */}
                     <header className="flex items-center justify-between gap-4 border-b border-hairline-soft bg-canvas-soft px-5 py-3.5">
                         <div className="flex items-center gap-2">
                             <h2
@@ -106,8 +104,6 @@ export function Catalog({ groups, search, viewMode = "grid" }: CatalogProps) {
                             ] ?? ""}
                         </p>
                     </header>
-
-                    {/* Provider Rows */}
                     <div className="p-2 divide-y divide-hairline-soft">
                         {group.providers.map((provider) => (
                             <ProviderRow key={provider.id} provider={provider} />

@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
     type ColumnDef,
     type SortingState,
@@ -26,14 +26,34 @@ interface LogTableProps {
     logs: RequestLogEntry[];
     requireApiKey?: boolean;
     onSelect: (log: RequestLogEntry) => void;
+    page?: number;
+    pageSize?: number;
+    pageCount?: number;
+    totalRows?: number;
+    onPageChange?: (page: number) => void;
+    onPageSizeChange?: (pageSize: number) => void;
 }
 
-export function LogTable({ logs, requireApiKey = false, onSelect }: LogTableProps) {
+export function LogTable({
+    logs,
+    requireApiKey = false,
+    onSelect,
+    page,
+    pageSize = 25,
+    pageCount: serverPageCount,
+    totalRows: serverTotalRows,
+    onPageChange,
+    onPageSizeChange
+}: LogTableProps) {
+    const isServerPaginated = page !== undefined && onPageChange !== undefined;
+
     const [sorting, setSorting] = useState<SortingState>([{ id: "createdAt", desc: true }]);
-    const [pagination, setPagination] = useState<PaginationState>({
+    const [clientPagination, setClientPagination] = useState<PaginationState>({
         pageIndex: 0,
         pageSize: 25
     });
+
+    const pagination = isServerPaginated ? { pageIndex: page - 1, pageSize } : clientPagination;
 
     const columns = useMemo<ColumnDef<RequestLogEntry>[]>(() => {
         const cols: ColumnDef<RequestLogEntry>[] = [
@@ -279,18 +299,51 @@ export function LogTable({ logs, requireApiKey = false, onSelect }: LogTableProp
             pagination
         },
         onSortingChange: setSorting,
-        onPaginationChange: setPagination,
+        onPaginationChange: (updater) => {
+            if (isServerPaginated) {
+                const nextState = typeof updater === "function" ? updater(pagination) : updater;
+                onPageChange(nextState.pageIndex + 1);
+            } else {
+                setClientPagination(updater);
+            }
+        },
+        manualPagination: isServerPaginated,
+        pageCount: isServerPaginated ? serverPageCount : undefined,
         getCoreRowModel: getCoreRowModel(),
         getSortedRowModel: getSortedRowModel(),
-        getPaginationRowModel: getPaginationRowModel()
+        getPaginationRowModel: isServerPaginated ? undefined : getPaginationRowModel()
     });
 
-    const pageCount = table.getPageCount();
-    const currentPage = table.getState().pagination.pageIndex;
-    const pageSize = table.getState().pagination.pageSize;
-    const totalRows = logs.length;
-    const startRow = totalRows === 0 ? 0 : currentPage * pageSize + 1;
-    const endRow = Math.min((currentPage + 1) * pageSize, totalRows);
+    const pageCount = isServerPaginated ? (serverPageCount ?? 1) : table.getPageCount();
+    const currentPage = isServerPaginated ? (page ?? 1) - 1 : table.getState().pagination.pageIndex;
+    const effectivePageSize = isServerPaginated ? pageSize : table.getState().pagination.pageSize;
+    const totalCount = isServerPaginated ? (serverTotalRows ?? logs.length) : logs.length;
+    const startRow = totalCount === 0 ? 0 : currentPage * effectivePageSize + 1;
+    const endRow = Math.min((currentPage + 1) * effectivePageSize, totalCount);
+
+    const [targetPageInput, setTargetPageInput] = useState(String(currentPage + 1));
+
+    useEffect(() => {
+        setTargetPageInput(String(currentPage + 1));
+    }, [currentPage]);
+
+    const handleJumpPage = (e?: React.FormEvent) => {
+        e?.preventDefault();
+        const parsed = parseInt(targetPageInput, 10);
+        if (Number.isNaN(parsed) || parsed < 1) {
+            setTargetPageInput(String(currentPage + 1));
+            return;
+        }
+        const target = Math.max(1, Math.min(pageCount, parsed));
+        setTargetPageInput(String(target));
+        if (target !== currentPage + 1) {
+            if (isServerPaginated) {
+                onPageChange?.(target);
+            } else {
+                table.setPageIndex(target - 1);
+            }
+        }
+    };
 
     return (
         <div className="space-y-4 font-sans">
@@ -337,14 +390,12 @@ export function LogTable({ logs, requireApiKey = false, onSelect }: LogTableProp
                     </table>
                 </div>
             </div>
-
-            {/* Pagination Controls */}
-            {totalRows > pageSize && (
+            {totalCount > effectivePageSize && (
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-2 text-xs text-text-muted font-sans">
                     <div>
                         Showing <span className="text-ink font-semibold font-mono">{startRow}</span>
                         –<span className="text-ink font-semibold font-mono">{endRow}</span> of{" "}
-                        <span className="text-ink font-semibold font-mono">{totalRows}</span> logs
+                        <span className="text-ink font-semibold font-mono">{totalCount}</span> logs
                     </div>
                     <div className="flex items-center gap-1.5">
                         <button
@@ -356,9 +407,21 @@ export function LogTable({ logs, requireApiKey = false, onSelect }: LogTableProp
                         >
                             <ChevronLeft className="size-4" />
                         </button>
-                        <span className="px-3 text-xs font-mono text-text-muted tabular-nums">
-                            {currentPage + 1} / {pageCount}
-                        </span>
+                        <form onSubmit={handleJumpPage} className="flex items-center gap-1.5">
+                            <input
+                                type="number"
+                                min={1}
+                                max={pageCount}
+                                value={targetPageInput}
+                                onChange={(e) => setTargetPageInput(e.target.value)}
+                                onBlur={() => handleJumpPage()}
+                                aria-label="Target page number"
+                                className="w-14 h-8 rounded-xl border border-hairline-soft bg-field px-2 text-center font-mono text-xs text-ink focus:border-hairline-strong focus:outline-none transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            />
+                            <span className="font-mono text-xs text-text-muted tabular-nums">
+                                / {pageCount}
+                            </span>
+                        </form>
                         <button
                             type="button"
                             onClick={() => table.nextPage()}

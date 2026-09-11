@@ -27,6 +27,8 @@ const ICON_MAPPING: Record<string, string> = {
     openrouter: "/icons/providers/openrouter.png",
     copilot: "/icons/providers/copilot.png",
     cursor: "/icons/providers/cursor.png",
+    experientiallabs: "/icons/providers/experientiallabs.svg",
+    explabs: "/icons/providers/experientiallabs.svg",
     qoder: "/icons/providers/qoder.png",
     kilocode: "/icons/providers/kilocode.png",
     kilo: "/icons/providers/kilocode.png",
@@ -112,10 +114,8 @@ export function ProviderIcon({
         );
     }
 
-    // 1. Direct key match
     let src: string | undefined = ICON_MAPPING[id];
 
-    // 2. Partial substring match
     if (!src) {
         for (const key of Object.keys(ICON_MAPPING)) {
             if (id.includes(key)) {

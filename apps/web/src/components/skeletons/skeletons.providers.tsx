@@ -3,7 +3,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 export function ProvidersSkeleton() {
     return (
         <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 font-sans">
-            {/* Header */}
             <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end border-b border-hairline-soft pb-5">
                 <div className="space-y-2">
                     <Skeleton className="h-3 w-36 rounded-full" />
@@ -15,8 +14,6 @@ export function ProvidersSkeleton() {
                     <Skeleton className="h-9 w-24 rounded-full" />
                 </div>
             </div>
-
-            {/* 4 KPI Summary Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 {Array.from({ length: 4 }).map((_, i) => (
                     <div
@@ -32,8 +29,6 @@ export function ProvidersSkeleton() {
                     </div>
                 ))}
             </div>
-
-            {/* Filter Toolbar */}
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between border border-hairline-soft p-2 bg-canvas-soft rounded-3xl lg:rounded-full">
                 <div className="flex items-center gap-2 p-0.5">
                     <Skeleton className="h-7 w-16 rounded-full" />
@@ -46,8 +41,6 @@ export function ProvidersSkeleton() {
                     <Skeleton className="h-9 w-18 rounded-full" />
                 </div>
             </div>
-
-            {/* Provider Cards Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {Array.from({ length: 6 }).map((_, i) => (
                     <div

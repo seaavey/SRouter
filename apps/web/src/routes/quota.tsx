@@ -1,13 +1,6 @@
 import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import {
-    ChevronsDownUp,
-    ChevronsUpDown,
-    Gauge,
-    Plus,
-    RefreshCw,
-    TriangleAlert
-} from "lucide-react";
+import { Gauge, Plus, RefreshCw, TriangleAlert } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { QuotaSkeleton } from "@/components/skeletons";
@@ -159,7 +152,6 @@ function QuotaPage() {
 
     return (
         <div className="mx-auto flex w-full max-w-[1360px] flex-col gap-8 font-sans">
-            {/* Header Section */}
             <header className="flex flex-col justify-between gap-4 pb-2 sm:flex-row sm:items-end">
                 <div className="min-w-0">
                     <div className="flex items-center gap-2 mb-2">
@@ -177,41 +169,7 @@ function QuotaPage() {
                     </p>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-                    <span className="hidden xl:inline-block font-mono text-xs text-text-muted mr-1">
-                        Updated{" "}
-                        {lastUpdated.toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                            second: "2-digit"
-                        })}
-                    </span>
-
-                    {activeProviders.length > 0 && (
-                        <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={toggleAll}
-                            className="rounded-full px-4 h-9 text-xs font-medium cursor-pointer gap-1.5 shadow-none"
-                            title={
-                                isAllCollapsed ? "Expand all providers" : "Collapse all providers"
-                            }
-                        >
-                            {isAllCollapsed ? (
-                                <>
-                                    <ChevronsUpDown className="size-3.5 text-text-muted" />
-                                    <span>Expand All</span>
-                                </>
-                            ) : (
-                                <>
-                                    <ChevronsDownUp className="size-3.5 text-text-muted" />
-                                    <span>Collapse All</span>
-                                </>
-                            )}
-                        </Button>
-                    )}
-
+                <div className="flex items-center gap-2 shrink-0">
                     <Button
                         type="button"
                         variant="outline"
@@ -226,21 +184,8 @@ function QuotaPage() {
                         />
                         <span>{isSpinning ? "Refreshing…" : "Refresh"}</span>
                     </Button>
-
-                    <Link
-                        to="/providers"
-                        className={cn(
-                            buttonVariants({ size: "sm" }),
-                            "rounded-full px-5 h-9 text-xs font-semibold cursor-pointer shadow-none gap-1.5"
-                        )}
-                    >
-                        <Plus className="size-3.5" />
-                        <span>Add Provider</span>
-                    </Link>
                 </div>
             </header>
-
-            {/* Bento Metrics 4-Card Summary */}
             <QuotaSummaryMetrics
                 totalAccounts={allProviders.length}
                 totalLiveQuotas={totalLiveQuotas}
@@ -248,8 +193,6 @@ function QuotaPage() {
                 totalTokens={totalTokensAll}
                 totalRequests={totalRequestsAll}
             />
-
-            {/* Provider Accounts Quota List */}
             {activeProviders.length === 0 ? (
                 <Empty className="rounded-3xl border border-hairline-soft bg-canvas p-12">
                     <EmptyHeader>
@@ -278,7 +221,7 @@ function QuotaPage() {
                     </EmptyContent>
                 </Empty>
             ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                <div className="flex flex-col gap-6 w-full">
                     {groupedProviders.map(([groupKey, group]) => (
                         <QuotaProviderCard
                             key={groupKey}

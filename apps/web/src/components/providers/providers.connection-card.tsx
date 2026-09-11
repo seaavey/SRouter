@@ -89,7 +89,6 @@ export function ConnectionCard({
     return (
         <TooltipProvider>
             <div className="rounded-3xl border border-hairline-soft bg-canvas p-5 sm:p-6 font-sans shadow-none space-y-5">
-                {/* Header Row */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 border-b border-hairline-soft pb-4">
                     <div className="flex items-center gap-3">
                         <div className="flex size-9 items-center justify-center rounded-[30%] bg-canvas-soft text-ink border border-hairline-soft">
@@ -113,7 +112,6 @@ export function ConnectionCard({
                     </div>
 
                     <div className="flex items-center gap-2.5 flex-wrap">
-                        {/* Round Robin Balancing Switch */}
                         <Tooltip>
                             <TooltipTrigger
                                 render={
@@ -134,8 +132,6 @@ export function ConnectionCard({
                                 </p>
                             </TooltipContent>
                         </Tooltip>
-
-                        {/* Test Connection Button */}
                         <Button
                             type="button"
                             variant="outline"
@@ -151,8 +147,6 @@ export function ConnectionCard({
                             />
                             <span>{isTesting ? "Testing…" : "Test Connection"}</span>
                         </Button>
-
-                        {/* Add Connection Action in Header */}
                         <Button
                             type="button"
                             size="sm"
@@ -164,8 +158,6 @@ export function ConnectionCard({
                         </Button>
                     </div>
                 </div>
-
-                {/* Body / Credentials List */}
                 {connections.length === 0 ? (
                     <Empty className="p-8">
                         <EmptyHeader>

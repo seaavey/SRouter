@@ -24,7 +24,6 @@ export function AgentBadgeIcon({ agentName, className = "size-5" }: AgentBadgeIc
     const [imgFailed, setImgFailed] = useState(false);
     const lower = agentName.toLowerCase();
 
-    // Check mapped image assets first
     const matchedKey = Object.keys(AGENT_IMAGE_MAP).find((key) => lower.includes(key));
     if (matchedKey && !imgFailed) {
         return (
@@ -38,7 +37,6 @@ export function AgentBadgeIcon({ agentName, className = "size-5" }: AgentBadgeIc
         );
     }
 
-    // Hermes Agent
     if (lower.includes("hermes")) {
         return (
             <svg viewBox="0 0 24 24" fill="none" className={className}>
@@ -54,7 +52,6 @@ export function AgentBadgeIcon({ agentName, className = "size-5" }: AgentBadgeIc
         );
     }
 
-    // Aider
     if (lower.includes("aider")) {
         return (
             <svg viewBox="0 0 24 24" fill="none" className={className}>
@@ -69,7 +66,6 @@ export function AgentBadgeIcon({ agentName, className = "size-5" }: AgentBadgeIc
         );
     }
 
-    // Default fallback
     return (
         <div
             className={`flex items-center justify-center rounded-xl bg-field text-ink border border-hairline-soft ${className}`}

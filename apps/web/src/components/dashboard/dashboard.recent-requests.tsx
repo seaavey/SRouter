@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
-import { ArrowUpRight, Activity } from "lucide-react";
+import { Activity } from "lucide-react";
 import { api } from "@/lib/api";
 import { formatCompactNumber } from "@/lib/utils";
 import type { RequestLogEntry } from "@srouter/types";
@@ -30,10 +29,9 @@ export function RecentRequestsFeed() {
     return (
         <section
             aria-label="Recent Requests"
-            className="flex h-full min-w-0 flex-col justify-between rounded-3xl border border-hairline-soft bg-canvas p-6 shadow-none"
+            className="flex h-full min-w-0 flex-col justify-between rounded-3xl border border-hairline-soft bg-canvas p-4 shadow-none sm:p-5 lg:p-6"
         >
             <div>
-                {/* Header */}
                 <header className="flex items-center justify-between gap-3 border-b border-hairline-soft pb-4">
                     <div className="flex min-w-0 items-center gap-3">
                         <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-canvas-soft text-ink">
@@ -48,17 +46,7 @@ export function RecentRequestsFeed() {
                             </p>
                         </div>
                     </div>
-
-                    <Link
-                        to="/logs"
-                        className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium text-text-muted transition-colors hover:bg-canvas-soft hover:text-ink"
-                    >
-                        <span>All logs</span>
-                        <ArrowUpRight className="size-3 opacity-60" />
-                    </Link>
                 </header>
-
-                {/* Content */}
                 <div className="mt-4">
                     {isLoading ? (
                         <div className="space-y-3 py-2">

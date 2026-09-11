@@ -359,7 +359,61 @@ export function UsageByModelTable({ models }: UsageByModelTableProps) {
                     </Empty>
                 ) : (
                     <>
-                        <Table className="min-w-[900px]">
+                        <div className="space-y-2 p-4 lg:hidden">
+                            {table.getRowModel().rows.map((row) => {
+                                const model = row.original;
+                                const total = model.totalInputTokens + model.totalOutputTokens;
+                                return (
+                                    <article
+                                        key={row.id}
+                                        className="min-w-0 rounded-2xl border border-hairline-soft bg-canvas-soft/40 p-3.5"
+                                    >
+                                        <div className="flex min-w-0 items-start justify-between gap-3">
+                                            <span
+                                                className="min-w-0 truncate text-sm font-medium text-ink"
+                                                title={model.model}
+                                            >
+                                                {model.model}
+                                            </span>
+                                            <span className="shrink-0 font-mono text-xs font-semibold text-ink tabular-nums">
+                                                <ResponsiveNumber value={total} /> tok
+                                            </span>
+                                        </div>
+                                        <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 font-mono text-[11px] text-text-muted sm:grid-cols-4">
+                                            <div className="min-w-0">
+                                                <dt>Requests</dt>
+                                                <dd className="mt-0.5 font-semibold text-ink">
+                                                    <ResponsiveNumber value={model.totalRequests} />
+                                                </dd>
+                                            </div>
+                                            <div className="min-w-0">
+                                                <dt>Input</dt>
+                                                <dd className="mt-0.5 font-semibold text-ink">
+                                                    <ResponsiveNumber
+                                                        value={model.totalInputTokens}
+                                                    />
+                                                </dd>
+                                            </div>
+                                            <div className="min-w-0">
+                                                <dt>Output</dt>
+                                                <dd className="mt-0.5 font-semibold text-ink">
+                                                    <ResponsiveNumber
+                                                        value={model.totalOutputTokens}
+                                                    />
+                                                </dd>
+                                            </div>
+                                            <div className="min-w-0">
+                                                <dt>Est. cost</dt>
+                                                <dd className="mt-0.5 font-semibold text-ink">
+                                                    ${model.estCost.toFixed(4)}
+                                                </dd>
+                                            </div>
+                                        </dl>
+                                    </article>
+                                );
+                            })}
+                        </div>
+                        <Table className="hidden min-w-[900px] lg:table">
                             <TableHeader>
                                 {table.getHeaderGroups().map((headerGroup) => (
                                     <TableRow key={headerGroup.id}>

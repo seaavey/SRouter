@@ -3,6 +3,7 @@ import {
     getAnalyticsDB,
     getBucketSizeMs,
     getBucketCount,
+    getPaginatedLogsDB,
     getRecentLogsDB,
     getRequireApiKeyDB,
     getUsageByModelDB,
@@ -54,6 +55,55 @@ export class LogsLogic {
                 costBreakdown: breakdown
             };
         });
+    }
+
+    public static async getPaginatedLogs(
+        page: number = 1,
+        limit: number = 50,
+        status?: "all" | "success" | "error"
+    ): Promise<{
+        data: RequestLogEntry[];
+        pagination: { page: number; limit: number; total: number; total_pages: number };
+    }> {
+        const [{ data: rawLogs, pagination }, requireApiKey, keys] = await Promise.all([
+            getPaginatedLogsDB(page, limit, status),
+            getRequireApiKeyDB().catch(() => false),
+            getAllAPIKeysDB().catch(() => [])
+        ]);
+
+        const keyMap = new Map<string, string>();
+        for (const k of keys) {
+            keyMap.set(k.id, k.name);
+        }
+
+        const data = rawLogs.map((log) => {
+            const pricing = getPricingForModel(log.providerId, log.resolvedModel || log.model);
+            const breakdown = calculateCostBreakdownFromTokens(
+                {
+                    prompt_tokens: log.promptTokens,
+                    completion_tokens: log.completionTokens,
+                    cached_tokens: log.cachedTokens,
+                    cache_creation_input_tokens: log.cacheCreationTokens,
+                    reasoning_tokens: log.reasoningTokens
+                },
+                pricing
+            );
+
+            const apiKeyId = requireApiKey ? log.apiKeyId : undefined;
+            const apiKeyName = apiKeyId ? keyMap.get(apiKeyId) : undefined;
+
+            return {
+                ...log,
+                apiKeyId,
+                apiKeyName,
+                costBreakdown: breakdown
+            };
+        });
+
+        return {
+            data,
+            pagination
+        };
     }
 
     public static async getUsageStats(): Promise<UsageStats> {

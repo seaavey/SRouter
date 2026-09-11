@@ -227,8 +227,6 @@ export function TunnelModal({
                         <CopyButton text={status.domain} label="Copy URL" />
                     ) : null}
                 </div>
-
-                {/* Installing */}
                 {installing && (
                     <div className="space-y-2 py-1">
                         <div className="h-1.5 w-full overflow-hidden rounded-full bg-field">
@@ -265,8 +263,6 @@ export function TunnelModal({
                         {status.install.error}
                     </p>
                 ) : null}
-
-                {/* Missing binary */}
                 {cloudflaredMissing && (
                     <div className="space-y-3 rounded-2xl border border-hairline-soft bg-canvas-soft/50 p-4">
                         <p className="text-xs text-text-muted font-sans leading-relaxed">
@@ -286,8 +282,6 @@ export function TunnelModal({
                         </Button>
                     </div>
                 )}
-
-                {/* Running */}
                 {status?.running ? (
                     <div className="space-y-4 py-1">
                         {status.domain ? (

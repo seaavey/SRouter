@@ -3,7 +3,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 export function AnalyticsSkeleton() {
     return (
         <div className="mx-auto flex w-full max-w-[1360px] flex-col gap-8 font-sans">
-            {/* Header Skeleton */}
             <div className="flex flex-col justify-between gap-4 pb-2 sm:flex-row sm:items-end">
                 <div className="space-y-2">
                     <Skeleton className="h-3 w-36 rounded-full" />
@@ -15,8 +14,6 @@ export function AnalyticsSkeleton() {
                     <Skeleton className="h-4 w-24 rounded-full" />
                 </div>
             </div>
-
-            {/* 4 Stat Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 font-sans">
                 {Array.from({ length: 4 }).map((_, i) => (
                     <div
@@ -33,8 +30,6 @@ export function AnalyticsSkeleton() {
                     </div>
                 ))}
             </div>
-
-            {/* 2 Charts Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {Array.from({ length: 2 }).map((_, i) => (
                     <div
@@ -52,8 +47,6 @@ export function AnalyticsSkeleton() {
                     </div>
                 ))}
             </div>
-
-            {/* Token Usage Chart */}
             <div className="rounded-3xl border border-hairline-soft bg-canvas p-6 shadow-none space-y-4">
                 <div className="flex items-center justify-between">
                     <div className="space-y-1.5">
@@ -64,8 +57,6 @@ export function AnalyticsSkeleton() {
                 </div>
                 <Skeleton className="h-[260px] w-full rounded-2xl" />
             </div>
-
-            {/* Breakdown Card */}
             <div className="rounded-3xl border border-hairline-soft bg-canvas p-6 shadow-none space-y-6">
                 <div className="flex flex-col justify-between gap-4 border-b border-hairline-soft pb-4 sm:flex-row sm:items-center">
                     <div className="space-y-1.5">

@@ -1,10 +1,9 @@
 import { Link, useMatches } from "@tanstack/react-router";
-import { BookOpen, ExternalLink, Moon, Search, Sun } from "lucide-react";
+import { Moon, Sun } from "lucide-react";
 import { useTheme } from "@/context/Theme";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { KNOWN_PROVIDER_MAP, providerBaseId } from "@srouter/constants";
 import { useProvider } from "@/hooks/useProvider";
-import { GITHUB_REPO } from "@/hooks/useVersion";
 
 const ROUTE_TITLE_MAP: Record<string, string> = {
     "/": "Gateway Overview",
@@ -64,7 +63,6 @@ export function Topbar() {
 
     return (
         <header className="sticky top-0 z-30 bg-canvas/80 backdrop-blur-md border-b border-hairline-soft h-16 px-6 flex items-center justify-between">
-            {/* Left: Sidebar trigger & Dynamic Route Title */}
             <div className="flex items-center gap-3 min-w-0">
                 <SidebarTrigger className="size-8 rounded-full text-text-muted hover:text-ink hover:bg-canvas-soft transition-colors cursor-pointer flex items-center justify-center shrink-0" />
 
@@ -87,24 +85,7 @@ export function Topbar() {
                     </h1>
                 )}
             </div>
-
-            {/* Right: Search pill, Theme toggle pill, and Quick Docs link pill */}
             <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
-                {/* Search Pill */}
-                <div className="hidden sm:flex items-center gap-2 bg-field text-ink rounded-full px-4 py-1.5 text-sm">
-                    <Search className="size-3.5 text-text-muted shrink-0" strokeWidth={2} />
-                    <input
-                        type="search"
-                        placeholder="Search..."
-                        className="bg-transparent text-ink placeholder:text-text-faint text-sm focus:outline-none w-24 md:w-36 lg:w-44"
-                        aria-label="Quick search"
-                    />
-                    <kbd className="hidden lg:inline-flex items-center text-[10px] font-mono text-text-muted bg-canvas-soft rounded px-1.5 py-0.5">
-                        ⌘K
-                    </kbd>
-                </div>
-
-                {/* Theme Toggle Pill Button */}
                 <button
                     type="button"
                     onClick={(event) => toggleTheme(event)}
@@ -124,19 +105,6 @@ export function Topbar() {
                         </>
                     )}
                 </button>
-
-                {/* Quick Docs / External Link Pill */}
-                <a
-                    href={`https://github.com/${GITHUB_REPO}#readme`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center gap-1.5 rounded-full bg-canvas-soft hover:bg-field text-ink px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer"
-                    title="Documentation"
-                >
-                    <BookOpen className="size-3.5" strokeWidth={2} />
-                    <span className="hidden sm:inline">Docs</span>
-                    <ExternalLink className="size-3 text-text-muted shrink-0" strokeWidth={2} />
-                </a>
             </div>
         </header>
     );
