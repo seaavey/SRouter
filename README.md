@@ -7,7 +7,7 @@
 Use one local endpoint to route requests, manage provider authentication, enforce quotas, and inspect usage.
 
 <p>
-  <a href="https://github.com/seaavey/SRouter/releases"><img src="https://img.shields.io/badge/version-v0.1.6-6366f1?style=flat-square" alt="Version"></a>
+  <a href="https://github.com/seaavey/SRouter/releases"><img src="https://img.shields.io/badge/version-v0.1.7-6366f1?style=flat-square" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-22c55e?style=flat-square" alt="MIT License"></a>
   <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/node-%3E%3D22-339933?style=flat-square&logo=node.js&logoColor=white" alt="Node.js"></a>
   <a href="https://hono.dev/"><img src="https://img.shields.io/badge/Hono-v4.13-e36002?style=flat-square" alt="Hono"></a>
