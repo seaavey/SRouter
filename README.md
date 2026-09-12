@@ -16,13 +16,17 @@ Use one local endpoint to route requests, manage provider authentication, enforc
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/images/demo-dark.gif">
-    <source media="(prefers-color-scheme: light)" srcset="docs/images/demo-light.gif">
-    <img src="docs/images/demo-dark.gif" alt="SRouter dashboard walkthrough" width="100%">
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/demo-dark.gif">
+    <source media="(prefers-color-scheme: light)" srcset="docs/assets/demo-light.gif">
+    <img src="docs/assets/demo-dark.gif" alt="SRouter dashboard walkthrough" width="100%">
   </picture>
 </p>
 
 </div>
+
+## Dashboard showcase
+
+Watch the short walkthrough to see the dashboard, provider controls, routing surface, quotas, logs, and supporting features in context.
 
 ## Contents
 
