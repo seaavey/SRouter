@@ -2,10 +2,12 @@ import type { ProviderQuotaAccount } from "@srouter/types";
 import { type IProviderQuotaFetcher, type ProviderQuotaContext } from "./base.js";
 import { AntigravityQuotaFetcher } from "./antigravity.js";
 import { CodeBuddyCNQuotaFetcher } from "./codebuddy.js";
+import { OpenAICodexQuotaFetcher } from "./openai-codex.js";
 
 export * from "./base.js";
 export * from "./antigravity.js";
 export * from "./codebuddy.js";
+export * from "./openai-codex.js";
 
 export async function fetchAntigravityLiveQuota(
     providerId: string,
@@ -41,7 +43,8 @@ export async function fetchCodeBuddyCNLiveQuota(
 
 const QUOTA_FETCHERS: IProviderQuotaFetcher[] = [
     new AntigravityQuotaFetcher(),
-    new CodeBuddyCNQuotaFetcher()
+    new CodeBuddyCNQuotaFetcher(),
+    new OpenAICodexQuotaFetcher()
 ];
 
 export function findQuotaFetcher(providerId: string): IProviderQuotaFetcher | undefined {
@@ -52,7 +55,9 @@ export function isOAuthQuotaSupported(providerId: string): boolean {
     return Boolean(findQuotaFetcher(providerId));
 }
 
-export async function fetchLiveOAuthQuota(ctx: ProviderQuotaContext): Promise<ProviderQuotaAccount | null> {
+export async function fetchLiveOAuthQuota(
+    ctx: ProviderQuotaContext
+): Promise<ProviderQuotaAccount | null> {
     const fetcher = findQuotaFetcher(ctx.providerId) || findQuotaFetcher(ctx.id);
     if (!fetcher) {
         return null;

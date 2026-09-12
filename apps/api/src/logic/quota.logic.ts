@@ -33,6 +33,7 @@ export class QuotaLogic {
                                 providerId: p.providerId,
                                 name: p.name,
                                 accessToken: p.accessToken,
+                                accountId: p.accountId,
                                 enabled: p.enabled
                             });
                             if (account) {

@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 import { useQuota } from "@/hooks/useQuota";
 import { api } from "@/lib/api";
 import type { QuotaResponse } from "@srouter/types";
-import { QuotaSummaryMetrics, QuotaProviderCard, type QuotaAccountItem } from "@/components/quota";
+import { QuotaProviderCard, type QuotaAccountItem } from "@/components/quota";
 
 export const Route = createFileRoute("/quota")({
     staticData: { title: "Quotas & Limits" },
@@ -106,27 +106,6 @@ function QuotaPage() {
         setCollapsedMap(newMap);
     };
 
-    // Aggregate stats
-    let totalLiveQuotas = 0;
-    let exhaustedQuotas = 0;
-    let totalTokensAll = 0;
-    let totalRequestsAll = 0;
-
-    for (const p of allProviders) {
-        if (p.quotas) {
-            totalLiveQuotas += p.quotas.length;
-            exhaustedQuotas += p.quotas.filter(
-                (q) => q.status === "exhausted" || q.percentageValue <= 5
-            ).length;
-        }
-        if (p.usageMetrics) {
-            for (const m of p.usageMetrics) {
-                totalTokensAll += m.totalTokens;
-                totalRequestsAll += m.totalRequests;
-            }
-        }
-    }
-
     const isSpinning = isFetching || isManualRefreshing;
 
     if (isLoading) {
@@ -186,13 +165,6 @@ function QuotaPage() {
                     </Button>
                 </div>
             </header>
-            <QuotaSummaryMetrics
-                totalAccounts={allProviders.length}
-                totalLiveQuotas={totalLiveQuotas}
-                exhaustedQuotas={exhaustedQuotas}
-                totalTokens={totalTokensAll}
-                totalRequests={totalRequestsAll}
-            />
             {activeProviders.length === 0 ? (
                 <Empty className="rounded-3xl border border-hairline-soft bg-canvas p-12">
                     <EmptyHeader>

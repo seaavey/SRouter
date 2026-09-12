@@ -15,23 +15,6 @@ export function QuotaSkeleton() {
                     <Skeleton className="h-9 w-36 rounded-full" />
                 </div>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 font-sans">
-                {Array.from({ length: 4 }).map((_, i) => (
-                    <div
-                        key={i}
-                        className="flex min-w-0 min-h-[140px] flex-col justify-between rounded-3xl border border-hairline-soft bg-canvas p-6 shadow-none"
-                    >
-                        <div className="flex items-center justify-between">
-                            <Skeleton className="h-3 w-24 rounded-full" />
-                            <Skeleton className="size-4 rounded-full" />
-                        </div>
-                        <Skeleton className="h-8 w-20 rounded-2xl mt-3" />
-                        <div className="mt-4 border-t border-hairline-soft pt-3">
-                            <Skeleton className="h-3 w-36 rounded-full" />
-                        </div>
-                    </div>
-                ))}
-            </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
                 {Array.from({ length: 2 }).map((_, i) => (
                     <div
