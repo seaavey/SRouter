@@ -1,5 +1,6 @@
 import { formatTime, formatTimeUnit } from "@/utils/format";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import type { TooltipValueType } from "recharts";
 import type { AnalyticsBucket } from "@srouter/types";
 
 interface Props {
@@ -9,7 +10,7 @@ interface Props {
 
 export function TrafficChart({ buckets, bucketSizeMs }: Props) {
     const data = buckets.map((b) => ({
-        time: formatTime(b.bucketStart),
+        time: formatTime(b.bucketStart, bucketSizeMs),
         success: b.successRequests,
         error: b.errorRequests
     }));
@@ -64,6 +65,10 @@ export function TrafficChart({ buckets, bucketSizeMs }: Props) {
                                 fontFamily: "var(--font-mono)",
                                 color: "var(--ink)"
                             }}
+                            formatter={(
+                                value: TooltipValueType | undefined,
+                                name: string | number | undefined
+                            ) => [`${Number(value ?? 0).toLocaleString()} requests`, name]}
                             cursor={{ fill: "var(--canvas-soft)", opacity: 0.6 }}
                         />
                         <Legend

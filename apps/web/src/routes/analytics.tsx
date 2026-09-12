@@ -84,7 +84,7 @@ function AnalyticsPage() {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <TrafficChart buckets={data.buckets} bucketSizeMs={data.bucketSizeMs} />
-                <LatencyChart buckets={data.buckets} />
+                <LatencyChart buckets={data.buckets} bucketSizeMs={data.bucketSizeMs} />
             </div>
             <TokenUsageChart buckets={data.buckets} bucketSizeMs={data.bucketSizeMs} />
             <BreakdownTabsCard
