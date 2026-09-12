@@ -40,3 +40,39 @@ test("OpenAI Codex quota maps primary and secondary windows", async () => {
         globalThis.fetch = originalFetch;
     }
 });
+
+test("OpenAI Codex quota names a long primary window from its upstream duration", async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () =>
+        new Response(
+            JSON.stringify({
+                plan_type: "prolite",
+                rate_limit: {
+                    primary_window: {
+                        used_percent: 12,
+                        limit_window_seconds: 2_592_000,
+                        reset_at: 1_800_000_000
+                    },
+                    secondary_window: null
+                }
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+
+    try {
+        const result = await new OpenAICodexQuotaFetcher().fetchQuota({
+            id: "openai_codex_1",
+            providerId: "openai_codex",
+            name: "Codex account",
+            accessToken: "token",
+            enabled: true
+        });
+
+        assert.deepEqual(
+            result.quotas?.map((quota) => quota.name),
+            ["Codex Monthly"]
+        );
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
+});

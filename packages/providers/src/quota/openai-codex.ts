@@ -9,6 +9,7 @@ interface JsonRecord {
 interface RateLimitWindow {
     usedPercent: number;
     resetAt?: number;
+    durationSeconds?: number;
     name: string;
 }
 
@@ -33,7 +34,46 @@ function ReadWindow(value: unknown, name: string): RateLimitWindow | undefined {
     const usedPercent = ReadNumber(value, "used_percent", "usedPercent");
     if (usedPercent === undefined) return undefined;
     const resetAt = ReadNumber(value, "reset_at", "resets_at", "resetAt", "resetsAt");
-    return { usedPercent: Math.max(0, Math.min(100, usedPercent)), resetAt, name };
+    const durationSeconds =
+        ReadNumber(
+            value,
+            "limit_window_seconds",
+            "limitWindowSeconds",
+            "window_duration_seconds",
+            "windowDurationSeconds"
+        ) ??
+        (() => {
+            const durationMinutes = ReadNumber(
+                value,
+                "window_minutes",
+                "window_duration_mins",
+                "windowDurationMins"
+            );
+            return durationMinutes === undefined ? undefined : durationMinutes * 60;
+        })();
+    return {
+        usedPercent: Math.max(0, Math.min(100, usedPercent)),
+        resetAt,
+        durationSeconds,
+        name
+    };
+}
+
+function GetWindowLabel(window: RateLimitWindow): string {
+    if (window.durationSeconds === undefined || window.durationSeconds <= 0) {
+        return window.name;
+    }
+
+    const Hours = window.durationSeconds / (60 * 60);
+    if (Hours >= 4 && Hours <= 6) return "5-hour";
+
+    const Days = window.durationSeconds / (24 * 60 * 60);
+    if (Days >= 6 && Days <= 8) return "Weekly";
+    if (Days >= 27 && Days <= 31) return "Monthly";
+    if (Days >= 1 && Number.isInteger(Days)) return `${Days}-day`;
+    if (Hours >= 1 && Number.isInteger(Hours)) return `${Hours}-hour`;
+
+    return `${Math.max(1, Math.round(window.durationSeconds / 60))}-minute`;
 }
 
 function GetWindows(payload: JsonRecord): RateLimitWindow[] {
@@ -92,7 +132,7 @@ export class OpenAICodexQuotaFetcher implements IProviderQuotaFetcher {
                 ? new Date(window.resetAt * 1000).toISOString()
                 : undefined;
             return {
-                name: `Codex ${window.name}`,
+                name: `Codex ${GetWindowLabel(window)}`,
                 used: Math.round(window.usedPercent),
                 limit: 100,
                 percentage: `${Math.round(remaining)}%`,
