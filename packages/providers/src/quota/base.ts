@@ -5,6 +5,7 @@ export interface ProviderQuotaContext {
     providerId: string;
     name: string;
     accessToken?: string;
+    accountId?: string;
     enabled: boolean;
 }
 
