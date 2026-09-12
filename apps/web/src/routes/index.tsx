@@ -7,13 +7,13 @@ import { api, getGatewayBaseUrl } from "@/lib/api";
 import { formatCompactNumber } from "@/lib/utils";
 import type { UsageStats } from "@srouter/types";
 import {
-    GatewayTopologyMap,
     AnimatedNumber,
     ModelUsageOverview,
-    NetworkStatus,
     ResponsiveNumber,
     UsageByModelTable
 } from "@/components/dashboard";
+import { GatewayTopologyMap } from "@/components/dashboard/dashboard.gateway-topology-map";
+import { NetworkStatus } from "@/components/dashboard/dashboard.network-status";
 import { Button } from "@/components/ui/button";
 import { DashboardSkeleton } from "@/components/skeletons";
 

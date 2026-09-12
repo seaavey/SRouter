@@ -15,7 +15,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
     AddModelDialog,
-    ConnectOAuthModal,
     ConnectionCard,
     ConnectionForm,
     ProviderIcon,
@@ -23,6 +22,7 @@ import {
     ProviderModelTable,
     type ConnectionFormInput
 } from "@/components/providers";
+import { ConnectOAuthModal } from "@/components/providers/providers.connect-oauth-modal";
 import { useProvider, type AddConnectionPayload } from "@/hooks/useProvider";
 import { useCopy } from "@/hooks/useCopy";
 import { useFavorites } from "@/hooks/useFavorites";

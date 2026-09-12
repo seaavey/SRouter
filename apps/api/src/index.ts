@@ -152,6 +152,14 @@ const hasWebDist =
 
 if (hasWebDist) {
     const relWebDist = path.relative(process.cwd(), webDistPath) || ".";
+    app.use("/*", async (c, next) => {
+        if (
+            /[.]((?:js|css|map|woff2?|ttf|otf|png|svg|ico|webp|avif|jpe?g|gif))$/i.test(c.req.path)
+        ) {
+            c.header("Cache-Control", "public, max-age=31536000, immutable");
+        }
+        await next();
+    });
     app.use("/*", serveStatic({ root: relWebDist }));
     app.get("*", serveStatic({ path: path.join(relWebDist, "index.html") }));
 } else {
