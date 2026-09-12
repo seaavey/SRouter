@@ -1,16 +1,17 @@
-import { formatTime } from "@/utils/format";
+import { formatDuration, formatTime } from "@/utils/format";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import type { AnalyticsBucket } from "@srouter/types";
 
 interface Props {
     buckets: AnalyticsBucket[];
+    bucketSizeMs: number;
 }
 
-export function LatencyChart({ buckets }: Props) {
+export function LatencyChart({ buckets, bucketSizeMs }: Props) {
     const data = buckets
         .filter((b) => b.totalRequests > 0)
         .map((b) => ({
-            time: formatTime(b.bucketStart),
+            time: formatTime(b.bucketStart, bucketSizeMs),
             latency: Math.round(b.avgLatencyMs)
         }));
 
@@ -58,6 +59,7 @@ export function LatencyChart({ buckets }: Props) {
                             tickLine={false}
                             axisLine={false}
                             domain={[0, "auto"]}
+                            tickFormatter={formatDuration}
                         />
                         <Tooltip
                             contentStyle={{
@@ -70,7 +72,10 @@ export function LatencyChart({ buckets }: Props) {
                                 fontFamily: "var(--font-mono)",
                                 color: "var(--ink)"
                             }}
-                            formatter={(val: unknown) => [`${val} ms`, "Avg Latency"]}
+                            formatter={(val: unknown) => [
+                                formatDuration(Number(val ?? 0)),
+                                "Avg Latency"
+                            ]}
                         />
                         <Area
                             type="monotone"

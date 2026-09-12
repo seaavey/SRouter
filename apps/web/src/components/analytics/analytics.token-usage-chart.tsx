@@ -10,7 +10,7 @@ interface Props {
 
 export function TokenUsageChart({ buckets, bucketSizeMs }: Props) {
     const data = buckets.map((b) => ({
-        time: formatTime(b.bucketStart),
+        time: formatTime(b.bucketStart, bucketSizeMs),
         input: b.promptTokens ?? 0,
         output: b.completionTokens ?? 0,
         cached: b.cachedTokens ?? 0
