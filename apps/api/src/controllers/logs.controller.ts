@@ -67,9 +67,13 @@ export class LogsController {
 
                 send(JSON.stringify({ type: "connected" }));
                 unsubscribe = onUsageUpdated(() => {
-                    void LogsLogic.getUsageStats().then((stats) => {
-                        send(JSON.stringify({ type: "usage.updated", stats }));
-                    });
+                    void Promise.all([LogsLogic.getUsageStats(), LogsLogic.getRecentLogs(1)]).then(
+                        ([stats, logs]) => {
+                            send(JSON.stringify({ type: "usage.updated", stats }));
+                            const log = logs[0];
+                            if (log) send(JSON.stringify({ type: "request.logged", log }));
+                        }
+                    );
                 });
                 heartbeat = setInterval(() => {
                     try {

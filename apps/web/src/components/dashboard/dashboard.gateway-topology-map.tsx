@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import {
     ReactFlow,
     Background,
@@ -15,7 +15,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+
 import {
     Zap,
     Boxes,
@@ -35,15 +35,14 @@ import {
 import { useCatalog } from "@/hooks/useCatalog";
 
 import { ProviderIcon } from "@/components/providers";
-import { api, getGatewayBaseUrl } from "@/lib/api";
+import { getGatewayBaseUrl } from "@/lib/api";
 import { isProviderConnected, getConnectedCount } from "@/utils/provider.utils";
 import {
     DEFAULT_TOKEN_SAVER_SETTINGS,
+    type LogsStreamEvent,
     type ProviderDefinition,
-    type TokenSaverSettings,
-    type RequestLogEntry
+    type TokenSaverSettings
 } from "@srouter/types";
-import type { ListResponse } from "@/lib/types";
 
 type CoreNodeData = {
     tokenSaverEnabled?: boolean;
@@ -535,14 +534,6 @@ function ProviderMatrixView({
 function GatewayTopologyCanvas() {
     const { allProviders } = useCatalog();
 
-    const { data: logsData } = useQuery({
-        queryKey: ["recent-logs-topology"],
-        queryFn: () => api.get<ListResponse<RequestLogEntry>>("/v1/logs?limit=10"),
-        refetchInterval: 800,
-        refetchIntervalInBackground: true,
-        staleTime: 0
-    });
-
     const [selectedNode, setSelectedNode] = useState<SelectedNodeInfo | null>(null);
     const [viewMode, setViewMode] = useState<"graph" | "matrix">(() => {
         if (typeof window === "undefined") return "graph";
@@ -552,48 +543,30 @@ function GatewayTopologyCanvas() {
     const [activePings, setActivePings] = useState<
         Record<string, { latency: number; expiresAt: number }>
     >({});
-    const seenLogIdsRef = useRef<Set<string>>(new Set());
-    const isFirstMountRef = useRef(true);
 
     useEffect(() => {
-        if (!logsData?.data) return;
+        if (typeof window === "undefined" || typeof window.EventSource === "undefined") return;
 
-        const logs = logsData.data;
-        const now = Date.now();
-        const newPings: Record<string, { latency: number; expiresAt: number }> = {};
-        let hasNew = false;
+        const source = new EventSource(`${getGatewayBaseUrl()}/logs/events`);
+        source.onmessage = (event) => {
+            try {
+                const payload = JSON.parse(event.data) as LogsStreamEvent;
+                if (payload.type !== "request.logged") return;
 
-        if (isFirstMountRef.current) {
-            isFirstMountRef.current = false;
-            for (const log of logs) {
-                seenLogIdsRef.current.add(log.id);
-                if (now - log.createdAt < 3000) {
-                    const normId = log.providerId.toLowerCase();
-                    newPings[normId] = {
-                        latency: log.latencyMs,
-                        expiresAt: log.createdAt + 5000
-                    };
-                    hasNew = true;
-                }
+                setActivePings((prev) => ({
+                    ...prev,
+                    [payload.log.providerId.toLowerCase()]: {
+                        latency: payload.log.latencyMs,
+                        expiresAt: Date.now() + 5000
+                    }
+                }));
+            } catch {
+                return;
             }
-        } else {
-            for (const log of logs) {
-                if (!seenLogIdsRef.current.has(log.id)) {
-                    seenLogIdsRef.current.add(log.id);
-                    const normId = log.providerId.toLowerCase();
-                    newPings[normId] = {
-                        latency: log.latencyMs,
-                        expiresAt: log.createdAt + 5000
-                    };
-                    hasNew = true;
-                }
-            }
-        }
+        };
 
-        if (hasNew) {
-            setActivePings((prev) => ({ ...prev, ...newPings }));
-        }
-    }, [logsData]);
+        return () => source.close();
+    }, []);
 
     useEffect(() => {
         const interval = setInterval(() => {

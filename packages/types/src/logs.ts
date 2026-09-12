@@ -88,7 +88,10 @@ export interface UsageStats extends UsageSummary {
     byModel: UsageByModelRow[];
 }
 
-export type LogsStreamEvent = { type: "connected" } | { type: "usage.updated"; stats: UsageStats };
+export type LogsStreamEvent =
+    | { type: "connected" }
+    | { type: "usage.updated"; stats: UsageStats }
+    | { type: "request.logged"; log: RequestLogEntry };
 
 // --- Analytics ---
 
