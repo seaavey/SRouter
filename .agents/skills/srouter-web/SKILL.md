@@ -1,91 +1,54 @@
 ---
 name: srouter-web
-description: |
-    Development skill for SRouter Web Dashboard (`apps/web`). Use whenever modifying React 19 routes, dashboard pages, provider configuration UI, streaming playground/chat UX, TanStack Query hooks, Tailwind v4 styling, Base UI components, auth/layout flows, API client behavior, or frontend state architecture. Also use when debugging route loaders, optimistic mutations, theme/layout regressions, query invalidation bugs, or `/v1` API integration issues.
+description: Use when changing the SRouter React dashboard.
+version: 1.1.0
+author: Muhammad Adriansyah (Seaavey), Hermes Agent
+license: MIT
+platforms: [linux, macos, windows]
+metadata:
+    hermes:
+        tags: [srouter, react, dashboard, tanstack, responsive-ui]
+        related_skills: [srouter-task-workflow]
 ---
 
-# ⚡ SRouter — Web Dashboard Skill
+# SRouter Web Skill
 
-Development workflow for the SRouter React dashboard (`apps/web`).
+Use this skill for `apps/web`: React routes, dashboard components, provider UI, TanStack Query, streaming UX, layouts, themes, and `/v1` integration.
 
-## When To Read References
+## When to Use
 
-| Reference | Use When |
-| --- | --- |
-| `references/architecture.md` | Navigating routes/components/hooks structure |
-| `references/conventions.md` | Editing React/TanStack/Tailwind patterns |
-| `references/playground.md` | Working on streaming chat & playground UX |
-| `references/verification.md` | Running build/test/debug workflows |
+- File-based routes, hooks, components, API client calls, mutations, or query invalidation.
+- Provider configuration, playground/chat streaming, loading/error/empty states, responsive layouts, or accessibility.
 
-Load the relevant reference before modifying that subsystem.
+## Repository Rules
 
-## Stack
+- Read `RULES.md`, `CODING-STYLE.md`, and `DESIGN.md` in `/home/seaavey/Obsidian/SRouter/` before editing.
+- Routes compose pages; hooks own server-state orchestration; components remain presentation-focused.
+- Use `src/lib/api.ts` and TanStack Query. Do not hand-edit `src/routeTree.gen.ts`.
+- Use shared contracts from `@srouter/types` and preserve `snake_case` at the API boundary. Local UI state may use camelCase.
+- Import version/provider metadata from `@srouter/constants`; do not duplicate endpoint strings or catalogs.
+- Use semantic controls, visible `focus-visible` states, `aria-label` for icon-only buttons, and minimum 44px touch targets.
+- Use semantic CSS variables from `styles.css`; no decorative gradients, glows, or unnecessary nested cards.
+- Design responsive behavior explicitly for base, `sm`, `md`, `lg`, `xl`, and `2xl`. Prevent identifier clipping and horizontal overflow.
+- Realtime dashboard data uses typed SSE contracts when available; do not add high-frequency polling as a shortcut.
 
-- React 19
-- TypeScript ESM
-- TanStack Router
-- TanStack Query v5
-- Tailwind CSS v4
-- Motion
-- Lucide React
-- Sonner
-- Vite
+## Procedure
 
-## Core Architecture
+1. Inspect `git status`, route ownership, relevant hooks/components, shared types, and all usages before editing.
+2. Load the relevant reference under `references/` before changing the subsystem.
+3. Trace request payloads to the backend validator or shared schema before changing a mutation.
+4. Preserve loaded, loading, empty, and error geometry; update skeletons when layout changes.
+5. Test the changed interaction, including dark mode, responsive behavior, keyboard focus, and mutation feedback where applicable.
+6. Update `/home/seaavey/Obsidian/SRouter/PROGRESS.md` with scope and verification evidence.
+
+## Verification
+
+Use focused checks and avoid resource-heavy root commands.
 
 ```text
-routes/*
-  ↓
-components/*
-  ↓
-hooks/*
-  ↓
-lib/api.ts
-  ↓
-/v1 API
-```
-
-The dashboard is a thin orchestration layer over the `/v1` API.
-
-## Core Rules
-
-- routes own page composition only
-- hooks own server-state orchestration
-- components stay presentation-focused
-- centralize API calls in `lib/api.ts`
-- prefer TanStack Query over manual fetch state
-- preserve `/v1` endpoint normalization
-- import versions from `@srouter/constants`
-- avoid duplicated endpoint strings
-- use OKLCH theme tokens from `styles.css`
-- avoid `any`
-- use strict inferred types from schemas/hooks
-
-## Development Workflow
-
-When implementing frontend changes:
-
-1. trace route ownership from `src/routes`
-2. inspect shared hooks before adding state
-3. reuse existing UI primitives from `components/ui`
-4. keep API normalization inside `lib/api.ts`
-5. validate loading/error states
-6. verify responsive + dark mode behavior
-7. run targeted build verification
-
-## Common Commands
-
-```bash
-cd apps/web && pnpm dev
-cd apps/web && pnpm run build
 cd apps/web && pnpm run lint
+pnpm exec prettier --check <changed-files>
+git diff --check
 ```
 
-## Important Constraints
-
-- route files should stay thin
-- avoid colocated fetch logic in pages when hooks exist
-- streaming UI must tolerate partial/incremental responses
-- mutations must invalidate affected queries explicitly
-- never hardcode provider/model/version metadata
-- avoid introducing global state unless query state is insufficient
+Run `cd apps/web && pnpm run build` only when the touched change requires production bundle verification and resources allow it. For dashboard serving, verify hashed assets use immutable caching while `index.html` remains revalidated. Report exact checks run.

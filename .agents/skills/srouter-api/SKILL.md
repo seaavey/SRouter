@@ -1,102 +1,58 @@
 ---
 name: srouter-api
-description: |
-    Development skill for SRouter API server and backend packages (@srouter/db, @srouter/executors, @srouter/providers, @srouter/translator, @srouter/pricing, @srouter/constants, @srouter/types). Use when working on apps/api routes, Hono middleware, authentication, OAuth flows, provider drivers, translators, streaming APIs, database access, or backend package architecture.
+description: Use when changing SRouter API or backend runtime.
+version: 1.1.0
+author: Muhammad Adriansyah (Seaavey), Hermes Agent
+license: MIT
+platforms: [linux, macos, windows]
+metadata:
+    hermes:
+        tags: [srouter, api, hono, backend, providers, database]
+        related_skills: [srouter-task-workflow]
 ---
 
-# ⚡ SRouter — API & Backend Skill
+# SRouter API Skill
 
-Development guide for `apps/api` and backend packages.
+Use this skill for `apps/api` and backend runtime packages. Keep HTTP concerns in routes/controllers, business decisions in logic, and side effects in services or shared packages.
 
-## When To Read References
+## When to Use
 
-| Reference | Use When |
-| --- | --- |
-| `references/architecture.md` | Working on routing, layering, lifecycle, Hono structure |
-| `references/auth.md` | Working on auth, API keys, admin sessions, OAuth |
-| `references/providers.md` | Working on executors, translators, providers, constants |
-| `references/conventions.md` | Working on naming, Zod, response helpers, typing |
-| `references/testing.md` | Running tests, smoke checks, validating streams |
+- Hono routes, validation, auth, OAuth, SSE, or API responses.
+- Provider executors, translators, registries, quota logic, database access, or pricing.
+- Backend tests, route smoke checks, or provider catalog changes.
 
-## Core Stack
+## Repository Rules
 
-- Hono 4
-- Node.js 22+
-- SQLite (`node:sqlite`)
-- Zod
-- SSE streaming
-- tsup ESM builds
+- Read `RULES.md`, `CODING-STYLE.md`, and `DESIGN.md` in `/home/seaavey/Obsidian/SRouter/` before editing.
+- Routes under `apps/api/src/routes/v1` mount under `/v1`; keep route-local auth inside the feature router.
+- Keep the flow `route → controller → logic → service/package`.
+- Use Zod at I/O boundaries and derive types from shared schemas.
+- Use `snake_case` for request/database contracts and shared types; never duplicate a shared contract in an app.
+- Use PascalCase for helpers, controllers, and routers. Never use `any` or speculative abstractions.
+- Packages may not import from apps.
+- Provider metadata belongs in `packages/constants/src/providers/`; do not scatter provider URLs or model catalogs.
+- Use parameterized `?` queries in `packages/db`; document non-automatic schema changes in `DB-MIGRATION.md`.
+- Keep translators pure and executors responsible for upstream behavior and stream framing.
 
-## Core Rules
+## Procedure
 
-- All APIs mount under `/v1`
-- Routes stay thin
-- Logic owns orchestration
-- Translators stay pure
-- Executors isolate upstream behavior
-- Never use `any`
-- Use PascalCase helpers/controllers/routers
-- Prefer Zod-derived types
-- Avoid speculative abstractions
+1. Inspect `git status`, the owning route/package, its tests, and all usages before editing.
+2. Load the relevant reference under `references/` before changing the subsystem.
+3. Trace the contract end to end: route validator, controller, logic, service/package, and frontend consumer when applicable.
+4. Make the smallest change that preserves existing auth, response envelopes, SSE framing, and error behavior.
+5. Add or update a focused regression test for changed behavior.
+6. Update `/home/seaavey/Obsidian/SRouter/PROGRESS.md` with scope, findings, and verification evidence.
 
-## Main Areas
+## Verification
 
-```text
-apps/api/src/
-├── controllers/
-├── logic/
-├── middleware/
-├── routes/v1/
-├── services/
-└── utils/
-```
-
-Backend packages:
+Run only focused checks for touched packages; never run root monorepo build/test/lint locally.
 
 ```text
-packages/
-├── constants/
-├── db/
-├── executors/
-├── translator/
-└── types/
-```
-
-## Important Patterns
-
-### Routing
-
-```text
-routes → controllers → logic → services/packages
-```
-
-### Auth
-
-- `ApiKeyAuth` for API access
-- `RequireAdmin` for mutations/admin
-- OAuth handlers grouped under `AuthController.<Provider>`
-
-### Responses
-
-Use response helpers from:
-
-```text
-@/utils/response.js
-```
-
-### Providers
-
-Provider metadata belongs in:
-
-```text
-packages/constants/src/providers/
-```
-
-## Verification Gate
-
-```bash
 cd apps/api && pnpm run build
-cd apps/api && pnpm test
+cd apps/api && pnpm exec tsx --test --test-concurrency=1 --import ./tests/setup.ts tests/<file>.test.ts
+cd packages/<touched-package> && pnpm run build
+pnpm exec prettier --check <changed-files>
+git diff --check
 ```
 
-Prefer targeted tests while iterating.
+For route changes, smoke-test the mounted endpoint against a running API and verify auth, response envelope, errors, and SSE framing. Report exact commands and exit results; do not claim broad coverage from focused checks.

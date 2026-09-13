@@ -312,12 +312,7 @@ function ProviderDetailPage() {
                 onToggleRoundRobin={(enabled) => toggleRoundRobinMutation.mutate(enabled)}
                 onRefresh={() => void refetch()}
                 onAdd={handleAddConnection}
-                onDelete={(connectionId) =>
-                    deleteMutation.mutate(connectionId, {
-                        onSuccess: () => toast.success("Connection deleted successfully"),
-                        onError: (err) => toast.error(err.message || "Failed to delete connection")
-                    })
-                }
+                onDelete={(connectionId) => deleteMutation.mutate(connectionId)}
             />
             <div className="space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-hairline-soft pb-3">
