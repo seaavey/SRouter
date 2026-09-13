@@ -1,6 +1,6 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import {
     Activity,
     ArrowDownToLine,
@@ -12,21 +12,16 @@ import {
     Search,
     ShieldAlert
 } from "lucide-react";
-import { api, getGatewayBaseUrl } from "@/lib/api";
+import { api } from "@/lib/api";
 import { formatCompactNumber } from "@/lib/utils";
-import type {
-    APIKeyZod,
-    LogsStreamEvent,
-    PaginatedLogsResponse,
-    RequestLogEntry,
-    UsageStats
-} from "@srouter/types";
+import type { APIKeyZod, PaginatedLogsResponse, RequestLogEntry, UsageStats } from "@srouter/types";
 import type { ListResponse } from "@/lib/types";
 import { LogsSkeleton } from "@/components/skeletons";
 import { useLogs, type LogStatusFilter } from "@/hooks/useLogs";
 import { LogDetailModal, LogTable } from "@/components/logs";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Button } from "@/components/ui/button";
+import { useLogsStream } from "@/hooks/useLogsStream";
 
 interface ServerSettingsResponse {
     require_api_key?: boolean;
@@ -39,7 +34,6 @@ export const Route = createFileRoute("/logs")({
 });
 
 function LogsPage() {
-    const queryClient = useQueryClient();
     const [page, setPage] = useState(1);
     const pageSize = 25;
     const [statusFilter, setStatusFilter] = useState<LogStatusFilter>("all");
@@ -79,24 +73,7 @@ function LogsPage() {
         refetchInterval: false
     });
 
-    useEffect(() => {
-        if (typeof window === "undefined" || typeof window.EventSource === "undefined") return;
-
-        const source = new EventSource(`${getGatewayBaseUrl()}/logs/events`);
-        source.onmessage = (event) => {
-            try {
-                const payload = JSON.parse(event.data) as LogsStreamEvent;
-                if (payload.type === "usage.updated") {
-                    queryClient.setQueryData(["stats"], payload.stats);
-                    void queryClient.invalidateQueries({ queryKey: ["logs"] });
-                }
-            } catch {
-                return;
-            }
-        };
-
-        return () => source.close();
-    }, [queryClient]);
+    useLogsStream({ invalidateLogs: true });
 
     const logs: RequestLogEntry[] = data?.data ?? [];
     const filter = useLogs(logs);
@@ -153,7 +130,7 @@ function LogsPage() {
 
     const uncachedInputTokens = Math.max(0, stats.totalInputTokens - stats.cachedTokens);
 
-    if (isLoading) {
+    if (isLoading || !globalStats) {
         return <LogsSkeleton />;
     }
 

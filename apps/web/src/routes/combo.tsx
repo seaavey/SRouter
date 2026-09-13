@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useFallbacks } from "@/hooks/useFallbacks";
-import { ComboArchitecture, ComboForm, ComboHeader, ComboList } from "@/components/combo";
+import { ComboForm, ComboHeader, ComboList } from "@/components/combo";
 
 export const Route = createFileRoute("/combo")({
     staticData: { title: "Model Combo" },
@@ -55,7 +55,6 @@ function ComboPage() {
                     setIsAdding(true);
                 }}
             />
-            <ComboArchitecture />
             <ComboForm
                 open={isAdding || Boolean(editingCombo)}
                 saving={saving}

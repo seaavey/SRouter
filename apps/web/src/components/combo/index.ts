@@ -1,4 +1,3 @@
-export { ComboArchitecture } from "./combo.architecture";
 export {
     default as ComboModelPickerModal,
     getModelCapabilities,

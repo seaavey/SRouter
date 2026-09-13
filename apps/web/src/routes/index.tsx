@@ -1,21 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { ArrowDownToLine, ArrowUpFromLine, Database, RefreshCw, TriangleAlert } from "lucide-react";
-import { api, getGatewayBaseUrl } from "@/lib/api";
+import { api } from "@/lib/api";
 import { formatCompactNumber } from "@/lib/utils";
 import type { UsageStats } from "@srouter/types";
-import {
-    AnimatedNumber,
-    ModelUsageOverview,
-    ResponsiveNumber,
-    UsageByModelTable
-} from "@/components/dashboard";
-import { GatewayTopologyMap } from "@/components/dashboard/dashboard.gateway-topology-map";
-import { NetworkStatus } from "@/components/dashboard/dashboard.network-status";
+import { ModelUsageOverview, UsageByModelTable } from "@/components/dashboard";
+import { CountUp } from "@/components/ui/count-up";
+import { GatewayTopologyMap } from "@/components/dashboard/topology";
+
 import { Button } from "@/components/ui/button";
 import { DashboardSkeleton } from "@/components/skeletons";
+import { useLogsStream } from "@/hooks/useLogsStream";
 
 export const Route = createFileRoute("/")({
     staticData: { title: "Dashboard" },
@@ -51,9 +47,9 @@ function StatCard({
                 <div className="mt-3">
                     <div className="min-w-0 overflow-hidden text-3xl font-bold tracking-tight text-ink cursor-default tabular-nums font-sans sm:text-[2.125rem]">
                         {animatedValue !== undefined ? (
-                            <AnimatedNumber value={animatedValue} format={animatedFormat} />
+                            <CountUp to={animatedValue} format={animatedFormat} />
                         ) : typeof value === "number" ? (
-                            <ResponsiveNumber value={value} title={tooltip} />
+                            <CountUp to={value} title={tooltip} />
                         ) : (
                             <span title={tooltip ?? value}>{value}</span>
                         )}
@@ -80,7 +76,6 @@ function StatCard({
 }
 
 function DashboardPage() {
-    const queryClient = useQueryClient();
     const {
         data: stats,
         isPending,
@@ -92,30 +87,7 @@ function DashboardPage() {
         refetchInterval: false
     });
 
-    useEffect(() => {
-        if (typeof window === "undefined" || typeof window.EventSource === "undefined") return;
-
-        const source = new EventSource(`${getGatewayBaseUrl()}/logs/events`);
-        source.onmessage = (event) => {
-            try {
-                const payload: unknown = JSON.parse(event.data);
-                if (
-                    typeof payload === "object" &&
-                    payload !== null &&
-                    "type" in payload &&
-                    payload.type === "usage.updated"
-                ) {
-                    if ("stats" in payload && payload.stats !== null) {
-                        queryClient.setQueryData(["stats"], payload.stats);
-                    }
-                }
-            } catch {
-                return;
-            }
-        };
-
-        return () => source.close();
-    }, [queryClient]);
+    useLogsStream();
 
     if (isPending || !stats) {
         if (!stats && error) {
@@ -169,18 +141,6 @@ function DashboardPage() {
                         A quiet view of traffic, routing, and connected providers.
                     </p>
                 </div>
-                <div className="flex items-center gap-2 self-start sm:self-auto">
-                    <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-9 gap-2 px-4 cursor-pointer rounded-full font-medium"
-                        onClick={() => void refetch()}
-                    >
-                        <RefreshCw className="size-3 text-text-muted" />
-                        <span>Refresh</span>
-                    </Button>
-                </div>
             </header>
             <section
                 aria-label="Gateway usage summary"
@@ -223,7 +183,7 @@ function DashboardPage() {
                             >
                                 <ArrowDownToLine className="size-3 shrink-0" aria-hidden="true" />
                                 <span className="sr-only">Input</span>
-                                <ResponsiveNumber value={uncachedInputTokens} />
+                                <CountUp to={uncachedInputTokens} format={formatCompactNumber} />
                             </span>
                             <span
                                 className="flex min-w-0 items-center gap-1"
@@ -231,7 +191,10 @@ function DashboardPage() {
                             >
                                 <ArrowUpFromLine className="size-3 shrink-0" aria-hidden="true" />
                                 <span className="sr-only">Output</span>
-                                <ResponsiveNumber value={stats.totalOutputTokens} />
+                                <CountUp
+                                    to={stats.totalOutputTokens}
+                                    format={formatCompactNumber}
+                                />
                             </span>
                             <span
                                 className="flex min-w-0 items-center gap-1"
@@ -239,7 +202,10 @@ function DashboardPage() {
                             >
                                 <Database className="size-3 shrink-0" aria-hidden="true" />
                                 <span className="sr-only">Cached</span>
-                                <ResponsiveNumber value={stats.totalCachedTokens} />
+                                <CountUp
+                                    to={stats.totalCachedTokens}
+                                    format={formatCompactNumber}
+                                />
                             </span>
                         </div>
                     }
@@ -254,12 +220,8 @@ function DashboardPage() {
                     }
                 />
             </section>
-            <section
-                aria-label="Operational overview"
-                className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(19rem,0.6fr)]"
-            >
+            <section aria-label="Model traffic" className="w-full min-w-0">
                 <ModelUsageOverview models={stats?.byModel ?? []} />
-                <NetworkStatus />
             </section>
             <section aria-label="Topology" className="w-full min-w-0">
                 <div className="min-w-0 rounded-3xl border border-hairline-soft bg-canvas-soft overflow-hidden p-0">

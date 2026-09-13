@@ -9,7 +9,7 @@ import {
     EmptyTitle,
     EmptyDescription
 } from "@/components/ui/empty";
-import { ResponsiveNumber } from "./dashboard.responsive-number";
+import { formatCompactNumber } from "@/lib/utils";
 
 type ModelUsageOverviewProps = {
     models: UsageStats["byModel"];
@@ -165,7 +165,7 @@ export function ModelUsageOverview({ models }: ModelUsageOverviewProps) {
                                             className="text-left sm:w-16 sm:text-right text-text-muted"
                                             title={`Requests: ${model.totalRequests.toLocaleString()}`}
                                         >
-                                            <ResponsiveNumber value={model.totalRequests} />{" "}
+                                            {formatCompactNumber(model.totalRequests)}{" "}
                                             <span className="text-[10px] opacity-70">req</span>
                                         </span>
                                         <span
@@ -173,7 +173,7 @@ export function ModelUsageOverview({ models }: ModelUsageOverviewProps) {
                                             title={`Prompt Tokens: ${model.totalInputTokens.toLocaleString()}`}
                                         >
                                             <strong className="font-semibold text-ink">
-                                                <ResponsiveNumber value={model.totalInputTokens} />
+                                                {formatCompactNumber(model.totalInputTokens)}
                                             </strong>
                                             <span className="text-[10px] opacity-70 ml-0.5">
                                                 in
@@ -184,7 +184,7 @@ export function ModelUsageOverview({ models }: ModelUsageOverviewProps) {
                                             title={`Completion Tokens: ${model.totalOutputTokens.toLocaleString()}`}
                                         >
                                             <strong className="font-semibold text-ink">
-                                                <ResponsiveNumber value={model.totalOutputTokens} />
+                                                {formatCompactNumber(model.totalOutputTokens)}
                                             </strong>
                                             <span className="text-[10px] opacity-70 ml-0.5">
                                                 out
@@ -195,7 +195,7 @@ export function ModelUsageOverview({ models }: ModelUsageOverviewProps) {
                                             title={`Total Tokens: ${totalTokens.toLocaleString()} (${sharePercent}% of top models)`}
                                         >
                                             <span className="text-xs font-semibold text-ink">
-                                                <ResponsiveNumber value={totalTokens} />
+                                                {formatCompactNumber(totalTokens)}
                                             </span>
                                             <span className="text-[10px] text-text-muted font-normal">
                                                 tok
