@@ -16,4 +16,5 @@ export * from "./qoder.js";
 export * from "./opencode.js";
 export * from "./bai.js";
 export * from "./experientiallabs.js";
+export * from "./minimax.js";
 export * from "./catalog.js";

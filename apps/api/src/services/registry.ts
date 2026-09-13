@@ -8,6 +8,7 @@ import {
     DEFAULT_PROVIDERS,
     EXPERIENTIALLABS_BASE_URL,
     GOROUTER_BASE_URL,
+    MINIMAX_BASE_URL,
     isProviderBaseId,
     isSeedProvider,
     NEOSANTARA_BASE_URL,
@@ -302,7 +303,9 @@ export async function loadSavedProvidersFromDB(): Promise<void> {
                             baseUrl ||
                             (providerType === "experientiallabs"
                                 ? EXPERIENTIALLABS_BASE_URL
-                                : undefined),
+                                : providerType === "minimax"
+                                  ? MINIMAX_BASE_URL
+                                  : undefined),
                         apiKey: p.apiKey,
                         accessToken: p.accessToken
                     })

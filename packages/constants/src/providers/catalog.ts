@@ -10,6 +10,7 @@ import { OPENAI_CODEX_PROVIDER } from "./openai.js";
 import { OPENCODE_ZEN_PROVIDER } from "./opencode.js";
 import { BAI_PROVIDER } from "./bai.js";
 import { EXPERIENTIALLABS_PROVIDER } from "./experientiallabs.js";
+import { MINIMAX_PROVIDER } from "./minimax.js";
 import { QODER_PROVIDER } from "./qoder.js";
 import { SEEKAI_PROVIDER } from "./seekai.js";
 import { TABITOKEN_PROVIDER } from "./tabitoken.js";
@@ -33,7 +34,8 @@ export const KNOWN_PROVIDERS = [
     CODEBUDDY_CN_PROVIDER,
     OPENCODE_ZEN_PROVIDER,
     BAI_PROVIDER,
-    EXPERIENTIALLABS_PROVIDER
+    EXPERIENTIALLABS_PROVIDER,
+    MINIMAX_PROVIDER
 ] as const satisfies readonly ProviderMetadata[];
 
 export const KNOWN_PROVIDER_MAP = Object.freeze(
