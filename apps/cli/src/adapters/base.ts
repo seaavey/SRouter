@@ -1,5 +1,5 @@
 import type { BaseToolAdapter, LinkResult, ToolConfigContext, ToolStatus } from "../types/index.js";
-import { ConfigStore, defaultStore } from "../lib/configStore.js";
+import { ConfigStore, defaultStore } from "../lib/store.js";
 
 export abstract class AbstractToolAdapter implements BaseToolAdapter {
     abstract readonly id: string;

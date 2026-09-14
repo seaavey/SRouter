@@ -2,9 +2,9 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { AbstractToolAdapter } from "./base.js";
 import type { LinkResult, ToolConfigContext, ToolStatus } from "../types/index.js";
-import { ConfigStore, defaultStore } from "../lib/configStore.js";
+import { ConfigStore, defaultStore } from "../lib/store.js";
 import { getOpenCodeConfigPath, isExecutableInPath } from "../lib/platform.js";
-import { fetchAvailableModels } from "../lib/srouterClient.js";
+import { fetchAvailableModels } from "../lib/client.js";
 import { getModelMetadata } from "@srouter/pricing";
 
 export interface OpenCodeModelConfig {
@@ -57,7 +57,6 @@ function createOpenCodeModelConfig(id: string, name?: string): OpenCodeModelConf
 }
 
 export const DEFAULT_SROUTER_MODELS: Array<{ id: string; name: string }> = [
-
     { id: "anthropic/claude-3-7-sonnet", name: "Claude 3.7 Sonnet (Anthropic)" },
     { id: "claude-3-7-sonnet", name: "Claude 3.7 Sonnet" },
     { id: "anthropic/claude-3-5-sonnet", name: "Claude 3.5 Sonnet (Anthropic)" },
@@ -187,13 +186,13 @@ export class OpenCodeAdapter extends AbstractToolAdapter {
     }
 
     async getStatus(): Promise<ToolStatus> {
-        const configPath = this.getConfigPath();
+        const config_path = this.getConfigPath();
         const installed = await this.isInstalled();
 
         try {
-            const raw = await fs.readFile(configPath, "utf-8");
+            const raw = await fs.readFile(config_path, "utf-8");
             const parsed = parseJsonc(raw);
-            const baseUrl =
+            const base_url =
                 parsed.provider?.srouter?.options?.baseURL ||
                 parsed.openai_base_url ||
                 parsed.api_base ||
@@ -202,10 +201,10 @@ export class OpenCodeAdapter extends AbstractToolAdapter {
                 undefined;
             const model = parsed.model || parsed.default_model || undefined;
             const linked = Boolean(
-                baseUrl &&
-                (baseUrl.includes("localhost") ||
-                    baseUrl.includes("127.0.0.1") ||
-                    baseUrl.includes("srouter"))
+                base_url &&
+                (base_url.includes("localhost") ||
+                    base_url.includes("127.0.0.1") ||
+                    base_url.includes("srouter"))
             );
 
             return {
@@ -213,9 +212,9 @@ export class OpenCodeAdapter extends AbstractToolAdapter {
                 name: this.name,
                 installed,
                 linked,
-                configPath,
-                currentBaseUrl: baseUrl,
-                currentModel: model
+                config_path,
+                current_base_url: base_url,
+                current_model: model
             };
         } catch {
             return {
@@ -223,20 +222,20 @@ export class OpenCodeAdapter extends AbstractToolAdapter {
                 name: this.name,
                 installed,
                 linked: false,
-                configPath
+                config_path
             };
         }
     }
 
     async link(context: ToolConfigContext): Promise<LinkResult> {
-        const configPath = this.getConfigPath();
-        const backupPath = context.dryRun
+        const config_path = this.getConfigPath();
+        const backup_path = context.dry_run
             ? undefined
-            : await this.store.createBackup(this.id, configPath);
+            : await this.store.createBackup(this.id, config_path);
 
         let data: Record<string, any> = {};
         try {
-            const raw = await fs.readFile(configPath, "utf-8");
+            const raw = await fs.readFile(config_path, "utf-8");
             data = parseJsonc(raw);
         } catch {
             data = {};
@@ -281,9 +280,9 @@ export class OpenCodeAdapter extends AbstractToolAdapter {
         // 3. Fetch live models from SRouter Gateway
         try {
             const liveModels =
-                context.availableModels && context.availableModels.length > 0
-                    ? context.availableModels
-                    : await fetchAvailableModels(context.baseUrl, context.apiKey);
+                context.available_models && context.available_models.length > 0
+                    ? context.available_models
+                    : await fetchAvailableModels(context.base_url, context.api_key);
 
             for (const rawId of liveModels) {
                 if (!rawId) continue;
@@ -311,8 +310,8 @@ export class OpenCodeAdapter extends AbstractToolAdapter {
             name: "SRouter",
             npm: "@ai-sdk/openai-compatible",
             options: {
-                baseURL: context.baseUrl,
-                apiKey: context.apiKey || "sk-local-srouter"
+                baseURL: context.base_url,
+                apiKey: context.api_key || "sk-local-srouter"
             },
             models: modelsMap
         };
@@ -320,26 +319,34 @@ export class OpenCodeAdapter extends AbstractToolAdapter {
         // OpenCode format for active model: "provider/model"
         data.model = `srouter/${cleanModelId}`;
 
-        if (!context.dryRun) {
-            await fs.mkdir(path.dirname(configPath), { recursive: true });
-            await fs.writeFile(configPath, JSON.stringify(data, null, 4), "utf-8");
+        if (!context.dry_run) {
+            await fs.mkdir(path.dirname(config_path), { recursive: true });
+            await fs.writeFile(config_path, JSON.stringify(data, null, 4), "utf-8");
+            await this.store.writeAdapterLock(config_path, {
+                version: 1,
+                adapter: this.id,
+                base_url: context.base_url,
+                ...(context.model ? { model: context.model } : {}),
+                configured_at: Date.now()
+            });
         }
 
         return {
-            backupPath,
-            modifiedPath: configPath
+            backup_path,
+            modified_path: config_path
         };
     }
 
     async unlink(): Promise<boolean> {
         const restored = await this.store.restoreLatestBackup(this.id);
         if (restored) {
+            await this.store.removeAdapterLock(this.getConfigPath());
             return true;
         }
 
-        const configPath = this.getConfigPath();
+        const config_path = this.getConfigPath();
         try {
-            const raw = await fs.readFile(configPath, "utf-8");
+            const raw = await fs.readFile(config_path, "utf-8");
             const data = parseJsonc(raw);
             if (data.provider?.srouter) {
                 delete data.provider.srouter;
@@ -352,7 +359,8 @@ export class OpenCodeAdapter extends AbstractToolAdapter {
             delete data.openai_api_key;
             delete data.api_key;
             delete data.providers;
-            await fs.writeFile(configPath, JSON.stringify(data, null, 4), "utf-8");
+            await fs.writeFile(config_path, JSON.stringify(data, null, 4), "utf-8");
+            await this.store.removeAdapterLock(config_path);
             return true;
         } catch {
             return false;
@@ -361,12 +369,12 @@ export class OpenCodeAdapter extends AbstractToolAdapter {
 
     getEnv(context: ToolConfigContext): Record<string, string> {
         const env: Record<string, string> = {
-            OPENAI_BASE_URL: context.baseUrl,
-            ANTHROPIC_BASE_URL: context.baseUrl
+            OPENAI_BASE_URL: context.base_url,
+            ANTHROPIC_BASE_URL: context.base_url
         };
-        if (context.apiKey) {
-            env.OPENAI_API_KEY = context.apiKey;
-            env.ANTHROPIC_API_KEY = context.apiKey;
+        if (context.api_key) {
+            env.OPENAI_API_KEY = context.api_key;
+            env.ANTHROPIC_API_KEY = context.api_key;
         }
         if (context.model) {
             const cleanModelId = context.model.startsWith("srouter/")

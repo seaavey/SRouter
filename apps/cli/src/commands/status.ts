@@ -1,7 +1,7 @@
 import { getAllAdapters } from "../adapters/index.js";
-import { defaultStore } from "../lib/configStore.js";
+import { defaultStore } from "../lib/store.js";
 import { getSystemInfo } from "../lib/platform.js";
-import { checkServerHealth, fetchAvailableModels } from "../lib/srouterClient.js";
+import { checkServerHealth, fetchAvailableModels } from "../lib/client.js";
 import {
     formatError,
     formatInfo,
@@ -21,15 +21,15 @@ export async function statusCommand(options: StatusCommandOptions): Promise<void
 
     const sysInfo = getSystemInfo();
     console.log(pc.bold(pc.underline("System Environment:")));
-    console.log(`  ${pc.gray("OS:")}          ${pc.white(sysInfo.displayName)}`);
+    console.log(`  ${pc.gray("OS:")}          ${pc.white(sysInfo.display_name)}`);
     console.log(`  ${pc.gray("Platform:")}    ${pc.white(sysInfo.platform)} (${sysInfo.arch})`);
-    console.log(`  ${pc.gray("Shell:")}       ${pc.white(sysInfo.detectedShell)}`);
-    console.log(`  ${pc.gray("Home Dir:")}    ${pc.white(sysInfo.homeDir)}`);
+    console.log(`  ${pc.gray("Shell:")}       ${pc.white(sysInfo.detected_shell)}`);
+    console.log(`  ${pc.gray("Home Dir:")}    ${pc.white(sysInfo.home_dir)}`);
     console.log("");
 
     const savedConfig = await defaultStore.loadConfig();
-    const baseUrl = options.url || savedConfig.defaultBaseUrl || "http://localhost:3000/v1";
-    const apiKey = options.key || savedConfig.defaultApiKey;
+    const baseUrl = options.url || savedConfig.default_base_url || "http://localhost:3000/v1";
+    const apiKey = options.key || savedConfig.default_api_key;
 
     console.log(pc.bold(pc.underline("Gateway Status:")));
     console.log(`  ${pc.gray("Target URL:")} ${pc.white(baseUrl)}`);
@@ -37,7 +37,7 @@ export async function statusCommand(options: StatusCommandOptions): Promise<void
     const health = await checkServerHealth(baseUrl, apiKey);
     if (health.healthy) {
         console.log(
-            `  ${pc.gray("Health:")}     ${pc.green("ONLINE")} ${pc.gray(`(${health.latencyMs}ms)`)}`
+            `  ${pc.gray("Health:")}     ${pc.green("ONLINE")} ${pc.gray(`(${health.latency_ms}ms)`)}`
         );
         const models = await fetchAvailableModels(baseUrl, apiKey);
         console.log(`  ${pc.gray("Models:")}     ${pc.cyan(`${models.length} available`)}`);
@@ -68,20 +68,24 @@ export async function statusCommand(options: StatusCommandOptions): Promise<void
 
         console.log(`\n  ${pc.bold(pc.cyan(adapter.name))} ${icon} ${installBadge}`);
         console.log(`  ${pc.gray("ID:")}          ${adapter.id}`);
-        console.log(`  ${pc.gray("Config Path:")} ${status.configPath || "N/A"}`);
+        console.log(`  ${pc.gray("Config Path:")} ${status.config_path || "N/A"}`);
         if (status.linked) {
-            console.log(`  ${pc.gray("Active URL:")}  ${pc.green(status.currentBaseUrl || "N/A")}`);
-            if (status.currentModel) {
-                console.log(`  ${pc.gray("Model:")}       ${pc.green(status.currentModel)}`);
+            console.log(
+                `  ${pc.gray("Active URL:")}  ${pc.green(status.current_base_url || "N/A")}`
+            );
+            if (status.current_model) {
+                console.log(`  ${pc.gray("Model:")}       ${pc.green(status.current_model)}`);
             }
-            if (status.currentOpusModel) {
-                console.log(`  ${pc.gray("Opus Model:")}  ${pc.green(status.currentOpusModel)}`);
+            if (status.current_opus_model) {
+                console.log(`  ${pc.gray("Opus Model:")}  ${pc.green(status.current_opus_model)}`);
             }
-            if (status.currentSonnetModel) {
-                console.log(`  ${pc.gray("Sonnet Model:")}${pc.green(status.currentSonnetModel)}`);
+            if (status.current_sonnet_model) {
+                console.log(
+                    `  ${pc.gray("Sonnet Model:")}${pc.green(status.current_sonnet_model)}`
+                );
             }
-            if (status.currentHaikuModel) {
-                console.log(`  ${pc.gray("Haiku Model:")} ${pc.green(status.currentHaikuModel)}`);
+            if (status.current_haiku_model) {
+                console.log(`  ${pc.gray("Haiku Model:")} ${pc.green(status.current_haiku_model)}`);
             }
         } else {
             console.log(

@@ -1,6 +1,6 @@
 import { getAllAdapters, getAdapter } from "../adapters/index.js";
-import { defaultStore } from "../lib/configStore.js";
-import { checkServerHealth, fetchAvailableModels } from "../lib/srouterClient.js";
+import { defaultStore } from "../lib/store.js";
+import { checkServerHealth, fetchAvailableModels } from "../lib/client.js";
 import { formatError, formatSuccess, formatWarning, pc } from "../lib/ui.js";
 
 export interface SyncCommandOptions {
@@ -13,24 +13,24 @@ export async function syncCommand(
     options: SyncCommandOptions = {}
 ): Promise<void> {
     const savedConfig = await defaultStore.loadConfig();
-    const baseUrl = options.url || savedConfig.defaultBaseUrl || "http://localhost:3000/v1";
-    const apiKey = options.key || savedConfig.defaultApiKey;
+    const base_url = options.url || savedConfig.default_base_url || "http://localhost:3000/v1";
+    const api_key = options.key || savedConfig.default_api_key;
 
-    const health = await checkServerHealth(baseUrl, apiKey);
+    const health = await checkServerHealth(base_url, api_key);
     if (!health.healthy) {
         console.error(
             formatError(
-                `Cannot sync: SRouter Gateway is unreachable at ${pc.bold(baseUrl)} (${health.error || "offline"}).`
+                `Cannot sync: SRouter Gateway is unreachable at ${pc.bold(base_url)} (${health.error || "offline"}).`
             )
         );
         process.exitCode = 1;
         return;
     }
 
-    const availableModels = await fetchAvailableModels(baseUrl, apiKey);
-    if (availableModels.length === 0) {
+    const available_models = await fetchAvailableModels(base_url, api_key);
+    if (available_models.length === 0) {
         console.warn(
-            formatWarning(`SRouter Gateway responded at ${baseUrl}, but returned 0 models.`)
+            formatWarning(`SRouter Gateway responded at ${base_url}, but returned 0 models.`)
         );
     }
 
@@ -54,18 +54,18 @@ export async function syncCommand(
 
         try {
             const result = await adapter.link({
-                baseUrl,
-                apiKey,
-                model: savedConfig.defaultModel || status.currentModel,
-                opusModel: savedConfig.defaultOpusModel,
-                sonnetModel: savedConfig.defaultSonnetModel,
-                haikuModel: savedConfig.defaultHaikuModel,
-                availableModels
+                base_url,
+                api_key,
+                model: savedConfig.default_model || status.current_model,
+                opus_model: savedConfig.default_opus_model,
+                sonnet_model: savedConfig.default_sonnet_model,
+                haiku_model: savedConfig.default_haiku_model,
+                available_models
             });
 
             console.log(
                 formatSuccess(
-                    `Synced ${pc.bold(pc.cyan(availableModels.length.toString()))} models to ${pc.bold(adapter.name)} (${pc.gray(result.modifiedPath)})`
+                    `Synced ${pc.bold(pc.cyan(available_models.length.toString()))} models to ${pc.bold(adapter.name)} (${pc.gray(result.modified_path)})`
                 )
             );
         } catch (err: unknown) {

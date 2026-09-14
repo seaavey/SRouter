@@ -1,15 +1,15 @@
 import { spawn } from "node:child_process";
 import { getAdapter, getAllAdapters } from "../adapters/index.js";
-import { defaultStore } from "../lib/configStore.js";
+import { defaultStore } from "../lib/store.js";
 import { formatError, pc } from "../lib/ui.js";
 
 export interface RunCommandOptions {
     url?: string;
     key?: string;
     model?: string;
-    opusModel?: string;
-    sonnetModel?: string;
-    haikuModel?: string;
+    opus_model?: string;
+    sonnet_model?: string;
+    haiku_model?: string;
 }
 
 export async function runCommand(
@@ -31,20 +31,20 @@ export async function runCommand(
     }
 
     const savedConfig = await defaultStore.loadConfig();
-    const baseUrl = options.url || savedConfig.defaultBaseUrl || "http://localhost:3000/v1";
-    const apiKey = options.key || savedConfig.defaultApiKey;
-    const model = options.model || savedConfig.defaultModel;
-    const opusModel = options.opusModel || savedConfig.defaultOpusModel;
-    const sonnetModel = options.sonnetModel || savedConfig.defaultSonnetModel;
-    const haikuModel = options.haikuModel || savedConfig.defaultHaikuModel;
+    const base_url = options.url || savedConfig.default_base_url || "http://localhost:3000/v1";
+    const api_key = options.key || savedConfig.default_api_key;
+    const model = options.model || savedConfig.default_model;
+    const opus_model = options.opus_model || savedConfig.default_opus_model;
+    const sonnet_model = options.sonnet_model || savedConfig.default_sonnet_model;
+    const haiku_model = options.haiku_model || savedConfig.default_haiku_model;
 
     const envToInject = adapter.getEnv({
-        baseUrl,
-        apiKey,
+        base_url,
+        api_key,
         model,
-        opusModel,
-        sonnetModel,
-        haikuModel
+        opus_model,
+        sonnet_model,
+        haiku_model
     });
 
     const binaryName = toolId === "claude" ? "claude" : "opencode";

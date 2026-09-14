@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import { ConfigStore } from "../src/lib/configStore.js";
+import { ConfigStore } from "../src/lib/store.js";
 import { OpenCodeAdapter, formatModelDisplayName } from "../src/adapters/opencode.js";
 import { getAllAdapters, getAdapter } from "../src/adapters/index.js";
 
@@ -23,27 +23,31 @@ test("OpenCodeAdapter - link and unlink lifecycle", async () => {
 
         const statusBefore = await adapter.getStatus();
         assert.equal(statusBefore.linked, false);
-        assert.equal(statusBefore.currentModel, "default-model");
+        assert.equal(statusBefore.current_model, "default-model");
 
-        // Link with SRouter and custom availableModels
+        // Link with SRouter and custom available_models
         const result = await adapter.link({
-            baseUrl: "http://localhost:3000/v1",
-            apiKey: "sk-srouter-key",
+            base_url: "http://localhost:3000/v1",
+            api_key: "sk-srouter-key",
             model: "claude-3-7-sonnet",
-            availableModels: [
+            available_models: [
                 "antigravity/gemini-2.5-pro",
                 "openai_codex/gpt-4o",
                 "nemotron-3.5-lightning-free"
             ]
         });
 
-        assert.ok(result.backupPath);
-        assert.equal(result.modifiedPath, customConfigPath);
+        assert.ok(result.backup_path);
+        assert.equal(result.modified_path, customConfigPath);
+        const lockPath = path.join(tempDir, "srouter.lock");
+        const lock = JSON.parse(await fs.readFile(lockPath, "utf-8"));
+        assert.equal(lock.adapter, "opencode");
+        assert.equal(lock.api_key, undefined);
 
         const statusAfter = await adapter.getStatus();
         assert.equal(statusAfter.linked, true);
-        assert.equal(statusAfter.currentBaseUrl, "http://localhost:3000/v1");
-        assert.equal(statusAfter.currentModel, "srouter/claude-3-7-sonnet");
+        assert.equal(statusAfter.current_base_url, "http://localhost:3000/v1");
+        assert.equal(statusAfter.current_model, "srouter/claude-3-7-sonnet");
 
         // Check OpenCode config structure
         const savedConfig = JSON.parse(await fs.readFile(customConfigPath, "utf-8"));
@@ -71,8 +75,8 @@ test("OpenCodeAdapter - link and unlink lifecycle", async () => {
 
         // Check getEnv
         const env = adapter.getEnv({
-            baseUrl: "http://localhost:3000/v1",
-            apiKey: "sk-srouter-key",
+            base_url: "http://localhost:3000/v1",
+            api_key: "sk-srouter-key",
             model: "claude-3-7-sonnet"
         });
         assert.equal(env.OPENAI_BASE_URL, "http://localhost:3000/v1");
@@ -81,6 +85,7 @@ test("OpenCodeAdapter - link and unlink lifecycle", async () => {
         // Unlink & restore
         const unlinked = await adapter.unlink();
         assert.equal(unlinked, true);
+        await assert.rejects(fs.access(lockPath));
 
         const restoredContent = JSON.parse(await fs.readFile(customConfigPath, "utf-8"));
         assert.equal(restoredContent.model, "default-model");

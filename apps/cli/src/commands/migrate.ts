@@ -115,15 +115,23 @@ function importNineRouterJson(
                 const node = nodesMap.get(conn.provider);
                 const providerId = node ? node.name.toLowerCase() : conn.provider;
                 const protocol = node ? map9RouterProtocol(node.apiType, node.type) : "openai";
-                const baseUrl = node?.baseUrl ?? (conn.providerSpecificData?.baseUrl as string) ?? null;
+                const baseUrl =
+                    node?.baseUrl ?? (conn.providerSpecificData?.baseUrl as string) ?? null;
                 const apiKey = conn.apiKey ?? null;
                 const accessToken = conn.accessToken ?? conn.access_token ?? null;
                 const refreshToken = conn.refreshToken ?? conn.refresh_token ?? null;
 
-                const tokenExpiresAt = conn.tokenExpiresAt ?? (conn.expiresAt ? parseDateToTimestamp(conn.expiresAt) : null);
-                const lastRefreshedAt = conn.lastRefreshedAt ?? (conn.lastRefreshAt ? parseDateToTimestamp(conn.lastRefreshAt) : null);
+                const tokenExpiresAt =
+                    conn.tokenExpiresAt ??
+                    (conn.expiresAt ? parseDateToTimestamp(conn.expiresAt) : null);
+                const lastRefreshedAt =
+                    conn.lastRefreshedAt ??
+                    (conn.lastRefreshAt ? parseDateToTimestamp(conn.lastRefreshAt) : null);
 
-                const accountId = (conn.providerSpecificData?.chatgptAccountId as string) ?? (conn.providerSpecificData?.accountId as string) ?? null;
+                const accountId =
+                    (conn.providerSpecificData?.chatgptAccountId as string) ??
+                    (conn.providerSpecificData?.accountId as string) ??
+                    null;
                 const orgId = (conn.providerSpecificData?.organizationId as string) ?? null;
                 const enabled = conn.isActive === false ? 0 : 1;
                 const createdAt = parseDateToTimestamp(conn.createdAt);
@@ -381,18 +389,23 @@ async function migrateDb(options: MigrateCommandOptions): Promise<void> {
 async function migrateNineRouter(options: MigrateCommandOptions): Promise<void> {
     p.intro("9Router → SRouter Database Migration");
 
-    let source = options.source && fs.existsSync(options.source) ? path.resolve(options.source) : null;
+    let source =
+        options.source && fs.existsSync(options.source) ? path.resolve(options.source) : null;
 
     if (!source) {
         const foundFiles = scanFor9RouterFiles();
 
         if (foundFiles.length === 1) {
             source = foundFiles[0].path;
-            p.log.info(`Found 9Router file: ${pc.bold(source)} (${fileKb(source)}) [${foundFiles[0].label}]`);
+            p.log.info(
+                `Found 9Router file: ${pc.bold(source)} (${fileKb(source)}) [${foundFiles[0].label}]`
+            );
         } else if (foundFiles.length > 1) {
             if (options.yes) {
                 source = foundFiles[0].path;
-                p.log.info(`Auto-selected latest 9Router file: ${pc.bold(source)} (${fileKb(source)})`);
+                p.log.info(
+                    `Auto-selected latest 9Router file: ${pc.bold(source)} (${fileKb(source)})`
+                );
             } else {
                 const choice = await p.select({
                     message: "Multiple 9Router database/backup files found. Select one to migrate:",
@@ -449,11 +462,16 @@ async function migrateNineRouter(options: MigrateCommandOptions): Promise<void> 
         if (options.yes) {
             action = "merge";
         } else {
-            p.log.warn(`Existing SRouter database found at ${targetDbPath} (${fileKb(targetDbPath)})`);
+            p.log.warn(
+                `Existing SRouter database found at ${targetDbPath} (${fileKb(targetDbPath)})`
+            );
             const choice = await p.select({
                 message: "How should the existing SRouter database be handled?",
                 options: [
-                    { value: "backup_and_replace", label: "Backup current, replace with 9Router data" },
+                    {
+                        value: "backup_and_replace",
+                        label: "Backup current, replace with 9Router data"
+                    },
                     { value: "merge", label: "Overwrite tables with 9Router data" },
                     { value: "abort", label: "Cancel migration" }
                 ]

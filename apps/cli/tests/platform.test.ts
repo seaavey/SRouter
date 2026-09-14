@@ -32,13 +32,13 @@ test("platform - detects OS and returns valid platform information", () => {
         assert.equal(isLinux(), true);
     }
 
-    const displayName = getOsDisplayName();
-    assert.ok(typeof displayName === "string" && displayName.length > 0);
+    const display_name = getOsDisplayName();
+    assert.ok(typeof display_name === "string" && display_name.length > 0);
 
     const sysInfo = getSystemInfo();
     assert.equal(sysInfo.platform, platform);
-    assert.ok(sysInfo.homeDir.length > 0);
-    assert.ok(sysInfo.displayName.length > 0);
+    assert.ok(sysInfo.home_dir.length > 0);
+    assert.ok(sysInfo.display_name.length > 0);
 });
 
 test("platform - detectShell and formatShellExport", () => {

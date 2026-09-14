@@ -4,7 +4,7 @@ import path from "node:path";
 import os from "node:os";
 import { AbstractToolAdapter } from "./base.js";
 import type { LinkResult, ToolConfigContext, ToolStatus } from "../types/index.js";
-import { ConfigStore, defaultStore } from "../lib/configStore.js";
+import { ConfigStore, defaultStore } from "../lib/store.js";
 import { isExecutableInPath } from "../lib/platform.js";
 
 export function getHindsightConfigPath(): string {
@@ -77,7 +77,12 @@ function updateEnvContent(content: string, updates: Record<string, string>): str
         }
     }
 
-    return newLines.join("\n").replace(/\n{3,}/g, "\n\n").trimEnd() + "\n";
+    return (
+        newLines
+            .join("\n")
+            .replace(/\n{3,}/g, "\n\n")
+            .trimEnd() + "\n"
+    );
 }
 
 export class HindsightAdapter extends AbstractToolAdapter {
@@ -108,19 +113,19 @@ export class HindsightAdapter extends AbstractToolAdapter {
     }
 
     async getStatus(): Promise<ToolStatus> {
-        const configPath = this.getConfigPath();
+        const config_path = this.getConfigPath();
         const installed = await this.isInstalled();
 
         try {
-            const raw = await fs.readFile(configPath, "utf-8");
+            const raw = await fs.readFile(config_path, "utf-8");
             const envMap = parseEnvLines(raw);
-            const baseUrl = envMap.get("HINDSIGHT_API_LLM_BASE_URL");
+            const base_url = envMap.get("HINDSIGHT_API_LLM_BASE_URL");
             const model = envMap.get("HINDSIGHT_API_LLM_MODEL");
             const linked = Boolean(
-                baseUrl &&
-                    (baseUrl.includes("localhost") ||
-                        baseUrl.includes("127.0.0.1") ||
-                        baseUrl.includes("srouter"))
+                base_url &&
+                (base_url.includes("localhost") ||
+                    base_url.includes("127.0.0.1") ||
+                    base_url.includes("srouter"))
             );
 
             return {
@@ -128,9 +133,9 @@ export class HindsightAdapter extends AbstractToolAdapter {
                 name: this.name,
                 installed,
                 linked,
-                configPath,
-                currentBaseUrl: baseUrl,
-                currentModel: model
+                config_path,
+                current_base_url: base_url,
+                current_model: model
             };
         } catch {
             return {
@@ -138,57 +143,65 @@ export class HindsightAdapter extends AbstractToolAdapter {
                 name: this.name,
                 installed,
                 linked: false,
-                configPath
+                config_path
             };
         }
     }
 
     async link(context: ToolConfigContext): Promise<LinkResult> {
-        const configPath = this.getConfigPath();
-        const backupPath = context.dryRun
+        const config_path = this.getConfigPath();
+        const backup_path = context.dry_run
             ? undefined
-            : await this.store.createBackup(this.id, configPath);
+            : await this.store.createBackup(this.id, config_path);
 
         let existingContent = "";
         try {
-            existingContent = await fs.readFile(configPath, "utf-8");
+            existingContent = await fs.readFile(config_path, "utf-8");
         } catch {
             existingContent = "# Hindsight Environment Configuration\n";
         }
 
         const model = context.model || "antigravity/claude-sonnet-4-6";
-        const apiKey = context.apiKey || "«redacted:sk-…»";
-        const normalizedBaseUrl = context.baseUrl.replace(/\/+$/, "");
+        const api_key = context.api_key || "«redacted:sk-…»";
+        const normalizedBaseUrl = context.base_url.replace(/\/+$/, "");
 
         const updates: Record<string, string> = {
             HINDSIGHT_API_LLM_PROVIDER: "openai",
             HINDSIGHT_API_LLM_BASE_URL: normalizedBaseUrl,
-            HINDSIGHT_API_LLM_API_KEY: apiKey,
+            HINDSIGHT_API_LLM_API_KEY: api_key,
             HINDSIGHT_API_LLM_MODEL: model
         };
 
         const updatedContent = updateEnvContent(existingContent, updates);
 
-        if (!context.dryRun) {
-            await fs.mkdir(path.dirname(configPath), { recursive: true });
-            await fs.writeFile(configPath, updatedContent, "utf-8");
+        if (!context.dry_run) {
+            await fs.mkdir(path.dirname(config_path), { recursive: true });
+            await fs.writeFile(config_path, updatedContent, "utf-8");
+            await this.store.writeAdapterLock(config_path, {
+                version: 1,
+                adapter: this.id,
+                base_url: context.base_url,
+                ...(context.model ? { model: context.model } : {}),
+                configured_at: Date.now()
+            });
         }
 
         return {
-            backupPath,
-            modifiedPath: configPath
+            backup_path,
+            modified_path: config_path
         };
     }
 
     async unlink(): Promise<boolean> {
         const restored = await this.store.restoreLatestBackup(this.id);
         if (restored) {
+            await this.store.removeAdapterLock(this.getConfigPath());
             return true;
         }
 
-        const configPath = this.getConfigPath();
+        const config_path = this.getConfigPath();
         try {
-            const raw = await fs.readFile(configPath, "utf-8");
+            const raw = await fs.readFile(config_path, "utf-8");
             const lines = raw.split("\n");
             const filtered = lines.filter((l) => {
                 const trimmed = l.trim();
@@ -199,7 +212,8 @@ export class HindsightAdapter extends AbstractToolAdapter {
                     !trimmed.startsWith("HINDSIGHT_API_LLM_MODEL=")
                 );
             });
-            await fs.writeFile(configPath, filtered.join("\n"), "utf-8");
+            await fs.writeFile(config_path, filtered.join("\n"), "utf-8");
+            await this.store.removeAdapterLock(config_path);
             return true;
         } catch {
             return false;
@@ -208,13 +222,13 @@ export class HindsightAdapter extends AbstractToolAdapter {
 
     getEnv(context: ToolConfigContext): Record<string, string> {
         const model = context.model || "antigravity/claude-sonnet-4-6";
-        const apiKey = context.apiKey || "«redacted:sk-…»";
-        const normalizedBaseUrl = context.baseUrl.replace(/\/+$/, "");
+        const api_key = context.api_key || "«redacted:sk-…»";
+        const normalizedBaseUrl = context.base_url.replace(/\/+$/, "");
 
         return {
             HINDSIGHT_API_LLM_PROVIDER: "openai",
             HINDSIGHT_API_LLM_BASE_URL: normalizedBaseUrl,
-            HINDSIGHT_API_LLM_API_KEY: apiKey,
+            HINDSIGHT_API_LLM_API_KEY: api_key,
             HINDSIGHT_API_LLM_MODEL: model
         };
     }

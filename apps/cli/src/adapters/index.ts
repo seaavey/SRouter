@@ -1,5 +1,5 @@
 import type { BaseToolAdapter } from "../types/index.js";
-import { ConfigStore, defaultStore } from "../lib/configStore.js";
+import { ConfigStore, defaultStore } from "../lib/store.js";
 import { ClaudeAdapter } from "./claude.js";
 import { OpenCodeAdapter } from "./opencode.js";
 import { HindsightAdapter } from "./hindsight.js";

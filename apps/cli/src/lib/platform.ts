@@ -11,12 +11,12 @@ export type ShellType = "bash" | "zsh" | "fish" | "powershell" | "cmd";
 
 export interface SystemInfo {
     platform: PlatformType;
-    osType: string;
-    osRelease: string;
+    os_type: string;
+    os_release: string;
     arch: string;
-    displayName: string;
-    homeDir: string;
-    detectedShell: ShellType;
+    display_name: string;
+    home_dir: string;
+    detected_shell: ShellType;
 }
 
 export function getPlatform(): PlatformType {
@@ -75,12 +75,12 @@ export function detectShell(): ShellType {
 export function getSystemInfo(): SystemInfo {
     return {
         platform: getPlatform(),
-        osType: os.type(),
-        osRelease: os.release(),
+        os_type: os.type(),
+        os_release: os.release(),
         arch: os.arch(),
-        displayName: getOsDisplayName(),
-        homeDir: os.homedir(),
-        detectedShell: detectShell()
+        display_name: getOsDisplayName(),
+        home_dir: os.homedir(),
+        detected_shell: detectShell()
     };
 }
 

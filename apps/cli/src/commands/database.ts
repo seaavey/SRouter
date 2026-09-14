@@ -35,7 +35,9 @@ function displayExportResult(result: DatabaseTransferExportResult): void {
 async function exportCommand(output: string | undefined, options: ExportOptions): Promise<void> {
     const outputPath = path.resolve(output ?? defaultExportPath());
     if (fs.existsSync(outputPath) && !options.force) {
-        p.log.error(formatError(`Export path already exists: ${outputPath}. Use --force to overwrite it.`));
+        p.log.error(
+            formatError(`Export path already exists: ${outputPath}. Use --force to overwrite it.`)
+        );
         process.exitCode = 1;
         return;
     }
@@ -43,7 +45,9 @@ async function exportCommand(output: string | undefined, options: ExportOptions)
     try {
         displayExportResult(exportDatabaseSnapshot(outputPath));
     } catch (error) {
-        p.log.error(formatError(error instanceof Error ? error.message : "Database export failed."));
+        p.log.error(
+            formatError(error instanceof Error ? error.message : "Database export failed.")
+        );
         process.exitCode = 1;
     }
 }
@@ -76,7 +80,9 @@ async function importCommand(input: string, options: ImportOptions): Promise<voi
             p.log.warn("Restart SRouter to finish applying the imported database.");
         }
     } catch (error) {
-        p.log.error(formatError(error instanceof Error ? error.message : "Database import failed."));
+        p.log.error(
+            formatError(error instanceof Error ? error.message : "Database import failed.")
+        );
         process.exitCode = 1;
     }
 }

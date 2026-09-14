@@ -1,9 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
-import { checkServerHealth, fetchAvailableModels } from "../src/lib/srouterClient.js";
+import { checkServerHealth, fetchAvailableModels } from "../src/lib/client.js";
 
-test("srouterClient - checkServerHealth and fetchAvailableModels", async () => {
+test("client - checkServerHealth and fetchAvailableModels", async () => {
     const server = http.createServer((req, res) => {
         if (req.url === "/v1/models") {
             res.writeHead(200, { "Content-Type": "application/json" });
@@ -27,7 +27,7 @@ test("srouterClient - checkServerHealth and fetchAvailableModels", async () => {
 
     const health = await checkServerHealth(baseUrl);
     assert.equal(health.healthy, true);
-    assert.equal(health.modelsCount, 2);
+    assert.equal(health.models_count, 2);
 
     const models = await fetchAvailableModels(baseUrl);
     assert.deepEqual(models, ["claude-3-7-sonnet", "gpt-4o"]);
@@ -35,10 +35,10 @@ test("srouterClient - checkServerHealth and fetchAvailableModels", async () => {
     server.close();
 });
 
-test("srouterClient - handles unreachable server gracefully", async () => {
+test("client - handles unreachable server gracefully", async () => {
     const health = await checkServerHealth("http://localhost:59999", undefined, 500);
     assert.equal(health.healthy, false);
-    assert.equal(health.modelsCount, 0);
+    assert.equal(health.models_count, 0);
 
     const models = await fetchAvailableModels("http://localhost:59999");
     assert.deepEqual(models, []);

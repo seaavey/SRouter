@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 import { HindsightAdapter } from "../src/adapters/hindsight.js";
-import { ConfigStore } from "../src/lib/configStore.js";
+import { ConfigStore } from "../src/lib/store.js";
 import { getAllAdapters, getAdapter } from "../src/adapters/index.js";
 
 test("HindsightAdapter - link, getStatus, getEnv, and unlink lifecycle", async () => {
@@ -25,28 +25,36 @@ test("HindsightAdapter - link, getStatus, getEnv, and unlink lifecycle", async (
         assert.equal(statusBefore.id, "hindsight");
 
         const result = await adapter.link({
-            baseUrl: "http://localhost:3000/v1",
-            apiKey: "sr-live-testkey",
+            base_url: "http://localhost:3000/v1",
+            api_key: "sr-live-testkey",
             model: "antigravity/claude-sonnet-4-6"
         });
 
-        assert.equal(result.modifiedPath, customConfigPath);
+        assert.equal(result.modified_path, customConfigPath);
+        const lockPath = path.join(tmpDir, "srouter.lock");
+        const lock = JSON.parse(await fs.readFile(lockPath, "utf-8"));
+        assert.equal(lock.adapter, "hindsight");
+        assert.equal(lock.api_key, undefined);
 
         const contentAfterLink = await fs.readFile(customConfigPath, "utf-8");
         assert.ok(contentAfterLink.includes('HINDSIGHT_API_LLM_PROVIDER="openai"'));
-        assert.ok(contentAfterLink.includes('HINDSIGHT_API_LLM_BASE_URL="http://localhost:3000/v1"'));
+        assert.ok(
+            contentAfterLink.includes('HINDSIGHT_API_LLM_BASE_URL="http://localhost:3000/v1"')
+        );
         assert.ok(contentAfterLink.includes('HINDSIGHT_API_LLM_API_KEY="sr-live-testkey"'));
-        assert.ok(contentAfterLink.includes('HINDSIGHT_API_LLM_MODEL="antigravity/claude-sonnet-4-6"'));
+        assert.ok(
+            contentAfterLink.includes('HINDSIGHT_API_LLM_MODEL="antigravity/claude-sonnet-4-6"')
+        );
         assert.ok(contentAfterLink.includes("SOME_VAR=hello"));
 
         const statusAfter = await adapter.getStatus();
         assert.equal(statusAfter.linked, true);
-        assert.equal(statusAfter.currentBaseUrl, "http://localhost:3000/v1");
-        assert.equal(statusAfter.currentModel, "antigravity/claude-sonnet-4-6");
+        assert.equal(statusAfter.current_base_url, "http://localhost:3000/v1");
+        assert.equal(statusAfter.current_model, "antigravity/claude-sonnet-4-6");
 
         const env = adapter.getEnv({
-            baseUrl: "http://localhost:3000/v1",
-            apiKey: "sr-live-testkey",
+            base_url: "http://localhost:3000/v1",
+            api_key: "sr-live-testkey",
             model: "antigravity/claude-sonnet-4-6"
         });
         assert.equal(env.HINDSIGHT_API_LLM_PROVIDER, "openai");
@@ -55,6 +63,7 @@ test("HindsightAdapter - link, getStatus, getEnv, and unlink lifecycle", async (
 
         const unlinked = await adapter.unlink();
         assert.equal(unlinked, true);
+        await assert.rejects(fs.access(lockPath));
 
         const contentAfterUnlink = await fs.readFile(customConfigPath, "utf-8");
         assert.ok(contentAfterUnlink.includes("SOME_VAR=hello"));

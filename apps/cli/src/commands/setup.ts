@@ -10,59 +10,59 @@ import {
     note
 } from "@clack/prompts";
 import { getAllAdapters } from "../adapters/index.js";
-import { defaultStore } from "../lib/configStore.js";
+import { defaultStore } from "../lib/store.js";
 import { getSystemInfo } from "../lib/platform.js";
-import { checkServerHealth, fetchAvailableModels } from "../lib/srouterClient.js";
+import { checkServerHealth, fetchAvailableModels } from "../lib/client.js";
 import { pc, showHeader } from "../lib/ui.js";
 
 export interface SetupWizardOptions {
     url?: string;
     key?: string;
     model?: string;
-    opusModel?: string;
-    sonnetModel?: string;
-    haikuModel?: string;
+    opus_model?: string;
+    sonnet_model?: string;
+    haiku_model?: string;
 }
 
 export async function setupCommand(options: SetupWizardOptions = {}): Promise<void> {
     showHeader();
     const sysInfo = getSystemInfo();
     intro(
-        `${pc.bold(pc.magenta("SRouter AI Coding Setup Wizard"))} ${pc.gray(`(${sysInfo.displayName})`)}`
+        `${pc.bold(pc.magenta("SRouter AI Coding Setup Wizard"))} ${pc.gray(`(${sysInfo.display_name})`)}`
     );
 
     const savedConfig = await defaultStore.loadConfig();
-    let baseUrl =
+    let base_url =
         options.url ||
         process.env.SROUTER_BASE_URL ||
-        savedConfig.defaultBaseUrl ||
+        savedConfig.default_base_url ||
         "http://localhost:3000/v1";
-    let apiKey = options.key || process.env.SROUTER_API_KEY || savedConfig.defaultApiKey;
+    let api_key = options.key || process.env.SROUTER_API_KEY || savedConfig.default_api_key;
     let selectedModel = options.model;
-    let opusModel = options.opusModel;
-    let sonnetModel = options.sonnetModel;
-    let haikuModel = options.haikuModel;
+    let opus_model = options.opus_model;
+    let sonnet_model = options.sonnet_model;
+    let haiku_model = options.haiku_model;
 
     // Step 1: Detect SRouter Server
     const s = spinner();
-    s.start(`Checking SRouter gateway connectivity at ${pc.cyan(baseUrl)}...`);
+    s.start(`Checking SRouter gateway connectivity at ${pc.cyan(base_url)}...`);
 
-    let health = await checkServerHealth(baseUrl, apiKey);
-    let availableModels: string[] = [];
+    let health = await checkServerHealth(base_url, api_key);
+    let available_models: string[] = [];
 
     if (health.healthy) {
         s.stop(
             pc.green(
-                `SRouter is ONLINE (${health.latencyMs}ms, ${health.modelsCount} models found)`
+                `SRouter is ONLINE (${health.latency_ms}ms, ${health.models_count} models found)`
             )
         );
-        availableModels = await fetchAvailableModels(baseUrl, apiKey);
+        available_models = await fetchAvailableModels(base_url, api_key);
     } else {
-        s.stop(pc.yellow(`Could not reach SRouter at ${baseUrl} (${health.error || "offline"})`));
+        s.stop(pc.yellow(`Could not reach SRouter at ${base_url} (${health.error || "offline"})`));
 
         const urlInput = await text({
             message: "Enter SRouter Gateway Base URL:",
-            initialValue: baseUrl,
+            initialValue: base_url,
             validate(value) {
                 const val = typeof value === "string" ? value.trim() : "";
                 if (!val) return "Base URL cannot be empty";
@@ -78,23 +78,23 @@ export async function setupCommand(options: SetupWizardOptions = {}): Promise<vo
             return;
         }
 
-        const urlStr = typeof urlInput === "string" ? urlInput.trim() : baseUrl;
+        const urlStr = typeof urlInput === "string" ? urlInput.trim() : base_url;
         if (urlStr) {
-            baseUrl = urlStr;
+            base_url = urlStr;
         }
 
-        s.start(`Connecting to ${pc.cyan(baseUrl)}...`);
-        health = await checkServerHealth(baseUrl, apiKey);
+        s.start(`Connecting to ${pc.cyan(base_url)}...`);
+        health = await checkServerHealth(base_url, api_key);
         if (health.healthy) {
-            s.stop(pc.green(`Connected to SRouter (${health.modelsCount} models found)`));
-            availableModels = await fetchAvailableModels(baseUrl, apiKey);
+            s.stop(pc.green(`Connected to SRouter (${health.models_count} models found)`));
+            available_models = await fetchAvailableModels(base_url, api_key);
         } else {
-            s.stop(pc.yellow(`Proceeding with offline / unverified endpoint: ${baseUrl}`));
+            s.stop(pc.yellow(`Proceeding with offline / unverified endpoint: ${base_url}`));
         }
     }
 
     // Step 2: Prompt for API Key if not set
-    if (!apiKey) {
+    if (!api_key) {
         const keyInput = await text({
             message:
                 "Enter SRouter API Key (press Enter to skip if running in local auth-free mode):",
@@ -109,9 +109,9 @@ export async function setupCommand(options: SetupWizardOptions = {}): Promise<vo
 
         const keyStr = typeof keyInput === "string" ? keyInput.trim() : "";
         if (keyStr) {
-            apiKey = keyStr;
-            if (availableModels.length === 0) {
-                availableModels = await fetchAvailableModels(baseUrl, apiKey);
+            api_key = keyStr;
+            if (available_models.length === 0) {
+                available_models = await fetchAvailableModels(base_url, api_key);
             }
         }
     }
@@ -127,8 +127,8 @@ export async function setupCommand(options: SetupWizardOptions = {}): Promise<vo
 
         if (st.linked) {
             label = `${adapter.name} [✔ CONFIGURED]`;
-            const modelPart = st.currentModel ? `, Model: ${st.currentModel}` : "";
-            hint = `Active on ${st.currentBaseUrl}${modelPart} (Select to update settings)`;
+            const modelPart = st.current_model ? `, Model: ${st.current_model}` : "";
+            hint = `Active on ${st.current_base_url}${modelPart} (Select to update settings)`;
         } else if (st.installed) {
             label = `${adapter.name} [○ NOT CONFIGURED]`;
             hint = `${adapter.description} (Installed on system)`;
@@ -161,13 +161,13 @@ export async function setupCommand(options: SetupWizardOptions = {}): Promise<vo
 
     if (toolsToConfigure.length === 0) {
         await defaultStore.saveConfig({
-            defaultBaseUrl: baseUrl,
-            defaultApiKey: apiKey,
-            lastSetupAt: Date.now()
+            default_base_url: base_url,
+            default_api_key: api_key,
+            last_setup_at: Date.now()
         });
 
         note(
-            `Base URL:    ${pc.cyan(baseUrl)}\n${apiKey ? `API Key:     ${pc.gray("••••••••" + apiKey.slice(-4))}\n` : ""}\n${pc.yellow("No tools selected for configuration.")}`,
+            `Base URL:    ${pc.cyan(base_url)}\n${api_key ? `API Key:     ${pc.gray("••••••••" + api_key.slice(-4))}\n` : ""}\n${pc.yellow("No tools selected for configuration.")}`,
             "Configuration Summary"
         );
         outro(
@@ -182,10 +182,10 @@ export async function setupCommand(options: SetupWizardOptions = {}): Promise<vo
 
     // Step 4: Model Selection
     if (!selectedModel) {
-        const currentDefault = savedConfig.defaultModel || "claude-3-7-sonnet";
+        const currentDefault = savedConfig.default_model || "claude-3-7-sonnet";
 
-        if (availableModels.length > 0) {
-            const defaultHint = `(${currentDefault}) - all ${availableModels.length} models are automatically registered in OpenCode`;
+        if (available_models.length > 0) {
+            const defaultHint = `(${currentDefault}) - all ${available_models.length} models are automatically registered in OpenCode`;
             const modelChoice = await select({
                 message: "Select default model for tools:",
                 options: [
@@ -203,7 +203,7 @@ export async function setupCommand(options: SetupWizardOptions = {}): Promise<vo
                     },
                     {
                         value: "__browse__",
-                        label: `Browse full model list (${availableModels.length} models)...`
+                        label: `Browse full model list (${available_models.length} models)...`
                     }
                 ]
             });
@@ -265,12 +265,12 @@ export async function setupCommand(options: SetupWizardOptions = {}): Promise<vo
                     typeof customModelInput === "string" ? customModelInput.trim() : "";
                 selectedModel = customModelStr || currentDefault;
             } else if (modelChoice === "__browse__") {
-                const modelOptions = availableModels.map((m) => ({
+                const modelOptions = available_models.map((m) => ({
                     value: m,
                     label: m
                 }));
                 const browseChoice = await select({
-                    message: `Select from ${availableModels.length} available models:`,
+                    message: `Select from ${available_models.length} available models:`,
                     options: [
                         ...modelOptions,
                         { value: "__custom__", label: "Custom model name..." }
@@ -316,9 +316,9 @@ export async function setupCommand(options: SetupWizardOptions = {}): Promise<vo
     // Step 4.1: Claude Code Specific Models (Opus, Sonnet, Haiku)
     if (
         toolsToConfigure.includes("claude") &&
-        !options.opusModel &&
-        !options.sonnetModel &&
-        !options.haikuModel
+        !options.opus_model &&
+        !options.sonnet_model &&
+        !options.haiku_model
     ) {
         const configTiersChoice = await select({
             message: "Configure Claude Code specific model tiers (Opus, Sonnet, Haiku)?",
@@ -347,12 +347,12 @@ export async function setupCommand(options: SetupWizardOptions = {}): Promise<vo
                 envVar: string,
                 defaultVal?: string
             ): Promise<string | undefined> => {
-                if (availableModels.length > 0) {
+                if (available_models.length > 0) {
                     const choice = await select({
                         message: `Select model for ${tierName} (${envVar}):`,
                         options: [
                             { value: "__skip__", label: "Skip (Use default)" },
-                            ...availableModels.map((m) => ({ value: m, label: m })),
+                            ...available_models.map((m) => ({ value: m, label: m })),
                             { value: "__custom__", label: "Custom model name..." }
                         ]
                     });
@@ -385,7 +385,7 @@ export async function setupCommand(options: SetupWizardOptions = {}): Promise<vo
                 selectedModel || "claude-3-7-sonnet"
             );
             if (pickedSonnet !== undefined) {
-                sonnetModel = pickedSonnet;
+                sonnet_model = pickedSonnet;
             }
 
             const pickedOpus = await pickTierModel(
@@ -394,7 +394,7 @@ export async function setupCommand(options: SetupWizardOptions = {}): Promise<vo
                 "claude-3-opus-20240229"
             );
             if (pickedOpus !== undefined) {
-                opusModel = pickedOpus;
+                opus_model = pickedOpus;
             }
 
             const pickedHaiku = await pickTierModel(
@@ -403,7 +403,7 @@ export async function setupCommand(options: SetupWizardOptions = {}): Promise<vo
                 "claude-3-5-haiku-20241022"
             );
             if (pickedHaiku !== undefined) {
-                haikuModel = pickedHaiku;
+                haiku_model = pickedHaiku;
             }
         }
     }
@@ -417,43 +417,43 @@ export async function setupCommand(options: SetupWizardOptions = {}): Promise<vo
         if (!adapter) continue;
 
         const result = await adapter.link({
-            baseUrl,
-            apiKey,
+            base_url,
+            api_key,
             model: selectedModel,
-            opusModel: toolId === "claude" ? opusModel : undefined,
-            sonnetModel: toolId === "claude" ? sonnetModel : undefined,
-            haikuModel: toolId === "claude" ? haikuModel : undefined,
-            availableModels
+            opus_model: toolId === "claude" ? opus_model : undefined,
+            sonnet_model: toolId === "claude" ? sonnet_model : undefined,
+            haiku_model: toolId === "claude" ? haiku_model : undefined,
+            available_models
         });
 
         linkResults.push({
             name: adapter.name,
-            path: result.modifiedPath,
-            backup: result.backupPath
+            path: result.modified_path,
+            backup: result.backup_path
         });
     }
 
     await defaultStore.saveConfig({
-        defaultBaseUrl: baseUrl,
-        defaultApiKey: apiKey,
-        defaultModel: selectedModel,
-        defaultOpusModel: opusModel,
-        defaultSonnetModel: sonnetModel,
-        defaultHaikuModel: haikuModel,
-        lastSetupAt: Date.now()
+        default_base_url: base_url,
+        default_api_key: api_key,
+        default_model: selectedModel,
+        default_opus_model: opus_model,
+        default_sonnet_model: sonnet_model,
+        default_haiku_model: haiku_model,
+        last_setup_at: Date.now()
     });
 
     s.stop(pc.green("All configurations applied successfully!"));
 
     // Step 6: Summary Notes
     const summaryLines = [
-        `OS / System: ${pc.cyan(sysInfo.displayName)}`,
-        `Base URL:    ${pc.cyan(baseUrl)}`,
-        ...(apiKey ? [`API Key:     ${pc.gray("••••••••" + apiKey.slice(-4))}`] : []),
+        `OS / System: ${pc.cyan(sysInfo.display_name)}`,
+        `Base URL:    ${pc.cyan(base_url)}`,
+        ...(api_key ? [`API Key:     ${pc.gray("••••••••" + api_key.slice(-4))}`] : []),
         ...(selectedModel ? [`Model:       ${pc.cyan(selectedModel)}`] : []),
-        ...(opusModel ? [`Opus:        ${pc.cyan(opusModel)}`] : []),
-        ...(sonnetModel ? [`Sonnet:      ${pc.cyan(sonnetModel)}`] : []),
-        ...(haikuModel ? [`Haiku:       ${pc.cyan(haikuModel)}`] : []),
+        ...(opus_model ? [`Opus:        ${pc.cyan(opus_model)}`] : []),
+        ...(sonnet_model ? [`Sonnet:      ${pc.cyan(sonnet_model)}`] : []),
+        ...(haiku_model ? [`Haiku:       ${pc.cyan(haiku_model)}`] : []),
         "",
         pc.bold("Configured Tools:")
     ];

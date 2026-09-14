@@ -1,8 +1,8 @@
 export interface ServerHealthResult {
     healthy: boolean;
-    modelsCount: number;
+    models_count: number;
     error?: string;
-    latencyMs?: number;
+    latency_ms?: number;
 }
 
 export function normalizeBaseUrl(baseUrl: string): string {
@@ -51,9 +51,9 @@ export async function checkServerHealth(
         if (!res.ok) {
             return {
                 healthy: false,
-                modelsCount: 0,
+                models_count: 0,
                 error: `HTTP ${res.status}: ${res.statusText}`,
-                latencyMs: Date.now() - start
+                latency_ms: Date.now() - start
             };
         }
 
@@ -62,17 +62,17 @@ export async function checkServerHealth(
 
         return {
             healthy: true,
-            modelsCount: models.length,
-            latencyMs: Date.now() - start
+            models_count: models.length,
+            latency_ms: Date.now() - start
         };
     } catch (err: unknown) {
         const errorName = err instanceof Error ? err.name : "";
         const errorMessage = err instanceof Error ? err.message : String(err);
         return {
             healthy: false,
-            modelsCount: 0,
+            models_count: 0,
             error: errorName === "AbortError" ? "Connection timeout" : errorMessage,
-            latencyMs: Date.now() - start
+            latency_ms: Date.now() - start
         };
     }
 }

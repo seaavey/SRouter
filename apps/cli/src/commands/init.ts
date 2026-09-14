@@ -54,7 +54,7 @@ async function initDocker(port: string, detached: boolean): Promise<void> {
     const hasDocker = await isExecutableInPath("docker");
     if (!hasDocker) {
         s.stop(formatError("Docker is not installed or not available in PATH."));
-        
+
         const fallbackChoice = await p.select({
             message: "Docker was not found. What would you like to do?",
             options: [
@@ -77,7 +77,9 @@ async function initDocker(port: string, detached: boolean): Promise<void> {
         });
 
         if (p.isCancel(fallbackChoice) || fallbackChoice === "exit") {
-            p.outro("Initialization cancelled. Install Docker from https://docs.docker.com/get-docker/ and try again.");
+            p.outro(
+                "Initialization cancelled. Install Docker from https://docs.docker.com/get-docker/ and try again."
+            );
             return;
         }
 
