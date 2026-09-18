@@ -16,7 +16,7 @@ The first version should measure authenticated dashboard activity, not backgroun
 - Show the longest streak.
 - Show a compact recent activity history so the state is understandable.
 - Persist activity in the existing database and protect it with the existing admin session.
-- Make day boundaries explicit and consistent for the configured SRouter timezone.
+- Make day boundaries explicit and consistent with the server timezone.
 
 ## Non-goals
 
@@ -38,10 +38,10 @@ The first version should measure authenticated dashboard activity, not backgroun
 ### Day and timezone rules
 
 - Store a canonical `activity_date` as `YYYY-MM-DD` rather than deriving streaks from timestamps at read time.
-- Resolve the current date using an explicit SRouter timezone setting, defaulting to `Asia/Jakarta` for this feature.
+- Resolve the current date using the timezone configured on the SRouter server at runtime.
 - Do not use the browser timezone for streak calculations.
-- If timezone configuration is later generalized, all streak reads and writes must use the same resolver.
-- A calendar day changes at 00:00 in the configured timezone.
+- Return the resolved server timezone in the API response so the dashboard can explain the day boundary.
+- A calendar day changes at 00:00 in the server timezone.
 
 ### Streak calculation
 
@@ -73,7 +73,7 @@ The request has an empty JSON body. The endpoint records today's activity and re
 }
 ```
 
-`active_dates` should contain only the recent window needed by the dashboard (recommended: the latest 30 calendar days), ordered newest first. The server remains the source of truth for streak counts.
+`active_dates` should contain the latest 7 calendar days, ordered newest first, matching the compact Duolingo-style activity strip. The server remains the source of truth for streak counts.
 
 Error behavior must follow the existing API envelope and authentication conventions. The operation must be safe to retry.
 
@@ -97,7 +97,7 @@ The panel should show:
 - A clear state label: `Active today` or `Not active today`.
 - Current streak with a restrained flame/activity icon.
 - A small comparison line: `Yesterday: active` or `Yesterday: not active`.
-- A 7-day or 30-day activity strip using plain day cells and an accessible legend.
+- A 7-day activity strip using plain day cells and an accessible legend.
 - A recovery-oriented message when today is inactive, without shame or fake urgency.
 
 Avoid adding a new navigation item, notification permission, heavy animation, gradient, or badge collection. The panel must work in both themes and remain readable on small screens.
@@ -115,7 +115,7 @@ Avoid adding a new navigation item, notification permission, heavy animation, gr
 
 - [ ] An authenticated dashboard load records at most one activity row for the configured local date.
 - [ ] An unauthenticated request cannot read or write streak data.
-- [ ] Today/yesterday status is correct around midnight in `Asia/Jakarta`.
+- [ ] Today/yesterday status is correct around midnight in the server timezone.
 - [ ] Current streak handles active-today, inactive-today, missed-day, duplicate-day, and empty-history cases.
 - [ ] Longest streak remains correct after a new activity day and after a gap.
 - [ ] Concurrent/retried activity requests remain idempotent.
@@ -136,8 +136,8 @@ Avoid adding a new navigation item, notification permission, heavy animation, gr
 4. Verification and documentation
    - Run focused tests/builds, review the diff, and update any required database migration documentation.
 
-## Open decisions before implementation
+## Product decisions
 
-- Should the default timezone remain `Asia/Jakarta`, or should it be configurable in Settings before launch?
-- Should activity be recorded on every authenticated dashboard load, or only after a meaningful action such as viewing a page or refreshing data?
-- Should the recent activity strip show 7 days for compactness or 30 days for better streak context?
+- Use the SRouter server timezone as the single source of truth. Do not add a separate Settings control in the first release.
+- Record activity on every successful authenticated dashboard load. The daily primary key makes repeated loads safe and matches the simple Duolingo-style behavior.
+- Show a 7-day activity strip to keep the first dashboard panel compact and immediately understandable.
