@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { ModelObject } from "@srouter/types";
+import type { ModelListResponse, ModelObject } from "@srouter/types";
 import { CLINE_BASE_URL } from "@srouter/constants";
 import { DescribeErrorPayload, type UpstreamErrorPayload } from "./base.js";
 import { OpenAIExecutor, type OpenAIExecutorOptions } from "./openai.js";
@@ -19,6 +19,10 @@ export interface ClineErrorEnvelope {
     data?: UpstreamErrorPayload | null;
     success: false;
     error?: UpstreamErrorPayload;
+}
+
+interface ClineRecommendedModelsResponse {
+    free?: Array<{ id?: string }>;
 }
 
 /** A non-streaming payload is either bare or wrapped by the hosted API. */
@@ -69,9 +73,32 @@ export class ClineExecutor extends OpenAIExecutor {
     }
 
     async listModels(): Promise<ModelObject[]> {
-        return ["deepseek-v4.1-flash", "muse-spark-1.3-contributor", "solar-pro4"].map((model) => ({
-            id: `cline/cline-free/${model}`,
-            object: "model",
+        const headers = this.getHeaders();
+        const [modelsResponse, recommendedResponse] = await Promise.all([
+            fetch(`${CLINE_BASE_URL}/models`, { method: "GET", headers }),
+            fetch(`${CLINE_BASE_URL}/ai/cline/recommended-models`, {
+                method: "GET",
+                headers
+            })
+        ]);
+
+        const modelIds = new Set<string>();
+        if (modelsResponse.ok) {
+            const payload = (await modelsResponse.json()) as ModelListResponse;
+            if (Array.isArray(payload.data)) {
+                for (const model of payload.data) modelIds.add(model.id);
+            }
+        }
+        if (recommendedResponse.ok) {
+            const payload = (await recommendedResponse.json()) as ClineRecommendedModelsResponse;
+            for (const model of payload.free ?? []) {
+                if (model.id) modelIds.add(model.id);
+            }
+        }
+
+        return Array.from(modelIds, (id) => ({
+            id: `cline/${id}`,
+            object: "model" as const,
             owned_by: "cline"
         }));
     }

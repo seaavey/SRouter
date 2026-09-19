@@ -59,7 +59,7 @@ export class OpenAIExecutor implements AIProvider {
         if (accessToken) this.accessToken = accessToken;
     }
 
-    private getHeaders(accept?: string): Record<string, string> {
+    protected getHeaders(accept?: string): Record<string, string> {
         const headers: Record<string, string> = {
             "Content-Type": "application/json",
             "User-Agent": "SRouter/1.0.0 (Node.js)",

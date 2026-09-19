@@ -7,6 +7,7 @@ export const AuthRouter = new Hono();
 AuthRouter.get("/auth/cline/device", RequireAdmin, AuthController.Cline.Device);
 AuthRouter.get("/auth/cline/poll", RequireAdmin, AuthController.Cline.Poll);
 AuthRouter.post("/auth/cline/poll", RequireAdmin, AuthController.Cline.Poll);
+AuthRouter.post("/auth/cline/token", RequireAdmin, AuthController.Cline.ImportToken);
 
 AuthRouter.get("/auth/openai/login", RequireAdmin, AuthController.OpenAI.OAuth);
 AuthRouter.get("/auth/openai/callback", AuthController.OpenAI.Callback);

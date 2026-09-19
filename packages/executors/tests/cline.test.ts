@@ -39,6 +39,32 @@ test("Cline sends hosted API headers and keeps the provider/model namespace", as
     assert.equal(requestBody?.stream, false);
 });
 
+test("Cline discovers the live model catalog with the OAuth token", async () => {
+    const requestUrls: string[] = [];
+    let authorization = "";
+    globalThis.fetch = async (input, init) => {
+        const requestUrl = String(input);
+        requestUrls.push(requestUrl);
+        authorization = new Headers(init?.headers).get("authorization") ?? "";
+        if (requestUrl.endsWith("/recommended-models")) {
+            return Response.json({ free: [{ id: "cline-free/free-model" }] });
+        }
+        return Response.json({ data: [{ id: "provider/model" }] });
+    };
+
+    const models = await new ClineExecutor({ accessToken: "workos:test-token" }).listModels();
+
+    assert.deepEqual(requestUrls.sort(), [
+        "https://api.cline.bot/api/v1/ai/cline/recommended-models",
+        "https://api.cline.bot/api/v1/models"
+    ]);
+    assert.equal(authorization, "Bearer workos:test-token");
+    assert.deepEqual(models, [
+        { id: "cline/provider/model", object: "model", owned_by: "cline" },
+        { id: "cline/cline-free/free-model", object: "model", owned_by: "cline" }
+    ]);
+});
+
 test("Cline unwraps the hosted { data, success } envelope on non-streaming responses", async () => {
     globalThis.fetch = async () =>
         Response.json({

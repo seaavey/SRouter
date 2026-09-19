@@ -13,7 +13,7 @@ export const CLINE_PROVIDER: ProviderMetadata = {
     base_url: CLINE_BASE_URL,
     web_url: "https://cline.bot",
     alias: "cline",
-    requires_api_key: false,
+    requires_api_key: true,
     requires_oauth: true,
     supports_custom_url: true,
     status_message: "Cline OAuth account missing"
