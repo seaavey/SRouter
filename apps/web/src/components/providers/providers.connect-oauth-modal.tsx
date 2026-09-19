@@ -30,6 +30,14 @@ interface ConnectOAuthModalProps {
     onOpenChange: (open: boolean) => void;
 }
 
+interface ClineDeviceResponse {
+    authorizeUrl: string;
+    state: string;
+    userCode: string;
+    expiresIn: number;
+    interval: number;
+}
+
 interface OAuthLoginResponse {
     authorizeUrl: string;
     state: string;
@@ -47,6 +55,7 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
     const [error, setError] = useState("");
     const [authUrl, setAuthUrl] = useState("");
     const [oauthState, setOauthState] = useState("");
+    const [clineUserCode, setClineUserCode] = useState("");
     const [isLoadingUrl, setIsLoadingUrl] = useState(false);
     const popupRef = useRef<Window | null>(null);
 
@@ -57,7 +66,8 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
     const isQoder = baseId === "qoder";
     const isCodeBuddy = baseId === "codebuddy";
     const isCodex = baseId === "openai";
-    const isPolling = isQoder || isCodeBuddy;
+    const isCline = baseId === "cline";
+    const isPolling = isQoder || isCodeBuddy || isCline;
     const supportsBulk = isQoder || isCodex;
 
     // Fetch backend-registered PKCE OAuth session without auto-opening popup
@@ -65,6 +75,7 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
         if (!open || !providerId) {
             setAuthUrl("");
             setOauthState("");
+            setClineUserCode("");
             setError("");
             setCallbackUrlInput("");
             setPatInput("");
@@ -78,28 +89,30 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
         setIsLoadingUrl(true);
         setError("");
 
-        const providerEndpoint =
-            baseId === "antigravity"
-                ? "/v1/auth/antigravity/login?format=json"
-                : baseId === "qoder"
-                  ? "/v1/auth/qoder/login?format=json"
-                  : baseId === "codebuddy"
-                    ? `/v1/auth/${authProviderId}/login?format=json`
-                    : baseId === "claude" || baseId === "anthropic"
-                      ? "/v1/auth/claude/login?format=json"
-                      : "/v1/auth/openai/login?format=json";
+        const providerEndpoint = isCline
+            ? "/v1/auth/cline/device"
+            : baseId === "antigravity"
+              ? "/v1/auth/antigravity/login?format=json"
+              : baseId === "qoder"
+                ? "/v1/auth/qoder/login?format=json"
+                : baseId === "codebuddy"
+                  ? `/v1/auth/${authProviderId}/login?format=json`
+                  : baseId === "claude" || baseId === "anthropic"
+                    ? "/v1/auth/claude/login?format=json"
+                    : "/v1/auth/openai/login?format=json";
 
-        api.get<OAuthLoginResponse>(providerEndpoint)
+        api.get<OAuthLoginResponse | ClineDeviceResponse>(providerEndpoint)
             .then((res) => {
                 setAuthUrl(res.authorizeUrl);
                 setOauthState(res.state);
+                setClineUserCode("userCode" in res ? res.userCode : "");
                 setIsLoadingUrl(false);
             })
             .catch((err: Error) => {
                 setIsLoadingUrl(false);
                 setError(err.message || "Failed to initiate OAuth login session");
             });
-    }, [open, providerId, baseId, authProviderId]);
+    }, [open, providerId, baseId, authProviderId, isCline]);
 
     const handleOpenPopup = () => {
         if (!authUrl) return;
@@ -148,10 +161,11 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
 
         const interval = setInterval(async () => {
             try {
-                const pollUrl =
-                    baseId === "codebuddy"
-                        ? `/v1/auth/${authProviderId}/poll?state=${encodeURIComponent(oauthState)}`
-                        : `/v1/auth/qoder/poll?state=${encodeURIComponent(oauthState)}`;
+                const pollUrl = isCline
+                    ? `/v1/auth/cline/poll?state=${encodeURIComponent(oauthState)}`
+                    : baseId === "codebuddy"
+                      ? `/v1/auth/${authProviderId}/poll?state=${encodeURIComponent(oauthState)}`
+                      : `/v1/auth/qoder/poll?state=${encodeURIComponent(oauthState)}`;
                 const res = await api.get<{ status: AuthPollStatus; provider?: ProviderConfig }>(
                     pollUrl
                 );
@@ -179,6 +193,7 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
         isPolling,
         baseId,
         authProviderId,
+        isCline,
         oauthState,
         queryClient,
         onOpenChange
@@ -331,7 +346,7 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
 
     if (!provider) return null;
 
-    const tabsCount = supportsBulk ? 3 : isQoder || isCodeBuddy ? 2 : 1;
+    const tabsCount = supportsBulk ? 3 : isQoder || isCodeBuddy || isCline ? 2 : 1;
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -358,7 +373,7 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                         <X className="size-4" />
                     </button>
                 </DialogHeader>
-                {(isQoder || isCodeBuddy || supportsBulk) && (
+                {(isQoder || isCodeBuddy || isCline || supportsBulk) && (
                     <div
                         className={`grid w-full gap-1 rounded-full border border-hairline-soft bg-canvas-soft p-1 text-xs ${
                             tabsCount === 3 ? "grid-cols-3" : "grid-cols-2"
@@ -387,7 +402,7 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                         >
                             <Key className="size-3.5 shrink-0" />
                             <span className="truncate">
-                                {isCodeBuddy ? "Access Token" : "PAT Token"}
+                                {isCodeBuddy ? "Access Token" : isCline ? "API Key" : "PAT Token"}
                             </span>
                         </button>
                         {supportsBulk && (
@@ -509,7 +524,9 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                                             : "Waiting for browser authorization…"}
                                 </p>
                                 <p className="text-xs text-text-muted mt-0.5">
-                                    Complete authorization in your browser window to link.
+                                    {isCline && clineUserCode
+                                        ? `Enter code ${clineUserCode} in the browser if requested.`
+                                        : "Complete authorization in your browser window to link."}
                                 </p>
                             </div>
                         </div>
@@ -611,13 +628,17 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                             <label className="font-semibold text-foreground block text-xs">
                                 {isCodeBuddy
                                     ? "CodeBuddy Access Token"
-                                    : isCodex
-                                      ? "Codex Access Token"
-                                      : "Personal Access Token (PAT)"}
+                                    : isCline
+                                      ? "Cline API Key"
+                                      : isCodex
+                                        ? "Codex Access Token"
+                                        : "Personal Access Token (PAT)"}
                             </label>
                             <p className="text-[11px] text-muted-foreground leading-relaxed">
                                 {isCodeBuddy ? (
                                     "Masukkan Access Token / Bearer Token dari akun CodeBuddy Anda."
+                                ) : isCline ? (
+                                    "Masukkan API key resmi Cline. Token akan dikirim sebagai Bearer token."
                                 ) : isCodex ? (
                                     "Paste an OpenAI Codex access token (from ~/.codex/auth.json)."
                                 ) : (
@@ -636,7 +657,13 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                             </p>
                             <input
                                 type="password"
-                                placeholder={isCodeBuddy || isCodex ? "eyJhbGciOi..." : "pt-..."}
+                                placeholder={
+                                    isCodeBuddy || isCodex
+                                        ? "eyJhbGciOi..."
+                                        : isCline
+                                          ? "cline_..."
+                                          : "pt-..."
+                                }
                                 value={patInput}
                                 onChange={(e) => setPatInput(e.target.value)}
                                 className="w-full rounded-2xl border-0 bg-field px-4 py-2.5 text-xs font-mono text-ink placeholder:text-text-faint focus-visible:ring-2 focus-visible:ring-ink focus-visible:outline-none shadow-none"
@@ -666,7 +693,9 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                                     ? "Connecting…"
                                     : isCodeBuddy
                                       ? "Connect CodeBuddy"
-                                      : "Connect PAT"}
+                                      : isCline
+                                        ? "Connect API Key"
+                                        : "Connect PAT"}
                             </Button>
                         </div>
                     </form>

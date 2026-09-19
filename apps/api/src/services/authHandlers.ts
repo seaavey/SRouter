@@ -10,6 +10,7 @@ import {
     CODEBUDDY_CN_BASE_URL,
     CODEBUDDY_CN_DOMAIN,
     CODEBUDDY_CN_USER_AGENT,
+    CLINE_BASE_URL,
     CODEX_OAUTH_CLIENT_ID,
     CODEX_OAUTH_REDIRECT_URI,
     COMMANDCODE_BASE_URL,
@@ -25,6 +26,7 @@ import {
     BAIExecutor,
     BluesMindsExecutor,
     CodeBuddyExecutor,
+    ClineExecutor,
     CodexExecutor,
     CommandCodeExecutor,
     GoRouterExecutor,
@@ -38,6 +40,7 @@ import {
     ClaudeOAuth,
     CodeBuddyCNOAuth,
     CodeBuddyOAuth,
+    ClineOAuth,
     OpenAICodexOAuth,
     QoderOAuth
 } from "@srouter/providers";
@@ -365,6 +368,31 @@ const bai: AuthProviderHandler = {
         new BAIExecutor({ id, name, baseUrl: baseUrl || BAI_BASE_URL, apiKey })
 };
 
+const cline: AuthProviderHandler = {
+    providerId: "cline",
+    displayName: "Cline",
+    category: "oauth",
+    protocol: "openai",
+    idPrefix: "cline",
+    baseUrl: () => CLINE_BASE_URL,
+    oauthSuccessMessage: "Login Cline Berhasil!",
+    tokenImportMessage: "Cline OAuth token registered and saved directly to SQLite database!",
+    oauthClass: ClineOAuth,
+    mapOAuthTokens: (tokens) => ({
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        accountId: tokens.accountId,
+        expiresIn: tokens.expiresIn
+    }),
+    mapImportTokens: (params) => ({
+        accessToken: params.accessToken,
+        refreshToken: params.refreshToken,
+        accountId: params.accountId
+    }),
+    buildExecutor: ({ id, name, accessToken, refreshToken }) =>
+        new ClineExecutor({ id, name, accessToken, refreshToken, alias: "cline" })
+};
+
 export const AuthHandlers = {
     OpenAI: openaiCodex,
     Antigravity: antigravity,
@@ -380,7 +408,8 @@ export const AuthHandlers = {
     TokenRouter: tokenRouter,
     CodeBuddy: codeBuddy,
     CodeBuddyCN: codeBuddyCN,
-    BAI: bai
+    BAI: bai,
+    Cline: cline
 } as const;
 
 export const authProviderHandlers: Record<string, AuthProviderHandler> = {
@@ -398,5 +427,6 @@ export const authProviderHandlers: Record<string, AuthProviderHandler> = {
     tokenrouter: AuthHandlers.TokenRouter,
     codebuddy: AuthHandlers.CodeBuddy,
     "codebuddy-cn": AuthHandlers.CodeBuddyCN,
-    bai: AuthHandlers.BAI
+    bai: AuthHandlers.BAI,
+    cline: AuthHandlers.Cline
 };

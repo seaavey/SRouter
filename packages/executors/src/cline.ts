@@ -1,9 +1,12 @@
 import { randomUUID } from "node:crypto";
+import type { ModelListResponse, ModelObject } from "@srouter/types";
 import { CLINE_BASE_URL } from "@srouter/constants";
 import { DescribeErrorPayload, type UpstreamErrorPayload } from "./base.js";
 import { OpenAIExecutor, type OpenAIExecutorOptions } from "./openai.js";
 
-export interface ClineExecutorOptions extends OpenAIExecutorOptions {}
+export interface ClineExecutorOptions extends OpenAIExecutorOptions {
+    refreshToken?: string;
+}
 
 /** Successful hosted API payloads arrive wrapped as `{ data, success: true }`. */
 export interface ClineSuccessEnvelope<T> {
@@ -16,6 +19,10 @@ export interface ClineErrorEnvelope {
     data?: UpstreamErrorPayload | null;
     success: false;
     error?: UpstreamErrorPayload;
+}
+
+interface ClineRecommendedModelsResponse {
+    free?: Array<{ id?: string }>;
 }
 
 /** A non-streaming payload is either bare or wrapped by the hosted API. */
@@ -63,6 +70,37 @@ export class ClineExecutor extends OpenAIExecutor {
                 "X-Task-ID": randomUUID()
             }
         });
+    }
+
+    async listModels(): Promise<ModelObject[]> {
+        const headers = this.getHeaders();
+        const [modelsResponse, recommendedResponse] = await Promise.all([
+            fetch(`${CLINE_BASE_URL}/models`, { method: "GET", headers }),
+            fetch(`${CLINE_BASE_URL}/ai/cline/recommended-models`, {
+                method: "GET",
+                headers
+            })
+        ]);
+
+        const modelIds = new Set<string>();
+        if (modelsResponse.ok) {
+            const payload = (await modelsResponse.json()) as ModelListResponse;
+            if (Array.isArray(payload.data)) {
+                for (const model of payload.data) modelIds.add(model.id);
+            }
+        }
+        if (recommendedResponse.ok) {
+            const payload = (await recommendedResponse.json()) as ClineRecommendedModelsResponse;
+            for (const model of payload.free ?? []) {
+                if (model.id) modelIds.add(model.id);
+            }
+        }
+
+        return Array.from(modelIds, (id) => ({
+            id: `cline/${id}`,
+            object: "model" as const,
+            owned_by: "cline"
+        }));
     }
 
     protected NormalizeResponsePayload<T extends object>(payload: ClineResponsePayload<T>): T {

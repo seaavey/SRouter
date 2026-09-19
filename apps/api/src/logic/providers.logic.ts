@@ -200,7 +200,8 @@ export class ProvidersLogic {
         const MatchingProviders = Array.from(registry.getAllProviders().values()).filter(
             (P) =>
                 registry.isProviderEnabled(P.id) &&
-                (P.id === ProviderId ||
+                (RuntimeAliasFor(P.id) === providerAlias(ProviderId) ||
+                    P.id === ProviderId ||
                     P.id.startsWith(`${ProviderId}_`) ||
                     P.id.startsWith(`${ProviderId}-`))
         );

@@ -4,6 +4,7 @@ import { num, str } from "./row-utils.js";
 export interface OAuthSession {
     state: string;
     codeVerifier?: string;
+    deviceCode?: string;
     clientId?: string;
     redirectUri?: string;
     createdAt?: number;
@@ -13,6 +14,7 @@ export interface OAuthSession {
 interface OAuthSessionRow {
     state: string;
     code_verifier: string;
+    device_code: string | null;
     client_id: string;
     redirect_uri: string;
     created_at: number;
@@ -21,17 +23,19 @@ interface OAuthSessionRow {
 
 export async function saveOAuthSessionDB(session: OAuthSession): Promise<OAuthSession> {
     const UpsertSql = isPostgres()
-        ? `INSERT INTO oauth_sessions (state, code_verifier, client_id, redirect_uri, created_at)
-           VALUES (?, ?, ?, ?, ?)
+        ? `INSERT INTO oauth_sessions (state, code_verifier, device_code, client_id, redirect_uri, created_at)
+           VALUES (?, ?, ?, ?, ?, ?)
            ON CONFLICT(state) DO UPDATE SET
                code_verifier = EXCLUDED.code_verifier,
+               device_code = EXCLUDED.device_code,
                client_id = EXCLUDED.client_id,
                redirect_uri = EXCLUDED.redirect_uri,
                created_at = EXCLUDED.created_at`
-        : `INSERT INTO oauth_sessions (state, code_verifier, client_id, redirect_uri, created_at)
-           VALUES (?, ?, ?, ?, ?)
+        : `INSERT INTO oauth_sessions (state, code_verifier, device_code, client_id, redirect_uri, created_at)
+           VALUES (?, ?, ?, ?, ?, ?)
            ON CONFLICT(state) DO UPDATE SET
                code_verifier = excluded.code_verifier,
+               device_code = excluded.device_code,
                client_id = excluded.client_id,
                redirect_uri = excluded.redirect_uri,
                created_at = excluded.created_at`;
@@ -41,6 +45,7 @@ export async function saveOAuthSessionDB(session: OAuthSession): Promise<OAuthSe
         .run(
             session.state,
             session.codeVerifier ?? "",
+            session.deviceCode ?? null,
             session.clientId ?? "",
             session.redirectUri ?? "",
             session.createdAt ?? Date.now()
@@ -59,6 +64,7 @@ export async function getOAuthSessionDB(state: string): Promise<OAuthSession | n
     return {
         state: str(Row.state),
         codeVerifier: str(Row.code_verifier),
+        deviceCode: Row.device_code === null ? undefined : str(Row.device_code),
         clientId: str(Row.client_id),
         redirectUri: str(Row.redirect_uri),
         createdAt: num(Row.created_at),

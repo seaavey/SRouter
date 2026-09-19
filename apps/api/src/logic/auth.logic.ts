@@ -1,4 +1,6 @@
+import { randomUUID } from "node:crypto";
 import {
+    CLINE_BASE_URL,
     CODEBUDDY_BASE_URL,
     CODEBUDDY_CN_BASE_URL,
     CODEBUDDY_CN_DOMAIN,
@@ -12,8 +14,14 @@ import {
     saveOAuthSessionDB,
     upsertProviderDB
 } from "@srouter/db";
-import { CodeBuddyCNOAuth, CodeBuddyOAuth, generatePKCE, QoderOAuth } from "@srouter/providers";
-import { CodeBuddyExecutor, QoderExecutor } from "@srouter/executors";
+import {
+    CodeBuddyCNOAuth,
+    CodeBuddyOAuth,
+    ClineOAuth,
+    generatePKCE,
+    QoderOAuth
+} from "@srouter/providers";
+import { CodeBuddyExecutor, ClineExecutor, QoderExecutor } from "@srouter/executors";
 import type { ProviderConfig } from "@srouter/types";
 import { registry } from "@/services/registry.js";
 import {
@@ -460,6 +468,67 @@ export async function PollQoderDeviceToken(state: string): Promise<AuthPollResul
     };
 }
 
+export async function InitiateClineDeviceAuth(): Promise<{
+    authorizeUrl: string;
+    state: string;
+    userCode: string;
+    expiresIn: number;
+    interval: number;
+}> {
+    const device = await new ClineOAuth().requestDeviceAuthorization();
+    const state = randomUUID();
+    await saveOAuthSessionDB({ state, deviceCode: device.deviceCode, createdAt: Date.now() });
+    return {
+        authorizeUrl: device.verificationUriComplete ?? device.verificationUri,
+        state,
+        userCode: device.userCode,
+        expiresIn: device.expiresIn,
+        interval: device.interval
+    };
+}
+
+export async function PollClineDeviceToken(state: string): Promise<AuthPollResult> {
+    const session = await claimOAuthSessionDB(state);
+    if (!session?.deviceCode)
+        return { status: AuthPollStatus.PENDING, error: "Session expired or not found" };
+    const result = await new ClineOAuth().pollDeviceToken(session.deviceCode);
+    if (result.status !== AuthPollStatus.OK || !result.accessToken) {
+        await releaseOAuthSessionDB(state);
+        return { status: AuthPollStatus.PENDING, error: result.error };
+    }
+    await deleteOAuthSessionDB(state);
+    const timestamp = Date.now();
+    const accountId = result.accountId || `cline_${timestamp}`;
+    const accountName =
+        result.name || result.email || `Cline (Account #${timestamp.toString().slice(-4)})`;
+    const providerConfig = await upsertProviderDB({
+        id: accountId,
+        providerId: "cline",
+        name: accountName,
+        category: "oauth",
+        protocol: "openai",
+        base_url: CLINE_BASE_URL,
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken,
+        accountId: result.accountId,
+        tokenExpiresAt: result.expiresIn ? timestamp + result.expiresIn * 1000 : undefined,
+        lastRefreshedAt: timestamp,
+        providerSpecificData: { authMethod: "workos-device", email: result.email || "" },
+        enabled: true,
+        createdAt: timestamp
+    });
+    registry.registerProvider(
+        new ClineExecutor({
+            id: accountId,
+            name: accountName,
+            accessToken: result.accessToken,
+            refreshToken: result.refreshToken,
+            alias: "cline"
+        })
+    );
+    return { status: AuthPollStatus.OK, provider: providerConfig };
+}
+
 interface AuthProviderEntry {
     importToken: (params: TokenImportParams) => ProviderConfig | Promise<ProviderConfig>;
 }
@@ -511,6 +580,10 @@ RegisterEntry("codebuddy", {
 
 RegisterEntry("codebuddy-cn", {
     importToken: (params) => ProcessTokenImportFor(AuthHandlers.CodeBuddyCN, params)
+});
+
+RegisterEntry("cline", {
+    importToken: (params) => ProcessTokenImportFor(AuthHandlers.Cline, params)
 });
 
 for (const [key, handler] of [
@@ -584,6 +657,8 @@ export const AuthLogic = {
     pollCodeBuddyDeviceToken: PollCodeBuddyDeviceToken,
     pollCodeBuddyCNDeviceToken: PollCodeBuddyCNDeviceToken,
     pollQoderDeviceToken: PollQoderDeviceToken,
+    initiateClineDeviceAuth: InitiateClineDeviceAuth,
+    pollClineDeviceToken: PollClineDeviceToken,
 
     InitiateCodeBuddyOAuth,
     InitiateCodeBuddyCNOAuth,
