@@ -1,6 +1,6 @@
 services:
     srouter:
-        image: ghcr.io/seaavey/srouter:latest
+        image: srouter:local
         build:
             context: .
             dockerfile: Dockerfile

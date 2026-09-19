@@ -1,9 +1,12 @@
 import { randomUUID } from "node:crypto";
+import type { ModelObject } from "@srouter/types";
 import { CLINE_BASE_URL } from "@srouter/constants";
 import { DescribeErrorPayload, type UpstreamErrorPayload } from "./base.js";
 import { OpenAIExecutor, type OpenAIExecutorOptions } from "./openai.js";
 
-export interface ClineExecutorOptions extends OpenAIExecutorOptions {}
+export interface ClineExecutorOptions extends OpenAIExecutorOptions {
+    refreshToken?: string;
+}
 
 /** Successful hosted API payloads arrive wrapped as `{ data, success: true }`. */
 export interface ClineSuccessEnvelope<T> {
@@ -63,6 +66,14 @@ export class ClineExecutor extends OpenAIExecutor {
                 "X-Task-ID": randomUUID()
             }
         });
+    }
+
+    async listModels(): Promise<ModelObject[]> {
+        return ["deepseek-v4.1-flash", "muse-spark-1.3-contributor", "solar-pro4"].map((model) => ({
+            id: `cline/cline-free/${model}`,
+            object: "model",
+            owned_by: "cline"
+        }));
     }
 
     protected NormalizeResponsePayload<T extends object>(payload: ClineResponsePayload<T>): T {

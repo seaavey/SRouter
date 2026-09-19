@@ -92,6 +92,20 @@ async function ImportTokenFor(
 }
 
 export const AuthController = {
+    Cline: {
+        Device: async (c: Context): Promise<Response> => {
+            try {
+                return Ok(c, await AuthLogic.initiateClineDeviceAuth());
+            } catch (error) {
+                return Err(c, error instanceof Error ? error.message : String(error), 400);
+            }
+        },
+        Poll: async (c: Context): Promise<Response> => {
+            const state = await ExtractState(c);
+            if (!state) return Err(c, "Missing state parameter", 400);
+            return Ok(c, await AuthLogic.pollClineDeviceToken(state));
+        }
+    },
     OpenAI: {
         OAuth: async (c: Context): Promise<Response> =>
             OAuthFor(AuthHandlers.OpenAI, (p) => AuthLogic.initiateOAuthPKCE(p), c, false),

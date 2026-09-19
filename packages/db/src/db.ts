@@ -181,6 +181,7 @@ const TABLES: TableDef[] = [
         columns: [
             { name: "state", definition: "TEXT PRIMARY KEY" },
             { name: "code_verifier", definition: "TEXT NOT NULL" },
+            { name: "device_code", definition: "TEXT" },
             { name: "client_id", definition: "TEXT NOT NULL" },
             { name: "redirect_uri", definition: "TEXT NOT NULL" },
             { name: "created_at", definition: "INTEGER NOT NULL" },
@@ -359,7 +360,10 @@ function initSqliteSchemaSync(): void {
         { name: "last_refreshed_at", definition: "last_refreshed_at INTEGER" },
         { name: "organization_id", definition: "organization_id TEXT" }
     ]);
-    ensureSync("oauth_sessions", [{ name: "claimed_at", definition: "claimed_at INTEGER" }]);
+    ensureSync("oauth_sessions", [
+        { name: "claimed_at", definition: "claimed_at INTEGER" },
+        { name: "device_code", definition: "device_code TEXT" }
+    ]);
     ensureSync("api_keys", [
         { name: "allowed_models", definition: "allowed_models TEXT" },
         { name: "credit_limit", definition: "credit_limit REAL DEFAULT 0" },
@@ -401,7 +405,8 @@ async function initPostgresSchema(): Promise<void> {
         { name: "organization_id", definition: "organization_id TEXT" }
     ]);
     await ensureColumns("oauth_sessions", [
-        { name: "claimed_at", definition: "claimed_at BIGINT" }
+        { name: "claimed_at", definition: "claimed_at BIGINT" },
+        { name: "device_code", definition: "device_code TEXT" }
     ]);
     await ensureColumns("api_keys", [
         { name: "allowed_models", definition: "allowed_models TEXT" },
