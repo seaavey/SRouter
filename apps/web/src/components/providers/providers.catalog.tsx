@@ -23,7 +23,7 @@ export function Catalog({ groups, search, viewMode = "grid" }: CatalogProps) {
         return (
             <div className="flex min-h-64 flex-col items-center justify-center rounded-3xl border border-dashed border-hairline bg-canvas px-6 py-14 text-center">
                 <div className="flex size-12 items-center justify-center rounded-full bg-canvas-soft text-text-muted mb-3.5">
-                    <Search className="size-5" strokeWidth={1.75} />
+                    <Search className="size-5" strokeWidth={1.75} aria-hidden="true" />
                 </div>
                 <h3 className="text-sm font-semibold text-ink font-sans">No Matching Providers</h3>
                 <p className="mt-1 max-w-sm text-xs text-text-muted leading-relaxed font-sans">

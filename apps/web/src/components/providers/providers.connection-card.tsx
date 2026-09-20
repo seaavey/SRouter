@@ -96,7 +96,7 @@ export function ConnectionCard({
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 border-b border-hairline-soft pb-4">
                     <div className="flex items-center gap-3">
                         <div className="flex size-9 items-center justify-center rounded-[30%] bg-canvas-soft text-ink border border-hairline-soft">
-                            <KeyRound className="size-4" />
+                            <KeyRound className="size-4" aria-hidden="true" />
                         </div>
                         <div className="flex items-center gap-2.5 flex-wrap">
                             <h2 className="text-base font-bold tracking-tight text-ink font-sans">
@@ -156,6 +156,7 @@ export function ConnectionCard({
                                 className={`size-3.5 text-text-muted ${
                                     isTesting ? "animate-spin text-ink" : ""
                                 }`}
+                                aria-hidden="true"
                             />
                             <span>{isTesting ? "Testing…" : "Test Connection"}</span>
                         </Button>
@@ -165,7 +166,7 @@ export function ConnectionCard({
                             onClick={onAdd}
                             className="rounded-full px-4 h-8 text-xs font-semibold cursor-pointer shadow-none gap-1.5"
                         >
-                            <Plus className="size-3.5" />
+                            <Plus className="size-3.5" aria-hidden="true" />
                             <span>{requiresOAuth ? "Add Connection" : "Add Key"}</span>
                         </Button>
                     </div>
@@ -174,7 +175,11 @@ export function ConnectionCard({
                     <Empty className="p-8">
                         <EmptyHeader>
                             <EmptyMedia variant="icon">
-                                <KeyRound className="size-5" strokeWidth={1.75} />
+                                <KeyRound
+                                    className="size-5"
+                                    strokeWidth={1.75}
+                                    aria-hidden="true"
+                                />
                             </EmptyMedia>
                             <EmptyTitle>No active credentials configured</EmptyTitle>
                             <EmptyDescription>
@@ -190,7 +195,7 @@ export function ConnectionCard({
                                 onClick={onAdd}
                                 className="rounded-full px-5 h-9 text-xs font-semibold cursor-pointer shadow-none gap-1.5"
                             >
-                                <Plus className="size-3.5" />
+                                <Plus className="size-3.5" aria-hidden="true" />
                                 <span>Add Connection</span>
                             </Button>
                         </EmptyContent>
@@ -205,7 +210,10 @@ export function ConnectionCard({
                                 >
                                     <div className="flex items-center gap-3.5 min-w-0 flex-1">
                                         <div className="flex size-9 shrink-0 items-center justify-center rounded-[30%] border border-hairline-soft bg-canvas text-text-muted group-hover:border-hairline transition-colors">
-                                            <ShieldCheck className="size-4.5 text-emerald-500" />
+                                            <ShieldCheck
+                                                className="size-4.5 text-emerald-500"
+                                                aria-hidden="true"
+                                            />
                                         </div>
 
                                         <div className="flex flex-col gap-1 min-w-0 flex-1">
@@ -241,7 +249,7 @@ export function ConnectionCard({
                                             className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs text-text-muted hover:text-destructive hover:bg-destructive/10 disabled:opacity-50 cursor-pointer transition-all border border-transparent hover:border-destructive/20"
                                             title="Delete this credential"
                                         >
-                                            <Trash2 className="size-3.5" />
+                                            <Trash2 className="size-3.5" aria-hidden="true" />
                                             <span>Remove</span>
                                         </button>
                                     </div>

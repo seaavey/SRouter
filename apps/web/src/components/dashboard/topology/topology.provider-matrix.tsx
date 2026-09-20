@@ -19,7 +19,7 @@ export function ProviderMatrixView({
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-hairline-soft bg-canvas-soft/50 p-4">
                 <div className="flex items-center gap-3">
                     <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-canvas text-ink border border-hairline-soft">
-                        <Zap className="size-4" />
+                        <Zap className="size-4" aria-hidden="true" />
                     </div>
                     <div>
                         <div className="text-xs font-bold text-ink font-sans">

@@ -31,7 +31,7 @@ function AnalyticsPage() {
             <div className="mx-auto flex w-full max-w-[1360px] flex-col font-sans">
                 <div className="flex min-h-64 flex-col items-center justify-center rounded-3xl border border-destructive/30 bg-destructive/5 px-6 py-14 text-center">
                     <div className="flex size-11 items-center justify-center rounded-full bg-destructive/10 text-destructive mb-3.5">
-                        <TriangleAlert className="size-5" strokeWidth={1.75} />
+                        <TriangleAlert className="size-5" strokeWidth={1.75} aria-hidden="true" />
                     </div>
                     <h2 className="text-base font-bold text-ink">
                         Failed to load analytics telemetry

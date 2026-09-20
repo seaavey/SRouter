@@ -28,7 +28,7 @@ export function SettingsSection({
                 <div className="flex items-start gap-3 sm:gap-3.5 min-w-0">
                     {Icon && (
                         <div className="flex size-8 sm:size-9 shrink-0 items-center justify-center rounded-full border border-hairline-soft bg-canvas-soft text-ink mt-0.5">
-                            <Icon className="size-3.5 sm:size-4" />
+                            <Icon className="size-3.5 sm:size-4" aria-hidden="true" />
                         </div>
                     )}
                     <div className="min-w-0">

@@ -5,9 +5,9 @@ import type { ModelUsageItem } from "./usage-by-model.typed";
 
 function SortIcon({ column }: { column: Column<ModelUsageItem> }) {
     const direction = column.getIsSorted();
-    if (direction === "asc") return <ArrowUp className="size-3 text-ink" />;
-    if (direction === "desc") return <ArrowDown className="size-3 text-ink" />;
-    return <ArrowUpDown className="size-3 opacity-40 hover:opacity-100" />;
+    if (direction === "asc") return <ArrowUp className="size-3 text-ink" aria-hidden="true" />;
+    if (direction === "desc") return <ArrowDown className="size-3 text-ink" aria-hidden="true" />;
+    return <ArrowUpDown className="size-3 opacity-40 hover:opacity-100" aria-hidden="true" />;
 }
 
 function SortableHeader({ column, label }: { column: Column<ModelUsageItem>; label: string }) {

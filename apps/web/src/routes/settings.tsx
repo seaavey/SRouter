@@ -231,7 +231,7 @@ function SettingsPage() {
                         onClick={exportSettings}
                         className="inline-flex items-center gap-1.5 rounded-full border border-hairline-soft bg-canvas hover:bg-canvas-soft text-ink px-4 py-1.5 sm:px-5 sm:py-2 text-xs font-semibold cursor-pointer transition-colors shadow-none font-sans"
                     >
-                        <UploadCloud className="size-3.5" />
+                        <UploadCloud className="size-3.5" aria-hidden="true" />
                         <span>Export</span>
                     </button>
                     <button
@@ -239,7 +239,7 @@ function SettingsPage() {
                         onClick={resetToDefaults}
                         className="inline-flex items-center gap-1.5 rounded-full border border-hairline-soft bg-canvas hover:bg-destructive/10 hover:border-destructive/30 text-text-muted hover:text-destructive px-4 py-1.5 sm:px-5 sm:py-2 text-xs font-semibold cursor-pointer transition-colors shadow-none font-sans"
                     >
-                        <RotateCcw className="size-3.5" />
+                        <RotateCcw className="size-3.5" aria-hidden="true" />
                         <span>Reset</span>
                     </button>
                 </div>
@@ -266,7 +266,7 @@ function SettingsPage() {
                                             : "text-text-muted hover:bg-canvas-soft hover:text-ink"
                                     }`}
                                 >
-                                    <Icon className="size-3.5 sm:size-4" />
+                                    <Icon className="size-3.5 sm:size-4" aria-hidden="true" />
                                     <span>{label}</span>
                                 </button>
                             );

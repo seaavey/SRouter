@@ -84,7 +84,10 @@ export function SystemSettings({ apiBase: _apiBase }: SystemSettingsProps) {
                             disabled={isChecking}
                             className="text-[11px] font-mono text-text-muted hover:text-ink cursor-pointer flex items-center gap-1"
                         >
-                            <RefreshCw className={`size-3 ${isChecking ? "animate-spin" : ""}`} />{" "}
+                            <RefreshCw
+                                className={`size-3 ${isChecking ? "animate-spin" : ""}`}
+                                aria-hidden="true"
+                            />{" "}
                             {isChecking ? "..." : "check"}
                         </button>
                     </div>
@@ -99,11 +102,12 @@ export function SystemSettings({ apiBase: _apiBase }: SystemSettingsProps) {
                                 rel="noreferrer"
                                 className="flex items-center gap-1 text-[10px] font-bold text-amber-600 dark:text-amber-400 border border-amber-500/30 rounded-full px-2 py-0.5 hover:bg-amber-500/10 font-mono"
                             >
-                                {latestVersion} <ExternalLink className="size-2.5" />
+                                {latestVersion}{" "}
+                                <ExternalLink className="size-2.5" aria-hidden="true" />
                             </a>
                         ) : latestVersion ? (
                             <span className="flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400 font-sans">
-                                <CheckCircle2 className="size-3" /> up to date
+                                <CheckCircle2 className="size-3" aria-hidden="true" /> up to date
                             </span>
                         ) : null}
                     </div>
@@ -127,7 +131,10 @@ export function SystemSettings({ apiBase: _apiBase }: SystemSettingsProps) {
                 <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 space-y-3 font-sans my-2">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                            <ArrowUpCircle className="size-4 text-amber-600 dark:text-amber-500" />
+                            <ArrowUpCircle
+                                className="size-4 text-amber-600 dark:text-amber-500"
+                                aria-hidden="true"
+                            />
                             <span className="text-xs font-semibold text-ink">
                                 Update {latestVersion} available
                             </span>
@@ -138,7 +145,8 @@ export function SystemSettings({ apiBase: _apiBase }: SystemSettingsProps) {
                             rel="noreferrer"
                             className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 border border-amber-500/30 rounded-full px-3 py-1 hover:bg-amber-500/10"
                         >
-                            View <ExternalLink className="size-3 inline ml-0.5" />
+                            View{" "}
+                            <ExternalLink className="size-3 inline ml-0.5" aria-hidden="true" />
                         </a>
                     </div>
                     <div className="flex items-center justify-between rounded-2xl bg-canvas border border-hairline-soft p-3 font-mono">
@@ -151,9 +159,9 @@ export function SystemSettings({ apiBase: _apiBase }: SystemSettingsProps) {
                             className="flex items-center gap-1.5 text-xs text-text-muted hover:text-ink cursor-pointer font-sans"
                         >
                             {copiedCommand ? (
-                                <Check className="size-3.5 text-emerald-500" />
+                                <Check className="size-3.5 text-emerald-500" aria-hidden="true" />
                             ) : (
-                                <Copy className="size-3.5" />
+                                <Copy className="size-3.5" aria-hidden="true" />
                             )}{" "}
                             <span>{copiedCommand ? "copied" : "copy"}</span>
                         </button>
@@ -164,7 +172,7 @@ export function SystemSettings({ apiBase: _apiBase }: SystemSettingsProps) {
             <div className="rounded-2xl border border-hairline-soft bg-canvas-soft/30 p-4 space-y-3 font-sans my-2">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                        <Activity className="size-4 text-accent" />
+                        <Activity className="size-4 text-accent" aria-hidden="true" />
                         <span className="text-xs font-semibold text-ink font-sans">
                             Gateway Latency
                         </span>
@@ -178,9 +186,9 @@ export function SystemSettings({ apiBase: _apiBase }: SystemSettingsProps) {
                         className="rounded-full border border-hairline-soft bg-canvas px-4 text-xs font-semibold text-ink hover:bg-canvas-soft cursor-pointer shadow-none gap-1.5"
                     >
                         {isPinging ? (
-                            <Loader2 className="size-3 animate-spin" />
+                            <Loader2 className="size-3 animate-spin" aria-hidden="true" />
                         ) : (
-                            <RefreshCw className="size-3" />
+                            <RefreshCw className="size-3" aria-hidden="true" />
                         )}
                         <span>{isPinging ? "pinging..." : "ping"}</span>
                     </Button>
@@ -206,7 +214,7 @@ export function SystemSettings({ apiBase: _apiBase }: SystemSettingsProps) {
                     rel="noreferrer"
                     className="flex items-center gap-2 rounded-full border border-hairline-soft bg-canvas hover:bg-canvas-soft px-4 py-2 text-xs font-semibold text-text-muted hover:text-ink transition-colors"
                 >
-                    GitHub <ExternalLink className="size-3" />
+                    GitHub <ExternalLink className="size-3" aria-hidden="true" />
                 </a>
                 <a
                     href={tagsUrl}
@@ -214,7 +222,7 @@ export function SystemSettings({ apiBase: _apiBase }: SystemSettingsProps) {
                     rel="noreferrer"
                     className="flex items-center gap-2 rounded-full border border-hairline-soft bg-canvas hover:bg-canvas-soft px-4 py-2 text-xs font-semibold text-text-muted hover:text-ink transition-colors"
                 >
-                    Releases <ExternalLink className="size-3" />
+                    Releases <ExternalLink className="size-3" aria-hidden="true" />
                 </a>
             </div>
         </SettingsSection>

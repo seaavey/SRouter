@@ -109,6 +109,7 @@ export function AppSidebar() {
                                                 <Icon
                                                     strokeWidth={1.75}
                                                     className="size-4 shrink-0"
+                                                    aria-hidden="true"
                                                 />
                                                 <span className="truncate">{itemLabel}</span>
                                             </Link>

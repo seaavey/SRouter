@@ -25,7 +25,11 @@ function ProvidersPage() {
                 <div className="mx-auto flex w-full max-w-7xl flex-col font-sans">
                     <div className="flex min-h-64 flex-col items-center justify-center rounded-3xl border border-destructive/30 bg-destructive/5 px-6 py-14 text-center">
                         <div className="flex size-11 items-center justify-center rounded-full bg-destructive/10 text-destructive mb-3.5">
-                            <TriangleAlert className="size-5" strokeWidth={1.75} />
+                            <TriangleAlert
+                                className="size-5"
+                                strokeWidth={1.75}
+                                aria-hidden="true"
+                            />
                         </div>
                         <h2 className="text-base font-bold text-ink">
                             Unable to load provider catalog
@@ -42,7 +46,7 @@ function ProvidersPage() {
                             className="mt-5 rounded-full px-5 h-9 text-xs font-semibold cursor-pointer gap-1.5 shadow-none"
                             onClick={() => void refetch()}
                         >
-                            <RefreshCw className="size-3.5" />
+                            <RefreshCw className="size-3.5" aria-hidden="true" />
                             <span>Retry Connection</span>
                         </Button>
                     </div>

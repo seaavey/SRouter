@@ -12,9 +12,13 @@ export function UsageByModelToolbar({
 }: UsageByModelToolbarProps) {
     return (
         <div className="relative w-full sm:w-64">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-text-muted" />
+            <Search
+                className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-text-muted"
+                aria-hidden="true"
+            />
             <Input
                 type="text"
+                aria-label="Search models"
                 placeholder="Search models…"
                 value={search_model}
                 onChange={(event) => on_search_model_change(event.target.value)}
@@ -27,7 +31,7 @@ export function UsageByModelToolbar({
                     className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-1 text-text-muted hover:text-ink transition-colors cursor-pointer"
                     aria-label="Clear search"
                 >
-                    <X className="size-3" />
+                    <X className="size-3" aria-hidden="true" />
                 </button>
             )}
         </div>

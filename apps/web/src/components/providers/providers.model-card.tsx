@@ -42,11 +42,12 @@ export function ProviderModelCard({ model, copied, onCopy, onDelete }: ProviderM
                             className={`size-3.5 transition-transform ${
                                 isFav ? "fill-amber-500 text-amber-500 scale-110" : ""
                             }`}
+                            aria-hidden="true"
                         />
                     </button>
 
                     <div className="flex size-7 shrink-0 items-center justify-center rounded-[30%] bg-canvas-soft text-text-muted">
-                        <Bot className="size-3.5" />
+                        <Bot className="size-3.5" aria-hidden="true" />
                     </div>
 
                     <span
@@ -67,9 +68,9 @@ export function ProviderModelCard({ model, copied, onCopy, onDelete }: ProviderM
                         title="Copy Model ID"
                     >
                         {copied ? (
-                            <Check className="size-3.5 text-emerald-500" />
+                            <Check className="size-3.5 text-emerald-500" aria-hidden="true" />
                         ) : (
-                            <Copy className="size-3.5" />
+                            <Copy className="size-3.5" aria-hidden="true" />
                         )}
                     </button>
                     {onDelete && (
@@ -79,7 +80,7 @@ export function ProviderModelCard({ model, copied, onCopy, onDelete }: ProviderM
                             className="text-text-muted hover:text-destructive hover:bg-destructive/10 p-1.5 rounded-full transition-colors cursor-pointer"
                             title="Hide model"
                         >
-                            <Trash2 className="size-3.5" />
+                            <Trash2 className="size-3.5" aria-hidden="true" />
                         </button>
                     )}
                 </div>

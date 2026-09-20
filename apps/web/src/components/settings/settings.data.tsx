@@ -180,7 +180,7 @@ export function DataSettings(props: DataSettingsProps) {
                     onClick={exportSettings}
                     className="rounded-full border border-hairline-soft bg-canvas px-4 text-xs font-semibold text-ink hover:bg-canvas-soft cursor-pointer shadow-none gap-1.5"
                 >
-                    <Download className="size-3.5" /> Export
+                    <Download className="size-3.5" aria-hidden="true" /> Export
                 </Button>
                 <Button
                     type="button"
@@ -189,7 +189,7 @@ export function DataSettings(props: DataSettingsProps) {
                     onClick={() => setIsImportOpen(true)}
                     className="rounded-full border border-hairline-soft bg-canvas px-4 text-xs font-semibold text-ink hover:bg-canvas-soft cursor-pointer shadow-none gap-1.5"
                 >
-                    <Upload className="size-3.5" /> Import
+                    <Upload className="size-3.5" aria-hidden="true" /> Import
                 </Button>
                 <Button
                     type="button"
@@ -198,7 +198,7 @@ export function DataSettings(props: DataSettingsProps) {
                     onClick={() => setIsClearOpen(true)}
                     className="rounded-full px-4 text-xs font-semibold cursor-pointer shadow-none gap-1.5"
                 >
-                    <Trash2 className="size-3.5" /> Clear Cache
+                    <Trash2 className="size-3.5" aria-hidden="true" /> Clear Cache
                 </Button>
                 <Button
                     type="button"
@@ -207,7 +207,7 @@ export function DataSettings(props: DataSettingsProps) {
                     onClick={() => setIsResetOpen(true)}
                     className="rounded-full border border-hairline-soft bg-canvas px-4 text-xs font-semibold text-amber-600 dark:text-amber-500 hover:bg-canvas-soft cursor-pointer shadow-none gap-1.5"
                 >
-                    <RotateCcw className="size-3.5" /> Reset
+                    <RotateCcw className="size-3.5" aria-hidden="true" /> Reset
                 </Button>
             </div>
 
@@ -231,7 +231,7 @@ export function DataSettings(props: DataSettingsProps) {
                             onClick={() => databaseExportMutation.mutate()}
                             className="rounded-full border border-hairline-soft bg-canvas px-4 text-xs font-semibold text-ink hover:bg-canvas-soft cursor-pointer shadow-none gap-1.5"
                         >
-                            <Download className="size-3.5" />
+                            <Download className="size-3.5" aria-hidden="true" />
                             <span>
                                 {databaseExportMutation.isPending
                                     ? "Exporting..."
@@ -253,7 +253,8 @@ export function DataSettings(props: DataSettingsProps) {
                             onClick={() => databaseFileInputRef.current?.click()}
                             className="rounded-full border border-hairline-soft bg-canvas px-4 text-xs font-semibold text-ink hover:bg-canvas-soft cursor-pointer shadow-none gap-1.5"
                         >
-                            <Upload className="size-3.5" /> <span>Import Database</span>
+                            <Upload className="size-3.5" aria-hidden="true" />{" "}
+                            <span>Import Database</span>
                         </Button>
                     </div>
                 </div>
@@ -268,7 +269,8 @@ export function DataSettings(props: DataSettingsProps) {
                 <DialogContent className="rounded-3xl border border-hairline-soft bg-canvas p-6 md:p-8 shadow-none font-sans max-w-lg">
                     <DialogHeader className="space-y-2 text-left">
                         <DialogTitle className="flex items-center gap-2 text-lg font-semibold text-destructive font-sans">
-                            <AlertTriangle className="size-5" /> Replace server database?
+                            <AlertTriangle className="size-5" aria-hidden="true" /> Replace server
+                            database?
                         </DialogTitle>
                         <DialogDescription className="text-sm text-text-muted font-light font-sans">
                             This operation replaces all current SRouter data. API keys and provider
@@ -361,7 +363,7 @@ export function DataSettings(props: DataSettingsProps) {
                             onClick={() => fileInputRef.current?.click()}
                             className="w-full rounded-full border border-hairline-soft bg-canvas px-4 py-2 text-xs font-semibold text-ink hover:bg-canvas-soft cursor-pointer shadow-none gap-1.5"
                         >
-                            <Upload className="size-3.5" /> Choose File
+                            <Upload className="size-3.5" aria-hidden="true" /> Choose File
                         </Button>
                         <textarea
                             rows={5}

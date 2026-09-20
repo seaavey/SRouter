@@ -5,7 +5,6 @@ import {
     BadgeDollarSign,
     Bot,
     BrainCircuit,
-    Coins,
     Cpu,
     FileText,
     Image,
@@ -16,13 +15,11 @@ import {
     X
 } from "lucide-react";
 import { usePricing } from "@/hooks/usePricing";
-import { useDebounce } from "@/hooks/useDebounce";
 import { PricingSkeleton } from "@/components/skeletons";
 import { PricingTable } from "@/components/pricing/pricing.table";
 import { ProviderIcon } from "@/components/providers";
 import { Button } from "@/components/ui/button";
 import { EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
-import { Input } from "@/components/ui/input";
 import {
     Select,
     SelectContent,
@@ -30,8 +27,6 @@ import {
     SelectTrigger,
     SelectValue
 } from "@/components/ui/select";
-import { api } from "@/lib/api";
-import type { PricingListResponse } from "@srouter/types";
 
 const modalityLabels: Record<string, string> = {
     all: "All Modalities",
@@ -171,7 +166,7 @@ function ModalityFilterLabel({ modality }: { modality: string }) {
     const Icon = modalityIcons[modality as keyof typeof modalityIcons];
     return (
         <span className="flex min-w-0 items-center gap-2">
-            {Icon && <Icon className="size-4 shrink-0" />}
+            {Icon && <Icon className="size-4 shrink-0" aria-hidden="true" />}
             <span className="truncate">{modalityLabels[modality] ?? modality}</span>
         </span>
     );
@@ -188,7 +183,7 @@ function FeatureFilterLabel({ feature }: { feature: string }) {
     const Icon = featureIcons[feature as keyof typeof featureIcons];
     return (
         <span className="flex min-w-0 items-center gap-2">
-            {Icon && <Icon className="size-4 shrink-0" />}
+            {Icon && <Icon className="size-4 shrink-0" aria-hidden="true" />}
             <span className="truncate">{featureLabels[feature] ?? feature}</span>
         </span>
     );
@@ -207,7 +202,6 @@ function PricingPage() {
     const [familyFilter, setFamilyFilter] = useState("all");
     const [modalityFilter, setModalityFilter] = useState("all");
     const [featureFilter, setFeatureFilter] = useState("all");
-    const debouncedSearch = useDebounce(search, 100);
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -245,7 +239,7 @@ function PricingPage() {
     }, [models]);
 
     const filteredModels = useMemo(() => {
-        const q = debouncedSearch.trim().toLowerCase();
+        const q = search.trim().toLowerCase();
         return models
             .filter((item) => {
                 if (q) {
@@ -279,7 +273,7 @@ function PricingPage() {
                 return true;
             })
             .sort((a, b) => a.name.localeCompare(b.name));
-    }, [models, debouncedSearch, providerFilter, familyFilter, modalityFilter, featureFilter]);
+    }, [models, search, providerFilter, familyFilter, modalityFilter, featureFilter]);
 
     if (isLoading && !data) {
         return <PricingSkeleton />;
@@ -333,10 +327,14 @@ function PricingPage() {
             </header>
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 font-sans">
                 <div className="relative flex-1 max-w-lg">
-                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-text-muted pointer-events-none" />
+                    <Search
+                        className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-text-muted pointer-events-none"
+                        aria-hidden="true"
+                    />
                     <input
                         ref={searchInputRef}
                         type="text"
+                        aria-label="Search models"
                         placeholder="Search model, name, or description… (Press '/' to focus)"
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
@@ -352,7 +350,7 @@ function PricingPage() {
                             className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-ink transition-colors cursor-pointer p-0.5"
                             aria-label="Clear search"
                         >
-                            <X className="size-3.5" />
+                            <X className="size-3.5" aria-hidden="true" />
                         </button>
                     ) : (
                         <kbd className="absolute right-3.5 top-1/2 -translate-y-1/2 hidden sm:inline-flex h-5 items-center rounded border border-hairline-soft bg-canvas px-1.5 font-mono text-[10px] text-text-muted pointer-events-none select-none">

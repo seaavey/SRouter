@@ -11,7 +11,7 @@ import {
     EditKeyDialog,
     KeyDeleteDialog,
     KeyMetrics,
-    KeySecretModal,
+    KeySecretDialog,
     KeyTable
 } from "@/components/keys";
 
@@ -42,11 +42,12 @@ function KeysPage() {
     const totalUsageCost = keys.reduce((acc, k) => acc + (k.usage_cost || 0), 0);
     const activeKeysCount = keys.filter((k) => k.enabled).length;
 
-    const handleCreateKey = async (data: CreateAPIKeyZod) => {
+    const handleCreateKey = async (data: CreateAPIKeyZod): Promise<boolean> => {
         const res = await createKey(data);
         if (res) {
             setIsCreateOpen(false);
         }
+        return Boolean(res);
     };
 
     const handleDeleteKey = async (id: string) => {
@@ -85,7 +86,7 @@ function KeysPage() {
                         onClick={() => setIsCreateOpen(true)}
                         className="h-10 shrink-0 gap-2 rounded-full px-5 text-sm font-semibold cursor-pointer shadow-none"
                     >
-                        <Plus className="size-4" />
+                        <Plus className="size-4" aria-hidden="true" />
                         <span>Create API Key</span>
                     </Button>
                 </div>
@@ -114,19 +115,17 @@ function KeysPage() {
             />
 
             <EditKeyDialog
-                api_key={keyToEdit}
+                apiKey={keyToEdit}
                 open={Boolean(keyToEdit)}
                 updating={Boolean(updatingId)}
                 onOpenChange={(open) => !open && setKeyToEdit(null)}
-                onSubmit={async (id, data) => {
-                    await updateKey(id, data);
-                }}
+                onSubmit={async (id, data) => Boolean(await updateKey(id, data))}
             />
 
-            <KeySecretModal new_key={newlyCreatedKey} onClose={() => setNewlyCreatedKey(null)} />
+            <KeySecretDialog newKey={newlyCreatedKey} onClose={() => setNewlyCreatedKey(null)} />
 
             <KeyDeleteDialog
-                IDKey={keyToDelete}
+                apiKey={keyToDelete}
                 deleting={Boolean(deletingId)}
                 onClose={() => setKeyToDelete(null)}
                 onConfirm={handleDeleteKey}

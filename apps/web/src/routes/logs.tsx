@@ -140,7 +140,7 @@ function LogsPage() {
                 <div className="flex flex-col gap-4 rounded-3xl border border-destructive/20 bg-destructive/5 p-6 font-sans text-destructive">
                     <EmptyHeader className="items-start">
                         <EmptyTitle className="text-base font-semibold text-destructive flex items-center gap-2">
-                            <ShieldAlert className="size-5" />
+                            <ShieldAlert className="size-5" aria-hidden="true" />
                             Failed to load request audit stream
                         </EmptyTitle>
                         <EmptyDescription className="text-xs text-destructive/80 font-mono">
@@ -156,7 +156,7 @@ function LogsPage() {
                             onClick={() => void refetch()}
                             className="rounded-full px-5 text-xs font-semibold cursor-pointer shadow-none gap-1.5"
                         >
-                            <RefreshCw className="size-3.5" />
+                            <RefreshCw className="size-3.5" aria-hidden="true" />
                             <span>Retry</span>
                         </Button>
                     </div>
@@ -191,7 +191,10 @@ function LogsPage() {
                         disabled={isFetching}
                         className="h-10 shrink-0 gap-2 rounded-full border border-hairline-soft bg-canvas px-5 text-sm font-semibold text-ink hover:bg-canvas-soft transition-colors cursor-pointer shadow-none"
                     >
-                        <RefreshCw className={`size-4 ${isFetching ? "animate-spin" : ""}`} />
+                        <RefreshCw
+                            className={`size-4 ${isFetching ? "animate-spin" : ""}`}
+                            aria-hidden="true"
+                        />
                         <span>Refresh</span>
                     </Button>
                 </div>
@@ -205,7 +208,7 @@ function LogsPage() {
                         <span className="text-xs font-medium text-text-muted font-sans">
                             Total Requests
                         </span>
-                        <Activity className="size-4 text-text-muted" />
+                        <Activity className="size-4 text-text-muted" aria-hidden="true" />
                     </div>
                     <div className="mt-3">
                         <div
@@ -228,7 +231,7 @@ function LogsPage() {
                         <span className="text-xs font-medium text-text-muted font-sans">
                             Total Tokens
                         </span>
-                        <Cpu className="size-4 text-text-muted" />
+                        <Cpu className="size-4 text-text-muted" aria-hidden="true" />
                     </div>
                     <div className="mt-3">
                         <div
@@ -264,7 +267,7 @@ function LogsPage() {
                         <span className="text-xs font-medium text-text-muted font-sans">
                             Estimated Cost
                         </span>
-                        <Coins className="size-4 text-text-muted" />
+                        <Coins className="size-4 text-text-muted" aria-hidden="true" />
                     </div>
                     <div className="mt-3">
                         <div
@@ -286,7 +289,10 @@ function LogsPage() {
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 font-sans">
                 <div className="flex flex-1 items-center gap-2 max-w-lg">
                     <div className="relative flex-1">
-                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-text-muted" />
+                        <Search
+                            className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-text-muted"
+                            aria-hidden="true"
+                        />
                         <input
                             type="text"
                             placeholder={

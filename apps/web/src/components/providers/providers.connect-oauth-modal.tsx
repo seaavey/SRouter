@@ -370,7 +370,7 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                         className="inline-flex size-8 items-center justify-center rounded-full text-text-muted hover:bg-canvas-soft hover:text-ink transition-colors cursor-pointer"
                         aria-label="Close dialog"
                     >
-                        <X className="size-4" />
+                        <X className="size-4" aria-hidden="true" />
                     </button>
                 </DialogHeader>
                 {(isQoder || isCodeBuddy || isCline || supportsBulk) && (
@@ -388,7 +388,7 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                                     : "text-text-muted hover:text-ink hover:bg-canvas/40"
                             }`}
                         >
-                            <Globe className="size-3.5 shrink-0" />
+                            <Globe className="size-3.5 shrink-0" aria-hidden="true" />
                             <span className="truncate">Browser Login</span>
                         </button>
                         <button
@@ -400,7 +400,7 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                                     : "text-text-muted hover:text-ink hover:bg-canvas/40"
                             }`}
                         >
-                            <Key className="size-3.5 shrink-0" />
+                            <Key className="size-3.5 shrink-0" aria-hidden="true" />
                             <span className="truncate">
                                 {isCodeBuddy ? "Access Token" : isCline ? "API Key" : "PAT Token"}
                             </span>
@@ -415,7 +415,7 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                                         : "text-text-muted hover:text-ink hover:bg-canvas/40"
                                 }`}
                             >
-                                <Layers className="size-3.5 shrink-0" />
+                                <Layers className="size-3.5 shrink-0" aria-hidden="true" />
                                 <span className="truncate">Bulk Add</span>
                             </button>
                         )}
@@ -423,7 +423,7 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                 )}
                 {error && (
                     <div className="flex items-start gap-2.5 rounded-2xl border border-destructive/30 bg-destructive/10 p-3.5 text-xs text-destructive">
-                        <AlertCircle className="size-4 shrink-0 mt-0.5" />
+                        <AlertCircle className="size-4 shrink-0 mt-0.5" aria-hidden="true" />
                         <span className="font-mono">{error}</span>
                     </div>
                 )}
@@ -496,7 +496,7 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                                 className="rounded-full px-5 h-9 text-xs font-semibold cursor-pointer gap-1.5 shadow-none"
                             >
                                 {bulkMutation.isPending && (
-                                    <Loader2 className="size-3.5 animate-spin" />
+                                    <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
                                 )}
                                 {bulkMutation.isPending ? "Importing…" : "Import Accounts"}
                             </Button>
@@ -506,7 +506,10 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                     <>
                         <div className="flex items-center gap-3 rounded-2xl border border-amber-500/25 bg-amber-500/5 px-4 py-3 text-xs">
                             {isLoadingUrl ? (
-                                <Loader2 className="size-4 text-amber-500 animate-spin shrink-0" />
+                                <Loader2
+                                    className="size-4 text-amber-500 animate-spin shrink-0"
+                                    aria-hidden="true"
+                                />
                             ) : (
                                 <div className="relative flex size-3 items-center justify-center shrink-0">
                                     <span className="absolute size-full rounded-full bg-amber-500/40 animate-ping" />
@@ -542,7 +545,7 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                                     disabled={!authUrl || isLoadingUrl}
                                     className="w-full h-10 rounded-full text-xs font-semibold gap-2 shadow-none cursor-pointer"
                                 >
-                                    <ExternalLink className="size-3.5" />
+                                    <ExternalLink className="size-3.5" aria-hidden="true" />
                                     <span>Open {provider.name} Login Page</span>
                                 </Button>
                             </div>
@@ -559,12 +562,15 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                                     >
                                         {copied ? (
                                             <>
-                                                <Check className="size-3 text-emerald-500" />
+                                                <Check
+                                                    className="size-3 text-emerald-500"
+                                                    aria-hidden="true"
+                                                />
                                                 <span className="text-emerald-500">Copied</span>
                                             </>
                                         ) : (
                                             <>
-                                                <Copy className="size-3" />
+                                                <Copy className="size-3" aria-hidden="true" />
                                                 <span>Copy link</span>
                                             </>
                                         )}
@@ -612,7 +618,10 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                                             className="rounded-full px-5 h-9 text-xs font-semibold cursor-pointer gap-1.5 shadow-none"
                                         >
                                             {callbackMutation.isPending && (
-                                                <Loader2 className="size-3.5 animate-spin" />
+                                                <Loader2
+                                                    className="size-3.5 animate-spin"
+                                                    aria-hidden="true"
+                                                />
                                             )}
                                             {callbackMutation.isPending ? "Connecting…" : "Connect"}
                                         </Button>
@@ -687,7 +696,7 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                                 className="rounded-full px-5 h-9 text-xs font-semibold cursor-pointer gap-1.5 shadow-none"
                             >
                                 {patMutation.isPending && (
-                                    <Loader2 className="size-3.5 animate-spin" />
+                                    <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
                                 )}
                                 {patMutation.isPending
                                     ? "Connecting…"

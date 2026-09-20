@@ -12,7 +12,7 @@ export function CanvasControls() {
                 className="flex size-10 items-center justify-center rounded-full text-text-muted hover:bg-canvas-soft hover:text-ink transition-colors cursor-pointer"
                 title="Fit & Center View"
             >
-                <Maximize2 className="size-3" />
+                <Maximize2 className="size-3" aria-hidden="true" />
             </button>
             <div className="h-3.5 w-px bg-hairline-soft" />
             <button
@@ -21,7 +21,7 @@ export function CanvasControls() {
                 className="flex size-10 items-center justify-center rounded-full text-text-muted hover:bg-canvas-soft hover:text-ink transition-colors cursor-pointer"
                 title="Zoom In"
             >
-                <ZoomIn className="size-3" />
+                <ZoomIn className="size-3" aria-hidden="true" />
             </button>
             <button
                 type="button"
@@ -29,7 +29,7 @@ export function CanvasControls() {
                 className="flex size-10 items-center justify-center rounded-full text-text-muted hover:bg-canvas-soft hover:text-ink transition-colors cursor-pointer"
                 title="Zoom Out"
             >
-                <ZoomOut className="size-3" />
+                <ZoomOut className="size-3" aria-hidden="true" />
             </button>
         </div>
     );

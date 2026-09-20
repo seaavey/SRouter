@@ -186,11 +186,14 @@ export function ProviderModelTable({
                         >
                             <span>Model ID</span>
                             {isSorted === "asc" ? (
-                                <ArrowUp className="size-3 text-amber-500" />
+                                <ArrowUp className="size-3 text-amber-500" aria-hidden="true" />
                             ) : isSorted === "desc" ? (
-                                <ArrowDown className="size-3 text-amber-500" />
+                                <ArrowDown className="size-3 text-amber-500" aria-hidden="true" />
                             ) : (
-                                <ArrowUpDown className="size-3 opacity-40 hover:opacity-100" />
+                                <ArrowUpDown
+                                    className="size-3 opacity-40 hover:opacity-100"
+                                    aria-hidden="true"
+                                />
                             )}
                         </button>
                     );
@@ -220,11 +223,12 @@ export function ProviderModelTable({
                                     className={`size-3.5 transition-transform ${
                                         isFav ? "fill-amber-500 text-amber-500 scale-110" : ""
                                     }`}
+                                    aria-hidden="true"
                                 />
                             </button>
 
                             <div className="flex size-7 shrink-0 items-center justify-center rounded-[30%] bg-canvas-soft text-text-muted">
-                                <Bot className="size-3.5" />
+                                <Bot className="size-3.5" aria-hidden="true" />
                             </div>
 
                             <span
@@ -251,9 +255,12 @@ export function ProviderModelTable({
                                 title="Copy Model ID"
                             >
                                 {copied === model.id ? (
-                                    <Check className="size-3.5 text-emerald-500" />
+                                    <Check
+                                        className="size-3.5 text-emerald-500"
+                                        aria-hidden="true"
+                                    />
                                 ) : (
-                                    <Copy className="size-3.5" />
+                                    <Copy className="size-3.5" aria-hidden="true" />
                                 )}
                             </button>
                         </div>
@@ -294,7 +301,7 @@ export function ProviderModelTable({
                                     className="text-text-muted hover:text-destructive hover:bg-destructive/10 p-1.5 rounded-full transition-colors cursor-pointer"
                                     title="Hide model from list"
                                 >
-                                    <Trash2 className="size-3.5" />
+                                    <Trash2 className="size-3.5" aria-hidden="true" />
                                 </button>
                             )}
                         </div>
@@ -356,7 +363,10 @@ export function ProviderModelTable({
                             className="inline-flex items-center gap-1.5 rounded-full bg-canvas-soft hover:bg-field px-3.5 py-1.5 text-xs font-semibold text-ink transition-colors cursor-pointer border border-hairline-soft"
                             title="Pin selected models to favorites"
                         >
-                            <Star className="size-3.5 text-amber-500 fill-amber-500" />
+                            <Star
+                                className="size-3.5 text-amber-500 fill-amber-500"
+                                aria-hidden="true"
+                            />
                             <span>Favorite</span>
                         </button>
 
@@ -367,7 +377,7 @@ export function ProviderModelTable({
                                 className="inline-flex items-center gap-1.5 rounded-full bg-destructive/10 hover:bg-destructive/20 px-3.5 py-1.5 text-xs font-semibold text-destructive transition-colors cursor-pointer border border-destructive/20"
                                 title="Hide selected models from list"
                             >
-                                <Trash2 className="size-3.5" />
+                                <Trash2 className="size-3.5" aria-hidden="true" />
                                 <span>Hide</span>
                             </button>
                         )}
@@ -378,7 +388,7 @@ export function ProviderModelTable({
                             className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs text-text-muted hover:text-ink cursor-pointer transition-colors"
                             title="Clear selection (Esc)"
                         >
-                            <X className="size-3.5" />
+                            <X className="size-3.5" aria-hidden="true" />
                             <span className="hidden sm:inline">Clear</span>
                             <kbd className="hidden sm:inline-block rounded-full border border-hairline-soft bg-field px-1.5 text-[9px] text-text-muted font-mono">
                                 Esc
@@ -485,7 +495,7 @@ export function ProviderModelTable({
                             className="flex size-7 items-center justify-center rounded-full border border-hairline bg-canvas text-ink hover:bg-canvas-soft disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors shadow-none"
                             title="Previous page"
                         >
-                            <ChevronLeft className="size-3.5" />
+                            <ChevronLeft className="size-3.5" aria-hidden="true" />
                         </button>
                         <span className="px-2 font-mono text-xs text-ink">
                             {table.getPageCount() === 0 ? 0 : pagination.pageIndex + 1} /{" "}
@@ -498,7 +508,7 @@ export function ProviderModelTable({
                             className="flex size-7 items-center justify-center rounded-full border border-hairline bg-canvas text-ink hover:bg-canvas-soft disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors shadow-none"
                             title="Next page"
                         >
-                            <ChevronRight className="size-3.5" />
+                            <ChevronRight className="size-3.5" aria-hidden="true" />
                         </button>
                     </div>
                 </div>

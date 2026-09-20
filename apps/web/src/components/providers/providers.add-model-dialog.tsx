@@ -53,7 +53,7 @@ export function AddModelDialog({
             <DialogContent className="sm:max-w-md bg-canvas border border-hairline-soft rounded-3xl p-6 md:p-8 space-y-5 shadow-none font-sans">
                 <DialogHeader className="space-y-1 pb-2 border-b border-hairline-soft">
                     <DialogTitle className="flex items-center gap-2 text-base font-bold text-ink">
-                        <Bot className="size-4 text-accent" />
+                        <Bot className="size-4 text-accent" aria-hidden="true" />
                         <span>Add Custom Model.</span>
                     </DialogTitle>
                     <DialogDescription className="text-xs text-text-muted">
@@ -96,7 +96,9 @@ export function AddModelDialog({
                         disabled={isPending}
                         onClick={handleSubmit}
                     >
-                        {isPending && <Loader2 className="size-3.5 animate-spin" />}
+                        {isPending && (
+                            <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+                        )}
                         Add Model
                     </Button>
                 </DialogFooter>

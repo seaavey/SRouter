@@ -94,9 +94,9 @@ export function Topbar() {
                     title={theme === "dark" ? "Light theme" : "Dark theme"}
                 >
                     {theme === "dark" ? (
-                        <Sun className="size-3.5" strokeWidth={2} />
+                        <Sun className="size-3.5" strokeWidth={2} aria-hidden="true" />
                     ) : (
-                        <Moon className="size-3.5" strokeWidth={2} />
+                        <Moon className="size-3.5" strokeWidth={2} aria-hidden="true" />
                     )}
                 </button>
             </div>

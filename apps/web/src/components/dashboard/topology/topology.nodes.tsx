@@ -53,7 +53,7 @@ export function CentralCoreHubNode({
                                 : "bg-canvas-soft text-ink"
                         }`}
                     >
-                        <Zap className="size-3.5" strokeWidth={2} />
+                        <Zap className="size-3.5" strokeWidth={2} aria-hidden="true" />
                     </div>
                     <div className="min-w-0">
                         <span className="block text-[9px] font-semibold uppercase tracking-wider text-text-muted">

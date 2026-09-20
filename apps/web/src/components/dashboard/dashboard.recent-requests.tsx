@@ -35,7 +35,7 @@ export function RecentRequestsFeed() {
                 <header className="flex items-center justify-between gap-3 border-b border-hairline-soft pb-4">
                     <div className="flex min-w-0 items-center gap-3">
                         <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-canvas-soft text-ink">
-                            <Activity className="size-4" strokeWidth={1.75} />
+                            <Activity className="size-4" strokeWidth={1.75} aria-hidden="true" />
                         </div>
                         <div className="min-w-0">
                             <h2 className="font-heading text-base font-semibold text-ink">

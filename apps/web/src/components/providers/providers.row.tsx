@@ -69,7 +69,10 @@ export function ProviderRow({ provider }: { provider: ProviderDefinition }) {
                             <>
                                 <span className="text-text-faint">·</span>
                                 <span className="inline-flex items-center gap-1 text-text-muted">
-                                    <Layers className="size-3 text-text-muted/70" />
+                                    <Layers
+                                        className="size-3 text-text-muted/70"
+                                        aria-hidden="true"
+                                    />
                                     <span>{modelCount} models</span>
                                 </span>
                             </>
@@ -79,7 +82,10 @@ export function ProviderRow({ provider }: { provider: ProviderDefinition }) {
             </div>
             <div className="flex shrink-0 items-center gap-1.5 rounded-full bg-canvas-soft px-3.5 py-1.5 text-xs font-semibold text-ink group-hover:bg-ink group-hover:text-canvas transition-colors">
                 <span className="hidden sm:inline">{isConnected ? "Configure" : "Connect"}</span>
-                <ArrowUpRight className="size-3.5 stroke-[2] transition-transform duration-150 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                <ArrowUpRight
+                    className="size-3.5 stroke-[2] transition-transform duration-150 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+                    aria-hidden="true"
+                />
             </div>
         </Link>
     );

@@ -69,11 +69,14 @@ export function LogTable({
                         >
                             <span>Time</span>
                             {isSorted === "asc" ? (
-                                <ArrowUp className="size-3 text-ink" />
+                                <ArrowUp className="size-3 text-ink" aria-hidden="true" />
                             ) : isSorted === "desc" ? (
-                                <ArrowDown className="size-3 text-ink" />
+                                <ArrowDown className="size-3 text-ink" aria-hidden="true" />
                             ) : (
-                                <ArrowUpDown className="size-3 opacity-40 hover:opacity-100" />
+                                <ArrowUpDown
+                                    className="size-3 opacity-40 hover:opacity-100"
+                                    aria-hidden="true"
+                                />
                             )}
                         </button>
                     );
@@ -116,9 +119,15 @@ export function LogTable({
                             ].join(" ")}
                         >
                             {is2xx ? (
-                                <CheckCircle2 className="size-3 text-emerald-500 shrink-0" />
+                                <CheckCircle2
+                                    className="size-3 text-emerald-500 shrink-0"
+                                    aria-hidden="true"
+                                />
                             ) : (
-                                <AlertCircle className="size-3 text-destructive shrink-0" />
+                                <AlertCircle
+                                    className="size-3 text-destructive shrink-0"
+                                    aria-hidden="true"
+                                />
                             )}
                             {status}
                         </span>
@@ -137,11 +146,14 @@ export function LogTable({
                         >
                             <span>Route</span>
                             {isSorted === "asc" ? (
-                                <ArrowUp className="size-3 text-ink" />
+                                <ArrowUp className="size-3 text-ink" aria-hidden="true" />
                             ) : isSorted === "desc" ? (
-                                <ArrowDown className="size-3 text-ink" />
+                                <ArrowDown className="size-3 text-ink" aria-hidden="true" />
                             ) : (
-                                <ArrowUpDown className="size-3 opacity-40 hover:opacity-100" />
+                                <ArrowUpDown
+                                    className="size-3 opacity-40 hover:opacity-100"
+                                    aria-hidden="true"
+                                />
                             )}
                         </button>
                     );
@@ -208,11 +220,14 @@ export function LogTable({
                         >
                             <span>Tokens</span>
                             {isSorted === "asc" ? (
-                                <ArrowUp className="size-3 text-ink" />
+                                <ArrowUp className="size-3 text-ink" aria-hidden="true" />
                             ) : isSorted === "desc" ? (
-                                <ArrowDown className="size-3 text-ink" />
+                                <ArrowDown className="size-3 text-ink" aria-hidden="true" />
                             ) : (
-                                <ArrowUpDown className="size-3 opacity-40 hover:opacity-100" />
+                                <ArrowUpDown
+                                    className="size-3 opacity-40 hover:opacity-100"
+                                    aria-hidden="true"
+                                />
                             )}
                         </button>
                     );
@@ -235,11 +250,14 @@ export function LogTable({
                         >
                             <span>Latency</span>
                             {isSorted === "asc" ? (
-                                <ArrowUp className="size-3 text-ink" />
+                                <ArrowUp className="size-3 text-ink" aria-hidden="true" />
                             ) : isSorted === "desc" ? (
-                                <ArrowDown className="size-3 text-ink" />
+                                <ArrowDown className="size-3 text-ink" aria-hidden="true" />
                             ) : (
-                                <ArrowUpDown className="size-3 opacity-40 hover:opacity-100" />
+                                <ArrowUpDown
+                                    className="size-3 opacity-40 hover:opacity-100"
+                                    aria-hidden="true"
+                                />
                             )}
                         </button>
                     );
@@ -281,7 +299,7 @@ export function LogTable({
                             className="inline-flex size-7 items-center justify-center rounded-full text-text-muted hover:text-ink hover:bg-canvas-soft transition-colors cursor-pointer"
                             title="Inspect log details"
                         >
-                            <ChevronRight className="size-4" />
+                            <ChevronRight className="size-4" aria-hidden="true" />
                         </button>
                     </div>
                 )
@@ -405,7 +423,7 @@ export function LogTable({
                             className="inline-flex size-8 items-center justify-center rounded-full border border-hairline-soft bg-canvas text-ink hover:bg-canvas-soft disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
                             aria-label="Previous page"
                         >
-                            <ChevronLeft className="size-4" />
+                            <ChevronLeft className="size-4" aria-hidden="true" />
                         </button>
                         <form onSubmit={handleJumpPage} className="flex items-center gap-1.5">
                             <input
@@ -429,7 +447,7 @@ export function LogTable({
                             className="inline-flex size-8 items-center justify-center rounded-full border border-hairline-soft bg-canvas text-ink hover:bg-canvas-soft disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
                             aria-label="Next page"
                         >
-                            <ChevronRight className="size-4" />
+                            <ChevronRight className="size-4" aria-hidden="true" />
                         </button>
                     </div>
                 </div>

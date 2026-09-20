@@ -1,13 +1,21 @@
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Check, Copy, KeyRound, Pencil, Plus, Trash2, Search, X } from "lucide-react";
-import { toast } from "sonner";
 import type { APIKeyZod } from "@srouter/types";
 import { formatCompactNumber } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import {
+    Empty,
+    EmptyContent,
+    EmptyDescription,
+    EmptyHeader,
+    EmptyMedia,
+    EmptyTitle
+} from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
-import { useDebounce } from "@/hooks/useDebounce";
+import { useCopy } from "@/hooks/useCopy";
+import { maskKey } from "./keys.form-types";
 
-export type KeyTableProps = {
+type KeyTableProps = {
     keys: APIKeyZod[];
     deletingId: string | null;
     onCreateClick: () => void;
@@ -15,24 +23,18 @@ export type KeyTableProps = {
     onDeleteClick: (key: APIKeyZod) => void;
 };
 
-function maskKey(key: string): string {
-    if (key.length <= 14) return key;
-    return `${key.slice(0, 8)}••••••••${key.slice(-4)}`;
-}
-
-export function KeyTable({
+export default function KeyTable({
     keys,
     deletingId,
     onCreateClick,
     onEditClick,
     onDeleteClick
 }: KeyTableProps) {
-    const [copiedKeyId, setCopiedKeyId] = useState<string | null>(null);
+    const { copied, copy } = useCopy();
     const [searchQuery, setSearchQuery] = useState("");
-    const debouncedSearch = useDebounce(searchQuery, 150);
 
     const filteredKeys = useMemo(() => {
-        const query = debouncedSearch.trim().toLowerCase();
+        const query = searchQuery.trim().toLowerCase();
         if (!query) return keys;
         return keys.filter(
             (k) =>
@@ -40,40 +42,35 @@ export function KeyTable({
                 k.key.toLowerCase().includes(query) ||
                 (k.allowed_models && k.allowed_models.some((m) => m.toLowerCase().includes(query)))
         );
-    }, [keys, debouncedSearch]);
-
-    const handleCopy = async (text: string, id: string) => {
-        try {
-            await navigator.clipboard.writeText(text);
-            setCopiedKeyId(id);
-            toast.success("API key copied to clipboard");
-            setTimeout(() => setCopiedKeyId(null), 1600);
-        } catch {
-            toast.error("Could not copy API key");
-        }
-    };
+    }, [keys, searchQuery]);
 
     if (keys.length === 0) {
         return (
-            <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-hairline bg-canvas py-16 px-6 text-center font-sans">
-                <div className="flex size-12 items-center justify-center rounded-full bg-canvas-soft text-text-muted mb-4">
-                    <KeyRound className="size-5" strokeWidth={1.75} />
-                </div>
-                <h3 className="text-base font-semibold text-ink font-sans">No API Keys.</h3>
-                <p className="mt-1.5 max-w-sm text-xs text-text-muted leading-relaxed font-sans">
-                    Generate an API key to authenticate requests against SRouter from your client
-                    SDKs and applications.
-                </p>
-                <Button
-                    type="button"
-                    onClick={onCreateClick}
-                    size="sm"
-                    className="mt-5 h-9 gap-2 rounded-full px-4 text-xs font-semibold cursor-pointer shadow-none"
-                >
-                    <Plus className="size-3.5" />
-                    <span>Create Key</span>
-                </Button>
-            </div>
+            <Empty className="min-h-56 rounded-3xl border border-dashed border-hairline bg-canvas p-12 shadow-none font-sans">
+                <EmptyHeader>
+                    <EmptyMedia className="mb-2 size-12 rounded-full border border-hairline-soft bg-canvas-soft text-text-muted">
+                        <KeyRound className="size-5" strokeWidth={1.75} aria-hidden="true" />
+                    </EmptyMedia>
+                    <EmptyTitle className="text-base font-semibold text-ink font-sans">
+                        No API Keys.
+                    </EmptyTitle>
+                    <EmptyDescription className="text-xs text-text-muted font-sans font-light leading-relaxed">
+                        Generate an API key to authenticate requests against SRouter from your
+                        client SDKs and applications.
+                    </EmptyDescription>
+                </EmptyHeader>
+                <EmptyContent className="mt-4">
+                    <Button
+                        type="button"
+                        onClick={onCreateClick}
+                        size="sm"
+                        className="h-9 gap-2 rounded-full px-4 text-xs font-semibold cursor-pointer shadow-none"
+                    >
+                        <Plus className="size-3.5" aria-hidden="true" />
+                        <span>Create Key</span>
+                    </Button>
+                </EmptyContent>
+            </Empty>
         );
     }
 
@@ -82,7 +79,7 @@ export function KeyTable({
             <div className="flex flex-col justify-between gap-4 border-b border-hairline-soft px-6 py-4 sm:flex-row sm:items-center">
                 <div className="flex items-center gap-3">
                     <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-canvas-soft text-ink">
-                        <KeyRound className="size-4" strokeWidth={1.75} />
+                        <KeyRound className="size-4" strokeWidth={1.75} aria-hidden="true" />
                     </div>
                     <div>
                         <h2 className="text-sm font-semibold tracking-tight text-ink font-sans">
@@ -95,9 +92,13 @@ export function KeyTable({
                 </div>
 
                 <div className="relative w-full sm:w-64">
-                    <Search className="pointer-events-none absolute left-3.5 top-1/2 size-3.5 -translate-y-1/2 text-text-muted" />
+                    <Search
+                        className="pointer-events-none absolute left-3.5 top-1/2 size-3.5 -translate-y-1/2 text-text-muted"
+                        aria-hidden="true"
+                    />
                     <Input
                         type="text"
+                        aria-label="Search API keys"
                         placeholder="Search keys, models…"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
@@ -110,36 +111,51 @@ export function KeyTable({
                             className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-text-muted hover:text-ink transition-colors cursor-pointer"
                             aria-label="Clear search"
                         >
-                            <X className="size-3" />
+                            <X className="size-3" aria-hidden="true" />
                         </button>
                     )}
                 </div>
             </div>
 
-            <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                    <thead className="border-b border-hairline-soft bg-canvas-soft text-[11px] uppercase font-mono tracking-wider text-text-muted">
-                        <tr>
-                            <th className="py-3 px-6 font-semibold">Key & Token</th>
-                            <th className="py-3 px-6 font-semibold">Limits & Balance</th>
-                            <th className="py-3 px-6 text-right font-semibold">Usage</th>
-                            <th className="py-3 px-6 text-center font-semibold">Status</th>
-                            <th className="py-3 px-6 text-right font-semibold">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-hairline-soft">
-                        {filteredKeys.length === 0 ? (
+            {filteredKeys.length === 0 ? (
+                <Empty className="min-h-44 p-8">
+                    <EmptyHeader>
+                        <EmptyMedia variant="icon">
+                            <Search className="size-5" strokeWidth={1.5} aria-hidden="true" />
+                        </EmptyMedia>
+                        <EmptyTitle>No matching keys</EmptyTitle>
+                        <EmptyDescription>
+                            No keys match “{searchQuery.trim()}”. Search by key name, token, or
+                            allowed model.
+                        </EmptyDescription>
+                    </EmptyHeader>
+                    <EmptyContent>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setSearchQuery("")}
+                            className="h-8 cursor-pointer rounded-full px-4 text-xs shadow-none"
+                        >
+                            Clear search
+                        </Button>
+                    </EmptyContent>
+                </Empty>
+            ) : (
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                        <thead className="border-b border-hairline-soft bg-canvas-soft text-[11px] uppercase font-mono tracking-wider text-text-muted">
                             <tr>
-                                <td
-                                    colSpan={5}
-                                    className="py-10 text-center text-xs text-text-muted font-sans"
-                                >
-                                    No keys match "{searchQuery.trim()}".
-                                </td>
+                                <th className="py-3 px-6 font-semibold">Key & Token</th>
+                                <th className="py-3 px-6 font-semibold">Limits & Balance</th>
+                                <th className="py-3 px-6 text-right font-semibold">Usage</th>
+                                <th className="py-3 px-6 text-center font-semibold">Status</th>
+                                <th className="py-3 px-6 text-right font-semibold">Actions</th>
                             </tr>
-                        ) : (
-                            filteredKeys.map((k) => {
-                                const isCopied = copiedKeyId === k.id;
+                        </thead>
+                        <tbody className="divide-y divide-hairline-soft">
+                            {filteredKeys.map((k) => {
+                                const isCopied = copied === k.key;
                                 const isDeleting = deletingId === k.id;
                                 const quotaLimit = k.quota_limit ?? 0;
                                 const usageTokens = k.usage_tokens ?? 0;
@@ -175,15 +191,27 @@ export function KeyTable({
                                             <div className="mt-1.5 flex flex-wrap items-center gap-2">
                                                 <button
                                                     type="button"
-                                                    onClick={() => void handleCopy(k.key, k.id)}
+                                                    onClick={() =>
+                                                        void copy(
+                                                            k.key,
+                                                            "API key copied to clipboard"
+                                                        )
+                                                    }
+                                                    aria-label={`Copy API key ${k.name}`}
                                                     className="inline-flex items-center gap-1.5 rounded-full bg-field px-2.5 py-1 font-mono text-xs text-text-muted hover:text-ink hover:bg-canvas-soft transition-colors cursor-pointer"
                                                     title="Click to copy full key token"
                                                 >
                                                     <span>{maskKey(k.key)}</span>
                                                     {isCopied ? (
-                                                        <Check className="size-3 text-emerald-500 shrink-0" />
+                                                        <Check
+                                                            className="size-3 text-emerald-500 shrink-0"
+                                                            aria-hidden="true"
+                                                        />
                                                     ) : (
-                                                        <Copy className="size-3 opacity-60 shrink-0" />
+                                                        <Copy
+                                                            className="size-3 opacity-60 shrink-0"
+                                                            aria-hidden="true"
+                                                        />
                                                     )}
                                                 </button>
                                                 <span className="font-mono text-xs text-text-muted/70">
@@ -197,7 +225,7 @@ export function KeyTable({
                                                     Unlimited
                                                 </span>
                                             ) : (
-                                                <div className="space-y-1.5">
+                                                <div className="flex flex-col gap-1.5">
                                                     {creditLimit > 0 && (
                                                         <div className="flex items-center gap-2.5">
                                                             <span
@@ -288,7 +316,10 @@ export function KeyTable({
                                                     title="Edit key and view details"
                                                     aria-label={`Edit key ${k.name}`}
                                                 >
-                                                    <Pencil className="size-3.5" />
+                                                    <Pencil
+                                                        className="size-3.5"
+                                                        aria-hidden="true"
+                                                    />
                                                 </button>
                                                 <button
                                                     type="button"
@@ -298,19 +329,20 @@ export function KeyTable({
                                                     title="Revoke and delete key"
                                                     aria-label={`Revoke key ${k.name}`}
                                                 >
-                                                    <Trash2 className="size-3.5" />
+                                                    <Trash2
+                                                        className="size-3.5"
+                                                        aria-hidden="true"
+                                                    />
                                                 </button>
                                             </div>
                                         </td>
                                     </tr>
                                 );
-                            })
-                        )}
-                    </tbody>
-                </table>
-            </div>
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+            )}
         </div>
     );
 }
-
-export default KeyTable;

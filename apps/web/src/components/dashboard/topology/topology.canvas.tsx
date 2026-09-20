@@ -244,7 +244,7 @@ function GatewayTopologyCanvas() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-hairline-soft pb-4 mb-4">
                 <div className="flex items-center gap-3">
                     <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-canvas text-ink border border-hairline-soft">
-                        <Orbit className="size-4" strokeWidth={1.75} />
+                        <Orbit className="size-4" strokeWidth={1.75} aria-hidden="true" />
                     </div>
                     <div>
                         <div className="flex items-center gap-2">
@@ -275,7 +275,7 @@ function GatewayTopologyCanvas() {
                                 : "text-text-muted hover:text-ink"
                         }`}
                     >
-                        <Workflow className="size-3" />
+                        <Workflow className="size-3" aria-hidden="true" />
                         <span>Radial Orbit</span>
                     </button>
                     <button
@@ -287,7 +287,7 @@ function GatewayTopologyCanvas() {
                                 : "text-text-muted hover:text-ink"
                         }`}
                     >
-                        <LayoutGrid className="size-3" />
+                        <LayoutGrid className="size-3" aria-hidden="true" />
                         <span>Provider Grid</span>
                     </button>
                 </div>

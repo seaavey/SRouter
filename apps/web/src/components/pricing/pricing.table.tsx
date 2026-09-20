@@ -42,7 +42,7 @@ export function PricingTable({ models }: PricingTableProps) {
             <Empty className="min-h-56 rounded-3xl border border-dashed border-hairline bg-canvas p-12">
                 <EmptyHeader>
                     <EmptyMedia className="mb-2 size-12 rounded-full border border-hairline-soft bg-canvas-soft text-text-muted">
-                        <Coins className="size-6" />
+                        <Coins className="size-6" aria-hidden="true" />
                     </EmptyMedia>
                     <EmptyTitle className="text-base font-semibold text-ink font-sans">
                         No models match your filters
@@ -201,7 +201,7 @@ export function PricingTable({ models }: PricingTableProps) {
                             className="inline-flex size-8 items-center justify-center rounded-full border border-hairline-soft bg-canvas text-ink hover:bg-canvas-soft disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
                             aria-label="Previous page"
                         >
-                            <ChevronLeft className="size-4" />
+                            <ChevronLeft className="size-4" aria-hidden="true" />
                         </button>
                         <form
                             onSubmit={(e) => {
@@ -250,7 +250,7 @@ export function PricingTable({ models }: PricingTableProps) {
                             className="inline-flex size-8 items-center justify-center rounded-full border border-hairline-soft bg-canvas text-ink hover:bg-canvas-soft disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
                             aria-label="Next page"
                         >
-                            <ChevronRight className="size-4" />
+                            <ChevronRight className="size-4" aria-hidden="true" />
                         </button>
                     </div>
                 </div>

@@ -39,7 +39,7 @@ export function LoggingSettings({ settings, updateSetting }: LoggingSettingsProp
                                 }`}
                             >
                                 <span>{label}</span>
-                                {isActive && <Check className="size-3" />}
+                                {isActive && <Check className="size-3" aria-hidden="true" />}
                             </button>
                         );
                     })}

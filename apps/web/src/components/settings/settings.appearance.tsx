@@ -37,9 +37,9 @@ export function AppearanceSettings({
                                     : "border-hairline-soft bg-canvas text-text-muted hover:text-ink hover:bg-canvas-soft"
                             }`}
                         >
-                            <Moon className="size-3.5" />
+                            <Moon className="size-3.5" aria-hidden="true" />
                             <span>Dark</span>
-                            {theme === "dark" && <Check className="size-3" />}
+                            {theme === "dark" && <Check className="size-3" aria-hidden="true" />}
                         </button>
                         <button
                             type="button"
@@ -50,9 +50,9 @@ export function AppearanceSettings({
                                     : "border-hairline-soft bg-canvas text-text-muted hover:text-ink hover:bg-canvas-soft"
                             }`}
                         >
-                            <Sun className="size-3.5" />
+                            <Sun className="size-3.5" aria-hidden="true" />
                             <span>Light</span>
-                            {theme === "light" && <Check className="size-3" />}
+                            {theme === "light" && <Check className="size-3" aria-hidden="true" />}
                         </button>
                     </div>
                 }

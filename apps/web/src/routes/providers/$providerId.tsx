@@ -168,7 +168,11 @@ function ProviderDetailPage() {
                 <div className="mx-auto flex w-full max-w-7xl flex-col font-sans">
                     <div className="flex min-h-64 flex-col items-center justify-center rounded-3xl border border-destructive/30 bg-destructive/5 px-6 py-14 text-center">
                         <div className="flex size-11 items-center justify-center rounded-full bg-destructive/10 text-destructive mb-3.5">
-                            <AlertTriangle className="size-5" strokeWidth={1.75} />
+                            <AlertTriangle
+                                className="size-5"
+                                strokeWidth={1.75}
+                                aria-hidden="true"
+                            />
                         </div>
                         <h2 className="text-base font-bold text-ink">
                             Failed to load provider details
@@ -214,7 +218,7 @@ function ProviderDetailPage() {
                     to="/providers"
                     className="inline-flex items-center gap-2 text-xs font-semibold text-text-muted hover:text-ink transition-colors"
                 >
-                    <ArrowLeft className="size-3.5" />
+                    <ArrowLeft className="size-3.5" aria-hidden="true" />
                     <span>Back to Providers Catalog</span>
                 </Link>
             </div>
@@ -246,7 +250,10 @@ function ProviderDetailPage() {
                                     title={`Visit ${provider.name} (${websiteUrl})`}
                                 >
                                     <span>{provider.name}.</span>
-                                    <ExternalLink className="size-4 text-text-muted group-hover:text-ink transition-colors" />
+                                    <ExternalLink
+                                        className="size-4 text-text-muted group-hover:text-ink transition-colors"
+                                        aria-hidden="true"
+                                    />
                                 </a>
                             ) : (
                                 <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-ink font-sans">
@@ -281,7 +288,7 @@ function ProviderDetailPage() {
                         onClick={() => setIsAddModelOpen(true)}
                         className="rounded-full px-4 h-9 text-xs font-semibold cursor-pointer gap-1.5 border-hairline bg-canvas hover:bg-canvas-soft text-ink shadow-none"
                     >
-                        <Plus className="size-3.5" />
+                        <Plus className="size-3.5" aria-hidden="true" />
                         <span>Add Model</span>
                     </Button>
                     <Button
@@ -289,14 +296,14 @@ function ProviderDetailPage() {
                         onClick={handleAddConnection}
                         className="rounded-full px-5 h-9 text-xs font-semibold cursor-pointer gap-1.5 shadow-none"
                     >
-                        <Plus className="size-3.5" />
+                        <Plus className="size-3.5" aria-hidden="true" />
                         <span>{provider.requires_oauth ? "Connect Account" : "Add Key"}</span>
                     </Button>
                 </div>
             </div>
             {provider.requires_oauth && (
                 <div className="flex items-start gap-3 rounded-3xl border border-hairline-soft bg-canvas-soft p-4 text-xs leading-relaxed text-text-muted">
-                    <AlertTriangle className="size-4 shrink-0 mt-0.5 text-ink" />
+                    <AlertTriangle className="size-4 shrink-0 mt-0.5 text-ink" aria-hidden="true" />
                     <div>
                         <strong className="text-ink">OAuth Token Lifecycle:</strong> SRouter manages
                         token lifecycle and background refresh sweeper automatically for this
@@ -333,7 +340,7 @@ function ProviderDetailPage() {
                                     onClick={handleRestoreAllModels}
                                     className="text-xs text-amber-500 hover:text-amber-400 hover:underline cursor-pointer flex items-center gap-1 font-sans"
                                 >
-                                    <RotateCcw className="size-3" />
+                                    <RotateCcw className="size-3" aria-hidden="true" />
                                     <span>Restore {deletedModelIds.length} deleted</span>
                                 </button>
                             )}
@@ -345,7 +352,10 @@ function ProviderDetailPage() {
 
                     <div className="flex items-center gap-2">
                         <div className="relative w-full sm:w-64">
-                            <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-text-muted" />
+                            <Search
+                                className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-text-muted"
+                                aria-hidden="true"
+                            />
                             <Input
                                 type="text"
                                 placeholder="Filter model ID…"
@@ -360,7 +370,7 @@ function ProviderDetailPage() {
                                     className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-1 text-text-muted hover:text-ink transition-colors cursor-pointer"
                                     aria-label="Clear search"
                                 >
-                                    <X className="size-3" />
+                                    <X className="size-3" aria-hidden="true" />
                                 </button>
                             )}
                         </div>
@@ -376,7 +386,7 @@ function ProviderDetailPage() {
                                 title="Table view (Compact)"
                                 aria-label="Table view"
                             >
-                                <List className="size-3.5" />
+                                <List className="size-3.5" aria-hidden="true" />
                             </button>
                             <button
                                 type="button"
@@ -389,7 +399,7 @@ function ProviderDetailPage() {
                                 title="Grid view (Cards)"
                                 aria-label="Grid view"
                             >
-                                <LayoutGrid className="size-3.5" />
+                                <LayoutGrid className="size-3.5" aria-hidden="true" />
                             </button>
                         </div>
                     </div>
@@ -408,7 +418,7 @@ function ProviderDetailPage() {
                                 onClick={handleRestoreAllModels}
                                 className="inline-flex items-center gap-1 text-xs text-amber-500 hover:underline cursor-pointer font-sans"
                             >
-                                <RotateCcw className="size-3" />
+                                <RotateCcw className="size-3" aria-hidden="true" />
                                 <span>Restore all {deletedModelIds.length} models</span>
                             </button>
                         )}

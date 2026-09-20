@@ -62,7 +62,7 @@ function QuotaPage() {
             <div className="mx-auto flex w-full max-w-[1360px] flex-col font-sans">
                 <div className="flex min-h-64 flex-col items-center justify-center rounded-3xl border border-destructive/30 bg-destructive/5 px-6 py-14 text-center">
                     <div className="flex size-11 items-center justify-center rounded-full bg-destructive/10 text-destructive mb-3.5">
-                        <TriangleAlert className="size-5" strokeWidth={1.75} />
+                        <TriangleAlert className="size-5" strokeWidth={1.75} aria-hidden="true" />
                     </div>
                     <h2 className="text-base font-bold text-ink">
                         Failed to load quota & limits information
@@ -79,7 +79,7 @@ function QuotaPage() {
                         onClick={() => void handleRefresh()}
                         className="mt-5 rounded-full px-5 h-9 text-xs font-semibold cursor-pointer gap-1.5 shadow-none"
                     >
-                        <RefreshCw className="size-3.5" />
+                        <RefreshCw className="size-3.5" aria-hidden="true" />
                         <span>Try Again</span>
                     </Button>
                 </div>
@@ -160,6 +160,7 @@ function QuotaPage() {
                     >
                         <RefreshCw
                             className={`size-3.5 ${isSpinning ? "animate-spin text-accent" : "text-text-muted"}`}
+                            aria-hidden="true"
                         />
                         <span>{isSpinning ? "Refreshing…" : "Refresh"}</span>
                     </Button>
@@ -169,7 +170,7 @@ function QuotaPage() {
                 <Empty className="rounded-3xl border border-hairline-soft bg-canvas p-12">
                     <EmptyHeader>
                         <EmptyMedia variant="icon">
-                            <Gauge className="size-5 text-text-muted" />
+                            <Gauge className="size-5 text-text-muted" aria-hidden="true" />
                         </EmptyMedia>
                         <EmptyTitle className="text-ink font-bold">
                             No Active Quotas or Usage Data Yet
@@ -187,7 +188,7 @@ function QuotaPage() {
                                 "rounded-full px-5 h-9 text-xs font-semibold cursor-pointer shadow-none gap-1.5"
                             )}
                         >
-                            <Plus className="size-3.5" />
+                            <Plus className="size-3.5" aria-hidden="true" />
                             <span>Go to Providers Catalog</span>
                         </Link>
                     </EmptyContent>

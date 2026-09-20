@@ -143,7 +143,7 @@ function EmptyState({ onAddClick }: { onAddClick: () => void }) {
                     variant="icon"
                     className="size-12 rounded-full border border-hairline-soft bg-canvas-soft mb-2"
                 >
-                    <Layers className="size-6 text-accent" />
+                    <Layers className="size-6 text-accent" aria-hidden="true" />
                 </EmptyMedia>
                 <EmptyTitle className="text-base font-semibold text-ink">
                     No Model Combos Yet
@@ -159,7 +159,7 @@ function EmptyState({ onAddClick }: { onAddClick: () => void }) {
                     onClick={onAddClick}
                     className="h-10 px-5 rounded-full text-xs font-semibold cursor-pointer shadow-none gap-2 bg-ink text-canvas hover:opacity-90"
                 >
-                    <Plus className="size-3.5" />
+                    <Plus className="size-3.5" aria-hidden="true" />
                     <span>Create Combo</span>
                 </Button>
             </EmptyContent>
@@ -214,8 +214,12 @@ function PipelineStep({
                         <span className="text-xs font-medium text-ink truncate max-w-[160px] font-sans">
                             {displayName}
                         </span>
-                        {hasVision && <Eye className="size-3 text-text-muted shrink-0" />}
-                        {hasThinking && <Brain className="size-3 text-text-muted shrink-0" />}
+                        {hasVision && (
+                            <Eye className="size-3 text-text-muted shrink-0" aria-hidden="true" />
+                        )}
+                        {hasThinking && (
+                            <Brain className="size-3 text-text-muted shrink-0" aria-hidden="true" />
+                        )}
                     </div>
                     <span className="text-[10px] text-text-muted truncate max-w-[160px] font-mono mt-0.5">
                         {rule.targetModel}
@@ -230,14 +234,14 @@ function PipelineStep({
                         className="size-6 inline-flex items-center justify-center text-text-muted hover:text-destructive cursor-pointer rounded-full hover:bg-destructive/10 transition-colors"
                         title="Remove step"
                     >
-                        <Trash2 className="size-3" />
+                        <Trash2 className="size-3" aria-hidden="true" />
                     </button>
                 </div>
             </div>
 
             {index < total - 1 && (
                 <div className="flex items-center px-1 text-text-muted/60">
-                    <ArrowRight className="size-4" />
+                    <ArrowRight className="size-4" aria-hidden="true" />
                 </div>
             )}
         </div>
@@ -281,9 +285,9 @@ function ComboCardHeader({
                     title="Copy combo model ID"
                 >
                     {copied === group.sourceModel ? (
-                        <Check className="size-3.5 text-emerald-500" />
+                        <Check className="size-3.5 text-emerald-500" aria-hidden="true" />
                     ) : (
-                        <Copy className="size-3.5" />
+                        <Copy className="size-3.5" aria-hidden="true" />
                     )}
                 </button>
 
@@ -313,7 +317,7 @@ function ComboCardHeader({
                             className="inline-flex items-center gap-1.5 rounded-full border border-hairline-soft bg-canvas hover:bg-canvas-soft px-3 py-1 text-xs font-semibold text-text-muted hover:text-ink transition-colors cursor-pointer shadow-none font-mono"
                             title="Copy cURL snippet"
                         >
-                            <Terminal className="size-3" />
+                            <Terminal className="size-3" aria-hidden="true" />
                             <span>cURL</span>
                         </button>
 
@@ -329,7 +333,7 @@ function ComboCardHeader({
                                 className="inline-flex items-center gap-1.5 rounded-full border border-hairline-soft bg-canvas hover:bg-canvas-soft px-3 py-1 text-xs font-semibold text-text-muted hover:text-ink transition-colors cursor-pointer shadow-none font-sans"
                                 title="Edit combo models"
                             >
-                                <Pencil className="size-3" />
+                                <Pencil className="size-3" aria-hidden="true" />
                                 <span>Edit</span>
                             </button>
                         )}
@@ -346,7 +350,7 @@ function ComboCardHeader({
                     className="size-7 inline-flex items-center justify-center text-text-muted hover:text-destructive hover:bg-destructive/10 rounded-full transition-colors cursor-pointer"
                     title="Delete entire combo cascade"
                 >
-                    <Trash2 className="size-3.5" />
+                    <Trash2 className="size-3.5" aria-hidden="true" />
                 </button>
             </div>
         </div>
@@ -459,7 +463,10 @@ export function ComboList({
                     <ViewModeToggle mode={viewMode} onChange={setViewMode} />
 
                     <div className="relative w-full sm:w-60">
-                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-3.5 text-text-muted" />
+                        <Search
+                            className="absolute left-3.5 top-1/2 -translate-y-1/2 size-3.5 text-text-muted"
+                            aria-hidden="true"
+                        />
                         <Input
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
@@ -551,9 +558,15 @@ export function ComboList({
                                         <span className="inline-flex items-center rounded-full bg-canvas-soft px-3 py-1 text-xs font-semibold text-ink border border-hairline-soft font-mono">
                                             {rule.sourceModel}
                                         </span>
-                                        <ArrowRight className="size-3.5 text-text-muted shrink-0" />
+                                        <ArrowRight
+                                            className="size-3.5 text-text-muted shrink-0"
+                                            aria-hidden="true"
+                                        />
                                         <span className="inline-flex items-center gap-1.5 rounded-full bg-canvas text-ink border border-hairline-soft px-3 py-1 text-xs font-semibold font-mono">
-                                            <Zap className="size-3 text-accent" />
+                                            <Zap
+                                                className="size-3 text-accent"
+                                                aria-hidden="true"
+                                            />
                                             {rule.targetModel}
                                         </span>
                                         <span className="inline-flex items-center rounded-full bg-field text-text-muted px-2.5 py-0.5 text-[10px] font-mono font-medium">
@@ -591,7 +604,7 @@ export function ComboList({
                                         className="size-8 p-0 text-text-muted hover:text-destructive hover:bg-destructive/10 cursor-pointer rounded-full"
                                         title="Delete rule"
                                     >
-                                        <Trash2 className="size-4" />
+                                        <Trash2 className="size-4" aria-hidden="true" />
                                     </Button>
                                 </div>
                             </div>

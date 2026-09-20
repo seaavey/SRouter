@@ -54,7 +54,7 @@ export function ModalityIcons({ input = ["text"], output = ["text"] }: ModalityI
                             <TooltipTrigger
                                 render={
                                     <span className="inline-flex size-5 items-center justify-center rounded-full border border-hairline-soft bg-canvas-soft text-ink hover:bg-field transition-colors">
-                                        <Icon className="size-2.5" />
+                                        <Icon className="size-2.5" aria-hidden="true" />
                                     </span>
                                 }
                             />
@@ -79,7 +79,7 @@ export function ModalityIcons({ input = ["text"], output = ["text"] }: ModalityI
                             <TooltipTrigger
                                 render={
                                     <span className="inline-flex size-5 items-center justify-center rounded-full border border-hairline-soft bg-canvas-soft text-ink hover:bg-field transition-colors">
-                                        <Icon className="size-2.5" />
+                                        <Icon className="size-2.5" aria-hidden="true" />
                                     </span>
                                 }
                             />
@@ -139,7 +139,7 @@ export function CapabilityIcons({
                     <TooltipTrigger
                         render={
                             <span className="inline-flex size-5 items-center justify-center rounded-full border border-hairline-soft bg-canvas-soft text-text-muted hover:text-ink hover:bg-field transition-colors">
-                                <Icon className="size-2.5" />
+                                <Icon className="size-2.5" aria-hidden="true" />
                             </span>
                         }
                     />

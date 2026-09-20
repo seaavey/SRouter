@@ -36,7 +36,7 @@ export function NodeDetailInspector({
                         className="rounded-full p-1 text-text-muted hover:bg-canvas-soft hover:text-ink transition-colors cursor-pointer"
                         title="Close Inspector"
                     >
-                        <X className="size-3.5" />
+                        <X className="size-3.5" aria-hidden="true" />
                     </button>
                 </div>
 
@@ -44,7 +44,7 @@ export function NodeDetailInspector({
                     {selectedNode.type === "core" && (
                         <div className="space-y-3">
                             <div className="flex items-center gap-2">
-                                <Zap className="size-3.5 text-ink" />
+                                <Zap className="size-3.5 text-ink" aria-hidden="true" />
                                 <span className="text-xs font-bold text-ink font-sans">
                                     SRouter Core Gateway
                                 </span>
@@ -104,7 +104,7 @@ export function NodeDetailInspector({
                                         className="inline-flex items-center gap-1 rounded-full border border-hairline bg-canvas px-2.5 py-1 text-[9px] font-bold text-ink hover:bg-canvas-soft transition-colors cursor-pointer"
                                         title="Simulate 5-Second Request Glow"
                                     >
-                                        <Play className="size-2.5" />
+                                        <Play className="size-2.5" aria-hidden="true" />
                                         <span>Ping (5s)</span>
                                     </button>
                                 )}
@@ -151,7 +151,7 @@ export function NodeDetailInspector({
                         className="flex w-full items-center justify-center gap-1.5 rounded-full border border-hairline bg-canvas px-4 py-2 text-xs font-semibold text-ink hover:bg-canvas-soft transition-colors"
                     >
                         <span>Configure Settings</span>
-                        <ExternalLink className="size-3 text-text-muted" />
+                        <ExternalLink className="size-3 text-text-muted" aria-hidden="true" />
                     </Link>
                 ) : (
                     <Link
@@ -160,7 +160,7 @@ export function NodeDetailInspector({
                         className="flex w-full items-center justify-center gap-1.5 rounded-full border border-hairline bg-canvas px-4 py-2 text-xs font-semibold text-ink hover:bg-canvas-soft transition-colors"
                     >
                         <span>Provider Settings</span>
-                        <ExternalLink className="size-3 text-text-muted" />
+                        <ExternalLink className="size-3 text-text-muted" aria-hidden="true" />
                     </Link>
                 )}
             </div>

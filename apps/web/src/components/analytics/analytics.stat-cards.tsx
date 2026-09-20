@@ -47,21 +47,33 @@ export function AnalyticsStatCards({
                         className="inline-flex items-center gap-1"
                         title={`Prompt Tokens: ${formatNumber(promptTokens)}`}
                     >
-                        <ArrowDown className="size-3 text-text-muted shrink-0" strokeWidth={1.75} />
+                        <ArrowDown
+                            className="size-3 text-text-muted shrink-0"
+                            strokeWidth={1.75}
+                            aria-hidden="true"
+                        />
                         <span>{formatCompactNumber(promptTokens)}</span>
                     </span>
                     <span
                         className="inline-flex items-center gap-1"
                         title={`Completion Tokens: ${formatNumber(completionTokens)}`}
                     >
-                        <ArrowUp className="size-3 text-text-muted shrink-0" strokeWidth={1.75} />
+                        <ArrowUp
+                            className="size-3 text-text-muted shrink-0"
+                            strokeWidth={1.75}
+                            aria-hidden="true"
+                        />
                         <span>{formatCompactNumber(completionTokens)}</span>
                     </span>
                     <span
                         className="inline-flex items-center gap-1"
                         title={`Cached Tokens: ${formatNumber(cachedTokens)}`}
                     >
-                        <Database className="size-3 text-text-muted shrink-0" strokeWidth={1.75} />
+                        <Database
+                            className="size-3 text-text-muted shrink-0"
+                            strokeWidth={1.75}
+                            aria-hidden="true"
+                        />
                         <span>{formatCompactNumber(cachedTokens)}</span>
                     </span>
                 </div>

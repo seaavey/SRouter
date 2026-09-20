@@ -35,7 +35,7 @@ export function UsageByModelPagination({ table, total_rows }: UsageByModelPagina
                     className="flex size-7 items-center justify-center rounded-full border border-hairline bg-canvas text-ink hover:bg-canvas-soft disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors shadow-none"
                     title="Previous page"
                 >
-                    <ChevronLeft className="size-3.5" />
+                    <ChevronLeft className="size-3.5" aria-hidden="true" />
                 </button>
                 <span className="px-1.5 text-xs text-ink font-medium">
                     {current_page + 1} / {page_count}
@@ -47,7 +47,7 @@ export function UsageByModelPagination({ table, total_rows }: UsageByModelPagina
                     className="flex size-7 items-center justify-center rounded-full border border-hairline bg-canvas text-ink hover:bg-canvas-soft disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors shadow-none"
                     title="Next page"
                 >
-                    <ChevronRight className="size-3.5" />
+                    <ChevronRight className="size-3.5" aria-hidden="true" />
                 </button>
             </div>
         </div>

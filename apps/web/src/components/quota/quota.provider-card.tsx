@@ -72,6 +72,7 @@ export function QuotaProviderCard({
                             className={`size-4 transition-transform duration-200 ${
                                 isCollapsed ? "-rotate-90" : "rotate-0"
                             }`}
+                            aria-hidden="true"
                         />
                     </button>
                 </div>
@@ -84,7 +85,10 @@ export function QuotaProviderCard({
                         className="inline-flex items-center gap-1.5 rounded-full border border-hairline-soft bg-canvas-soft hover:bg-field px-3.5 h-8 text-xs font-medium text-ink transition-colors cursor-pointer disabled:opacity-50"
                         title="Refresh this provider"
                     >
-                        <RefreshCw className={`size-3.5 ${isSpinning ? "animate-spin" : ""}`} />
+                        <RefreshCw
+                            className={`size-3.5 ${isSpinning ? "animate-spin" : ""}`}
+                            aria-hidden="true"
+                        />
                         <span>Sync</span>
                     </button>
                 </div>

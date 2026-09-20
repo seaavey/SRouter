@@ -79,5 +79,3 @@ export default function KeyMetrics({
         </section>
     );
 }
-
-export { KeyMetrics };

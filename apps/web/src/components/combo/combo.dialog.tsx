@@ -272,15 +272,19 @@ export default function ComboModelPickerModal({
                     <button
                         type="button"
                         onClick={onClose}
+                        aria-label="Close dialog"
                         className="size-8 inline-flex items-center justify-center rounded-full text-text-muted hover:text-ink hover:bg-canvas-soft transition-colors cursor-pointer"
                     >
-                        <X className="size-4" />
+                        <X className="size-4" aria-hidden="true" />
                     </button>
                 </div>
 
                 <div className="flex flex-col gap-4 p-6 overflow-y-auto">
                     <div className="relative">
-                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-text-muted" />
+                        <Search
+                            className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-text-muted"
+                            aria-hidden="true"
+                        />
                         <input
                             type="text"
                             value={search}
@@ -300,7 +304,10 @@ export default function ComboModelPickerModal({
                                 <div key={group.id} className="space-y-2">
                                     <div className="flex items-center gap-2 text-xs font-semibold text-ink font-sans">
                                         {group.isCombo ? (
-                                            <Layers className="size-3.5 text-text-muted" />
+                                            <Layers
+                                                className="size-3.5 text-text-muted"
+                                                aria-hidden="true"
+                                            />
                                         ) : (
                                             <ProviderIcon
                                                 providerId={group.id}
@@ -334,10 +341,16 @@ export default function ComboModelPickerModal({
                                                 >
                                                     <span>{model.name}</span>
                                                     {hasVision && (
-                                                        <Eye className="size-3 opacity-70 shrink-0" />
+                                                        <Eye
+                                                            className="size-3 opacity-70 shrink-0"
+                                                            aria-hidden="true"
+                                                        />
                                                     )}
                                                     {hasThinking && (
-                                                        <Brain className="size-3 opacity-70 shrink-0" />
+                                                        <Brain
+                                                            className="size-3 opacity-70 shrink-0"
+                                                            aria-hidden="true"
+                                                        />
                                                     )}
                                                 </button>
                                             );

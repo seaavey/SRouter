@@ -65,7 +65,7 @@ export function ModelUsageOverview({ models }: ModelUsageOverviewProps) {
             <header className="flex flex-col gap-3 pb-4 border-b border-hairline-soft sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-3 min-w-0">
                     <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-canvas-soft text-ink">
-                        <Cpu className="size-4" strokeWidth={1.75} />
+                        <Cpu className="size-4" strokeWidth={1.75} aria-hidden="true" />
                     </div>
                     <div className="min-w-0">
                         <div className="flex items-center gap-2">
@@ -104,7 +104,7 @@ export function ModelUsageOverview({ models }: ModelUsageOverviewProps) {
                 <Empty className="mt-6">
                     <EmptyHeader>
                         <EmptyMedia variant="icon">
-                            <Layers className="size-5" />
+                            <Layers className="size-5" aria-hidden="true" />
                         </EmptyMedia>
                         <EmptyTitle>No model traffic recorded</EmptyTitle>
                         <EmptyDescription>

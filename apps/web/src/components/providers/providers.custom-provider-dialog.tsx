@@ -147,7 +147,7 @@ export function CustomProviderDialog({ open, onOpenChange }: CustomProviderDialo
                 <div className="flex items-start justify-between gap-4 border-b border-hairline-soft pb-4">
                     <div className="flex min-w-0 items-start gap-3">
                         <div className="flex size-9 shrink-0 items-center justify-center rounded-2xl bg-canvas-soft text-text-muted">
-                            <Globe className="size-4" />
+                            <Globe className="size-4" aria-hidden="true" />
                         </div>
                         <div className="min-w-0">
                             <h2 className="text-base font-bold tracking-tight text-ink sm:text-lg">
@@ -164,7 +164,7 @@ export function CustomProviderDialog({ open, onOpenChange }: CustomProviderDialo
                         className="inline-flex size-8 items-center justify-center rounded-full text-text-muted hover:bg-canvas-soft hover:text-ink transition-colors cursor-pointer"
                         aria-label="Close dialog"
                     >
-                        <X className="size-4" />
+                        <X className="size-4" aria-hidden="true" />
                     </button>
                 </div>
 
@@ -333,7 +333,7 @@ export function CustomProviderDialog({ open, onOpenChange }: CustomProviderDialo
                                     className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-ink cursor-pointer"
                                     aria-label={showKey ? "Hide API key" : "Show API key"}
                                 >
-                                    <Key className="size-3.5" />
+                                    <Key className="size-3.5" aria-hidden="true" />
                                 </button>
                             </div>
                         </div>
@@ -348,19 +348,19 @@ export function CustomProviderDialog({ open, onOpenChange }: CustomProviderDialo
                         >
                             {verifyStatus === "testing" ? (
                                 <>
-                                    <Loader2 className="size-3.5 animate-spin" />
+                                    <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
                                     Testing…
                                 </>
                             ) : (
                                 <>
-                                    <Plug className="size-3.5" />
+                                    <Plug className="size-3.5" aria-hidden="true" />
                                     Test Connection
                                 </>
                             )}
                         </button>
                         {verifyStatus === "success" && (
                             <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                                <CheckCircle2 className="size-3.5" />
+                                <CheckCircle2 className="size-3.5" aria-hidden="true" />
                                 Verified
                             </span>
                         )}

@@ -113,7 +113,7 @@ export function SecuritySettings({
                 >
                     <div className="flex items-center justify-between border-b border-hairline-soft pb-3.5">
                         <div className="flex items-center gap-2.5">
-                            <Lock className="size-4 text-text-muted" />
+                            <Lock className="size-4 text-text-muted" aria-hidden="true" />
                             <div>
                                 <h3 className="text-xs font-semibold text-ink leading-none font-sans">
                                     Change Admin Password
@@ -130,9 +130,9 @@ export function SecuritySettings({
                             className="inline-flex items-center gap-1.5 text-xs font-mono text-text-muted hover:text-ink transition-colors cursor-pointer select-none px-3 py-1 rounded-full hover:bg-canvas"
                         >
                             {showPasswords ? (
-                                <EyeOff className="size-3.5" />
+                                <EyeOff className="size-3.5" aria-hidden="true" />
                             ) : (
-                                <Eye className="size-3.5" />
+                                <Eye className="size-3.5" aria-hidden="true" />
                             )}
                             <span>{showPasswords ? "Hide" : "Show"}</span>
                         </button>
@@ -140,7 +140,7 @@ export function SecuritySettings({
 
                     {passwordError && (
                         <div className="flex items-center gap-2 rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-2.5 text-xs text-destructive font-sans">
-                            <AlertCircle className="size-4 shrink-0" />
+                            <AlertCircle className="size-4 shrink-0" aria-hidden="true" />
                             <span>{passwordError}</span>
                         </div>
                     )}
@@ -202,7 +202,7 @@ export function SecuritySettings({
                             }
                             className="font-semibold text-xs h-9 px-5 rounded-full cursor-pointer bg-ink text-canvas hover:opacity-90 shadow-none"
                         >
-                            <KeyRound className="size-3.5" />
+                            <KeyRound className="size-3.5" aria-hidden="true" />
                             <span>{isChangingPassword ? "Saving..." : "Update Password"}</span>
                         </Button>
                     </div>

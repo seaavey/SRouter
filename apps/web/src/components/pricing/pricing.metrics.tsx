@@ -56,7 +56,7 @@ export function PricingSummaryMetrics({
                             <span className="text-xs font-medium text-text-muted font-sans">
                                 {card.label}
                             </span>
-                            <Icon className="size-4 text-text-muted" />
+                            <Icon className="size-4 text-text-muted" aria-hidden="true" />
                         </div>
                         <div className="mt-3">
                             <div className="text-3xl font-bold tracking-tight text-ink font-mono tabular-nums">

@@ -70,7 +70,7 @@ export function AgentBadgeIcon({ agentName, className = "size-5" }: AgentBadgeIc
         <div
             className={`flex items-center justify-center rounded-xl bg-field text-ink border border-hairline-soft ${className}`}
         >
-            <Bot className="size-3.5" />
+            <Bot className="size-3.5" aria-hidden="true" />
         </div>
     );
 }

@@ -33,7 +33,7 @@ export function ComboHeader({ isAdding, onToggleAdd }: ComboHeaderProps) {
                         onClick={onToggleAdd}
                         className="h-10 shrink-0 gap-2 rounded-full px-5 text-sm font-semibold cursor-pointer shadow-none"
                     >
-                        <Plus className="size-4" />
+                        <Plus className="size-4" aria-hidden="true" />
                         <span>Create Combo</span>
                     </Button>
                 )}

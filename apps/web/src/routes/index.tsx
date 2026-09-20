@@ -95,7 +95,11 @@ function DashboardPage() {
                 <div className="mx-auto w-full max-w-7xl font-sans">
                     <div className="flex min-h-64 flex-col items-center justify-center rounded-3xl border border-destructive/20 bg-canvas p-8 text-center shadow-none">
                         <div className="flex size-12 items-center justify-center rounded-full bg-red-500/10 text-red-600 dark:text-red-400 mb-4">
-                            <TriangleAlert className="size-5" strokeWidth={1.75} />
+                            <TriangleAlert
+                                className="size-5"
+                                strokeWidth={1.75}
+                                aria-hidden="true"
+                            />
                         </div>
                         <h2 className="text-base font-semibold text-ink">
                             Unable to load gateway statistics.
@@ -112,7 +116,7 @@ function DashboardPage() {
                             className="mt-5 cursor-pointer gap-2 rounded-full"
                             onClick={() => void refetch()}
                         >
-                            <RefreshCw className="size-3" />
+                            <RefreshCw className="size-3" aria-hidden="true" />
                             <span>Retry Connection</span>
                         </Button>
                     </div>

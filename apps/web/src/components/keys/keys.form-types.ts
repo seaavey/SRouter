@@ -12,78 +12,114 @@ export interface KeyFormData {
     selected_models: string[];
 }
 
-export const default_data: KeyFormData = {
-    name: "",
-    enabled: true,
-    rate_limit: "",
-    quota_limit: "",
-    credit_limit: "",
-    model_scope: "all",
-    selected_models: []
+const TOKEN_UNITS: Record<string, number> = {
+    K: 1e3,
+    M: 1e6,
+    B: 1e9,
+    T: 1e12
 };
 
-export const quick_amounts = [5, 10, 25, 50];
+const COMPACT_UNITS = [
+    { value: 1e12, suffix: "T" },
+    { value: 1e9, suffix: "B" },
+    { value: 1e6, suffix: "M" },
+    { value: 1e3, suffix: "K" }
+];
 
-export type KeyLimitFieldKey = "rate_limit" | "quota_limit" | "credit_limit";
-
-export interface KeyLimitsFieldsProps {
-    form: KeyFormData;
-    onChange: <K extends KeyLimitFieldKey>(field: K, val: KeyFormData[K]) => void;
-    id_prefix?: string;
-}
-
-export interface ModelSelectorProps {
-    scope: ModelScope;
-    onScopeChange: (scope: ModelScope) => void;
-    selected_models: string[];
-    onToggleModel: (model_id: string) => void;
-    isOpen: boolean;
-    isPickerOpen?: boolean;
-    onPickerOpenChange?: (open: boolean) => void;
-}
-
-export interface KeyTelemetryCardProps {
-    api_key: APIKeyZod;
-}
+const MAX_DECIMALS = 2;
 
 export function maskKey(key: string): string {
     if (key.length <= 14) return key;
-    return `${key.slice(0, 10)}••••••••${key.slice(-4)}`;
+    return `${key.slice(0, 8)}••••••••${key.slice(-4)}`;
+}
+
+export function tokenUnitOf(value: string): string | null {
+    const match = value.match(/[a-zA-Z]\s*$/);
+    if (!match) return null;
+
+    const unit = match[0].trim().toUpperCase();
+    return unit in TOKEN_UNITS ? unit : null;
+}
+
+export function sanitizeLimitInput(value: string, allowDecimal = false, allowUnit = false): string {
+    const unit = allowUnit ? tokenUnitOf(value) : null;
+    const numeric = unit ? value.replace(/[a-zA-Z]/g, "") : value;
+
+    return `${normalizeNumberText(numeric, allowDecimal)}${unit ?? ""}`;
+}
+
+export function formatLimitInput(value: string, allowDecimal = false, allowUnit = false): string {
+    const unit = allowUnit ? tokenUnitOf(value) : null;
+    const numeric = unit ? value.replace(/[a-zA-Z]/g, "") : value;
+
+    return `${groupThousands(normalizeNumberText(numeric, allowDecimal))}${unit ?? ""}`;
+}
+
+export function groupThousands(value: string): string {
+    const [whole, ...fraction] = value.split(".");
+    const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+
+    return fraction.length > 0 ? `${grouped}.${fraction.join("")}` : grouped;
+}
+
+export function compactNumber(value: number): string {
+    const unit = COMPACT_UNITS.find((candidate) => value >= candidate.value);
+    if (!unit) return String(value);
+
+    const scaled = (value / unit.value).toFixed(MAX_DECIMALS).replace(/\.?0+$/, "");
+    return `${scaled}${unit.suffix}`;
+}
+
+export function resolveLimitCaret(raw: string, caret: number, formatted: string): number {
+    const keptBefore = raw.slice(0, caret).replace(/,/g, "").length;
+    if (keptBefore <= 0) return 0;
+
+    let seen = 0;
+    for (let index = 0; index < formatted.length; index += 1) {
+        if (formatted[index] !== ",") seen += 1;
+        if (seen === keptBefore) return index + 1;
+    }
+
+    return formatted.length;
+}
+
+export function parseLimitValue(value: string, integer = false): number | undefined {
+    if (!value.trim()) return undefined;
+
+    const numeric = Number(value.replace(/[a-zA-Z]/g, "").trim());
+    if (!Number.isFinite(numeric) || numeric < 0) return undefined;
+
+    const unit = tokenUnitOf(value);
+    const scaled = unit ? numeric * (TOKEN_UNITS[unit] ?? 1) : numeric;
+
+    return integer ? Math.round(scaled) : scaled;
 }
 
 export function parseKeyPayload(form: KeyFormData): CreateAPIKeyZod & { enabled: boolean } {
-    const rate_num = form.rate_limit.trim() ? parseInt(form.rate_limit, 10) : undefined;
-    const quota_num = form.quota_limit.trim() ? parseInt(form.quota_limit, 10) : undefined;
-    const credit_num = form.credit_limit.trim() ? parseFloat(form.credit_limit) : undefined;
+    const rate_num = parseLimitValue(form.rate_limit, true);
+    const quota_num = parseLimitValue(form.quota_limit, true);
+    const credit_num = parseLimitValue(form.credit_limit);
     const allowed_models =
         form.model_scope === "restricted" && form.selected_models.length > 0
             ? form.selected_models
             : null;
 
-    const rate_limit = Number.isFinite(rate_num) && (rate_num ?? 0) >= 0 ? rate_num : undefined;
-    const quota_limit = Number.isFinite(quota_num) && (quota_num ?? 0) >= 0 ? quota_num : undefined;
-    const credit_limit =
-        Number.isFinite(credit_num) && (credit_num ?? 0) >= 0 ? credit_num : undefined;
-
     return {
         name: form.name.trim(),
         enabled: form.enabled,
-        rate_limit,
-        quota_limit,
-        credit_limit,
+        rate_limit: rate_num,
+        quota_limit: quota_num,
+        credit_limit: credit_num,
         allowed_models
     };
 }
 
-export function getKeyFormData(data?: APIKeyZod | null): KeyFormData {
-    if (!data) return default_data;
-    return {
-        name: data.name || "",
-        enabled: Boolean(data.enabled),
-        rate_limit: data.rate_limit ? String(data.rate_limit) : "",
-        quota_limit: data.quota_limit ? String(data.quota_limit) : "",
-        credit_limit: data.credit_limit ? String(data.credit_limit) : "",
-        model_scope: data.allowed_models && data.allowed_models.length > 0 ? "restricted" : "all",
-        selected_models: data.allowed_models ?? []
-    };
+function normalizeNumberText(value: string, allowDecimal: boolean): string {
+    if (!allowDecimal) return value.replace(/\D/g, "");
+
+    const [whole, ...fraction] = value.replace(/[^\d.]/g, "").split(".");
+    const decimals = fraction.join("").slice(0, MAX_DECIMALS);
+    if (!whole && !decimals) return "";
+
+    return fraction.length > 0 ? `${whole || "0"}.${decimals}` : whole;
 }

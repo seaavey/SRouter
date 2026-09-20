@@ -69,7 +69,7 @@ export function LogDetailModal({ log, requireApiKey = false, onClose }: LogDetai
                         <div className="flex items-center justify-between px-6 py-5 border-b border-hairline-soft bg-canvas-soft/40 shrink-0">
                             <div className="flex items-center gap-3 min-w-0">
                                 <div className="flex size-9 items-center justify-center rounded-full bg-canvas border border-hairline-soft text-ink shrink-0">
-                                    <ScrollText className="size-4" />
+                                    <ScrollText className="size-4" aria-hidden="true" />
                                 </div>
                                 <div className="min-w-0">
                                     <DialogTitle className="text-base font-semibold text-ink truncate font-sans">
@@ -91,18 +91,19 @@ export function LogDetailModal({ log, requireApiKey = false, onClose }: LogDetai
                                     ].join(" ")}
                                 >
                                     {isOk ? (
-                                        <CheckCircle2 className="size-3.5" />
+                                        <CheckCircle2 className="size-3.5" aria-hidden="true" />
                                     ) : (
-                                        <AlertCircle className="size-3.5" />
+                                        <AlertCircle className="size-3.5" aria-hidden="true" />
                                     )}
                                     {log.statusCode} {isOk ? "OK" : "ERROR"}
                                 </span>
                                 <button
                                     type="button"
                                     onClick={onClose}
+                                    aria-label="Close dialog"
                                     className="size-8 inline-flex items-center justify-center rounded-full text-text-muted hover:text-ink hover:bg-canvas-soft cursor-pointer transition-colors"
                                 >
-                                    <X className="size-4" />
+                                    <X className="size-4" aria-hidden="true" />
                                 </button>
                             </div>
                         </div>
@@ -110,7 +111,11 @@ export function LogDetailModal({ log, requireApiKey = false, onClose }: LogDetai
                             <div className="rounded-2xl border border-hairline-soft bg-canvas-soft/30 divide-y divide-hairline-soft">
                                 <div className="flex items-center justify-between px-4 py-3 text-xs font-sans">
                                     <span className="text-text-muted flex items-center gap-2">
-                                        <Calendar className="size-3.5 text-text-muted" /> Timestamp
+                                        <Calendar
+                                            className="size-3.5 text-text-muted"
+                                            aria-hidden="true"
+                                        />{" "}
+                                        Timestamp
                                     </span>
                                     <span className="text-ink font-medium font-mono">
                                         {new Date(log.createdAt).toLocaleDateString()}{" "}
@@ -119,8 +124,11 @@ export function LogDetailModal({ log, requireApiKey = false, onClose }: LogDetai
                                 </div>
                                 <div className="flex items-center justify-between px-4 py-3 text-xs font-sans">
                                     <span className="text-text-muted flex items-center gap-2">
-                                        <Server className="size-3.5 text-text-muted" /> Provider &
-                                        Model
+                                        <Server
+                                            className="size-3.5 text-text-muted"
+                                            aria-hidden="true"
+                                        />{" "}
+                                        Provider &amp; Model
                                     </span>
                                     <div className="flex items-center gap-2 text-right">
                                         <span className="px-2 py-0.5 rounded-full bg-field text-text-muted text-[10px] font-mono">
@@ -133,7 +141,11 @@ export function LogDetailModal({ log, requireApiKey = false, onClose }: LogDetai
                                 </div>
                                 <div className="flex items-center justify-between px-4 py-3 text-xs font-sans">
                                     <span className="text-text-muted flex items-center gap-2">
-                                        <Bot className="size-3.5 text-text-muted" /> Client Agent
+                                        <Bot
+                                            className="size-3.5 text-text-muted"
+                                            aria-hidden="true"
+                                        />{" "}
+                                        Client Agent
                                     </span>
                                     <div className="flex items-center gap-2 max-w-[280px]">
                                         <span
@@ -156,8 +168,11 @@ export function LogDetailModal({ log, requireApiKey = false, onClose }: LogDetai
                                 </div>
                                 <div className="flex items-center justify-between px-4 py-3 text-xs font-sans">
                                     <span className="text-text-muted flex items-center gap-2">
-                                        <Globe className="size-3.5 text-text-muted" /> Client IP &
-                                        Latency
+                                        <Globe
+                                            className="size-3.5 text-text-muted"
+                                            aria-hidden="true"
+                                        />{" "}
+                                        Client IP &amp; Latency
                                     </span>
                                     <div className="flex items-center gap-2 font-mono">
                                         <span className="text-text-muted">
@@ -172,8 +187,11 @@ export function LogDetailModal({ log, requireApiKey = false, onClose }: LogDetai
                                 {(requireApiKey || log.apiKeyId) && (
                                     <div className="flex items-center justify-between px-4 py-3 text-xs font-sans">
                                         <span className="text-text-muted flex items-center gap-2">
-                                            <KeyRound className="size-3.5 text-text-muted" /> Auth
-                                            Key
+                                            <KeyRound
+                                                className="size-3.5 text-text-muted"
+                                                aria-hidden="true"
+                                            />{" "}
+                                            Auth Key
                                         </span>
                                         <div className="flex items-center gap-2">
                                             <span className="text-ink font-medium font-sans">
@@ -189,7 +207,7 @@ export function LogDetailModal({ log, requireApiKey = false, onClose }: LogDetai
                             {log.resolvedModel && log.resolvedModel !== log.model && (
                                 <div className="rounded-2xl border border-hairline-soft bg-canvas-soft/40 p-4 space-y-1">
                                     <div className="flex items-center gap-2 font-semibold text-ink text-xs font-sans">
-                                        <Zap className="size-3.5 text-accent" />
+                                        <Zap className="size-3.5 text-accent" aria-hidden="true" />
                                         Auto-Routing
                                     </div>
                                     <p className="text-xs text-text-muted font-mono">
@@ -205,7 +223,10 @@ export function LogDetailModal({ log, requireApiKey = false, onClose }: LogDetai
                             {log.fallbackOccurred && (
                                 <div className="rounded-2xl border border-hairline-soft bg-canvas-soft/40 p-4 space-y-1">
                                     <div className="flex items-center gap-2 font-semibold text-ink text-xs font-sans">
-                                        <Network className="size-3.5 text-accent" />
+                                        <Network
+                                            className="size-3.5 text-accent"
+                                            aria-hidden="true"
+                                        />
                                         Cascade Fallback
                                     </div>
                                     {log.fallbackReason && (
@@ -219,7 +240,8 @@ export function LogDetailModal({ log, requireApiKey = false, onClose }: LogDetai
                                 <div className="rounded-2xl border border-hairline-soft bg-canvas-soft/30 p-4 space-y-3">
                                     <div className="flex items-center justify-between border-b border-hairline-soft pb-2.5">
                                         <span className="font-medium text-xs text-text-muted flex items-center gap-2 font-sans">
-                                            <Cpu className="size-3.5" /> Token Consumption
+                                            <Cpu className="size-3.5" aria-hidden="true" /> Token
+                                            Consumption
                                         </span>
                                         <span className="font-bold text-ink font-mono tabular-nums">
                                             {log.totalTokens.toLocaleString()}
@@ -271,7 +293,8 @@ export function LogDetailModal({ log, requireApiKey = false, onClose }: LogDetai
                                 <div className="rounded-2xl border border-hairline-soft bg-canvas-soft/30 p-4 space-y-3">
                                     <div className="flex items-center justify-between border-b border-hairline-soft pb-2.5">
                                         <span className="font-medium text-xs text-text-muted flex items-center gap-2 font-sans">
-                                            <Coins className="size-3.5" /> Cost Accounting
+                                            <Coins className="size-3.5" aria-hidden="true" /> Cost
+                                            Accounting
                                         </span>
                                         <span className="font-bold text-ink font-mono tabular-nums">
                                             ${totalCost.toFixed(5)}
@@ -318,7 +341,7 @@ export function LogDetailModal({ log, requireApiKey = false, onClose }: LogDetai
                                     className="w-full flex items-center justify-between px-4 py-3 text-xs font-medium text-text-muted hover:text-ink cursor-pointer transition-colors font-sans"
                                 >
                                     <span className="flex items-center gap-2">
-                                        <Code2 className="size-3.5" />
+                                        <Code2 className="size-3.5" aria-hidden="true" />
                                         Developer Payload
                                     </span>
                                     <div className="flex items-center gap-2">
@@ -331,16 +354,19 @@ export function LogDetailModal({ log, requireApiKey = false, onClose }: LogDetai
                                             className="inline-flex items-center gap-1.5 rounded-full border border-hairline-soft bg-canvas px-3 py-1 text-[11px] text-text-muted hover:text-ink transition-colors cursor-pointer"
                                         >
                                             {copied ? (
-                                                <Check className="size-3 text-emerald-500" />
+                                                <Check
+                                                    className="size-3 text-emerald-500"
+                                                    aria-hidden="true"
+                                                />
                                             ) : (
-                                                <Copy className="size-3" />
+                                                <Copy className="size-3" aria-hidden="true" />
                                             )}
                                             <span>{copied ? "Copied" : "Copy"}</span>
                                         </button>
                                         {showRawJson ? (
-                                            <ChevronDown className="size-4" />
+                                            <ChevronDown className="size-4" aria-hidden="true" />
                                         ) : (
-                                            <ChevronRight className="size-4" />
+                                            <ChevronRight className="size-4" aria-hidden="true" />
                                         )}
                                     </div>
                                 </button>

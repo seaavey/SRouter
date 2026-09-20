@@ -16,7 +16,6 @@ import {
     EmptyMedia,
     EmptyTitle
 } from "@/components/ui/empty";
-import { useDebounce } from "@/hooks/useDebounce";
 import { CreateUsageByModelColumns } from "./usage-by-model.columns";
 import { UsageByModelDesktop } from "./usage-by-model.desktop";
 import { UsageByModelMobile } from "./usage-by-model.mobile";
@@ -28,12 +27,11 @@ export function UsageByModelTable({ models }: UsageByModelTableProps) {
     const [search_model, set_search_model] = useState("");
     const [sorting, set_sorting] = useState<SortingState>([{ id: "totalRequests", desc: true }]);
     const [pagination, set_pagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 10 });
-    const debounced_search = useDebounce(search_model, 150);
 
     const filtered_models = useMemo(() => {
-        const query = debounced_search.trim().toLowerCase();
+        const query = search_model.trim().toLowerCase();
         return query ? models.filter((model) => model.model.toLowerCase().includes(query)) : models;
-    }, [models, debounced_search]);
+    }, [models, search_model]);
 
     const columns = useMemo(() => CreateUsageByModelColumns(), []);
     const table = useReactTable({
@@ -55,7 +53,7 @@ export function UsageByModelTable({ models }: UsageByModelTableProps) {
             <CardHeader className="flex flex-col justify-between gap-4 border-b border-hairline-soft p-6 sm:flex-row sm:items-center">
                 <div className="flex min-w-0 items-center gap-3">
                     <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-canvas-soft text-ink">
-                        <Database className="size-4" strokeWidth={1.75} />
+                        <Database className="size-4" strokeWidth={1.75} aria-hidden="true" />
                     </div>
                     <div className="min-w-0">
                         <CardTitle className="font-heading text-base font-semibold text-ink">
@@ -76,7 +74,7 @@ export function UsageByModelTable({ models }: UsageByModelTableProps) {
                     <Empty className="min-h-44 p-8">
                         <EmptyHeader>
                             <EmptyMedia variant="icon">
-                                <Search className="size-5" strokeWidth={1.5} />
+                                <Search className="size-5" strokeWidth={1.5} aria-hidden="true" />
                             </EmptyMedia>
                             <EmptyTitle>
                                 {has_usage ? "No matching models" : "No model usage yet"}

@@ -132,9 +132,10 @@ export default function ComboForm({
                         <button
                             type="button"
                             onClick={onCancel}
+                            aria-label="Close dialog"
                             className="size-8 inline-flex items-center justify-center rounded-full text-text-muted hover:text-ink hover:bg-canvas-soft transition-colors cursor-pointer"
                         >
-                            <X className="size-4" />
+                            <X className="size-4" aria-hidden="true" />
                         </button>
                     </div>
 
@@ -171,7 +172,10 @@ export default function ComboForm({
                             <div className="rounded-2xl border border-hairline-soft bg-canvas-soft/30 p-4 space-y-3">
                                 {selectedModels.length === 0 ? (
                                     <div className="flex flex-col items-center justify-center py-8 text-center font-sans">
-                                        <Layers className="size-8 text-text-muted/60 mb-2" />
+                                        <Layers
+                                            className="size-8 text-text-muted/60 mb-2"
+                                            aria-hidden="true"
+                                        />
                                         <span className="text-xs font-medium text-text-muted">
                                             No fallback models added yet
                                         </span>
@@ -202,10 +206,16 @@ export default function ComboForm({
                                                         </span>
                                                         <div className="flex items-center gap-1 shrink-0">
                                                             {hasVision && (
-                                                                <Eye className="size-3 text-text-muted shrink-0" />
+                                                                <Eye
+                                                                    className="size-3 text-text-muted shrink-0"
+                                                                    aria-hidden="true"
+                                                                />
                                                             )}
                                                             {hasThinking && (
-                                                                <Brain className="size-3 text-text-muted shrink-0" />
+                                                                <Brain
+                                                                    className="size-3 text-text-muted shrink-0"
+                                                                    aria-hidden="true"
+                                                                />
                                                             )}
                                                         </div>
                                                     </div>
@@ -218,7 +228,10 @@ export default function ComboForm({
                                                             className="size-7 inline-flex items-center justify-center text-text-muted hover:text-ink disabled:opacity-30 cursor-pointer rounded-full hover:bg-canvas-soft transition-colors"
                                                             title="Move up priority"
                                                         >
-                                                            <ChevronUp className="size-3.5" />
+                                                            <ChevronUp
+                                                                className="size-3.5"
+                                                                aria-hidden="true"
+                                                            />
                                                         </button>
                                                         <button
                                                             type="button"
@@ -229,7 +242,10 @@ export default function ComboForm({
                                                             className="size-7 inline-flex items-center justify-center text-text-muted hover:text-ink disabled:opacity-30 cursor-pointer rounded-full hover:bg-canvas-soft transition-colors"
                                                             title="Move down priority"
                                                         >
-                                                            <ChevronDown className="size-3.5" />
+                                                            <ChevronDown
+                                                                className="size-3.5"
+                                                                aria-hidden="true"
+                                                            />
                                                         </button>
                                                         <button
                                                             type="button"
@@ -239,7 +255,10 @@ export default function ComboForm({
                                                             className="size-7 inline-flex items-center justify-center text-text-muted hover:text-destructive cursor-pointer rounded-full hover:bg-destructive/10 transition-colors"
                                                             title="Remove model"
                                                         >
-                                                            <Trash2 className="size-3.5" />
+                                                            <Trash2
+                                                                className="size-3.5"
+                                                                aria-hidden="true"
+                                                            />
                                                         </button>
                                                     </div>
                                                 </div>
@@ -253,7 +272,7 @@ export default function ComboForm({
                                     onClick={() => setIsPickerOpen(true)}
                                     className="flex w-full items-center justify-center gap-2 rounded-full border border-dashed border-hairline bg-canvas hover:bg-canvas-soft py-2.5 text-xs font-semibold text-ink transition-colors cursor-pointer shadow-none font-sans"
                                 >
-                                    <Plus className="size-3.5" />
+                                    <Plus className="size-3.5" aria-hidden="true" />
                                     <span>Select Models to Cascade</span>
                                 </button>
                             </div>

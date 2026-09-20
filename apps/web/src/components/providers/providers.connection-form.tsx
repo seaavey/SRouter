@@ -118,7 +118,7 @@ export function ConnectionForm({
             <DialogContent className="sm:max-w-md w-full p-6 md:p-8 bg-canvas border border-hairline-soft rounded-3xl space-y-5 shadow-none font-sans max-h-[calc(100dvh-2rem)] overflow-y-auto">
                 <div className="flex items-center justify-between border-b border-hairline-soft pb-3.5">
                     <h2 className="font-bold text-base text-ink flex items-center gap-2">
-                        <Key className="size-4 text-text-muted" />
+                        <Key className="size-4 text-text-muted" aria-hidden="true" />
                         <span>Add API Key for {providerName}.</span>
                     </h2>
 
@@ -128,7 +128,7 @@ export function ConnectionForm({
                         className="inline-flex size-8 items-center justify-center rounded-full text-text-muted hover:bg-canvas-soft hover:text-ink transition-colors cursor-pointer"
                         aria-label="Close dialog"
                     >
-                        <X className="size-4" />
+                        <X className="size-4" aria-hidden="true" />
                     </button>
                 </div>
 
@@ -175,12 +175,13 @@ export function ConnectionForm({
                                 type="button"
                                 onClick={() => setShowKey(!showKey)}
                                 className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-ink cursor-pointer"
+                                aria-label={showKey ? "Hide API key" : "Show API key"}
                                 tabIndex={-1}
                             >
                                 {showKey ? (
-                                    <EyeOff className="size-4" />
+                                    <EyeOff className="size-4" aria-hidden="true" />
                                 ) : (
-                                    <Eye className="size-4" />
+                                    <Eye className="size-4" aria-hidden="true" />
                                 )}
                             </button>
                         </div>
@@ -194,12 +195,12 @@ export function ConnectionForm({
                         >
                             {verifyStatus === "testing" ? (
                                 <>
-                                    <Loader2 className="size-3.5 animate-spin" />
+                                    <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
                                     Testing…
                                 </>
                             ) : (
                                 <>
-                                    <Plug className="size-3.5" />
+                                    <Plug className="size-3.5" aria-hidden="true" />
                                     Test Connection
                                 </>
                             )}
@@ -207,7 +208,7 @@ export function ConnectionForm({
 
                         {verifyStatus === "success" && (
                             <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                                <CheckCircle2 className="size-3.5" />
+                                <CheckCircle2 className="size-3.5" aria-hidden="true" />
                                 Verified
                             </span>
                         )}

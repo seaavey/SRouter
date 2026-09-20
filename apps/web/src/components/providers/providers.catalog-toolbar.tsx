@@ -53,7 +53,7 @@ export function CatalogToolbar({
                             onClick={onAddCustom}
                             className="rounded-full px-5 h-9 text-xs font-semibold cursor-pointer gap-1.5 shadow-none"
                         >
-                            <Plus className="size-3.5" />
+                            <Plus className="size-3.5" aria-hidden="true" />
                             <span>Add Custom Provider</span>
                         </Button>
                     )}
@@ -67,6 +67,7 @@ export function CatalogToolbar({
                     >
                         <RefreshCw
                             className={`size-3.5 text-text-muted ${isFetching ? "animate-spin" : ""}`}
+                            aria-hidden="true"
                         />
                         <span>{isFetching ? "Syncing…" : "Refresh"}</span>
                     </Button>
@@ -112,6 +113,7 @@ export function CatalogToolbar({
                         <Search
                             className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-text-muted"
                             strokeWidth={1.75}
+                            aria-hidden="true"
                         />
                         <Input
                             type="text"
@@ -127,7 +129,7 @@ export function CatalogToolbar({
                                 className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-1 text-text-muted hover:text-ink transition-colors cursor-pointer"
                                 aria-label="Clear search"
                             >
-                                <X className="size-3" />
+                                <X className="size-3" aria-hidden="true" />
                             </button>
                         )}
                     </div>
@@ -143,7 +145,7 @@ export function CatalogToolbar({
                             title="Grid view"
                             aria-label="Grid view"
                         >
-                            <LayoutGrid className="size-3.5" />
+                            <LayoutGrid className="size-3.5" aria-hidden="true" />
                         </button>
                         <button
                             type="button"
@@ -156,7 +158,7 @@ export function CatalogToolbar({
                             title="List view"
                             aria-label="List view"
                         >
-                            <List className="size-3.5" />
+                            <List className="size-3.5" aria-hidden="true" />
                         </button>
                     </div>
                 </div>
