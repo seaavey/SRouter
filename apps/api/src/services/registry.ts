@@ -1,14 +1,12 @@
 import {
     ATRIA_BASE_URL,
     BAI_BASE_URL,
-    BLUESMINDS_BASE_URL,
     CODEBUDDY_BASE_URL,
     CODEBUDDY_CN_BASE_URL,
     CODEBUDDY_CN_DOMAIN,
     CODEBUDDY_CN_USER_AGENT,
     DEFAULT_PROVIDERS,
     EXPERIENTIALLABS_BASE_URL,
-    GOROUTER_BASE_URL,
     MINIMAX_BASE_URL,
     isProviderBaseId,
     isSeedProvider,
@@ -17,8 +15,6 @@ import {
     providerAlias,
     providerBaseId,
     SEED_MARKER,
-    SEEKAI_BASE_URL,
-    TABITOKEN_BASE_URL,
     TOKENROUTER_BASE_URL
 } from "@srouter/constants";
 import {
@@ -33,18 +29,14 @@ import {
     AnthropicExecutor,
     AtriaExecutor,
     BAIExecutor,
-    BluesMindsExecutor,
     ClineExecutor,
     CodeBuddyExecutor,
     CodexExecutor,
     CommandCodeExecutor,
-    GoRouterExecutor,
     KiroExecutor,
     OpenCodeZenExecutor,
     OpenAIExecutor,
     QoderExecutor,
-    SeekAIExecutor,
-    TabiTokenExecutor,
     TokenRouterExecutor
 } from "@srouter/executors";
 import { ProviderRegistry } from "@srouter/providers";
@@ -200,50 +192,6 @@ export async function loadSavedProvidersFromDB(): Promise<void> {
                         id: p.id || p.providerId,
                         name: p.name,
                         baseUrl: baseUrl || NEOSANTARA_BASE_URL,
-                        apiKey: p.apiKey,
-                        accessToken: p.accessToken
-                    })
-                );
-                break;
-            case isProviderBaseId(p.id, "gorouter"):
-                registry.registerProvider(
-                    new GoRouterExecutor({
-                        id: p.id || p.providerId,
-                        name: p.name,
-                        baseUrl: baseUrl || GOROUTER_BASE_URL,
-                        apiKey: p.apiKey,
-                        accessToken: p.accessToken
-                    })
-                );
-                break;
-            case isProviderBaseId(p.id, "bluesminds"):
-                registry.registerProvider(
-                    new BluesMindsExecutor({
-                        id: p.id || p.providerId,
-                        name: p.name,
-                        baseUrl: baseUrl || BLUESMINDS_BASE_URL,
-                        apiKey: p.apiKey,
-                        accessToken: p.accessToken
-                    })
-                );
-                break;
-            case isProviderBaseId(p.id, "seekai"):
-                registry.registerProvider(
-                    new SeekAIExecutor({
-                        id: p.id || p.providerId,
-                        name: p.name,
-                        baseUrl: baseUrl || SEEKAI_BASE_URL,
-                        apiKey: p.apiKey,
-                        accessToken: p.accessToken
-                    })
-                );
-                break;
-            case isProviderBaseId(p.id, "tabitoken"):
-                registry.registerProvider(
-                    new TabiTokenExecutor({
-                        id: p.id || p.providerId,
-                        name: p.name,
-                        baseUrl: baseUrl || TABITOKEN_BASE_URL,
                         apiKey: p.apiKey,
                         accessToken: p.accessToken
                     })

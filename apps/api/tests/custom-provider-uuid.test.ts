@@ -97,10 +97,7 @@ test("built-in provider IDs are unchanged by the UUID migration", async () => {
     // Known seed provider IDs
     assert.ok(allIds.includes("bai"), "bai must still exist");
     assert.ok(allIds.includes("neosantara"), "neosantara must still exist");
-    assert.ok(allIds.includes("gorouter"), "gorouter must still exist");
     assert.ok(allIds.includes("kiro"), "kiro must still exist");
-    assert.ok(allIds.includes("bluesminds"), "bluesminds must still exist");
-    assert.ok(allIds.includes("seekai"), "seekai must still exist");
 });
 
 test("ListProviders lists UUID provider", async () => {
@@ -157,10 +154,6 @@ test("custom provider with UUID does not collide with seed provider IDs", async 
         "anthropic",
         "bai",
         "neosantara",
-        "gorouter",
-        "bluesminds",
-        "seekai",
-        "tabitoken",
         "tokenrouter"
     ];
 

@@ -5,7 +5,6 @@ import {
     ANTHROPIC_BASE_URL,
     ATRIA_BASE_URL,
     BAI_BASE_URL,
-    BLUESMINDS_BASE_URL,
     CODEBUDDY_BASE_URL,
     CODEBUDDY_CN_BASE_URL,
     CODEBUDDY_CN_DOMAIN,
@@ -14,9 +13,6 @@ import {
     CODEX_OAUTH_CLIENT_ID,
     CODEX_OAUTH_REDIRECT_URI,
     COMMANDCODE_BASE_URL,
-    GOROUTER_BASE_URL,
-    SEEKAI_BASE_URL,
-    TABITOKEN_BASE_URL,
     TOKENROUTER_BASE_URL
 } from "@srouter/constants";
 import {
@@ -24,15 +20,11 @@ import {
     AnthropicExecutor,
     AtriaExecutor,
     BAIExecutor,
-    BluesMindsExecutor,
     CodeBuddyExecutor,
     ClineExecutor,
     CodexExecutor,
     CommandCodeExecutor,
-    GoRouterExecutor,
     QoderExecutor,
-    SeekAIExecutor,
-    TabiTokenExecutor,
     TokenRouterExecutor
 } from "@srouter/executors";
 import {
@@ -205,78 +197,6 @@ const qoder: AuthProviderHandler = {
         new QoderExecutor({ id, name, baseUrl, apiKey, accessToken, refreshToken })
 };
 
-const goRouter: AuthProviderHandler = {
-    providerId: "gorouter",
-    displayName: "GoRouter",
-    category: "api_key",
-    protocol: "openai",
-    idPrefix: "gorouter",
-    baseUrl: () => GOROUTER_BASE_URL,
-    oauthSuccessMessage: "",
-    tokenImportMessage: "GoRouter API Key registered and saved directly to SQLite database!",
-    mapImportTokens: (params) => ({
-        apiKey: params.accessToken,
-        refreshToken: params.refreshToken,
-        baseUrl: params.baseUrl
-    }),
-    buildExecutor: ({ id, name, baseUrl, apiKey }) =>
-        new GoRouterExecutor({ id, name, baseUrl: baseUrl || GOROUTER_BASE_URL, apiKey })
-};
-
-const bluesMinds: AuthProviderHandler = {
-    providerId: "bluesminds",
-    displayName: "BluesMinds",
-    category: "api_key",
-    protocol: "openai",
-    idPrefix: "bluesminds",
-    baseUrl: () => BLUESMINDS_BASE_URL,
-    oauthSuccessMessage: "",
-    tokenImportMessage: "BluesMinds API Key registered and saved directly to SQLite database!",
-    mapImportTokens: (params) => ({
-        apiKey: params.accessToken,
-        refreshToken: params.refreshToken,
-        baseUrl: params.baseUrl
-    }),
-    buildExecutor: ({ id, name, baseUrl, apiKey }) =>
-        new BluesMindsExecutor({ id, name, baseUrl: baseUrl || BLUESMINDS_BASE_URL, apiKey })
-};
-
-const seekAI: AuthProviderHandler = {
-    providerId: "seekai",
-    displayName: "SeekAI",
-    category: "api_key",
-    protocol: "openai",
-    idPrefix: "seekai",
-    baseUrl: () => SEEKAI_BASE_URL,
-    oauthSuccessMessage: "",
-    tokenImportMessage: "SeekAI API Key registered and saved directly to SQLite database!",
-    mapImportTokens: (params) => ({
-        apiKey: params.accessToken,
-        refreshToken: params.refreshToken,
-        baseUrl: params.baseUrl
-    }),
-    buildExecutor: ({ id, name, baseUrl, apiKey }) =>
-        new SeekAIExecutor({ id, name, baseUrl: baseUrl || SEEKAI_BASE_URL, apiKey })
-};
-
-const tabiToken: AuthProviderHandler = {
-    providerId: "tabitoken",
-    displayName: "TabiToken",
-    category: "api_key",
-    protocol: "openai",
-    idPrefix: "tabitoken",
-    baseUrl: () => TABITOKEN_BASE_URL,
-    oauthSuccessMessage: "",
-    tokenImportMessage: "TabiToken API Key registered and saved directly to SQLite database!",
-    mapImportTokens: (params) => ({
-        apiKey: params.accessToken,
-        refreshToken: params.refreshToken,
-        baseUrl: params.baseUrl
-    }),
-    buildExecutor: ({ id, name, baseUrl, apiKey }) =>
-        new TabiTokenExecutor({ id, name, baseUrl: baseUrl || TABITOKEN_BASE_URL, apiKey })
-};
-
 const tokenRouter: AuthProviderHandler = {
     providerId: "tokenrouter",
     displayName: "TokenRouter",
@@ -401,10 +321,6 @@ export const AuthHandlers = {
     Atria: atria,
     Claude: claude,
     Qoder: qoder,
-    GoRouter: goRouter,
-    BluesMinds: bluesMinds,
-    SeekAI: seekAI,
-    TabiToken: tabiToken,
     TokenRouter: tokenRouter,
     CodeBuddy: codeBuddy,
     CodeBuddyCN: codeBuddyCN,
@@ -420,10 +336,6 @@ export const authProviderHandlers: Record<string, AuthProviderHandler> = {
     atria: AuthHandlers.Atria,
     claude: AuthHandlers.Claude,
     qoder: AuthHandlers.Qoder,
-    gorouter: AuthHandlers.GoRouter,
-    bluesminds: AuthHandlers.BluesMinds,
-    seekai: AuthHandlers.SeekAI,
-    tabitoken: AuthHandlers.TabiToken,
     tokenrouter: AuthHandlers.TokenRouter,
     codebuddy: AuthHandlers.CodeBuddy,
     "codebuddy-cn": AuthHandlers.CodeBuddyCN,

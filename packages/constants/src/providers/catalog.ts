@@ -1,11 +1,9 @@
 import { ANTHROPIC_PROVIDER } from "./anthropic.js";
 import { ANTIGRAVITY_PROVIDER } from "./antigravity.js";
 import { ATRIA_PROVIDER } from "./atria.js";
-import { BLUESMINDS_PROVIDER } from "./bluesminds.js";
 import { CODEBUDDY_CN_PROVIDER, CODEBUDDY_PROVIDER } from "./codebuddy.js";
 import { CLINE_PROVIDER } from "./cline.js";
 import { COMMANDCODE_PROVIDER } from "./commandcode.js";
-import { GOROUTER_PROVIDER } from "./gorouter.js";
 import { KIRO_PROVIDER } from "./kiro.js";
 import { NEOSANTARA_PROVIDER } from "./neosantara.js";
 import { OPENAI_CODEX_PROVIDER } from "./openai.js";
@@ -14,18 +12,12 @@ import { BAI_PROVIDER } from "./bai.js";
 import { EXPERIENTIALLABS_PROVIDER } from "./experientiallabs.js";
 import { MINIMAX_PROVIDER } from "./minimax.js";
 import { QODER_PROVIDER } from "./qoder.js";
-import { SEEKAI_PROVIDER } from "./seekai.js";
-import { TABITOKEN_PROVIDER } from "./tabitoken.js";
 import { TOKENROUTER_PROVIDER } from "./tokenrouter.js";
 import type { ProviderMetadata } from "./types.js";
 
 export const KNOWN_PROVIDERS = [
     KIRO_PROVIDER,
     NEOSANTARA_PROVIDER,
-    GOROUTER_PROVIDER,
-    BLUESMINDS_PROVIDER,
-    SEEKAI_PROVIDER,
-    TABITOKEN_PROVIDER,
     TOKENROUTER_PROVIDER,
     OPENAI_CODEX_PROVIDER,
     ANTHROPIC_PROVIDER,

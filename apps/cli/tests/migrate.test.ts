@@ -79,8 +79,8 @@ test("9Router JSON backup export imports providers, apiKeys and customModels saf
         providerNodes: [
             {
                 id: "node-456",
-                name: "Gorouter",
-                baseUrl: "https://gorouter.app/v1",
+                name: "LegacyGateway",
+                baseUrl: "https://legacy-gateway.example/v1",
                 apiType: "chat"
             }
         ],
@@ -95,7 +95,7 @@ test("9Router JSON backup export imports providers, apiKeys and customModels saf
         ],
         customModels: [
             {
-                providerAlias: "gorouter",
+                providerAlias: "legacygateway",
                 id: "deepseek-v4",
                 name: "deepseek-v4"
             }
@@ -121,8 +121,8 @@ test("9Router JSON backup export imports providers, apiKeys and customModels saf
     targetDb.close();
 
     assert.ok(provider1);
-    assert.equal(provider1.provider_id, "gorouter");
-    assert.equal(provider1.base_url, "https://gorouter.app/v1");
+    assert.equal(provider1.provider_id, "legacygateway");
+    assert.equal(provider1.base_url, "https://legacy-gateway.example/v1");
     assert.equal(provider1.api_key, "sk-sample-key");
 
     assert.ok(provider2);
@@ -133,7 +133,7 @@ test("9Router JSON backup export imports providers, apiKeys and customModels saf
     assert.equal(apiKey.key, "nr_live_12345");
 
     assert.ok(model);
-    assert.equal(model.provider_id, "gorouter");
+    assert.equal(model.provider_id, "legacygateway");
 
     fs.rmSync(tempDir, { recursive: true, force: true });
 });
