@@ -129,10 +129,6 @@ function formatProviderLabel(provider: string): string {
         qoder: "Qoder",
         codebuddy: "CodeBuddy",
         deepseek: "DeepSeek",
-        gorouter: "GoRouter",
-        bluesminds: "BluesMinds",
-        seekai: "SeekAI",
-        tabitoken: "TabiToken",
         tokenrouter: "TokenRouter",
         commandcode: "CommandCode",
         combo: "Combo"

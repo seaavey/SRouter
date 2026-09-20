@@ -169,9 +169,6 @@ SRouter normalizes authentication, model routing, streaming, quotas, and protoco
 | OpenCode Zen           | `opencode_zen/*`          | Free / access token  |     Yes      |
 | Amazon Q / Kiro        | `kiro/*`                  | SigV4 / API key      |     Yes      |
 | Qoder                  | `qoder/*`                 | OAuth / device token |     Yes      |
-| GoRouter               | `gorouter/*`              | API key              |     Yes      |
-| BluesMinds             | `bluesminds/*`            | API key              |     Yes      |
-| SeekAI / TabiToken     | `seekai/*`, `tabitoken/*` | API key              |     Yes      |
 | Custom endpoints       | `custom/*`                | Custom headers       | Configurable |
 
 ## What SRouter Handles

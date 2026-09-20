@@ -30,14 +30,6 @@ AuthRouter.get("/auth/claude/callback", AuthController.Claude.Callback);
 AuthRouter.post("/auth/claude/callback", AuthController.Claude.Callback);
 AuthRouter.post("/auth/claude/token", RequireAdmin, AuthController.Claude.ImportToken);
 
-AuthRouter.post("/auth/gorouter/token", RequireAdmin, AuthController.GoRouter.ImportToken);
-
-AuthRouter.post("/auth/bluesminds/token", RequireAdmin, AuthController.BluesMinds.ImportToken);
-
-AuthRouter.post("/auth/seekai/token", RequireAdmin, AuthController.SeekAI.ImportToken);
-
-AuthRouter.post("/auth/tabitoken/token", RequireAdmin, AuthController.TabiToken.ImportToken);
-
 AuthRouter.post("/auth/tokenrouter/token", RequireAdmin, AuthController.TokenRouter.ImportToken);
 
 AuthRouter.get("/auth/codebuddy/login", RequireAdmin, AuthController.CodeBuddy.OAuth);

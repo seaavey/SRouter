@@ -589,10 +589,6 @@ RegisterEntry("cline", {
 for (const [key, handler] of [
     ["commandcode", AuthHandlers.CommandCode],
     ["anthropic", AuthHandlers.Anthropic],
-    ["gorouter", AuthHandlers.GoRouter],
-    ["bluesminds", AuthHandlers.BluesMinds],
-    ["seekai", AuthHandlers.SeekAI],
-    ["tabitoken", AuthHandlers.TabiToken],
     ["tokenrouter", AuthHandlers.TokenRouter],
     ["atria", AuthHandlers.Atria]
 ] as const) {
@@ -682,14 +678,6 @@ export const AuthLogic = {
         AuthLogic.processProviderOAuthCallback("claude", code, state),
     processClaudeTokenImport: (params: TokenImportParams) =>
         AuthLogic.processProviderTokenImport("claude", params),
-    processGoRouterTokenImport: (params: TokenImportParams) =>
-        AuthLogic.processProviderTokenImport("gorouter", params),
-    processBluesMindsTokenImport: (params: TokenImportParams) =>
-        AuthLogic.processProviderTokenImport("bluesminds", params),
-    processSeekAITokenImport: (params: TokenImportParams) =>
-        AuthLogic.processProviderTokenImport("seekai", params),
-    processTabiTokenTokenImport: (params: TokenImportParams) =>
-        AuthLogic.processProviderTokenImport("tabitoken", params),
     processTokenRouterTokenImport: (params: TokenImportParams) =>
         AuthLogic.processProviderTokenImport("tokenrouter", params),
     processCodeBuddyTokenImport: (params: TokenImportParams) =>

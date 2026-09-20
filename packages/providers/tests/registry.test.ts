@@ -39,26 +39,6 @@ test("Neosantara uses its own model prefix alias", () => {
     assert.equal(getProviderAlias("bai_primary"), "bai");
 });
 
-test("GoRouter uses its own model prefix alias", () => {
-    assert.equal(getProviderAlias("gorouter"), "gorouter");
-    assert.equal(getProviderAlias("gorouter_123"), "gorouter");
-});
-
-test("BluesMinds uses its own model prefix alias", () => {
-    assert.equal(getProviderAlias("bluesminds"), "bluesminds");
-    assert.equal(getProviderAlias("bluesminds_123"), "bluesminds");
-});
-
-test("SeekAI uses its own model prefix alias", () => {
-    assert.equal(getProviderAlias("seekai"), "seekai");
-    assert.equal(getProviderAlias("seekai_123"), "seekai");
-});
-
-test("TabiToken uses its own model prefix alias", () => {
-    assert.equal(getProviderAlias("tabitoken"), "tabitoken");
-    assert.equal(getProviderAlias("tabitoken_123"), "tabitoken");
-});
-
 test("TokenRouter uses its own model prefix alias", () => {
     assert.equal(getProviderAlias("tokenrouter"), "tokenrouter");
     assert.equal(getProviderAlias("tokenrouter_123"), "tokenrouter");

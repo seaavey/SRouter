@@ -196,42 +196,6 @@ export const AuthController = {
             )
     },
 
-    GoRouter: {
-        ImportToken: (c: Context): Promise<Response> =>
-            ImportTokenFor(
-                AuthHandlers.GoRouter,
-                (b) => AuthLogic.processProviderTokenImport("gorouter", b),
-                c
-            )
-    },
-
-    BluesMinds: {
-        ImportToken: (c: Context): Promise<Response> =>
-            ImportTokenFor(
-                AuthHandlers.BluesMinds,
-                (b) => AuthLogic.processProviderTokenImport("bluesminds", b),
-                c
-            )
-    },
-
-    SeekAI: {
-        ImportToken: (c: Context): Promise<Response> =>
-            ImportTokenFor(
-                AuthHandlers.SeekAI,
-                (b) => AuthLogic.processProviderTokenImport("seekai", b),
-                c
-            )
-    },
-
-    TabiToken: {
-        ImportToken: (c: Context): Promise<Response> =>
-            ImportTokenFor(
-                AuthHandlers.TabiToken,
-                (b) => AuthLogic.processProviderTokenImport("tabitoken", b),
-                c
-            )
-    },
-
     TokenRouter: {
         ImportToken: (c: Context): Promise<Response> =>
             ImportTokenFor(
