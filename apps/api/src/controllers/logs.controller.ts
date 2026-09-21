@@ -1,7 +1,7 @@
 import type { Context } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { LogsLogic } from "@/logic/logs.logic.js";
-import { Ok } from "@/utils/response.js";
+import { Err, Ok } from "@/utils/response.js";
 import { AnalyticsQuerySchema } from "@srouter/types";
 import { onUsageUpdated } from "@/services/usageEvents.js";
 
@@ -9,6 +9,14 @@ const MAX_EVENT_STREAMS = 16;
 let activeEventStreams = 0;
 
 export class LogsController {
+    public static async GetLog(c: Context): Promise<Response> {
+        const id = c.req.param("id");
+        if (!id) return Err(c, "Log ID is required", 400);
+        const log = await LogsLogic.getLogById(id);
+        if (!log) return Err(c, `Log '${id}' not found`, 404);
+        return Ok(c, log);
+    }
+
     public static async ListLogs(c: Context): Promise<Response> {
         const rawPage = c.req.query("page");
         const limit = Number(c.req.query("limit")) || 50;

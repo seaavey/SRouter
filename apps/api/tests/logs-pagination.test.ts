@@ -48,3 +48,30 @@ test("GET /v1/logs supports server-side pagination with page and limit", async (
     assert.equal(json2.data.length, 2);
     assert.equal(json2.pagination.page, 2);
 });
+
+test("GET /v1/logs/:id returns an enriched log and 404 for an unknown id", async () => {
+    const app = createApp();
+    const created = await logRequestDB({
+        providerId: "detail-provider",
+        model: "detail-model",
+        promptTokens: 10,
+        completionTokens: 5,
+        totalTokens: 15,
+        statusCode: 200,
+        latencyMs: 42
+    });
+
+    const response = await app.request(`http://localhost/v1/logs/${created.id}`, {
+        headers: { Authorization: "Bearer dev-test-key" }
+    });
+    assert.equal(response.status, 200);
+    const log = (await response.json()) as typeof created & { costBreakdown?: unknown };
+    assert.equal(log.id, created.id);
+    assert.equal(log.providerId, "detail-provider");
+    assert.ok(log.costBreakdown);
+
+    const missing = await app.request("http://localhost/v1/logs/missing-log", {
+        headers: { Authorization: "Bearer dev-test-key" }
+    });
+    assert.equal(missing.status, 404);
+});

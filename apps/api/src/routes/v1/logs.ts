@@ -8,3 +8,4 @@ LogsRouter.get("/logs", ApiKeyAuth, LogsController.ListLogs);
 LogsRouter.get("/logs/stats", ApiKeyAuth, LogsController.GetStats);
 LogsRouter.get("/logs/events", ApiKeyAuth, LogsController.GetEvents);
 LogsRouter.get("/logs/analytics", ApiKeyAuth, LogsController.GetAnalytics);
+LogsRouter.get("/logs/:id", ApiKeyAuth, LogsController.GetLog);

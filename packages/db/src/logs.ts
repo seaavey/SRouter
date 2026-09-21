@@ -113,6 +113,13 @@ export async function getRecentLogsDB(limit = 50): Promise<RequestLogEntry[]> {
     return Rows.map(mapLogRow);
 }
 
+export async function getLogByIdDB(id: string): Promise<RequestLogEntry | undefined> {
+    const Row = (await db
+        .prepare("SELECT * FROM request_logs WHERE id = ?")
+        .get(id)) as unknown as RequestLogRow | undefined;
+    return Row ? mapLogRow(Row) : undefined;
+}
+
 export async function getPaginatedLogsDB(
     page: number = 1,
     limit: number = 50,

@@ -18,6 +18,8 @@ import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as ProvidersRouteImport } from './routes/providers'
 import { Route as QuotaRouteImport } from './routes/quota'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as LogsIndexRouteImport } from './routes/logs/index'
+import { Route as LogsLogIdRouteImport } from './routes/logs/$logId'
 import { Route as ProvidersIndexRouteImport } from './routes/providers/index'
 import { Route as ProvidersProviderIdRouteImport } from './routes/providers/$providerId'
 
@@ -66,6 +68,16 @@ const SettingsRoute = SettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LogsIndexRoute = LogsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => LogsRoute,
+} as any)
+const LogsLogIdRoute = LogsLogIdRouteImport.update({
+  id: '/$logId',
+  path: '/$logId',
+  getParentRoute: () => LogsRoute,
+} as any)
 const ProvidersIndexRoute = ProvidersIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -82,12 +94,14 @@ export interface FileRoutesByFullPath {
   '/analytics': typeof AnalyticsRoute
   '/combo': typeof ComboRoute
   '/keys': typeof KeysRoute
-  '/logs': typeof LogsRoute
+  '/logs': typeof LogsRouteWithChildren
   '/pricing': typeof PricingRoute
   '/providers': typeof ProvidersRouteWithChildren
   '/quota': typeof QuotaRoute
   '/settings': typeof SettingsRoute
+  '/logs/$logId': typeof LogsLogIdRoute
   '/providers/$providerId': typeof ProvidersProviderIdRoute
+  '/logs/': typeof LogsIndexRoute
   '/providers/': typeof ProvidersIndexRoute
 }
 export interface FileRoutesByTo {
@@ -95,11 +109,12 @@ export interface FileRoutesByTo {
   '/analytics': typeof AnalyticsRoute
   '/combo': typeof ComboRoute
   '/keys': typeof KeysRoute
-  '/logs': typeof LogsRoute
   '/pricing': typeof PricingRoute
   '/quota': typeof QuotaRoute
   '/settings': typeof SettingsRoute
+  '/logs/$logId': typeof LogsLogIdRoute
   '/providers/$providerId': typeof ProvidersProviderIdRoute
+  '/logs': typeof LogsIndexRoute
   '/providers': typeof ProvidersIndexRoute
 }
 export interface FileRoutesById {
@@ -108,12 +123,14 @@ export interface FileRoutesById {
   '/analytics': typeof AnalyticsRoute
   '/combo': typeof ComboRoute
   '/keys': typeof KeysRoute
-  '/logs': typeof LogsRoute
+  '/logs': typeof LogsRouteWithChildren
   '/pricing': typeof PricingRoute
   '/providers': typeof ProvidersRouteWithChildren
   '/quota': typeof QuotaRoute
   '/settings': typeof SettingsRoute
+  '/logs/$logId': typeof LogsLogIdRoute
   '/providers/$providerId': typeof ProvidersProviderIdRoute
+  '/logs/': typeof LogsIndexRoute
   '/providers/': typeof ProvidersIndexRoute
 }
 export interface FileRouteTypes {
@@ -128,7 +145,9 @@ export interface FileRouteTypes {
     | '/providers'
     | '/quota'
     | '/settings'
+    | '/logs/$logId'
     | '/providers/$providerId'
+    | '/logs/'
     | '/providers/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -136,11 +155,12 @@ export interface FileRouteTypes {
     | '/analytics'
     | '/combo'
     | '/keys'
-    | '/logs'
     | '/pricing'
     | '/quota'
     | '/settings'
+    | '/logs/$logId'
     | '/providers/$providerId'
+    | '/logs'
     | '/providers'
   id:
     | '__root__'
@@ -153,7 +173,9 @@ export interface FileRouteTypes {
     | '/providers'
     | '/quota'
     | '/settings'
+    | '/logs/$logId'
     | '/providers/$providerId'
+    | '/logs/'
     | '/providers/'
   fileRoutesById: FileRoutesById
 }
@@ -162,7 +184,7 @@ export interface RootRouteChildren {
   AnalyticsRoute: typeof AnalyticsRoute
   ComboRoute: typeof ComboRoute
   KeysRoute: typeof KeysRoute
-  LogsRoute: typeof LogsRoute
+  LogsRoute: typeof LogsRouteWithChildren
   PricingRoute: typeof PricingRoute
   ProvidersRoute: typeof ProvidersRouteWithChildren
   QuotaRoute: typeof QuotaRoute
@@ -234,6 +256,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/logs/': {
+      id: '/logs/'
+      path: '/'
+      fullPath: '/logs/'
+      preLoaderRoute: typeof LogsIndexRouteImport
+      parentRoute: typeof LogsRoute
+    }
+    '/logs/$logId': {
+      id: '/logs/$logId'
+      path: '/$logId'
+      fullPath: '/logs/$logId'
+      preLoaderRoute: typeof LogsLogIdRouteImport
+      parentRoute: typeof LogsRoute
+    }
     '/providers/': {
       id: '/providers/'
       path: '/'
@@ -250,6 +286,18 @@ declare module '@tanstack/react-router' {
     }
   }
 }
+
+interface LogsRouteChildren {
+  LogsLogIdRoute: typeof LogsLogIdRoute
+  LogsIndexRoute: typeof LogsIndexRoute
+}
+
+const LogsRouteChildren: LogsRouteChildren = {
+  LogsLogIdRoute: LogsLogIdRoute,
+  LogsIndexRoute: LogsIndexRoute,
+}
+
+const LogsRouteWithChildren = LogsRoute._addFileChildren(LogsRouteChildren)
 
 interface ProvidersRouteChildren {
   ProvidersProviderIdRoute: typeof ProvidersProviderIdRoute
@@ -270,7 +318,7 @@ const rootRouteChildren: RootRouteChildren = {
   AnalyticsRoute: AnalyticsRoute,
   ComboRoute: ComboRoute,
   KeysRoute: KeysRoute,
-  LogsRoute: LogsRoute,
+  LogsRoute: LogsRouteWithChildren,
   PricingRoute: PricingRoute,
   ProvidersRoute: ProvidersRouteWithChildren,
   QuotaRoute: QuotaRoute,

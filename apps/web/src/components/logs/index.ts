@@ -1,2 +1,1 @@
-export { LogDetailModal } from "./logs.detail-modal";
-export { LogTable } from "./logs.table";
+export { default as LogTable } from "./logs.table";

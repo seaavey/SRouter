@@ -3,6 +3,7 @@ import {
     getAnalyticsDB,
     getBucketSizeMs,
     getBucketCount,
+    getLogByIdDB,
     getPaginatedLogsDB,
     getRecentLogsDB,
     getRequireApiKeyDB,
@@ -21,40 +22,20 @@ import { formatCost, getPricingForModel, calculateCostBreakdownFromTokens } from
 
 export class LogsLogic {
     public static async getRecentLogs(limit: number = 50): Promise<RequestLogEntry[]> {
-        const [logs, requireApiKey, keys] = await Promise.all([
+        const [logs, context] = await Promise.all([
             getRecentLogsDB(limit),
-            getRequireApiKeyDB().catch(() => false),
-            getAllAPIKeysDB().catch(() => [])
+            LogsLogic.getLogEnrichmentContext()
         ]);
 
-        const keyMap = new Map<string, string>();
-        for (const k of keys) {
-            keyMap.set(k.id, k.name);
-        }
+        return logs.map((log) => LogsLogic.enrichLog(log, context));
+    }
 
-        return logs.map((log) => {
-            const pricing = getPricingForModel(log.providerId, log.resolvedModel || log.model);
-            const breakdown = calculateCostBreakdownFromTokens(
-                {
-                    prompt_tokens: log.promptTokens,
-                    completion_tokens: log.completionTokens,
-                    cached_tokens: log.cachedTokens,
-                    cache_creation_input_tokens: log.cacheCreationTokens,
-                    reasoning_tokens: log.reasoningTokens
-                },
-                pricing
-            );
-
-            const apiKeyId = requireApiKey ? log.apiKeyId : undefined;
-            const apiKeyName = apiKeyId ? keyMap.get(apiKeyId) : undefined;
-
-            return {
-                ...log,
-                apiKeyId,
-                apiKeyName,
-                costBreakdown: breakdown
-            };
-        });
+    public static async getLogById(id: string): Promise<RequestLogEntry | undefined> {
+        const [log, context] = await Promise.all([
+            getLogByIdDB(id),
+            LogsLogic.getLogEnrichmentContext()
+        ]);
+        return log ? LogsLogic.enrichLog(log, context) : undefined;
     }
 
     public static async getPaginatedLogs(
@@ -65,44 +46,56 @@ export class LogsLogic {
         data: RequestLogEntry[];
         pagination: { page: number; limit: number; total: number; total_pages: number };
     }> {
-        const [{ data: rawLogs, pagination }, requireApiKey, keys] = await Promise.all([
+        const [{ data: rawLogs, pagination }, context] = await Promise.all([
             getPaginatedLogsDB(page, limit, status),
-            getRequireApiKeyDB().catch(() => false),
-            getAllAPIKeysDB().catch(() => [])
+            LogsLogic.getLogEnrichmentContext()
         ]);
 
-        const keyMap = new Map<string, string>();
-        for (const k of keys) {
-            keyMap.set(k.id, k.name);
-        }
-
-        const data = rawLogs.map((log) => {
-            const pricing = getPricingForModel(log.providerId, log.resolvedModel || log.model);
-            const breakdown = calculateCostBreakdownFromTokens(
-                {
-                    prompt_tokens: log.promptTokens,
-                    completion_tokens: log.completionTokens,
-                    cached_tokens: log.cachedTokens,
-                    cache_creation_input_tokens: log.cacheCreationTokens,
-                    reasoning_tokens: log.reasoningTokens
-                },
-                pricing
-            );
-
-            const apiKeyId = requireApiKey ? log.apiKeyId : undefined;
-            const apiKeyName = apiKeyId ? keyMap.get(apiKeyId) : undefined;
-
-            return {
-                ...log,
-                apiKeyId,
-                apiKeyName,
-                costBreakdown: breakdown
-            };
-        });
+        const data = rawLogs.map((log) => LogsLogic.enrichLog(log, context));
 
         return {
             data,
             pagination
+        };
+    }
+
+    private static async getLogEnrichmentContext(): Promise<{
+        requireApiKey: boolean;
+        keyMap: Map<string, string>;
+    }> {
+        const [requireApiKey, keys] = await Promise.all([
+            getRequireApiKeyDB().catch(() => false),
+            getAllAPIKeysDB().catch(() => [])
+        ]);
+        const keyMap = new Map<string, string>();
+        for (const key of keys) {
+            keyMap.set(key.id, key.name);
+        }
+        return { requireApiKey, keyMap };
+    }
+
+    private static enrichLog(
+        log: RequestLogEntry,
+        context: { requireApiKey: boolean; keyMap: Map<string, string> }
+    ): RequestLogEntry {
+        const pricing = getPricingForModel(log.providerId, log.resolvedModel || log.model);
+        const breakdown = calculateCostBreakdownFromTokens(
+            {
+                prompt_tokens: log.promptTokens,
+                completion_tokens: log.completionTokens,
+                cached_tokens: log.cachedTokens,
+                cache_creation_input_tokens: log.cacheCreationTokens,
+                reasoning_tokens: log.reasoningTokens
+            },
+            pricing
+        );
+        const apiKeyId = context.requireApiKey ? log.apiKeyId : undefined;
+
+        return {
+            ...log,
+            apiKeyId,
+            apiKeyName: apiKeyId ? context.keyMap.get(apiKeyId) : undefined,
+            costBreakdown: breakdown
         };
     }
 
