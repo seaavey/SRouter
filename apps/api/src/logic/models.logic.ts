@@ -1,5 +1,5 @@
 import type { ModelObject } from "@srouter/types";
-import { getAllCustomModelsDB, getAllFallbackRulesDB } from "@srouter/db";
+import { getAllCustomModelsDB, getAllFallbackRulesDB, getAllHiddenModelsDB } from "@srouter/db";
 import { providerAlias, providerBaseId } from "@srouter/constants";
 import { registry } from "@/services/registry.js";
 
@@ -9,7 +9,17 @@ export class ModelsLogic {
         ForceRefresh = false
     ): Promise<ModelObject[]> {
         const Models = await registry.listAllModels(Provider, ForceRefresh);
-        return this.MergeComboModels(await this.MergeCustomModels(Models, Provider));
+        const MergedModels = await this.MergeCustomModels(Models, Provider);
+        const ModelsWithCombos = await this.MergeComboModels(MergedModels);
+        return this.FilterHiddenModels(ModelsWithCombos);
+    }
+
+    private static async FilterHiddenModels(Models: ModelObject[]): Promise<ModelObject[]> {
+        const HiddenRows = await getAllHiddenModelsDB();
+        if (HiddenRows.length === 0) return Models;
+
+        const HiddenIds = new Set(HiddenRows.map((Row) => Row.modelId.toLowerCase()));
+        return Models.filter((Model) => !HiddenIds.has(Model.id.toLowerCase()));
     }
 
     private static async MergeComboModels(Models: ModelObject[]): Promise<ModelObject[]> {

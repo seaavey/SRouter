@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { afterEach, beforeEach, test } from "node:test";
 import { Hono } from "hono";
 import type { AIProvider } from "@srouter/types";
-import { createFallbackRuleDB } from "@srouter/db";
+import { addHiddenModelDB, createFallbackRuleDB, deleteHiddenModelDB } from "@srouter/db";
 import { ModelsRouter } from "../src/routes/v1/models.js";
 import { ModelsController } from "../src/controllers/models.controller.js";
 import { registry } from "../src/services/registry.js";
@@ -154,8 +154,12 @@ test("GET /v1/models filters models according to API key allowed_models", async 
         id: "another",
         name: "Another Provider",
         listModels: async () => [{ id: "another/llama-3", object: "model" }],
-        chatCompletion: async () => { throw new Error("not implemented"); },
-        chatCompletionStream: async function* () { throw new Error("not implemented"); }
+        chatCompletion: async () => {
+            throw new Error("not implemented");
+        },
+        chatCompletionStream: async function* () {
+            throw new Error("not implemented");
+        }
     });
     ModelsLogic.ClearCache();
 
@@ -173,4 +177,21 @@ test("GET /v1/models filters models according to API key allowed_models", async 
     const body = (await res.json()) as { data: Array<{ id: string }> };
     assert.equal(body.data.length, 1);
     assert.equal(body.data[0]?.id, `${mockProviderId}/gpt-5-turbo`);
+});
+
+test("GET /v1/models excludes hidden models from the registry snapshot", async () => {
+    await app.request("/v1/models", { method: "GET" });
+    const hiddenModelId = `${mockProviderId}/gpt-5-turbo`;
+    await addHiddenModelDB(mockProviderId, hiddenModelId);
+
+    try {
+        const response = await app.request("/v1/models", { method: "GET" });
+        assert.equal(response.status, 200);
+
+        const body = (await response.json()) as { data: Array<{ id: string }> };
+        assert.ok(!body.data.some((model) => model.id === hiddenModelId));
+        assert.ok(body.data.some((model) => model.id === `${mockProviderId}/claude-sonnet-4`));
+    } finally {
+        await deleteHiddenModelDB(mockProviderId, hiddenModelId);
+    }
 });

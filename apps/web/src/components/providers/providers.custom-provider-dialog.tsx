@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Plug, CheckCircle2, Globe, Key, X } from "lucide-react";
 import { toast } from "sonner";
-import type { ProviderDefinition, ProviderProtocol } from "@srouter/types";
+import type { CreateProviderZod, ProviderDefinition, ProviderProtocol } from "@srouter/types";
 import {
     Dialog,
     DialogContent,
@@ -60,7 +60,7 @@ export function CustomProviderDialog({ open, onOpenChange }: CustomProviderDialo
     };
 
     const saveMutation = useMutation({
-        mutationFn: (payload: Record<string, unknown>) =>
+        mutationFn: (payload: CreateProviderZod) =>
             api.post<ProviderDefinition>("/v1/providers", payload),
         onSuccess: (provider) => {
             invalidateCatalog();
@@ -133,6 +133,7 @@ export function CustomProviderDialog({ open, onOpenChange }: CustomProviderDialo
         saveMutation.mutate({
             name: trimmedName,
             alias: trimmedAlias,
+            category: "custom_provider",
             protocol,
             base_url: baseUrl.trim(),
             api_key: apiKey.trim()

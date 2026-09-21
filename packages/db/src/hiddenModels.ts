@@ -13,6 +13,13 @@ interface HiddenModelDBShape {
     created_at: number;
 }
 
+export async function getAllHiddenModelsDB(): Promise<HiddenModelRow[]> {
+    const Rows = (await db
+        .prepare("SELECT * FROM hidden_models ORDER BY created_at ASC")
+        .all()) as unknown as HiddenModelDBShape[];
+    return Rows.map(mapHiddenModelRow);
+}
+
 export async function getHiddenModelsByProviderDB(providerId: string): Promise<HiddenModelRow[]> {
     const Rows = (await db
         .prepare("SELECT * FROM hidden_models WHERE provider_id = ? ORDER BY created_at ASC")
@@ -20,7 +27,10 @@ export async function getHiddenModelsByProviderDB(providerId: string): Promise<H
     return Rows.map(mapHiddenModelRow);
 }
 
-export async function addHiddenModelDB(providerId: string, modelId: string): Promise<HiddenModelRow> {
+export async function addHiddenModelDB(
+    providerId: string,
+    modelId: string
+): Promise<HiddenModelRow> {
     const CreatedAt = Date.now();
     const Sql = isPostgres()
         ? `INSERT INTO hidden_models (provider_id, model_id, created_at)
