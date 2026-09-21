@@ -1,26 +1,50 @@
 # SRouter Docs
 
-> Source-grounded documentation for SRouter, a local-first AI gateway and LLM proxy.
+> Source-grounded documentation for SRouter, a local-first AI gateway for coding tools and applications.
 
-## Product
+SRouter puts one inspectable endpoint between clients and model providers. The workspace contains a Hono API gateway, React dashboard, terminal CLI, Astro documentation site, and shared runtime packages.
 
-- SRouter routes OpenAI-compatible and Anthropic-compatible requests through one local gateway.
-- The local dashboard manages provider connections, virtual API keys, model routing, quotas, logs, and Cloudflare Tunnel state.
-- Default gateway URL: http://localhost:3000
+- Default gateway: http://localhost:3000
 - API base URL: http://localhost:3000/v1
+- Documentation site: https://srouter.web.id
 
-## Documentation areas
+## Start here
 
-- [Overview](https://srouter.web.id/): Map the workspace and request architecture.
-- [Installation](https://srouter.web.id/docs/installation/): Install with Docker or run from source code.
-- [Getting started](https://srouter.web.id/docs/getting-started/): Connect a provider and send a first request.
-- [Architecture](https://srouter.web.id/docs/concepts/architecture/): Map the workspace and request flow.
-- [API reference](https://srouter.web.id/docs/reference/api-routes/): HTTP routes and compatibility endpoints.
-- [CLI](https://srouter.web.id/docs/cli/): Configure Claude Code and OpenCode.
-- [Shared packages](https://srouter.web.id/docs/packages/): Contracts and runtime boundaries.
-- [Contributing](https://srouter.web.id/docs/contributing/): Workspace conventions and verification.
+- [Overview](https://srouter.web.id/): Map the SRouter workspace and the request path through the gateway.
+- [Getting started](https://srouter.web.id/docs/getting-started/): Connect a provider, create a key, configure the gateway, and send a first request.
+- [Installation](https://srouter.web.id/docs/installation/): Install SRouter with Docker or run it directly from the source code.
+- [Architecture](https://srouter.web.id/docs/concepts/architecture/): See how the API, dashboard, CLI, and shared packages fit together.
+
+## Build with SRouter
+
+- [Request lifecycle](https://srouter.web.id/docs/concepts/request-lifecycle/): Follow a request from authentication and validation to translation and streaming.
+- [Providers and routing](https://srouter.web.id/docs/concepts/providers-routing/): Configure provider edges, model prefixes, combos, and fallback behavior.
+- [Keys and observability](https://srouter.web.id/docs/concepts/keys-observability/): Use virtual API keys and inspect quotas, logs, analytics, and pricing.
+
+## Integrate
+
+- [OpenAI-compatible API](https://srouter.web.id/docs/integrations/openai/): Connect OpenAI SDKs and clients to SRouter chat completions.
+- [Anthropic-compatible API](https://srouter.web.id/docs/integrations/anthropic/): Connect Anthropic SDKs and clients to the messages endpoint.
+- [Streaming and SSE](https://srouter.web.id/docs/integrations/streaming/): Understand streaming responses, events, retries, and live telemetry.
+- [Coding tools](https://srouter.web.id/docs/integrations/coding-tools/): Configure Claude Code and OpenCode with the SRouter CLI.
+
+## Reference
+
+- [API routes](https://srouter.web.id/docs/reference/api-routes/): Browse the complete mounted HTTP route surface and its auth boundary.
+- [Authentication](https://srouter.web.id/docs/reference/authentication/): Choose between virtual API keys, admin sessions, OAuth, and CSRF protection.
+- [Environment variables](https://srouter.web.id/docs/reference/environment/): Configure ports, storage, OAuth callbacks, serving, and runtime behavior.
+- [Errors and limits](https://srouter.web.id/docs/reference/errors/): Understand validation errors, rate limits, body limits, and upstream failures.
+
+## Project
+
+- [CLI](https://srouter.web.id/docs/cli/): Configure SRouter and connected coding tools from the terminal.
+- [Shared packages](https://srouter.web.id/docs/packages/): Trace contracts, persistence, executors, translators, providers, and pricing.
+- [Database](https://srouter.web.id/docs/development/database/): Understand SQLite defaults, PostgreSQL support, schema initialization, and transfer.
+- [Testing and verification](https://srouter.web.id/docs/development/testing/): Run focused checks without hiding failures behind broad workspace commands.
+- [Contributing](https://srouter.web.id/docs/contributing/): Make focused changes while preserving application and package boundaries.
 
 ## Source
 
 - [GitHub repository](https://github.com/seaavey/SRouter)
 - [Documentation source](https://github.com/seaavey/SRouter/tree/main/apps/docs)
+- [Documentation README](https://github.com/seaavey/SRouter/blob/main/apps/docs/README.md)

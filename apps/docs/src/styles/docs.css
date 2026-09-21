@@ -388,6 +388,17 @@ summary:focus-visible {
     flex: 0 0 auto;
 }
 
+.topbar-github {
+    width: 36px;
+    padding: 8px;
+}
+
+.topbar-github svg {
+    width: 18px;
+    height: 18px;
+    fill: currentColor;
+}
+
 .topbar-search kbd,
 .search-hint kbd,
 .search-dialog-header button {
