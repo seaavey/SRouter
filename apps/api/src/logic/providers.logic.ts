@@ -52,8 +52,13 @@ function isProviderProtocol(Value: string): Value is ProviderProtocol {
 const PROVIDER_IDS_BY_LENGTH = Object.keys(DEFAULT_PROVIDER_MAP).sort(
     (Left, Right) => Right.length - Left.length
 );
+const CUSTOM_PROVIDER_ID_RE =
+    /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:[-_].*)?$/i;
 
 function BaseIdOf(ProviderId: string): string {
+    const UUIDMatch = ProviderId.match(CUSTOM_PROVIDER_ID_RE);
+    if (UUIDMatch) return UUIDMatch[1];
+
     for (const Id of PROVIDER_IDS_BY_LENGTH) {
         if (
             ProviderId === Id ||
@@ -75,6 +80,7 @@ function ProviderDefinitionFromConfig(Connection: ProviderConfig): ProviderDefin
     return {
         id: Connection.id,
         name: Connection.name,
+        alias: Connection.alias,
         category: Category,
         protocol:
             Connection.protocol && isProviderProtocol(Connection.protocol)
@@ -108,16 +114,19 @@ async function CatalogWithSavedProviders(): Promise<ProviderDefinition[]> {
                 ? Connection.protocol
                 : (Seed?.protocol ?? "openai");
 
-        const ConnectedCount = Rows.filter(
-            (C) => !isSeedProvider(C) && C.enabled && BaseIdOf(C.providerId || C.id) === BaseId
-        ).length;
+        const GroupConnections = Rows.filter(
+            (C) => !isSeedProvider(C) && BaseIdOf(C.providerId || C.id) === BaseId
+        );
+        const PrimaryConnection = GroupConnections.find((C) => C.id === BaseId) ?? Connection;
+        const ConnectedCount = GroupConnections.filter((C) => C.enabled).length;
 
         Catalog.push({
             id: BaseId,
-            name: Seed?.name ?? Connection.name,
+            name: Seed?.name ?? PrimaryConnection.name,
+            alias: Seed ? providerAlias(BaseId) : GroupConnections.find((C) => C.alias)?.alias,
             category: Seed?.category ?? Category,
             protocol: Seed?.protocol ?? Protocol,
-            default_base_url: Seed?.base_url ?? Connection.base_url,
+            default_base_url: Seed?.base_url ?? PrimaryConnection.base_url,
             requires_api_key: Seed ? Seed.requires_api_key : Boolean(Connection.apiKey),
             requires_oauth: Seed?.requires_oauth,
             supports_custom_url: Seed ? (Seed.supports_custom_url ?? true) : true,
@@ -139,6 +148,7 @@ async function CatalogWithSavedProviders(): Promise<ProviderDefinition[]> {
         Catalog.push({
             id: Seed.id,
             name: Seed.name,
+            alias: providerAlias(Seed.id),
             category: Seed.category,
             protocol: Seed.protocol,
             default_base_url: Seed.base_url,
@@ -195,12 +205,13 @@ export class ProvidersLogic {
             (C) => !isSeedProvider(C) && BaseIdOf(C.providerId || C.id) === ProviderId
         );
         const ConnectedCount = Connections.filter((C) => C.enabled).length;
+        const ProviderAlias = Provider.alias ?? providerAlias(ProviderId);
 
         let LiveModels = Provider.models;
         const MatchingProviders = Array.from(registry.getAllProviders().values()).filter(
             (P) =>
                 registry.isProviderEnabled(P.id) &&
-                (RuntimeAliasFor(P.id) === providerAlias(ProviderId) ||
+                (RuntimeAliasFor(P.id) === ProviderAlias ||
                     P.id === ProviderId ||
                     P.id.startsWith(`${ProviderId}_`) ||
                     P.id.startsWith(`${ProviderId}-`))

@@ -91,6 +91,10 @@ export function NodeDetailInspector({
                                 <div className="flex items-center gap-2">
                                     <ProviderIcon
                                         providerId={selectedNode.data.id}
+                                        baseUrl={selectedNode.data.base_url}
+                                        fallbackLabel={
+                                            selectedNode.data.alias ?? selectedNode.data.name
+                                        }
                                         className="size-4"
                                     />
                                     <span className="text-xs font-bold text-ink font-sans">

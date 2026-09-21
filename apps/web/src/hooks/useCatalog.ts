@@ -15,6 +15,7 @@ import {
 const STATIC_DEFAULT_PROVIDERS: ProviderDefinition[] = KNOWN_PROVIDERS.map((kp) => ({
     id: kp.id,
     name: kp.name,
+    alias: kp.alias,
     category: kp.category,
     protocol: kp.protocol,
     default_base_url: kp.base_url,

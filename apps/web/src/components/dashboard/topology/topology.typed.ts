@@ -7,6 +7,8 @@ export type CoreNodeData = {
 export type ProviderNodeData = {
     id: string;
     name: string;
+    alias?: string;
+    base_url?: string;
     is_online: boolean;
     is_receiving_request: boolean;
     last_latency: number | null;

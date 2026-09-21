@@ -192,6 +192,8 @@ function GatewayTopologyCanvas() {
                 data: {
                     id: provider.id,
                     name: provider.name,
+                    alias: provider.alias,
+                    base_url: provider.default_base_url,
                     is_online,
                     is_receiving_request,
                     last_latency: activeTraffic?.latency ?? null,

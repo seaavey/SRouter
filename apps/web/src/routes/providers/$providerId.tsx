@@ -122,6 +122,8 @@ function ProviderDetailPage() {
 
         const payload: AddConnectionPayload = {
             id: `${provider.id}-${Date.now()}`,
+            provider_id: provider.id,
+            alias: provider.alias,
             name: input.name?.trim() || `${provider.name} Key`,
             category: provider.category,
             protocol: provider.protocol,
@@ -232,11 +234,21 @@ function ProviderDetailPage() {
                             className="flex size-12 shrink-0 items-center justify-center rounded-[30%] border border-hairline-soft bg-canvas-soft p-2 hover:border-hairline transition-all cursor-pointer"
                             title={`Open ${provider.name} website (${websiteUrl})`}
                         >
-                            <ProviderIcon providerId={provider.id} className="size-6" />
+                            <ProviderIcon
+                                providerId={provider.id}
+                                baseUrl={provider.default_base_url}
+                                fallbackLabel={provider.alias ?? provider.name}
+                                className="size-6"
+                            />
                         </a>
                     ) : (
                         <div className="flex size-12 shrink-0 items-center justify-center rounded-[30%] border border-hairline-soft bg-canvas-soft p-2">
-                            <ProviderIcon providerId={provider.id} className="size-6" />
+                            <ProviderIcon
+                                providerId={provider.id}
+                                baseUrl={provider.default_base_url}
+                                fallbackLabel={provider.alias ?? provider.name}
+                                className="size-6"
+                            />
                         </div>
                     )}
                     <div className="space-y-1">
@@ -249,7 +261,7 @@ function ProviderDetailPage() {
                                     className="group inline-flex items-center gap-1.5 text-2xl sm:text-3xl font-bold tracking-tight text-ink hover:opacity-80 transition-opacity cursor-pointer font-sans"
                                     title={`Visit ${provider.name} (${websiteUrl})`}
                                 >
-                                    <span>{provider.name}.</span>
+                                    <span>{provider.name}</span>
                                     <ExternalLink
                                         className="size-4 text-text-muted group-hover:text-ink transition-colors"
                                         aria-hidden="true"
@@ -257,7 +269,7 @@ function ProviderDetailPage() {
                                 </a>
                             ) : (
                                 <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-ink font-sans">
-                                    {provider.name}.
+                                    {provider.name}
                                 </h1>
                             )}
                             {activeConnectionsCount > 0 ? (
@@ -273,7 +285,10 @@ function ProviderDetailPage() {
                             )}
                         </div>
                         <p className="text-xs text-text-muted font-mono">
-                            Driver ID: <span className="text-ink font-semibold">{provider.id}</span>{" "}
+                            Alias:{" "}
+                            <span className="text-ink font-semibold">
+                                {provider.alias ?? provider.name}
+                            </span>{" "}
                             ·{" "}
                             {CATEGORY_LABELS[provider.category as keyof typeof CATEGORY_LABELS] ??
                                 provider.category}

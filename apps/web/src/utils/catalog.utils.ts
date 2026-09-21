@@ -77,6 +77,7 @@ export function matchesProvider(
     if (!normalizedSearch) return true;
     return (
         provider.name.toLowerCase().includes(normalizedSearch) ||
+        provider.alias?.toLowerCase().includes(normalizedSearch) ||
         provider.id.toLowerCase().includes(normalizedSearch) ||
         provider.protocol.toLowerCase().includes(normalizedSearch)
     );

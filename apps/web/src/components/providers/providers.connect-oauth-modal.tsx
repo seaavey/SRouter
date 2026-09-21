@@ -353,10 +353,15 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
             <DialogContent className="sm:max-w-md w-full p-6 md:p-8 bg-canvas border border-hairline-soft rounded-3xl space-y-5 shadow-none overflow-y-auto max-h-[calc(100dvh-2rem)] font-sans">
                 <DialogHeader className="flex flex-row items-center justify-between pb-3.5 border-b border-hairline-soft">
                     <div className="flex items-center gap-3">
-                        <ProviderIcon providerId={provider.id} className="size-7 rounded-[30%]" />
+                        <ProviderIcon
+                            providerId={provider.id}
+                            baseUrl={provider.default_base_url}
+                            fallbackLabel={provider.alias ?? provider.name}
+                            className="size-7 rounded-[30%]"
+                        />
                         <div>
                             <DialogTitle className="text-base font-bold tracking-tight text-ink font-sans">
-                                Connect {provider.name}.
+                                Connect {provider.name}
                             </DialogTitle>
                             <DialogDescription className="text-xs text-text-muted">
                                 Authenticate and link your account

@@ -43,7 +43,11 @@ export function QuotaProviderCard({
                     className="flex items-center gap-3.5 cursor-pointer group flex-1 select-none min-w-0"
                 >
                     <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl border border-hairline-soft bg-field p-2 transition-colors group-hover:border-hairline">
-                        <ProviderIcon providerId={providerName} className="size-5" />
+                        <ProviderIcon
+                            providerId={providerName}
+                            fallbackLabel={providerName}
+                            className="size-5"
+                        />
                     </div>
                     <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">

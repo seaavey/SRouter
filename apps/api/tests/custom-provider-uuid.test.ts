@@ -3,6 +3,7 @@ import { afterEach, test } from "node:test";
 import { deleteProviderDB, getProviderByIdDB, getAllProvidersDB } from "@srouter/db";
 import { providerBaseId } from "@srouter/constants";
 import { ProvidersLogic } from "../src/logic/providers.logic.js";
+import { registry } from "../src/services/registry.js";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -63,6 +64,69 @@ test("UUID provider appears in catalog as its own entry", async () => {
     assert.equal(found?.protocol, "openai");
 });
 
+test("custom provider exposes its alias instead of its UUID as the model prefix", async () => {
+    const result = await ProvidersLogic.AddProvider({
+        name: "Xkiro Gateway",
+        alias: "xkiro",
+        category: "custom_provider",
+        protocol: "openai",
+        base_url: "https://example.com/xkiro/v1",
+        api_key: "sk-xkiro-test"
+    });
+    createdIds.push(result.id);
+
+    assert.equal(result.alias, "xkiro");
+    assert.equal(registry.getProvider(result.id)?.alias, "xkiro");
+
+    const customModel = await ProvidersLogic.AddCustomModel(result.id, "gateway-model");
+    assert.equal(customModel.id, "xkiro/gateway-model");
+    await ProvidersLogic.DeleteCustomModel(result.id, "gateway-model");
+
+    const catalog = await ProvidersLogic.GetCatalog();
+    const found = catalog.categories.custom_provider.find((p) => p.id === result.id);
+    assert.equal(found?.alias, "xkiro");
+
+    const detail = await ProvidersLogic.GetProviderById(result.id);
+    assert.equal(detail?.alias, "xkiro");
+});
+
+test("additional custom provider connections stay grouped under the parent UUID", async () => {
+    const parent = await ProvidersLogic.AddProvider({
+        name: "Xkiro Gateway",
+        category: "custom_provider",
+        protocol: "openai",
+        base_url: "https://example.com/xkiro/v1",
+        api_key: "sk-xkiro-parent"
+    });
+    const child = await ProvidersLogic.AddProvider({
+        id: `${parent.id}-account-2`,
+        provider_id: parent.id,
+        name: "Xkiro Account 2",
+        category: "custom_provider",
+        protocol: "openai",
+        base_url: "https://example.com/xkiro/v1",
+        api_key: "sk-xkiro-child"
+    });
+    const legacyChild = await ProvidersLogic.AddProvider({
+        id: `${parent.id}-legacy-account`,
+        name: "Xkiro Legacy Account",
+        alias: "xkiro",
+        category: "custom_provider",
+        protocol: "openai",
+        base_url: "https://example.com/xkiro/v1",
+        api_key: "sk-xkiro-legacy"
+    });
+    createdIds.push(parent.id, child.id, legacyChild.id);
+
+    const catalog = await ProvidersLogic.GetCatalog();
+    const matching = catalog.categories.custom_provider.filter((p) => p.id === parent.id);
+    assert.equal(matching.length, 1);
+    assert.equal(matching[0]?.alias, "xkiro");
+    assert.equal(matching[0]?.status.connectedCount, 3);
+    assert.equal(registry.getProvider(parent.id)?.alias, "xkiro");
+    assert.equal(registry.getProvider(child.id)?.alias, "xkiro");
+});
+
 test("UUID provider is found by GetProviderById", async () => {
     const result = await await ProvidersLogic.AddProvider({
         name: "Searchable Provider",
@@ -81,8 +145,9 @@ test("UUID provider is found by GetProviderById", async () => {
 test("providerBaseId preserves UUID instead of truncating on dash", async () => {
     const uuid = "550e8400-e29b-41d4-a716-446655440000";
     const baseId = providerBaseId(uuid);
-    // 6. UUID must not be truncated by dash-split
+    // UUID must not be truncated by dash-split
     assert.equal(baseId, uuid, "providerBaseId must return the full UUID");
+    assert.equal(providerBaseId(`${uuid}-account-2`), uuid);
 });
 
 test("built-in provider IDs are unchanged by the UUID migration", async () => {
@@ -149,13 +214,7 @@ test("UUID persists across GetCatalog calls (no re-generation)", async () => {
 });
 
 test("custom provider with UUID does not collide with seed provider IDs", async () => {
-    const seedIds = [
-        "openai",
-        "anthropic",
-        "bai",
-        "neosantara",
-        "tokenrouter"
-    ];
+    const seedIds = ["openai", "anthropic", "bai", "neosantara", "tokenrouter"];
 
     // 10. UUID custom provider should not conflict with seed IDs
     const result = await await ProvidersLogic.AddProvider({

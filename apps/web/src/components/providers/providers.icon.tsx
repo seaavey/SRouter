@@ -70,12 +70,16 @@ const ICON_MAPPING: Record<string, string> = {
 
 export function ProviderIcon({
     providerId,
+    baseUrl,
+    fallbackLabel,
     className = "size-5"
 }: {
     providerId: string;
+    baseUrl?: string;
+    fallbackLabel?: string;
     className?: string;
 }) {
-    const [hasError, setHasError] = useState(false);
+    const [failedSrc, setFailedSrc] = useState<string>();
     const id = providerId.toLowerCase().trim();
 
     if (
@@ -99,18 +103,6 @@ export function ProviderIcon({
         );
     }
 
-    if (hasError) {
-        const initial = providerId.trim().charAt(0).toUpperCase() || "P";
-        return (
-            <div
-                className={`${className} flex items-center justify-center rounded-[30%] bg-canvas-soft text-[11px] font-bold text-ink select-none shrink-0 font-mono group-data-highlighted/item:bg-accent group-data-highlighted/item:text-accent-foreground`}
-                title={providerId}
-            >
-                {initial}
-            </div>
-        );
-    }
-
     let src: string | undefined = ICON_MAPPING[id];
 
     if (!src) {
@@ -122,12 +114,25 @@ export function ProviderIcon({
         }
     }
 
-    if (!src) {
-        const initial = providerId.trim().charAt(0).toUpperCase() || "P";
+    if (!src && baseUrl) {
+        try {
+            const Url = new URL("/favicon.ico", baseUrl);
+            if (Url.protocol === "http:" || Url.protocol === "https:") {
+                src = Url.toString();
+            }
+        } catch {
+            src = undefined;
+        }
+    }
+
+    const label = fallbackLabel?.trim() || providerId;
+
+    if (!src || failedSrc === src) {
+        const initial = label.charAt(0).toUpperCase() || "P";
         return (
             <div
                 className={`${className} flex items-center justify-center rounded-[30%] bg-canvas-soft text-[11px] font-bold text-ink select-none shrink-0 font-mono group-data-highlighted/item:bg-accent group-data-highlighted/item:text-accent-foreground`}
-                title={providerId}
+                title={label}
             >
                 {initial}
             </div>
@@ -139,10 +144,11 @@ export function ProviderIcon({
     return (
         <img
             src={src}
-            alt={providerId}
+            alt={label}
+            referrerPolicy="no-referrer"
             className={`${className} rounded-[30%] object-contain shrink-0 ${themeAwareClass}`}
             onError={() => {
-                setHasError(true);
+                setFailedSrc(src);
             }}
         />
     );

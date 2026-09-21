@@ -60,12 +60,14 @@ export function isKnownProvider(Id: string): boolean {
     return Id in KNOWN_PROVIDER_MAP;
 }
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID_PREFIX_RE =
+    /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:[-_].*)?$/i;
 
 export function providerBaseId(Id: string): string {
-    // Custom providers carry a UUID v4 as their immutable ID — never
-    // truncate it; a UUID is its own base identity.
-    if (UUID_RE.test(Id)) return Id;
+    // Custom provider connections may append an account suffix to the UUID.
+    // Keep the UUID as the shared base identity instead of splitting it at a dash.
+    const UUIDMatch = Id.match(UUID_PREFIX_RE);
+    if (UUIDMatch) return UUIDMatch[1];
     return (
         KNOWN_PROVIDER_IDS_DESC.find(
             (Candidate) =>

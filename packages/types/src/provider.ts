@@ -24,6 +24,7 @@ export interface ProviderStatus {
 export interface ProviderDefinition {
     id: string;
     name: string;
+    alias?: string;
     category: ProviderCategory;
     protocol: ProviderProtocol;
     description?: string;

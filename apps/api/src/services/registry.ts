@@ -100,6 +100,14 @@ export async function seedDefaultProviders(): Promise<void> {
  */
 export async function loadSavedProvidersFromDB(): Promise<void> {
     const savedProviders = await getAllProvidersDB();
+    const aliasesByBaseId = new Map<string, string>();
+    for (const provider of savedProviders) {
+        const providerBase = providerBaseId(provider.providerId || provider.id);
+        if (provider.alias && !aliasesByBaseId.has(providerBase)) {
+            aliasesByBaseId.set(providerBase, provider.alias);
+        }
+    }
+
     for (const p of savedProviders) {
         registry.setProviderEnabled(
             providerBaseId(p.providerId || p.id),
@@ -111,6 +119,8 @@ export async function loadSavedProvidersFromDB(): Promise<void> {
 
         const providerType = p.providerId || p.id;
         const baseUrl = p.base_url;
+        const providerBase = providerBaseId(providerType);
+        const alias = p.alias ?? aliasesByBaseId.get(providerBase) ?? providerAlias(providerBase);
         registry.setRoundRobin(providerBaseId(p.id), await getRoundRobinDB(providerBaseId(p.id)));
 
         switch (true) {
@@ -276,7 +286,7 @@ export async function loadSavedProvidersFromDB(): Promise<void> {
                     new OpenAIExecutor({
                         id: p.id || p.providerId,
                         name: p.name,
-                        alias: p.alias ?? providerAlias(providerBaseId(p.providerId || p.id)),
+                        alias,
                         baseUrl:
                             baseUrl ||
                             (providerType === "experientiallabs"
@@ -309,7 +319,7 @@ export async function loadSavedProvidersFromDB(): Promise<void> {
                     new AnthropicExecutor({
                         id: p.id || p.providerId,
                         name: p.name,
-                        alias: p.alias,
+                        alias,
                         baseUrl,
                         apiKey: p.apiKey,
                         accessToken: p.accessToken

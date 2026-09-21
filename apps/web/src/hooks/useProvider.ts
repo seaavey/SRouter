@@ -10,7 +10,7 @@ import type {
 
 export type AddConnectionPayload = Pick<
     CreateProviderZod,
-    "id" | "name" | "category" | "protocol" | "base_url" | "api_key"
+    "id" | "provider_id" | "alias" | "name" | "category" | "protocol" | "base_url" | "api_key"
 >;
 
 const EMPTY_HIDDEN_MODELS: string[] = [];

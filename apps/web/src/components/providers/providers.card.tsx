@@ -18,7 +18,12 @@ export function ProviderCard({ provider }: { provider: ProviderDefinition }) {
                 <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3.5 min-w-0">
                         <div className="relative flex size-11 shrink-0 items-center justify-center rounded-[30%] border border-hairline-soft bg-canvas-soft p-2 transition-colors group-hover:border-hairline">
-                            <ProviderIcon providerId={provider.id} className="size-6" />
+                            <ProviderIcon
+                                providerId={provider.id}
+                                baseUrl={provider.default_base_url}
+                                fallbackLabel={provider.alias ?? provider.name}
+                                className="size-6"
+                            />
                         </div>
                         <div className="min-w-0">
                             <h3 className="truncate text-sm font-semibold text-ink tracking-tight">
@@ -26,7 +31,7 @@ export function ProviderCard({ provider }: { provider: ProviderDefinition }) {
                             </h3>
                             <div className="flex items-center gap-1.5 mt-0.5">
                                 <span className="text-xs text-text-muted font-mono">
-                                    {provider.id}
+                                    {provider.alias ?? provider.name}
                                 </span>
                             </div>
                         </div>

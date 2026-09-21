@@ -32,7 +32,12 @@ export function ProviderRow({ provider }: { provider: ProviderDefinition }) {
         >
             <div className="flex items-center gap-3.5 min-w-0">
                 <div className="flex size-10 shrink-0 items-center justify-center rounded-[30%] border border-hairline-soft bg-canvas-soft group-hover:border-hairline transition-colors">
-                    <ProviderIcon providerId={provider.id} className="size-5" />
+                    <ProviderIcon
+                        providerId={provider.id}
+                        baseUrl={provider.default_base_url}
+                        fallbackLabel={provider.alias ?? provider.name}
+                        className="size-5"
+                    />
                 </div>
 
                 <div className="min-w-0">
@@ -60,7 +65,9 @@ export function ProviderRow({ provider }: { provider: ProviderDefinition }) {
                     </div>
 
                     <div className="mt-0.5 flex items-center gap-2 text-xs text-text-muted font-mono">
-                        <span className="truncate text-ink font-medium">{provider.id}</span>
+                        <span className="truncate text-ink font-medium">
+                            {provider.alias ?? provider.name}
+                        </span>
                         <span className="text-text-faint">·</span>
                         <span>{protocolLabels[provider.protocol] ?? provider.protocol}</span>
                         <span className="text-text-faint">·</span>

@@ -348,6 +348,7 @@ export class ProviderRegistry {
             catalog.push({
                 id: baseId,
                 name: provider.name,
+                alias: providerAliasFor(provider),
                 category: provider.category ?? "api_key",
                 protocol: provider.protocol ?? "openai",
                 requires_api_key: true,

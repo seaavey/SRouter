@@ -125,14 +125,19 @@ export function OrbitProviderNode({
                                 : "bg-canvas-soft text-ink"
                         }`}
                     >
-                        <ProviderIcon providerId={id} className="size-3.5" />
+                        <ProviderIcon
+                            providerId={id}
+                            baseUrl={data.base_url}
+                            fallbackLabel={data.alias ?? name}
+                            className="size-3.5"
+                        />
                     </div>
                     <div className="min-w-0">
                         <span className="block text-xs font-semibold text-ink truncate font-sans">
                             {name}
                         </span>
                         <span className="block text-[9px] text-text-muted uppercase truncate">
-                            {id}
+                            {data.alias ?? name}
                         </span>
                     </div>
                 </div>
