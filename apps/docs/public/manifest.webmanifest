@@ -1,0 +1,17 @@
+{
+    "name": "SRouter",
+    "short_name": "SRouter",
+    "description": "Local-first AI gateway for coding tools and applications.",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#0d1110",
+    "theme_color": "#0d1110",
+    "icons": [
+        {
+            "src": "/favicon.svg",
+            "sizes": "any",
+            "type": "image/svg+xml",
+            "purpose": "any maskable"
+        }
+    ]
+}

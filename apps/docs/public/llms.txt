@@ -1,0 +1,23 @@
+# SRouter
+
+> Product landing page for SRouter, a local-first AI gateway and LLM proxy.
+
+## Product
+
+- SRouter routes OpenAI-compatible and Anthropic-compatible requests through one local gateway.
+- The local dashboard manages provider connections, virtual API keys, model routing, quotas, logs, and Cloudflare Tunnel state.
+- Default gateway URL: http://localhost:3000
+- API base URL: http://localhost:3000/v1
+
+## Product areas
+
+- [Product](https://srouter.web.id/#product): See the local gateway dashboard and product surfaces.
+- [Control surface](https://srouter.web.id/#control-surface): Review routing, virtual keys, quotas, and traffic visibility.
+- [Providers](https://srouter.web.id/#providers): See provider prefixes and authentication paths.
+- [Run locally](https://srouter.web.id/#run-locally): Start SRouter with Docker.
+- [FAQ](https://srouter.web.id/#faq): Read product and setup answers.
+
+## Source
+
+- [GitHub repository](https://github.com/seaavey/SRouter)
+- [Landing page source](https://github.com/seaavey/SRouter-Docs)
