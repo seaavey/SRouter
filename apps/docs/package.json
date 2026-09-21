@@ -1,0 +1,21 @@
+{
+    "name": "docs",
+    "version": "0.1.0",
+    "private": true,
+    "type": "module",
+    "description": "Product landing page for SRouter, a local-first AI gateway.",
+    "scripts": {
+        "dev": "astro dev --host 0.0.0.0",
+        "build": "astro build",
+        "preview": "astro preview --host 0.0.0.0",
+        "check": "astro check"
+    },
+    "dependencies": {
+        "@astrojs/sitemap": "3.7.4",
+        "astro": "7.3.3"
+    },
+    "devDependencies": {
+        "@astrojs/check": "0.9.10",
+        "typescript": "5.9.3"
+    }
+}

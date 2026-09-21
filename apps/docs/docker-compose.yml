@@ -1,0 +1,43 @@
+services:
+    docs:
+        build:
+            context: ../..
+            dockerfile: apps/docs/Dockerfile
+            args:
+                PUBLIC_SITE_URL: ${PUBLIC_SITE_URL:-http://localhost:4321}
+        container_name: srouter-docs
+        restart: unless-stopped
+        ports:
+            - "${DOCS_PORT:-4321}:80"
+        healthcheck:
+            test:
+                - CMD-SHELL
+                - wget -qO- http://127.0.0.1/ >/dev/null || exit 1
+            interval: 30s
+            timeout: 5s
+            retries: 3
+            start_period: 5s
+
+    cloudflared:
+        image: cloudflare/cloudflared:2026.9.0
+        container_name: srouter-docs-tunnel
+        restart: unless-stopped
+        profiles:
+            - tunnel
+        depends_on:
+            docs:
+                condition: service_healthy
+        command: tunnel --url http://docs:80
+
+    cloudflared-named:
+        image: cloudflare/cloudflared:2026.9.0
+        container_name: srouter-docs-named-tunnel
+        restart: unless-stopped
+        profiles:
+            - named-tunnel
+        depends_on:
+            docs:
+                condition: service_healthy
+        environment:
+            TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+        command: tunnel run --token ${CLOUDFLARE_TUNNEL_TOKEN:-}

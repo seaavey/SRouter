@@ -1,0 +1,127 @@
+---
+import DocsLayout from "../layouts/DocsLayout.astro";
+
+const areas = [
+    {
+        href: "/docs/installation/",
+        number: "01",
+        title: "Installation",
+        description: "Run SRouter with the published Docker image or directly from source code."
+    },
+    {
+        href: "/docs/getting-started/",
+        number: "02",
+        title: "Getting started",
+        description: "Connect a provider, create a key, and send the first request."
+    },
+    {
+        href: "/docs/concepts/architecture/",
+        number: "03",
+        title: "Architecture",
+        description: "Understand how the API, dashboard, CLI, and packages fit together."
+    },
+    {
+        href: "/docs/reference/api-routes/",
+        number: "04",
+        title: "API reference",
+        description: "Browse the complete mounted HTTP route surface and auth boundaries."
+    },
+    {
+        href: "/docs/cli/",
+        number: "05",
+        title: "CLI",
+        description: "Connect Claude Code and OpenCode from the terminal."
+    },
+    {
+        href: "/docs/integrations/openai/",
+        number: "06",
+        title: "Integrate",
+        description: "Connect OpenAI, Anthropic, streaming clients, and coding tools."
+    }
+];
+---
+
+<DocsLayout title="Overview" description="The source, mapped." section="SRouter documentation">
+    <section class="hero" aria-labelledby="hero-title">
+        <span class="eyebrow">Local-first AI gateway</span>
+        <h1 id="hero-title">Build on one clear endpoint.</h1>
+        <p>
+            SRouter puts one inspectable endpoint between your tools and model providers. These docs connect the product surface to the source files that make it work.
+        </p>
+        <div class="hero-actions">
+            <a class="button button-primary" href="/docs/installation/">Install SRouter</a>
+            <a class="button button-secondary" href="https://github.com/seaavey/SRouter" target="_blank" rel="noreferrer">Open repository</a>
+        </div>
+        <div class="hero-metrics" aria-label="Documentation coverage">
+            <div><strong>20</strong><span>source-mapped pages</span></div>
+            <div><strong>4</strong><span>workspace surfaces</span></div>
+            <div><strong>/v1</strong><span>gateway contract</span></div>
+        </div>
+    </section>
+
+    <section aria-labelledby="areas-title">
+        <span class="doc-kicker">Explore the workspace</span>
+        <div class="overview-grid" id="areas-title">
+            {areas.map((area) => (
+                <a class="overview-card" href={area.href}>
+                    <small>{area.number} / docs</small>
+                    <h2>{area.title}</h2>
+                    <p>{area.description}</p>
+                </a>
+            ))}
+        </div>
+    </section>
+
+    <section class="architecture" aria-labelledby="architecture-title">
+        <h2 id="architecture-title">One endpoint, clear boundaries.</h2>
+        <p>
+            Follow a request from the client-facing API to the provider edge without losing the boundary between transport, business decisions, and reusable runtime behavior.
+        </p>
+        <div class="architecture-grid">
+            <article class="architecture-card">
+                <small>01 / Client</small>
+                <strong>Tools and SDKs</strong>
+                <p>OpenAI-compatible and Anthropic-compatible clients use the local `/v1` surface.</p>
+            </article>
+            <article class="architecture-card">
+                <small>02 / Gateway</small>
+                <strong>Hono API</strong>
+                <p>Routes validate, authenticate, and adapt incoming requests into domain calls.</p>
+            </article>
+            <article class="architecture-card">
+                <small>03 / Runtime</small>
+                <strong>Routing and policy</strong>
+                <p>Combos, fallback, quota, pricing, and logs keep provider decisions visible.</p>
+            </article>
+            <article class="architecture-card">
+                <small>04 / Edge</small>
+                <strong>Provider executors</strong>
+                <p>Executors handle upstream auth, protocol differences, retries, and streaming.</p>
+            </article>
+        </div>
+    </section>
+
+    <section class="route-preview" aria-labelledby="route-preview-title">
+        <div>
+            <span class="doc-kicker">Request path</span>
+            <h2 id="route-preview-title">From client to provider edge.</h2>
+            <p>Each boundary has a home in the repository. Use the docs to move from behavior to implementation without guessing.</p>
+        </div>
+        <div class="route-preview-flow">
+            <a href="/docs/integrations/openai/"><span>01</span><strong>Client</strong><small>SDK or coding tool</small></a>
+            <i aria-hidden="true">→</i>
+            <a href="/docs/reference/api-routes/"><span>02</span><strong>Gateway</strong><small>Auth and validation</small></a>
+            <i aria-hidden="true">→</i>
+            <a href="/docs/concepts/providers-routing/"><span>03</span><strong>Routing</strong><small>Provider and fallback</small></a>
+            <i aria-hidden="true">→</i>
+            <a href="/docs/integrations/streaming/"><span>04</span><strong>Edge</strong><small>Executor and stream</small></a>
+        </div>
+    </section>
+
+    <nav class="source-strip" aria-label="Source directories">
+        <a href="https://github.com/seaavey/SRouter/tree/main/apps/api/src">apps/api/src</a>
+        <a href="https://github.com/seaavey/SRouter/tree/main/apps/web/src">apps/web/src</a>
+        <a href="https://github.com/seaavey/SRouter/tree/main/apps/cli/src">apps/cli/src</a>
+        <a href="https://github.com/seaavey/SRouter/tree/main/packages">packages/</a>
+    </nav>
+</DocsLayout>

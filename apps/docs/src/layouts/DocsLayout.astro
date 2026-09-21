@@ -1,0 +1,257 @@
+---
+import Layout from "./Layout.astro";
+import { docs, findDoc, navGroups, sourceUrl } from "../lib/docs";
+
+const page = Astro.props.frontmatter ?? Astro.props;
+const currentPath = Astro.url.pathname;
+const currentDoc = findDoc(currentPath);
+const currentIndex = currentDoc ? docs.findIndex((doc) => doc.href === currentDoc.href) : -1;
+const previousDoc = currentIndex > 0 ? docs[currentIndex - 1] : undefined;
+const nextDoc = currentIndex >= 0 ? docs[currentIndex + 1] : undefined;
+const pageSourceUrl = sourceUrl(currentDoc?.source);
+
+function isActive(href: string) {
+    return href === "/" ? currentPath === "/" : currentPath.startsWith(href);
+}
+---
+
+<Layout title={`${page.title} | SRouter Docs`} description={page.description}>
+    <div class="docs-shell">
+        <aside class="sidebar" aria-label="Documentation navigation">
+            <div class="sidebar-main">
+                <div class="sidebar-header">
+                    <a class="brand" href="/" aria-label="SRouter Docs home">
+                        <span>SRouter.</span>
+                        <span class="brand-badge">docs</span>
+                    </a>
+                </div>
+                <nav class="sidebar-nav">
+                    {navGroups.map((group) => (
+                        <div class="nav-group">
+                            <p class="nav-group-label">{group.label}</p>
+                            <ul class="nav-list">
+                                {group.items.map((item) => (
+                                    <li>
+                                        <a class="nav-link" href={item.href} aria-current={isActive(item.href) ? "page" : undefined}>
+                                            <span class="nav-link-dot" aria-hidden="true"></span>
+                                            <span>{item.title}</span>
+                                        </a>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    ))}
+                </nav>
+            </div>
+            <div class="sidebar-footer">
+                <p>Documentation generated from the SRouter workspace.</p>
+                <a href="https://github.com/seaavey/SRouter" target="_blank" rel="noreferrer">View source on GitHub</a>
+            </div>
+        </aside>
+
+        <div class="docs-main">
+            <header class="topbar">
+                <div class="breadcrumb" aria-label="Breadcrumb">
+                    <span>Docs</span>
+                    <span class="breadcrumb-separator">/</span>
+                    <strong>{page.title}</strong>
+                </div>
+                <div class="topbar-actions">
+                    <button class="topbar-search" type="button" data-search-open aria-label="Search documentation">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="11" cy="11" r="6.5" /><path d="m16 16 5 5" /></svg>
+                        <span>Search docs</span>
+                        <kbd>⌘ K</kbd>
+                    </button>
+                    <a class="topbar-link" href="https://github.com/seaavey/SRouter" target="_blank" rel="noreferrer">GitHub</a>
+                    <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch theme" title="Switch theme">
+                        <svg class="theme-icon theme-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M20 15.6A8.5 8.5 0 0 1 8.4 4 8.5 8.5 0 1 0 20 15.6Z" /></svg>
+                        <svg class="theme-icon theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="3.5" /><path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg>
+                    </button>
+                    <details class="mobile-menu">
+                        <summary>Menu</summary>
+                        <div class="mobile-menu-panel">
+                            {navGroups.flatMap((group) => group.items).map((item) => (
+                                <a href={item.href} aria-current={isActive(item.href) ? "page" : undefined}>{item.title}</a>
+                            ))}
+                        </div>
+                    </details>
+                </div>
+            </header>
+
+            <main id="main-content" class="content-wrap">
+                <header class="doc-header">
+                    <span class="doc-kicker">{page.section ?? "SRouter documentation"}</span>
+                    <h1>{page.title}</h1>
+                    <p>{page.description}</p>
+                    <div class="doc-meta">
+                        {pageSourceUrl ? <a href={pageSourceUrl} target="_blank" rel="noreferrer">View source <span aria-hidden="true">↗</span></a> : null}
+                        <span>Static docs · source-grounded</span>
+                    </div>
+                </header>
+                <div class="content-grid">
+                    <div class="doc-column">
+                        <article class="prose">
+                            <slot />
+                        </article>
+                        <nav class="doc-pagination" aria-label="Documentation pagination">
+                            {previousDoc ? <a class="doc-pagination-link previous" href={previousDoc.href}><span>Previous</span><strong>← {previousDoc.title}</strong></a> : <span />}
+                            {nextDoc ? <a class="doc-pagination-link next" href={nextDoc.href}><span>Next</span><strong>{nextDoc.title} →</strong></a> : <span />}
+                        </nav>
+                        <footer class="doc-footer">
+                            <span>SRouter documentation</span>
+                            <a href="https://github.com/seaavey/SRouter/issues" target="_blank" rel="noreferrer">Suggest an improvement</a>
+                        </footer>
+                    </div>
+                    <aside class="toc-rail" aria-label="On this page">
+                        <div class="toc-panel">
+                            <p>On this page</p>
+                            <nav data-toc />
+                        </div>
+                    </aside>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <dialog class="search-dialog" data-search-dialog aria-labelledby="search-title">
+        <div class="search-dialog-inner">
+            <div class="search-dialog-header">
+                <strong id="search-title">Search documentation</strong>
+                <button type="button" data-search-close aria-label="Close search">Esc</button>
+            </div>
+            <label class="search-input-wrap">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="11" cy="11" r="6.5" /><path d="m16 16 5 5" /></svg>
+                <input type="search" data-search-input placeholder="Search routes, commands, packages..." autocomplete="off" />
+            </label>
+            <div class="search-results" data-search-results></div>
+            <p class="search-hint">Press <kbd>Esc</kbd> to close · <kbd>↑</kbd> <kbd>↓</kbd> to browse</p>
+        </div>
+    </dialog>
+    <script type="application/json" id="docs-search-data" set:html={JSON.stringify(docs).replace(/</g, "\\u003c")} />
+</Layout>
+
+<script>
+    const searchDialog = document.querySelector<HTMLDialogElement>("[data-search-dialog]");
+    const searchOpen = document.querySelector<HTMLButtonElement>("[data-search-open]");
+    const searchClose = document.querySelector<HTMLButtonElement>("[data-search-close]");
+    const searchInput = document.querySelector<HTMLInputElement>("[data-search-input]");
+    const searchResults = document.querySelector<HTMLDivElement>("[data-search-results]");
+    const searchData = JSON.parse(document.querySelector("#docs-search-data")?.textContent ?? "[]") as Array<{
+        title: string;
+        href: string;
+        section: string;
+        description: string;
+        keywords: string[];
+    }>;
+
+    function renderSearchResults(query = "") {
+        if (!searchResults) return;
+        const normalizedQuery = query.trim().toLowerCase();
+        const matches = searchData
+            .filter((entry) => {
+                const haystack = `${entry.title} ${entry.section} ${entry.description} ${entry.keywords.join(" ")}`.toLowerCase();
+                return !normalizedQuery || haystack.includes(normalizedQuery);
+            })
+            .slice(0, 12);
+        searchResults.replaceChildren();
+        if (matches.length === 0) {
+            const empty = document.createElement("p");
+            empty.className = "search-empty";
+            empty.textContent = "No documentation matches that search.";
+            searchResults.append(empty);
+            return;
+        }
+        for (const entry of matches) {
+            const link = document.createElement("a");
+            link.className = "search-result";
+            link.href = entry.href;
+            const meta = document.createElement("span");
+            meta.textContent = entry.section;
+            const title = document.createElement("strong");
+            title.textContent = entry.title;
+            const description = document.createElement("small");
+            description.textContent = entry.description;
+            link.append(meta, title, description);
+            searchResults.append(link);
+        }
+    }
+
+    function openSearch() {
+        searchDialog?.showModal();
+        renderSearchResults(searchInput?.value ?? "");
+        window.setTimeout(() => searchInput?.focus(), 0);
+    }
+
+    searchOpen?.addEventListener("click", openSearch);
+    searchClose?.addEventListener("click", () => searchDialog?.close());
+    searchInput?.addEventListener("input", () => renderSearchResults(searchInput.value));
+    searchDialog?.addEventListener("click", (event) => {
+        if (event.target === searchDialog) searchDialog.close();
+    });
+    document.addEventListener("keydown", (event) => {
+        if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+            event.preventDefault();
+            openSearch();
+        }
+        if (event.key === "Escape" && searchDialog?.open) searchDialog.close();
+    });
+
+    function initializeTableOfContents() {
+        const toc = document.querySelector<HTMLElement>("[data-toc]");
+        if (!toc) return;
+
+        toc.replaceChildren();
+        const headings = [...document.querySelectorAll<HTMLElement>(".prose h2, .prose h3")];
+        const usedIds = new Set<string>();
+        headings.forEach((heading) => {
+            const baseId = heading.id || heading.textContent?.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "section";
+            let id = baseId;
+            let suffix = 2;
+            while (usedIds.has(id)) id = `${baseId}-${suffix++}`;
+            usedIds.add(id);
+            heading.id = id;
+            const link = document.createElement("a");
+            link.href = `#${id}`;
+            link.textContent = heading.textContent ?? "";
+            if (heading.tagName === "H3") link.className = "toc-subitem";
+            toc.append(link);
+        });
+
+        if (headings.length === 0) {
+            toc.innerHTML = "<span class=\"toc-muted\">Nothing to outline</span>";
+            return;
+        }
+
+        const tocLinks = [...toc.querySelectorAll<HTMLAnchorElement>("a")];
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach((entry) => {
+                if (!entry.isIntersecting) return;
+                tocLinks.forEach((link) => link.removeAttribute("aria-current"));
+                toc.querySelector<HTMLAnchorElement>(`a[href=\"#${entry.target.id}\"]`)?.setAttribute("aria-current", "location");
+            });
+        }, { rootMargin: "-12% 0px -72% 0px" });
+        headings.forEach((heading) => observer.observe(heading));
+    }
+
+    initializeTableOfContents();
+    document.addEventListener("astro:page-load", initializeTableOfContents);
+
+    document.querySelectorAll<HTMLPreElement>(".prose pre").forEach((pre) => {
+        const copyButton = document.createElement("button");
+        copyButton.type = "button";
+        copyButton.className = "code-copy";
+        copyButton.textContent = "Copy";
+        copyButton.addEventListener("click", async () => {
+            const value = pre.querySelector("code")?.textContent ?? pre.textContent ?? "";
+            try {
+                await navigator.clipboard.writeText(value.trim());
+                copyButton.textContent = "Copied";
+                window.setTimeout(() => (copyButton.textContent = "Copy"), 1400);
+            } catch {
+                copyButton.textContent = "Select";
+                window.setTimeout(() => (copyButton.textContent = "Copy"), 1400);
+            }
+        });
+        pre.append(copyButton);
+    });
+</script>

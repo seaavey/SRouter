@@ -1,0 +1,65 @@
+---
+import "../styles/docs.css";
+import { ClientRouter } from "astro:transitions";
+
+const siteUrl = (Astro.site?.toString() ?? "https://srouter.web.id").replace(/\/$/, "");
+const title = Astro.props.title ?? "SRouter Docs";
+const description =
+    Astro.props.description ??
+    "Source-grounded documentation for SRouter, a local-first AI gateway and LLM proxy.";
+const canonicalUrl = new URL(Astro.url.pathname, siteUrl).toString();
+const socialImageUrl = `${siteUrl}/images/og-image.png`;
+---
+
+<!doctype html>
+<html lang="en" data-theme="dark">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="theme-color" content="#141414" />
+        <meta name="application-name" content="SRouter Docs" />
+        <meta name="description" content={description} />
+        <meta name="robots" content="index, follow" />
+        <link rel="canonical" href={canonicalUrl} />
+        <link rel="sitemap" type="application/xml" href={`${siteUrl}/sitemap-index.xml`} />
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+        <link rel="manifest" href="/manifest.webmanifest" />
+        <ClientRouter />
+        <meta property="og:type" content="website" />
+        <meta property="og:title" content={title} />
+        <meta property="og:description" content={description} />
+        <meta property="og:url" content={canonicalUrl} />
+        <meta property="og:site_name" content="SRouter Docs" />
+        <meta property="og:image" content={socialImageUrl} />
+        <meta property="og:image:alt" content="SRouter documentation" />
+        <meta property="og:locale" content="en_US" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={title} />
+        <meta name="twitter:description" content={description} />
+        <meta name="twitter:image" content={socialImageUrl} />
+        <title>{title}</title>
+        <script is:inline>
+            (() => {
+                const storedTheme = window.localStorage.getItem("srouter-docs-theme");
+                const theme = storedTheme === "light" || storedTheme === "dark" ? storedTheme : "dark";
+                document.documentElement.dataset.theme = theme;
+                document.documentElement.style.colorScheme = theme;
+            })();
+        </script>
+    </head>
+    <body>
+        <a class="skip-link" href="#main-content">Skip to content</a>
+        <slot />
+        <script>
+            const root = document.documentElement;
+            const themeToggle = document.querySelector<HTMLButtonElement>("[data-theme-toggle]");
+
+            themeToggle?.addEventListener("click", () => {
+                const theme = root.dataset.theme === "dark" ? "light" : "dark";
+                root.dataset.theme = theme;
+                root.style.colorScheme = theme;
+                window.localStorage.setItem("srouter-docs-theme", theme);
+            });
+        </script>
+    </body>
+</html>
