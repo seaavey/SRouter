@@ -1,6 +1,6 @@
-# SRouter
+# SRouter Docs
 
-> Product landing page for SRouter, a local-first AI gateway and LLM proxy.
+> Source-grounded documentation for SRouter, a local-first AI gateway and LLM proxy.
 
 ## Product
 
@@ -9,15 +9,18 @@
 - Default gateway URL: http://localhost:3000
 - API base URL: http://localhost:3000/v1
 
-## Product areas
+## Documentation areas
 
-- [Product](https://srouter.web.id/#product): See the local gateway dashboard and product surfaces.
-- [Control surface](https://srouter.web.id/#control-surface): Review routing, virtual keys, quotas, and traffic visibility.
-- [Providers](https://srouter.web.id/#providers): See provider prefixes and authentication paths.
-- [Run locally](https://srouter.web.id/#run-locally): Start SRouter with Docker.
-- [FAQ](https://srouter.web.id/#faq): Read product and setup answers.
+- [Overview](https://srouter.web.id/): Map the workspace and request architecture.
+- [Installation](https://srouter.web.id/docs/installation/): Install with Docker or run from source code.
+- [Getting started](https://srouter.web.id/docs/getting-started/): Connect a provider and send a first request.
+- [Architecture](https://srouter.web.id/docs/concepts/architecture/): Map the workspace and request flow.
+- [API reference](https://srouter.web.id/docs/reference/api-routes/): HTTP routes and compatibility endpoints.
+- [CLI](https://srouter.web.id/docs/cli/): Configure Claude Code and OpenCode.
+- [Shared packages](https://srouter.web.id/docs/packages/): Contracts and runtime boundaries.
+- [Contributing](https://srouter.web.id/docs/contributing/): Workspace conventions and verification.
 
 ## Source
 
 - [GitHub repository](https://github.com/seaavey/SRouter)
-- [Landing page source](https://github.com/seaavey/SRouter-Docs)
+- [Documentation source](https://github.com/seaavey/SRouter/tree/main/apps/docs)

@@ -1,25 +1,25 @@
-# SRouter landing page design direction
+# SRouter documentation design direction
 
 ## Design Read
 
-Reading this as a product landing page for developers choosing a local AI gateway, in an industrial product style, dial ENERGY 2 / RHYTHM 3 / MOTION 1.
+Reading this as a source-oriented documentation portal for developers operating and extending a local AI gateway, using the same visual system as `apps/web`.
 
 ## Identity
 
-SRouter uses a dark graphite control-room surface with a single acid-lime action color. The visual voice comes from the gateway's own materials: request paths, provider edges, model prefixes, ports, and local control.
+SRouter docs use the `apps/web` monochrome canvas system: white or near-black canvas, soft grey surfaces, thin hairlines, ink typography, and a blue action accent. The visual voice comes from the gateway's source boundaries: routes, packages, providers, commands, and request flow.
 
 ## Decisions
 
-- Color: graphite, deep green-black, soft technical text, and lime accent. The palette gives the gateway a distinct control-room identity while keeping actions visible.
-- Typography: IBM Plex Sans carries product copy and headings for readable scanning. JetBrains Mono labels paths, commands, variables, and metadata because those items are technical controls.
-- Layout: an editorial landing flow with a left-aligned thesis, route diagram, dashboard evidence, capability hierarchy, provider layer, and local-run CTA. The page sells the product before asking the visitor to read implementation detail.
-- Hero: a product thesis plus a route diagram. The visual shows the core value, traffic moves from a tool through SRouter to providers.
-- Signature motif: thin route lines, square markers, and request-shaped labels repeat the idea of traffic moving through a gateway.
-- Cards: bordered surfaces group capability evidence and the product walkthrough. They are not used as a generic three-card template.
-- Motion: only short hover, theme, and interaction transitions are used. The landing page stays fast and readable.
-- Theme: dark is the product default for a developer gateway, with a functional light theme available for readability.
-- Responsive behavior: grids stack, navigation becomes an explicit labeled menu, and the route visual remains readable without horizontal overflow.
+- Color: `--canvas`, `--canvas-soft`, `--field`, `--hairline`, `--ink`, and `--accent` mirror `apps/web/src/styles.css`.
+- Typography: Inter carries documentation copy and headings. JetBrains Mono labels source paths, commands, variables, and metadata.
+- Layout: a fixed desktop sidebar and sticky topbar establish the same app-shell rhythm as `apps/web`. Content stays constrained for readable source explanations.
+- Overview: a short source map, documentation areas, and a four-stage request architecture replace the old marketing-only hero.
+- Documentation pages: Markdown content is rendered through one `DocsLayout.astro` shell with active navigation, breadcrumbs, code blocks, tables, and source links.
+- Surfaces: thin borders and rounded canvas-soft cards group navigation and source maps. No shadows or decorative gradients are introduced.
+- Motion: only short theme and hover transitions are used. Reduced motion is respected.
+- Theme: dark remains the default, with a functional light theme stored in local storage.
+- Responsive behavior: the sidebar becomes a labeled menu below 760px; content, tables, code blocks, and cards remain readable without page-level horizontal overflow.
 
 ## Content source
 
-Product behavior, commands, ports, providers, routes, and configuration values are transcribed from the SRouter repository README, agent guide, API route files, CLI command definitions, Docker Compose file, and Dockerfile. No customer names, testimonials, performance numbers, or unsupported product claims are included.
+Product behavior, commands, ports, providers, routes, and configuration values are transcribed from the SRouter repository README, agent guide, API route files, CLI command definitions, package entrypoints, Docker Compose file, and Dockerfile. No customer names, testimonials, performance numbers, or unsupported product claims are included.

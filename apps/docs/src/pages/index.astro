@@ -1,215 +1,127 @@
 ---
-import Layout from "../layouts/Layout.astro";
+import DocsLayout from "../layouts/DocsLayout.astro";
 
-const providers = [
-    ["Google Antigravity", "antigravity/*", "OAuth 2.0 PKCE"],
-    ["OpenAI Codex / ChatGPT", "openai_codex/*", "OAuth 2.0 PKCE"],
-    ["Anthropic Claude", "anthropic/*", "API key / OAuth"],
-    ["OpenCode Zen", "opencode_zen/*", "Free / access token"],
-    ["Amazon Q / Kiro", "kiro/*", "SigV4 / API key"],
-    ["Qoder", "qoder/*", "OAuth / device token"],
-    ["GoRouter", "gorouter/*", "API key"],
-    ["BluesMinds", "bluesminds/*", "API key"],
-    ["SeekAI / TabiToken", "seekai/*, tabitoken/*", "API key"],
-    ["Custom endpoints", "custom/*", "Custom headers"]
+const areas = [
+    {
+        href: "/docs/installation/",
+        number: "01",
+        title: "Installation",
+        description: "Run SRouter with the published Docker image or directly from source code."
+    },
+    {
+        href: "/docs/getting-started/",
+        number: "02",
+        title: "Getting started",
+        description: "Connect a provider, create a key, and send the first request."
+    },
+    {
+        href: "/docs/concepts/architecture/",
+        number: "03",
+        title: "Architecture",
+        description: "Understand how the API, dashboard, CLI, and packages fit together."
+    },
+    {
+        href: "/docs/reference/api-routes/",
+        number: "04",
+        title: "API reference",
+        description: "Browse the complete mounted HTTP route surface and auth boundaries."
+    },
+    {
+        href: "/docs/cli/",
+        number: "05",
+        title: "CLI",
+        description: "Connect Claude Code and OpenCode from the terminal."
+    },
+    {
+        href: "/docs/integrations/openai/",
+        number: "06",
+        title: "Integrate",
+        description: "Connect OpenAI, Anthropic, streaming clients, and coding tools."
+    }
 ];
-
-const productLinks = [
-    ["Product", "product"],
-    ["Control surface", "control-surface"],
-    ["Providers", "providers"],
-    ["Run locally", "run-locally"],
-    ["FAQ", "faq"]
-];
-
-
 ---
 
-<Layout>
-    <header class="site-header">
-        <div class="header-inner">
-            <a class="brand" href="#top" aria-label="SRouter home">
-                <span class="brand-mark" aria-hidden="true">SR</span>
-                <span class="brand-name">SRouter</span>
-            </a>
-
-            <nav class="desktop-nav" aria-label="Primary navigation">
-                {productLinks.map(([label, href]) => <a href={`#${href}`} data-nav-link>{label}</a>)}
-            </nav>
-
-            <div class="header-actions">
-                <a
-                    class="source-link"
-                    href="https://github.com/seaavey/SRouter"
-                    target="_blank"
-                    rel="noreferrer"
-                    >View source</a>
-                <button class="icon-button" type="button" data-theme-toggle aria-label="Toggle theme" title="Toggle theme">
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                        <path d="M12 3v2M12 19v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M3 12h2M19 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />
-                    </svg>
-                    <span class="sr-only" data-theme-label>Use light theme</span>
-                </button>
-                <button
-                    class="menu-button"
-                    type="button"
-                    data-mobile-toggle
-                    aria-controls="mobile-navigation"
-                    aria-expanded="false"
-                    aria-label="Toggle navigation"
-                >
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                        <path d="M4 7h16M4 12h16M4 17h16" />
-                    </svg>
-                </button>
-            </div>
+<DocsLayout title="Overview" description="The source, mapped." section="SRouter documentation">
+    <section class="hero" aria-labelledby="hero-title">
+        <span class="eyebrow">Local-first AI gateway</span>
+        <h1 id="hero-title">Build on one clear endpoint.</h1>
+        <p>
+            SRouter puts one inspectable endpoint between your tools and model providers. These docs connect the product surface to the source files that make it work.
+        </p>
+        <div class="hero-actions">
+            <a class="button button-primary" href="/docs/installation/">Install SRouter</a>
+            <a class="button button-secondary" href="https://github.com/seaavey/SRouter" target="_blank" rel="noreferrer">Open repository</a>
         </div>
-        <nav class="mobile-nav" id="mobile-navigation" data-mobile-nav data-open="false" aria-label="Mobile navigation">
-            {productLinks.map(([label, href]) => <a href={`#${href}`} data-nav-link>{label}</a>)}
-        </nav>
-    </header>
-
-    <main class="main-content" id="main-content">
-            <section class="hero" id="top" aria-labelledby="hero-title">
-                <div class="hero-copy">
-                    <span class="eyebrow">Local-first AI gateway</span>
-                    <h1 id="hero-title">Your models. One endpoint.</h1>
-                    <p class="hero-lede">
-                        SRouter sits between your coding tools and model providers. Route OpenAI and Anthropic-compatible requests, keep provider credentials in one place, and inspect the traffic that crosses your gateway.
-                    </p>
-                    <div class="hero-actions">
-                        <a class="button button-primary" href="#run-locally">Run SRouter locally</a>
-                        <a class="button button-secondary" href="#control-surface">See the control surface</a>
-                    </div>
-                    <div class="hero-microcopy" aria-label="SRouter product properties">
-                        <span>OpenAI compatible</span>
-                        <span>Anthropic compatible</span>
-                        <span>SQLite by default</span>
-                    </div>
-                </div>
-                <aside class="route-visual" aria-label="SRouter request route diagram">
-                    <div class="route-topline"><span>Request path</span><span class="route-status">Gateway online</span></div>
-                    <div class="route-flow">
-                        <div class="route-node active"><span class="route-node-marker" aria-hidden="true"></span><div><strong>Your tool or app</strong><small>One familiar API surface</small></div></div>
-                        <div class="route-node active"><span class="route-node-marker" aria-hidden="true"></span><div><strong>SRouter gateway</strong><small>Auth, routing, quota, logs</small></div></div>
-                        <div class="route-node"><span class="route-node-marker" aria-hidden="true"></span><div><strong>Connected providers</strong><small>Pick a route or let a combo fail over</small></div></div>
-                    </div>
-                    <div class="provider-pills" aria-label="Provider examples"><span>antigravity/*</span><span>anthropic/*</span><span>custom/*</span></div>
-                </aside>
-            </section>
-
-            <div class="signal-strip" aria-label="SRouter capabilities"><span>Provider controls</span><span>Fallback chains</span><span>Virtual API keys</span><span>Request telemetry</span></div>
-
-            <section class="section" id="product" aria-labelledby="product-title">
-                <div class="section-head"><span class="section-kicker">The product</span><div><h2 id="product-title">A quiet control layer for noisy provider edges.</h2><p>SRouter handles the operational pieces around a model request, so your client configuration can stay small and your routing decisions stay visible.</p></div></div>
-                <div class="dashboard-stage">
-                    <figure class="dashboard-frame"><picture><source media="(prefers-color-scheme: light)" srcset="/images/dashboard-light.gif" /><img src="/images/dashboard-dark.gif" alt="SRouter dashboard with provider controls, quotas, logs, and routing surfaces" loading="lazy" /></picture><figcaption>Real SRouter dashboard walkthrough from the project repository.</figcaption></figure>
-                    <div class="surface-list">
-                        <article class="surface-item"><b>01 / Connect</b><strong>Provider connections</strong><p>Keep API keys and supported OAuth flows behind the gateway you control.</p></article>
-                        <article class="surface-item"><b>02 / Route</b><strong>Model decisions</strong><p>Use provider prefixes, combos, and fallback chains without rewriting each client.</p></article>
-                        <article class="surface-item"><b>03 / Inspect</b><strong>Usage visibility</strong><p>See request logs, token usage, quotas, and estimated cost in one place.</p></article>
-                    </div>
-                </div>
-            </section>
-
-            <section class="section" id="control-surface" aria-labelledby="control-title">
-                <div class="section-head"><span class="section-kicker">Control surface</span><div><h2 id="control-title">The work around the request, made concrete.</h2><p>Each part of the gateway exists for an operational reason. Nothing here is a decorative dashboard tile.</p></div></div>
-                <div class="capability-grid">
-                    <article class="capability featured"><span class="capability-number">01 / ROUTE</span><h3>Choose a provider path without changing your client.</h3><p>Keep the client pointed at <code>http://localhost:3000/v1</code>. Use model prefixes or configured combos to make routing explicit at the gateway.</p></article>
-                    <article class="capability"><span class="capability-number">02 / PROTECT</span><h3>Virtual keys for the local surface.</h3><p>Create keys with rate limits, token quotas, and expiration instead of handing upstream credentials to every tool.</p></article>
-                    <article class="capability"><span class="capability-number">03 / OBSERVE</span><h3>Logs that explain traffic.</h3><p>Inspect request activity, model usage, quotas, and estimated cost while you develop.</p></article>
-                </div>
-            </section>
-
-            <section class="section" id="run-locally" aria-labelledby="run-title">
-                <div class="section-head"><span class="section-kicker">Run locally</span><div><h2 id="run-title">Start with a gateway, not a platform migration.</h2><p>Run the container, open the dashboard, connect a provider, and point your existing client at the local API.</p></div></div>
-                <div class="run-stage">
-                    <div class="run-copy">
-                        <p>SRouter stores its SQLite data and provider state in the directory you mount. You can keep the whole control layer local while your requests travel to the providers you select.</p>
-                        <div class="code-shell"><div class="code-meta"><span>docker</span><button class="copy-button" type="button" data-copy-target="docker-command">Copy</button></div><pre id="docker-command"><code><span class="code-command">docker run -d</span> \
-  --name srouter \
-  --restart unless-stopped \
-  -p 3000:3000 \
-  -p 1455:1455 \
-  -v "$HOME/.srouter:/root/.srouter" \
-  ghcr.io/seaavey/srouter:latest</code></pre></div>
-                        <div class="inline-actions"><a class="button button-primary" href="https://github.com/seaavey/SRouter" target="_blank" rel="noreferrer">Open the repository</a><a class="button button-secondary" href="#providers">Review providers</a></div>
-                    </div>
-                    <div class="run-note" aria-label="SRouter local setup steps">
-                        <div class="run-step"><b>01</b><div><strong>Start the container</strong><span>Gateway and dashboard come up on port 3000.</span></div></div>
-                        <div class="run-step"><b>02</b><div><strong>Connect a provider</strong><span>Choose the authentication path supported by that provider.</span></div></div>
-                        <div class="run-step"><b>03</b><div><strong>Use one base URL</strong><span>Point SDKs and tools at the local <code>/v1</code> surface.</span></div></div>
-                        <div class="run-step"><b>04</b><div><strong>Watch the traffic</strong><span>Inspect requests, usage, quotas, and routing from the dashboard.</span></div></div>
-                    </div>
-                </div>
-            </section>
-
-
-            <section class="section" id="providers" aria-labelledby="providers-title">
-                <div class="section-head">
-                    <span class="section-kicker">Provider layer</span>
-                    <div>
-                        <h2 id="providers-title">Normalize the provider edges.</h2>
-                        <p>OAuth, API keys, device flows, custom headers, and model prefixes stay behind one consistent gateway contract.</p>
-                    </div>
-                </div>
-
-                <div class="provider-stage">
-                    <p>SRouter normalizes authentication, protocol translation, streaming, quotas, and fallback behavior across the provider connections you choose.</p>
-                    <div class="provider-list" role="list" aria-label="SRouter provider connections">
-                        {providers.slice(0, 6).map(([name, prefix, auth]) => (
-                            <article class="provider-row" role="listitem"><strong>{name}</strong><span>{prefix} · {auth}</span></article>
-                        ))}
-                    </div>
-                </div>
-            </section>
-
-
-            <section class="section" id="faq" aria-labelledby="faq-title">
-                <div class="section-head"><span class="section-kicker">Questions</span><div><h2 id="faq-title">The useful answers before the first request.</h2><p>SRouter is meant to fit into the setup you already have, not replace every part of it.</p></div></div>
-                <div class="faq-list">
-                    <details open><summary>What is SRouter?</summary><div class="faq-answer">SRouter is a local-first AI gateway. It gives coding tools and applications one endpoint for OpenAI-compatible and Anthropic-compatible requests while it handles provider connections, routing, keys, quotas, and logs.</div></details>
-                    <details><summary>Where does SRouter keep my local data?</summary><div class="faq-answer">The Docker setup stores the SQLite database and provider credentials in the mounted <code>~/.srouter</code> directory. You control the machine, the volume, and the gateway endpoint.</div></details>
-                    <details><summary>Which tools and clients can connect?</summary><div class="faq-answer">Use OpenAI-compatible or Anthropic-compatible SDKs and cURL. The SRouter CLI can also configure Claude Code and OpenCode to use the gateway.</div></details>
-                    <details><summary>Can I connect a custom provider?</summary><div class="faq-answer">Yes. SRouter supports custom endpoints with custom headers, alongside its built-in provider connections and model prefixes.</div></details>
-                </div>
-            </section>
-
-            <section class="section" aria-label="Start with SRouter">
-                <div class="cta-band">
-                    <div>
-                        <h2>Put the gateway between your tools and the provider edge.</h2>
-                        <p>Run SRouter locally, keep the endpoint familiar, and make routing a decision you can inspect.</p>
-                    </div>
-                    <div class="inline-actions">
-                        <a class="button button-primary" href="#run-locally">Run it locally</a>
-                        <a class="button button-secondary" href="https://github.com/seaavey/SRouter" target="_blank" rel="noreferrer">View source</a>
-                    </div>
-                </div>
-            </section>
-    </main>
-
-    <footer class="site-footer">
-        <div class="site-footer-inner">
-            <p>SRouter · local-first AI gateway</p>
-            <div class="footer-links">
-                <a href="https://github.com/seaavey/SRouter" target="_blank" rel="noreferrer">GitHub</a>
-                <a href="https://github.com/seaavey/SRouter/blob/main/LICENSE" target="_blank" rel="noreferrer">MIT License</a>
-            </div>
+        <div class="hero-metrics" aria-label="Documentation coverage">
+            <div><strong>20</strong><span>source-mapped pages</span></div>
+            <div><strong>4</strong><span>workspace surfaces</span></div>
+            <div><strong>/v1</strong><span>gateway contract</span></div>
         </div>
-    </footer>
-</Layout>
+    </section>
 
-<style>
-    .sr-only {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        padding: 0;
-        margin: -1px;
-        overflow: hidden;
-        clip: rect(0, 0, 0, 0);
-        white-space: nowrap;
-        border: 0;
-    }
-</style>
+    <section aria-labelledby="areas-title">
+        <span class="doc-kicker">Explore the workspace</span>
+        <div class="overview-grid" id="areas-title">
+            {areas.map((area) => (
+                <a class="overview-card" href={area.href}>
+                    <small>{area.number} / docs</small>
+                    <h2>{area.title}</h2>
+                    <p>{area.description}</p>
+                </a>
+            ))}
+        </div>
+    </section>
+
+    <section class="architecture" aria-labelledby="architecture-title">
+        <h2 id="architecture-title">One endpoint, clear boundaries.</h2>
+        <p>
+            Follow a request from the client-facing API to the provider edge without losing the boundary between transport, business decisions, and reusable runtime behavior.
+        </p>
+        <div class="architecture-grid">
+            <article class="architecture-card">
+                <small>01 / Client</small>
+                <strong>Tools and SDKs</strong>
+                <p>OpenAI-compatible and Anthropic-compatible clients use the local `/v1` surface.</p>
+            </article>
+            <article class="architecture-card">
+                <small>02 / Gateway</small>
+                <strong>Hono API</strong>
+                <p>Routes validate, authenticate, and adapt incoming requests into domain calls.</p>
+            </article>
+            <article class="architecture-card">
+                <small>03 / Runtime</small>
+                <strong>Routing and policy</strong>
+                <p>Combos, fallback, quota, pricing, and logs keep provider decisions visible.</p>
+            </article>
+            <article class="architecture-card">
+                <small>04 / Edge</small>
+                <strong>Provider executors</strong>
+                <p>Executors handle upstream auth, protocol differences, retries, and streaming.</p>
+            </article>
+        </div>
+    </section>
+
+    <section class="route-preview" aria-labelledby="route-preview-title">
+        <div>
+            <span class="doc-kicker">Request path</span>
+            <h2 id="route-preview-title">From client to provider edge.</h2>
+            <p>Each boundary has a home in the repository. Use the docs to move from behavior to implementation without guessing.</p>
+        </div>
+        <div class="route-preview-flow">
+            <a href="/docs/integrations/openai/"><span>01</span><strong>Client</strong><small>SDK or coding tool</small></a>
+            <i aria-hidden="true">→</i>
+            <a href="/docs/reference/api-routes/"><span>02</span><strong>Gateway</strong><small>Auth and validation</small></a>
+            <i aria-hidden="true">→</i>
+            <a href="/docs/concepts/providers-routing/"><span>03</span><strong>Routing</strong><small>Provider and fallback</small></a>
+            <i aria-hidden="true">→</i>
+            <a href="/docs/integrations/streaming/"><span>04</span><strong>Edge</strong><small>Executor and stream</small></a>
+        </div>
+    </section>
+
+    <nav class="source-strip" aria-label="Source directories">
+        <a href="https://github.com/seaavey/SRouter/tree/main/apps/api/src">apps/api/src</a>
+        <a href="https://github.com/seaavey/SRouter/tree/main/apps/web/src">apps/web/src</a>
+        <a href="https://github.com/seaavey/SRouter/tree/main/apps/cli/src">apps/cli/src</a>
+        <a href="https://github.com/seaavey/SRouter/tree/main/packages">packages/</a>
+    </nav>
+</DocsLayout>
