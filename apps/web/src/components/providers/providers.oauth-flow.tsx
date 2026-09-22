@@ -1,12 +1,5 @@
 import type { ReactNode } from "react";
 
-/**
- * Konfigurasi alur koneksi OAuth/PAT per provider. Menambah provider baru
- * cukup menambah entri di OAUTH_FLOWS — tidak ada lagi nested ternary yang
- * tersebar di komponen modal.
- */
-
-/** Tab PAT (Personal Access Token / API key) di dalam modal koneksi. */
 export interface OAuthPatTabConfig {
     tabLabel: string;
     fieldLabel: string;
@@ -15,20 +8,16 @@ export interface OAuthPatTabConfig {
     submitLabel: string;
 }
 
-/** Tab Bulk Add: impor banyak token sekaligus, satu per baris. */
 export interface OAuthBulkTabConfig {
     fieldLabel: string;
     description: ReactNode;
     placeholder: string;
-    /** Baris berformat "<access>,<refresh>" (khusus Codex). */
     parsePair: boolean;
 }
 
 export interface OAuthFlowConfig {
     loginEndpoint: string;
-    /** Endpoint polling device/OAuth; kehadirannya mematikan Step 2 paste-callback. */
     pollEndpoint?: string;
-    /** Endpoint callback untuk Step 2; fallback ke "/v1/auth/openai/callback" (perilaku lama). */
     callbackEndpoint?: string;
     patTab?: OAuthPatTabConfig;
     bulkTab?: OAuthBulkTabConfig;
@@ -148,11 +137,6 @@ const OAUTH_FLOWS: Record<string, OAuthFlowConfig> = {
     anthropic: claudeFlow
 };
 
-/**
- * Memetakan authProviderId (bagian dasar id provider, dengan pengecualian
- * "codebuddy-cn") ke konfigurasi alurnya. Provider tak dikenal memakai alur
- * OpenAI tanpa tab tambahan, mengikuti perilaku lama.
- */
 export default function resolveOAuthFlow(authProviderId: string): OAuthFlowConfig {
     return (
         OAUTH_FLOWS[authProviderId] ?? {
