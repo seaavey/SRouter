@@ -20,10 +20,12 @@ import {
     ProviderIcon,
     ProviderModelCard,
     ProviderModelTable,
+    ProviderStatusBadge,
     type ConnectionFormInput
 } from "@/components/providers";
-import { ConnectOAuthModal } from "@/components/providers/providers.connect-oauth-modal";
+import ConnectOAuthModal from "@/components/providers/providers.connect-oauth-modal";
 import { useProvider, type AddConnectionPayload } from "@/hooks/useProvider";
+import { api } from "@/lib/api";
 import { useCopy } from "@/hooks/useCopy";
 import { useFavorites } from "@/hooks/useFavorites";
 import { toast } from "sonner";
@@ -58,7 +60,9 @@ function ProviderDetailPage() {
         deleteModelMutation,
         hiddenModelIds,
         hideModelMutation,
-        restoreModelMutation
+        restoreModelMutation,
+        hideModelsMutation,
+        restoreModelsMutation
     } = useProvider(providerId);
 
     const [modelSearch, setModelSearch] = useState("");
@@ -70,7 +74,7 @@ function ProviderDetailPage() {
     const { copied, copy } = useCopy();
     const { isFavorite } = useFavorites();
 
-    const deletedModelIds = hiddenModelIds;
+    const hiddenModelIdList = hiddenModelIds;
 
     const handleRestoreModel = (modelId: string) => {
         restoreModelMutation.mutate(modelId);
@@ -78,8 +82,7 @@ function ProviderDetailPage() {
     };
 
     const handleRestoreMultiple = (modelIds: string[]) => {
-        const removeSet = new Set(modelIds);
-        for (const modelId of modelIds) restoreModelMutation.mutate(modelId);
+        restoreModelsMutation.mutate(modelIds);
         toast.success(`Restored ${modelIds.length} hidden model${modelIds.length > 1 ? "s" : ""}`);
     };
 
@@ -94,7 +97,7 @@ function ProviderDetailPage() {
     };
 
     const handleDeleteMultipleModels = (modelIds: string[]) => {
-        for (const modelId of modelIds) hideModelMutation.mutate(modelId);
+        hideModelsMutation.mutate(modelIds);
         toast.info(`Hidden ${modelIds.length} model${modelIds.length > 1 ? "s" : ""} from list`, {
             action: {
                 label: "Undo",
@@ -104,8 +107,8 @@ function ProviderDetailPage() {
     };
 
     const handleRestoreAllModels = () => {
-        const count = deletedModelIds.length;
-        for (const modelId of deletedModelIds) restoreModelMutation.mutate(modelId);
+        const count = hiddenModelIdList.length;
+        restoreModelsMutation.mutate(hiddenModelIdList);
         toast.success(`Restored ${count} hidden model${count > 1 ? "s" : ""}`);
     };
 
@@ -143,8 +146,8 @@ function ProviderDetailPage() {
 
     const modelsList = provider?.models ?? [];
     const activeModels = useMemo(
-        () => modelsList.filter((m) => !deletedModelIds.includes(m.id)),
-        [modelsList, deletedModelIds]
+        () => modelsList.filter((m) => !hiddenModelIdList.includes(m.id)),
+        [modelsList, hiddenModelIdList]
     );
 
     const filteredModels = useMemo(() => {
@@ -232,11 +235,27 @@ function ProviderDetailPage() {
                             className="flex size-12 shrink-0 items-center justify-center rounded-[30%] border border-hairline-soft bg-canvas-soft p-2 hover:border-hairline transition-all cursor-pointer"
                             title={`Open ${provider.name} website (${websiteUrl})`}
                         >
-                            <ProviderIcon providerId={provider.id} className="size-6" />
+                            <ProviderIcon
+                                providerId={provider.id}
+                                providerUrl={
+                                    provider.category === "custom_provider"
+                                        ? provider.default_base_url
+                                        : undefined
+                                }
+                                className="size-6"
+                            />
                         </a>
                     ) : (
                         <div className="flex size-12 shrink-0 items-center justify-center rounded-[30%] border border-hairline-soft bg-canvas-soft p-2">
-                            <ProviderIcon providerId={provider.id} className="size-6" />
+                            <ProviderIcon
+                                providerId={provider.id}
+                                providerUrl={
+                                    provider.category === "custom_provider"
+                                        ? provider.default_base_url
+                                        : undefined
+                                }
+                                className="size-6"
+                            />
                         </div>
                     )}
                     <div className="space-y-1">
@@ -260,17 +279,11 @@ function ProviderDetailPage() {
                                     {provider.name}.
                                 </h1>
                             )}
-                            {activeConnectionsCount > 0 ? (
-                                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                                    <span className="size-1.5 rounded-full bg-emerald-500" />
-                                    <span>{activeConnectionsCount} Connected</span>
-                                </span>
-                            ) : (
-                                <span className="inline-flex items-center gap-1.5 rounded-full bg-canvas-soft px-2.5 py-0.5 text-xs text-text-muted font-medium">
-                                    <span className="size-1.5 rounded-full bg-text-muted/40" />
-                                    <span>Ready</span>
-                                </span>
-                            )}
+                            <ProviderStatusBadge
+                                status={activeConnectionsCount > 0 ? "connected" : "ready"}
+                                count={activeConnectionsCount}
+                                connectedLabel="Connected"
+                            />
                         </div>
                         <p className="text-xs text-text-muted font-mono">
                             Driver ID: <span className="text-ink font-semibold">{provider.id}</span>{" "}
@@ -320,9 +333,18 @@ function ProviderDetailPage() {
                 requiresOAuth={provider.requires_oauth}
                 onToggleRoundRobin={(enabled) => toggleRoundRobinMutation.mutate(enabled)}
                 onToggleProvider={(enabled) => toggleProviderMutation.mutate(enabled)}
-                onRefresh={() => void refetch()}
+                onRefresh={() => refetch()}
                 onAdd={handleAddConnection}
                 onDelete={(connectionId) => deleteMutation.mutate(connectionId)}
+                onVerify={async (connectionId) => {
+                    const Result = await api.post<{
+                        success: boolean;
+                        message: string;
+                        modelsCount?: number;
+                    }>("/v1/providers/connections/verify", { connection_id: connectionId });
+                    void refetch();
+                    return Result;
+                }}
             />
             <div className="space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-hairline-soft pb-3">
@@ -334,14 +356,14 @@ function ProviderDetailPage() {
                             <span className="font-mono text-xs text-text-muted">
                                 ({activeModels.length})
                             </span>
-                            {deletedModelIds.length > 0 && (
+                            {hiddenModelIdList.length > 0 && (
                                 <button
                                     type="button"
                                     onClick={handleRestoreAllModels}
                                     className="text-xs text-amber-500 hover:text-amber-400 hover:underline cursor-pointer flex items-center gap-1 font-sans"
                                 >
                                     <RotateCcw className="size-3" aria-hidden="true" />
-                                    <span>Restore {deletedModelIds.length} deleted</span>
+                                    <span>Restore {hiddenModelIdList.length} deleted</span>
                                 </button>
                             )}
                         </div>
@@ -412,14 +434,14 @@ function ProviderDetailPage() {
                                 ? `No models matched your search query "${modelSearch}".`
                                 : "No models currently available."}
                         </EmptyTitle>
-                        {deletedModelIds.length > 0 && (
+                        {hiddenModelIdList.length > 0 && (
                             <button
                                 type="button"
                                 onClick={handleRestoreAllModels}
                                 className="inline-flex items-center gap-1 text-xs text-amber-500 hover:underline cursor-pointer font-sans"
                             >
                                 <RotateCcw className="size-3" aria-hidden="true" />
-                                <span>Restore all {deletedModelIds.length} models</span>
+                                <span>Restore all {hiddenModelIdList.length} models</span>
                             </button>
                         )}
                     </Empty>

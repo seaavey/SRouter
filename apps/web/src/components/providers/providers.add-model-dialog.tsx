@@ -19,7 +19,7 @@ interface AddModelDialogProps {
     onSubmit: (modelId: string) => void;
 }
 
-export function AddModelDialog({
+export default function AddModelDialog({
     open,
     onOpenChange,
     providerName,

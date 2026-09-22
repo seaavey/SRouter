@@ -9,7 +9,12 @@ interface ProviderModelCardProps {
     onDelete?: (modelId: string) => void;
 }
 
-export function ProviderModelCard({ model, copied, onCopy, onDelete }: ProviderModelCardProps) {
+export default function ProviderModelCard({
+    model,
+    copied,
+    onCopy,
+    onDelete
+}: ProviderModelCardProps) {
     const { isFavorite, toggleFavorite } = useFavorites();
     const isFav = isFavorite(model.id);
 

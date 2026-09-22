@@ -43,7 +43,7 @@ interface ProviderModelTableProps {
     onDeleteMultiple?: (modelIds: string[]) => void;
 }
 
-export function ProviderModelTable({
+export default function ProviderModelTable({
     models,
     copied,
     onCopy,
@@ -58,6 +58,8 @@ export function ProviderModelTable({
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
     const { isFavorite, toggleFavorite, addMultipleFavorites } = useFavorites();
+
+    const selectedIdSet = useMemo(() => new Set(selectedIds), [selectedIds]);
 
     const sortedData = useMemo(() => {
         if (sorting.length > 0) {
@@ -95,6 +97,7 @@ export function ProviderModelTable({
     };
 
     const toggleSelectRow = (modelId: string, shiftKey: boolean = false) => {
+        setLastSelectedId(modelId);
         setSelectedIds((prev) => {
             const isCurrentlySelected = prev.includes(modelId);
 
@@ -113,7 +116,6 @@ export function ProviderModelTable({
                 }
             }
 
-            setLastSelectedId(modelId);
             return isCurrentlySelected ? prev.filter((id) => id !== modelId) : [...prev, modelId];
         });
     };
@@ -154,7 +156,7 @@ export function ProviderModelTable({
                     </div>
                 ),
                 cell: ({ row }) => {
-                    const isSelected = selectedIds.includes(row.original.id);
+                    const isSelected = selectedIdSet.has(row.original.id);
                     return (
                         <div
                             className="flex items-center justify-center"
@@ -315,7 +317,7 @@ export function ProviderModelTable({
             onDelete,
             isFavorite,
             toggleFavorite,
-            selectedIds,
+            selectedIdSet,
             isAllSelected,
             isSomeSelected
         ]
@@ -429,7 +431,7 @@ export function ProviderModelTable({
                     </TableHeader>
                     <TableBody>
                         {table.getRowModel().rows.map((row) => {
-                            const isSelected = selectedIds.includes(row.original.id);
+                            const isSelected = selectedIdSet.has(row.original.id);
                             return (
                                 <TableRow
                                     key={row.id}

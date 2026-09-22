@@ -36,7 +36,7 @@ interface ConnectionFormProps {
     onSubmit: (payload: ConnectionFormInput) => void;
 }
 
-export function ConnectionForm({
+export default function ConnectionForm({
     open,
     onOpenChange,
     providerName,
@@ -84,7 +84,9 @@ export function ConnectionForm({
             }
         } catch (err) {
             setVerifyStatus("error");
-            toast.error(err instanceof Error ? err.message : "Gagal menguji koneksi API key.");
+            toast.error(
+                err instanceof Error ? err.message : "Failed to test the API key connection."
+            );
         }
     };
 
@@ -158,6 +160,10 @@ export function ConnectionForm({
                             <input
                                 id="conn-api-key"
                                 type={showKey ? "text" : "password"}
+                                autoComplete="off"
+                                autoCorrect="off"
+                                autoCapitalize="off"
+                                spellCheck={false}
                                 placeholder="sk-..."
                                 value={apiKey}
                                 onChange={(e) => {

@@ -30,7 +30,7 @@ interface CustomProviderDialogProps {
     onOpenChange: (open: boolean) => void;
 }
 
-export function CustomProviderDialog({ open, onOpenChange }: CustomProviderDialogProps) {
+export default function CustomProviderDialog({ open, onOpenChange }: CustomProviderDialogProps) {
     const queryClient = useQueryClient();
     const [name, setName] = useState("");
     const [alias, setAlias] = useState("");
@@ -318,6 +318,10 @@ export function CustomProviderDialog({ open, onOpenChange }: CustomProviderDialo
                                 <input
                                     id="cp-api-key"
                                     type={showKey ? "text" : "password"}
+                                    autoComplete="off"
+                                    autoCorrect="off"
+                                    autoCapitalize="off"
+                                    spellCheck={false}
                                     placeholder="sk-..."
                                     value={apiKey}
                                     onChange={(e) => {

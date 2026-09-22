@@ -164,6 +164,42 @@ export function useProvider(providerId: string) {
         }
     });
 
+    const hideModelsMutation = useMutation({
+        mutationFn: async (modelIds: string[]) => {
+            await Promise.all(
+                modelIds.map((modelId) =>
+                    api.post(`/v1/providers/${providerId}/hidden-models`, { model_id: modelId })
+                )
+            );
+            return modelIds;
+        },
+        onSuccess: () => {
+            void queryClient.invalidateQueries({ queryKey: ["providers", providerId] });
+            void queryClient.invalidateQueries({
+                queryKey: ["providers", providerId, "hidden-models"]
+            });
+        }
+    });
+
+    const restoreModelsMutation = useMutation({
+        mutationFn: async (modelIds: string[]) => {
+            await Promise.all(
+                modelIds.map((modelId) =>
+                    api.delete(
+                        `/v1/providers/${providerId}/hidden-models/${encodeURIComponent(modelId)}`
+                    )
+                )
+            );
+            return modelIds;
+        },
+        onSuccess: () => {
+            void queryClient.invalidateQueries({ queryKey: ["providers", providerId] });
+            void queryClient.invalidateQueries({
+                queryKey: ["providers", providerId, "hidden-models"]
+            });
+        }
+    });
+
     return {
         ...query,
         hiddenModelIds: hiddenModelsQuery.data?.models ?? EMPTY_HIDDEN_MODELS,
@@ -174,6 +210,8 @@ export function useProvider(providerId: string) {
         addModelMutation,
         deleteModelMutation,
         hideModelMutation,
-        restoreModelMutation
+        restoreModelMutation,
+        hideModelsMutation,
+        restoreModelsMutation
     };
 }

@@ -62,7 +62,15 @@ export function ProviderMatrixView({
                             <div className="flex items-center justify-between gap-2">
                                 <div className="flex items-center gap-2.5 min-w-0">
                                     <div className="flex size-7 shrink-0 items-center justify-center rounded-[30%] bg-canvas-soft p-1">
-                                        <ProviderIcon providerId={p.id} className="size-3.5" />
+                                        <ProviderIcon
+                                            providerId={p.id}
+                                            providerUrl={
+                                                p.category === "custom_provider"
+                                                    ? p.default_base_url
+                                                    : undefined
+                                            }
+                                            className="size-3.5"
+                                        />
                                     </div>
                                     <div className="min-w-0">
                                         <h4 className="text-xs font-bold text-ink truncate font-sans">

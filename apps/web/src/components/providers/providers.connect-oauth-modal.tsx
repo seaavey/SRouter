@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
     Loader2,
     Copy,
@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ProviderIcon } from "@/components/providers";
+import { type OAuthFlowConfig, default as resolveOAuthFlow } from "./providers.oauth-flow";
 
 interface ConnectOAuthModalProps {
     provider: ProviderDefinition | null;
@@ -45,13 +46,56 @@ interface OAuthLoginResponse {
     redirectUri: string;
 }
 
-export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuthModalProps) {
+const BTN_SECONDARY =
+    "rounded-full px-4 h-9 text-xs font-semibold cursor-pointer border-hairline bg-canvas hover:bg-canvas-soft text-ink shadow-none";
+const BTN_PRIMARY =
+    "rounded-full px-5 h-9 text-xs font-semibold cursor-pointer gap-1.5 shadow-none";
+const INPUT_FIELD =
+    "w-full rounded-2xl border-0 bg-field px-4 py-2.5 text-xs font-mono text-ink placeholder:text-text-faint focus-visible:ring-2 focus-visible:ring-ink focus-visible:outline-none shadow-none";
+const POLL_INTERVAL_MS = 2000;
+
+/** Query keys yang dibersihkan setiap kali status koneksi provider berubah. */
+function invalidateProviderQueries(
+    queryClient: ReturnType<typeof useQueryClient>,
+    providerId?: string
+) {
+    void queryClient.invalidateQueries({ queryKey: ["providers"] });
+    void queryClient.invalidateQueries({ queryKey: ["providers", providerId] });
+    void queryClient.invalidateQueries({ queryKey: ["providers", "catalog"] });
+    void queryClient.invalidateQueries({ queryKey: ["models"] });
+}
+
+/** ID dasar untuk pemetaan alur auth; "codebuddy-cn" dipertahankan utuh. */
+function authProviderIdOf(providerId: string): string {
+    return providerId === "codebuddy-cn" ? "codebuddy-cn" : providerId.split("_")[0].split("-")[0];
+}
+
+type ConnectTab = "oauth" | "pat" | "bulk";
+
+function closePopupIfOpen(popupRef: React.RefObject<Window | null>) {
+    if (popupRef.current && !popupRef.current.closed) {
+        popupRef.current.close();
+    }
+}
+
+function splitTokenLines(rawText: string): string[] {
+    return rawText
+        .split(/\r?\n/)
+        .map((l) => l.trim())
+        .filter(Boolean);
+}
+
+export default function ConnectOAuthModal({
+    provider,
+    open,
+    onOpenChange
+}: ConnectOAuthModalProps) {
     const queryClient = useQueryClient();
     const [copied, setCopied] = useState(false);
     const [callbackUrlInput, setCallbackUrlInput] = useState("");
     const [patInput, setPatInput] = useState("");
     const [bulkInput, setBulkInput] = useState("");
-    const [activeTab, setActiveTab] = useState<"oauth" | "pat" | "bulk">("oauth");
+    const [activeTab, setActiveTab] = useState<ConnectTab>("oauth");
     const [error, setError] = useState("");
     const [authUrl, setAuthUrl] = useState("");
     const [oauthState, setOauthState] = useState("");
@@ -61,14 +105,13 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
 
     const providerId = provider?.id;
     const providerName = provider?.name;
-    const baseId = provider?.id.split("_")[0]?.split("-")[0] ?? provider?.id ?? "";
-    const authProviderId = provider?.id === "codebuddy-cn" ? "codebuddy-cn" : baseId;
-    const isQoder = baseId === "qoder";
-    const isCodeBuddy = baseId === "codebuddy";
-    const isCodex = baseId === "openai";
-    const isCline = baseId === "cline";
-    const isPolling = isQoder || isCodeBuddy || isCline;
-    const supportsBulk = isQoder || isCodex;
+    const flow: OAuthFlowConfig = useMemo(
+        () => resolveOAuthFlow(providerId ? authProviderIdOf(providerId) : ""),
+        [providerId]
+    );
+    const isPolling = Boolean(flow.pollEndpoint);
+    const supportsBulk = Boolean(flow.bulkTab);
+    const hasTabs = isPolling || supportsBulk;
 
     // Fetch backend-registered PKCE OAuth session without auto-opening popup
     useEffect(() => {
@@ -80,51 +123,47 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
             setCallbackUrlInput("");
             setPatInput("");
             setBulkInput("");
-            if (popupRef.current && !popupRef.current.closed) {
-                popupRef.current.close();
-            }
+            closePopupIfOpen(popupRef);
             return;
         }
 
+        // Tab dan input direset per sesi modal; "bulk"/"pat" hanya valid bila provider mendukungnya.
+        setActiveTab("oauth");
         setIsLoadingUrl(true);
         setError("");
 
-        const providerEndpoint = isCline
-            ? "/v1/auth/cline/device"
-            : baseId === "antigravity"
-              ? "/v1/auth/antigravity/login?format=json"
-              : baseId === "qoder"
-                ? "/v1/auth/qoder/login?format=json"
-                : baseId === "codebuddy"
-                  ? `/v1/auth/${authProviderId}/login?format=json`
-                  : baseId === "claude" || baseId === "anthropic"
-                    ? "/v1/auth/claude/login?format=json"
-                    : "/v1/auth/openai/login?format=json";
-
-        api.get<OAuthLoginResponse | ClineDeviceResponse>(providerEndpoint)
+        // Effect-scope cancelled flag: sesi modal dibatalkan saat modal ditutup atau provider berganti.
+        let cancelled = false;
+        api.get<ClineDeviceResponse | OAuthLoginResponse>(flow.loginEndpoint)
             .then((res) => {
+                if (cancelled) return;
                 setAuthUrl(res.authorizeUrl);
                 setOauthState(res.state);
                 setClineUserCode("userCode" in res ? res.userCode : "");
                 setIsLoadingUrl(false);
             })
-            .catch((err: Error) => {
+            .catch((err: unknown) => {
+                if (cancelled) return;
                 setIsLoadingUrl(false);
-                setError(err.message || "Failed to initiate OAuth login session");
+                setError(
+                    err instanceof Error ? err.message : "Failed to initiate OAuth login session"
+                );
             });
-    }, [open, providerId, baseId, authProviderId, isCline]);
+        return () => {
+            cancelled = true;
+        };
+    }, [open, providerId, flow]);
 
     const handleOpenPopup = () => {
         if (!authUrl) return;
-        try {
-            const popup = window.open(
-                authUrl,
-                "_blank",
-                "width=600,height=700,status=yes,scrollbars=yes"
-            );
-            popupRef.current = popup;
-        } catch {
-            // Popup blocked
+        const popup = window.open(
+            authUrl,
+            "_blank",
+            "width=600,height=700,status=yes,scrollbars=yes"
+        );
+        popupRef.current = popup;
+        if (!popup) {
+            setError("Popup blocked by the browser — use Copy link to open the authorization URL.");
         }
     };
 
@@ -138,12 +177,8 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                 typeof event.data === "object" &&
                 event.data.type === "SROUTER_OAUTH_SUCCESS"
             ) {
-                if (popupRef.current && !popupRef.current.closed) {
-                    popupRef.current.close();
-                }
-                void queryClient.invalidateQueries({ queryKey: ["providers"] });
-                void queryClient.invalidateQueries({ queryKey: ["providers", providerId] });
-                void queryClient.invalidateQueries({ queryKey: ["providers", "catalog"] });
+                closePopupIfOpen(popupRef);
+                invalidateProviderQueries(queryClient, providerId);
                 toast.success(`${providerName ?? "Provider"} connected successfully!`);
                 onOpenChange(false);
                 setCallbackUrlInput("");
@@ -155,27 +190,18 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
         return () => window.removeEventListener("message", handleMessage);
     }, [open, providerId, providerName, queryClient, onOpenChange]);
 
-    // Active polling for Qoder and CodeBuddy Device/OAuth Flow
+    // Active polling for device/OAuth flows (Qoder, CodeBuddy, Cline)
     useEffect(() => {
-        if (!open || !providerId || !isPolling || !oauthState) return;
+        if (!open || !providerId || !flow.pollEndpoint || !oauthState) return;
 
         const interval = setInterval(async () => {
             try {
-                const pollUrl = isCline
-                    ? `/v1/auth/cline/poll?state=${encodeURIComponent(oauthState)}`
-                    : baseId === "codebuddy"
-                      ? `/v1/auth/${authProviderId}/poll?state=${encodeURIComponent(oauthState)}`
-                      : `/v1/auth/qoder/poll?state=${encodeURIComponent(oauthState)}`;
                 const res = await api.get<{ status: AuthPollStatus; provider?: ProviderConfig }>(
-                    pollUrl
+                    `${flow.pollEndpoint}?state=${encodeURIComponent(oauthState)}`
                 );
                 if (res && res.status === AuthPollStatus.OK) {
-                    if (popupRef.current && !popupRef.current.closed) {
-                        popupRef.current.close();
-                    }
-                    void queryClient.invalidateQueries({ queryKey: ["providers"] });
-                    void queryClient.invalidateQueries({ queryKey: ["providers", providerId] });
-                    void queryClient.invalidateQueries({ queryKey: ["providers", "catalog"] });
+                    closePopupIfOpen(popupRef);
+                    invalidateProviderQueries(queryClient, providerId);
                     toast.success(`${providerName ?? "Provider"} connected successfully!`);
                     onOpenChange(false);
                     setError("");
@@ -183,40 +209,18 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
             } catch {
                 // Ignore poll errors until user completes flow
             }
-        }, 2000);
+        }, POLL_INTERVAL_MS);
 
         return () => clearInterval(interval);
-    }, [
-        open,
-        providerId,
-        providerName,
-        isPolling,
-        baseId,
-        authProviderId,
-        isCline,
-        oauthState,
-        queryClient,
-        onOpenChange
-    ]);
+    }, [open, providerId, providerName, flow, oauthState, queryClient, onOpenChange]);
 
     const callbackMutation = useMutation({
-        mutationFn: (payload: { callback_url: string }) => {
-            const endpoint =
-                baseId === "antigravity"
-                    ? "/v1/auth/antigravity/callback"
-                    : baseId === "qoder"
-                      ? "/v1/auth/qoder/callback"
-                      : "/v1/auth/openai/callback";
-            return api.post(endpoint, payload);
-        },
+        mutationFn: (payload: { callback_url: string }) =>
+            api.post(flow.callbackEndpoint ?? "/v1/auth/openai/callback", payload),
         onSuccess: () => {
-            if (popupRef.current && !popupRef.current.closed) {
-                popupRef.current.close();
-            }
+            closePopupIfOpen(popupRef);
             if (provider) {
-                void queryClient.invalidateQueries({ queryKey: ["providers"] });
-                void queryClient.invalidateQueries({ queryKey: ["providers", provider.id] });
-                void queryClient.invalidateQueries({ queryKey: ["providers", "catalog"] });
+                invalidateProviderQueries(queryClient, provider.id);
                 toast.success(`${provider.name} connected successfully!`);
             }
             onOpenChange(false);
@@ -230,14 +234,12 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
 
     const patMutation = useMutation({
         mutationFn: (payload: { access_token: string }) => {
-            const endpoint = `/v1/auth/${authProviderId}/token`;
+            const endpoint = `/v1/auth/${authProviderIdOf(provider?.id ?? "")}/token`;
             return api.post(endpoint, payload);
         },
         onSuccess: () => {
             if (provider) {
-                void queryClient.invalidateQueries({ queryKey: ["providers"] });
-                void queryClient.invalidateQueries({ queryKey: ["providers", provider.id] });
-                void queryClient.invalidateQueries({ queryKey: ["providers", "catalog"] });
+                invalidateProviderQueries(queryClient, provider.id);
                 toast.success(`Token for ${provider.name} saved successfully!`);
             }
             onOpenChange(false);
@@ -251,17 +253,15 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
 
     const bulkMutation = useMutation({
         mutationFn: async (rawText: string) => {
-            const lines = rawText
-                .split(/\r?\n/)
-                .map((l) => l.trim())
-                .filter(Boolean);
+            const lines = splitTokenLines(rawText);
+            const tokenEndpoint = `/v1/auth/${authProviderIdOf(provider?.id ?? "")}/token`;
             const results = await Promise.allSettled(
                 lines.map((line) => {
-                    // Codex lines may carry an optional refresh token: "<access>,<refresh>"
-                    const [access_token, refresh_token] = isCodex
+                    // Baris dapat membawa refresh token opsional: "<access>,<refresh>" (Codex).
+                    const [access_token, refresh_token] = flow.bulkTab?.parsePair
                         ? line.split(",").map((s) => s.trim())
                         : [line];
-                    return api.post(`/v1/auth/${authProviderId}/token`, {
+                    return api.post(tokenEndpoint, {
                         access_token,
                         ...(refresh_token ? { refresh_token } : {})
                     });
@@ -272,9 +272,7 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
         },
         onSuccess: ({ total, failed }) => {
             if (provider) {
-                void queryClient.invalidateQueries({ queryKey: ["providers"] });
-                void queryClient.invalidateQueries({ queryKey: ["providers", provider.id] });
-                void queryClient.invalidateQueries({ queryKey: ["providers", "catalog"] });
+                invalidateProviderQueries(queryClient, provider.id);
             }
             const added = total - failed;
             if (added > 0) {
@@ -297,11 +295,7 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
 
     const handleBulkSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        const lines = bulkInput
-            .split(/\r?\n/)
-            .map((l) => l.trim())
-            .filter(Boolean);
-        if (lines.length === 0) {
+        if (splitTokenLines(bulkInput).length === 0) {
             setError("Paste at least one token, one per line.");
             return;
         }
@@ -346,14 +340,23 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
 
     if (!provider) return null;
 
-    const tabsCount = supportsBulk ? 3 : isQoder || isCodeBuddy || isCline ? 2 : 1;
+    const tabsCount = supportsBulk ? 3 : isPolling ? 2 : 1;
+    const bulkLines = splitTokenLines(bulkInput).length;
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-md w-full p-6 md:p-8 bg-canvas border border-hairline-soft rounded-3xl space-y-5 shadow-none overflow-y-auto max-h-[calc(100dvh-2rem)] font-sans">
                 <DialogHeader className="flex flex-row items-center justify-between pb-3.5 border-b border-hairline-soft">
                     <div className="flex items-center gap-3">
-                        <ProviderIcon providerId={provider.id} className="size-7 rounded-[30%]" />
+                        <ProviderIcon
+                            providerId={provider.id}
+                            providerUrl={
+                                provider.category === "custom_provider"
+                                    ? provider.default_base_url
+                                    : undefined
+                            }
+                            className="size-7 rounded-[30%]"
+                        />
                         <div>
                             <DialogTitle className="text-base font-bold tracking-tight text-ink font-sans">
                                 Connect {provider.name}.
@@ -373,7 +376,7 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                         <X className="size-4" aria-hidden="true" />
                     </button>
                 </DialogHeader>
-                {(isQoder || isCodeBuddy || isCline || supportsBulk) && (
+                {hasTabs && (
                     <div
                         className={`grid w-full gap-1 rounded-full border border-hairline-soft bg-canvas-soft p-1 text-xs ${
                             tabsCount === 3 ? "grid-cols-3" : "grid-cols-2"
@@ -391,20 +394,20 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                             <Globe className="size-3.5 shrink-0" aria-hidden="true" />
                             <span className="truncate">Browser Login</span>
                         </button>
-                        <button
-                            type="button"
-                            onClick={() => setActiveTab("pat")}
-                            className={`flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-full font-medium transition-all cursor-pointer ${
-                                activeTab === "pat"
-                                    ? "bg-ink text-canvas font-semibold shadow-none"
-                                    : "text-text-muted hover:text-ink hover:bg-canvas/40"
-                            }`}
-                        >
-                            <Key className="size-3.5 shrink-0" aria-hidden="true" />
-                            <span className="truncate">
-                                {isCodeBuddy ? "Access Token" : isCline ? "API Key" : "PAT Token"}
-                            </span>
-                        </button>
+                        {flow.patTab && (
+                            <button
+                                type="button"
+                                onClick={() => setActiveTab("pat")}
+                                className={`flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-full font-medium transition-all cursor-pointer ${
+                                    activeTab === "pat"
+                                        ? "bg-ink text-canvas font-semibold shadow-none"
+                                        : "text-text-muted hover:text-ink hover:bg-canvas/40"
+                                }`}
+                            >
+                                <Key className="size-3.5 shrink-0" aria-hidden="true" />
+                                <span className="truncate">{flow.patTab.tabLabel}</span>
+                            </button>
+                        )}
                         {supportsBulk && (
                             <button
                                 type="button"
@@ -428,54 +431,29 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                     </div>
                 )}
 
-                {activeTab === "bulk" ? (
+                {activeTab === "bulk" && flow.bulkTab ? (
                     /* Bulk Add Tab */
                     <form onSubmit={handleBulkSubmit} className="space-y-4 text-xs">
                         <div className="space-y-1.5">
                             <div className="flex items-center justify-between">
                                 <label className="font-semibold text-ink text-xs">
-                                    Bulk {isCodex ? "Access Tokens" : "PATs"}
+                                    {flow.bulkTab.fieldLabel}
                                 </label>
-                                {bulkInput.split(/\r?\n/).filter((l) => l.trim()).length > 0 && (
+                                {bulkLines > 0 && (
                                     <span className="rounded-full bg-field px-2 py-0.5 text-[10px] font-mono text-text-muted">
-                                        {bulkInput.split(/\r?\n/).filter((l) => l.trim()).length}{" "}
-                                        detected
+                                        {bulkLines} detected
                                     </span>
                                 )}
                             </div>
                             <p className="text-xs text-text-muted leading-relaxed">
-                                {isCodex ? (
-                                    <>
-                                        Paste one Codex access token per line. Format:{" "}
-                                        <code className="rounded-full bg-field px-2 py-0.5 text-[10px] font-mono">
-                                            access_token,refresh_token
-                                        </code>
-                                    </>
-                                ) : (
-                                    <>
-                                        Paste multiple Qoder PATs (`pt-...`) from{" "}
-                                        <a
-                                            href="https://qoder.com/account/integrations"
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            className="underline text-ink hover:text-accent transition-colors"
-                                        >
-                                            qoder.com/account/integrations
-                                        </a>
-                                        , one per line.
-                                    </>
-                                )}
+                                {flow.bulkTab.description}
                             </p>
                             <textarea
                                 rows={5}
-                                placeholder={
-                                    isCodex
-                                        ? "eyJhbGciOi...\neyJhbGciOi..."
-                                        : "pt-xxx...\npt-yyy..."
-                                }
+                                placeholder={flow.bulkTab.placeholder}
                                 value={bulkInput}
                                 onChange={(e) => setBulkInput(e.target.value)}
-                                className="w-full resize-y rounded-2xl border-0 bg-field px-4 py-2.5 text-xs font-mono text-ink placeholder:text-text-faint focus-visible:ring-2 focus-visible:ring-ink focus-visible:outline-none shadow-none"
+                                className={INPUT_FIELD}
                             />
                         </div>
 
@@ -485,7 +463,7 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                                 variant="outline"
                                 size="sm"
                                 onClick={() => onOpenChange(false)}
-                                className="rounded-full px-4 h-9 text-xs font-semibold cursor-pointer border-hairline bg-canvas hover:bg-canvas-soft text-ink shadow-none"
+                                className={BTN_SECONDARY}
                             >
                                 Cancel
                             </Button>
@@ -493,7 +471,7 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                                 type="submit"
                                 size="sm"
                                 disabled={bulkMutation.isPending}
-                                className="rounded-full px-5 h-9 text-xs font-semibold cursor-pointer gap-1.5 shadow-none"
+                                className={BTN_PRIMARY}
                             >
                                 {bulkMutation.isPending && (
                                     <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
@@ -502,7 +480,7 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                             </Button>
                         </div>
                     </form>
-                ) : activeTab === "oauth" ? (
+                ) : activeTab === "oauth" || !flow.patTab ? (
                     <>
                         <div className="flex items-center gap-3 rounded-2xl border border-amber-500/25 bg-amber-500/5 px-4 py-3 text-xs">
                             {isLoadingUrl ? (
@@ -520,14 +498,10 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                                 <p className="font-semibold text-ink text-xs truncate">
                                     {isLoadingUrl
                                         ? "Generating authorization session…"
-                                        : isQoder
-                                          ? "Waiting for Qoder browser authorization…"
-                                          : isCodeBuddy
-                                            ? "Waiting for CodeBuddy browser authorization…"
-                                            : "Waiting for browser authorization…"}
+                                        : flow.waitingLabel}
                                 </p>
                                 <p className="text-xs text-text-muted mt-0.5">
-                                    {isCline && clineUserCode
+                                    {clineUserCode
                                         ? `Enter code ${clineUserCode} in the browser if requested.`
                                         : "Complete authorization in your browser window to link."}
                                 </p>
@@ -597,7 +571,7 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                                             placeholder="http://localhost:1455/auth/callback?code=...&state=..."
                                             value={callbackUrlInput}
                                             onChange={(e) => setCallbackUrlInput(e.target.value)}
-                                            className="w-full rounded-2xl border-0 bg-field px-4 py-2.5 text-xs font-mono text-ink placeholder:text-text-faint focus-visible:ring-2 focus-visible:ring-ink focus-visible:outline-none shadow-none"
+                                            className={INPUT_FIELD}
                                         />
                                     </div>
 
@@ -607,7 +581,7 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                                             variant="outline"
                                             size="sm"
                                             onClick={() => onOpenChange(false)}
-                                            className="rounded-full px-4 h-9 text-xs font-semibold cursor-pointer border-hairline bg-canvas hover:bg-canvas-soft text-ink shadow-none"
+                                            className={BTN_SECONDARY}
                                         >
                                             Cancel
                                         </Button>
@@ -615,7 +589,7 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                                             type="submit"
                                             size="sm"
                                             disabled={callbackMutation.isPending}
-                                            className="rounded-full px-5 h-9 text-xs font-semibold cursor-pointer gap-1.5 shadow-none"
+                                            className={BTN_PRIMARY}
                                         >
                                             {callbackMutation.isPending && (
                                                 <Loader2
@@ -635,47 +609,21 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                     <form onSubmit={handlePatSubmit} className="space-y-4 text-xs">
                         <div className="space-y-1.5">
                             <label className="font-semibold text-foreground block text-xs">
-                                {isCodeBuddy
-                                    ? "CodeBuddy Access Token"
-                                    : isCline
-                                      ? "Cline API Key"
-                                      : isCodex
-                                        ? "Codex Access Token"
-                                        : "Personal Access Token (PAT)"}
+                                {flow.patTab.fieldLabel}
                             </label>
                             <p className="text-[11px] text-muted-foreground leading-relaxed">
-                                {isCodeBuddy ? (
-                                    "Masukkan Access Token / Bearer Token dari akun CodeBuddy Anda."
-                                ) : isCline ? (
-                                    "Masukkan API key resmi Cline. Token akan dikirim sebagai Bearer token."
-                                ) : isCodex ? (
-                                    "Paste an OpenAI Codex access token (from ~/.codex/auth.json)."
-                                ) : (
-                                    <>
-                                        Generate your PAT (`pt-...`) from{" "}
-                                        <a
-                                            href="https://qoder.com/account/integrations"
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            className="underline text-foreground hover:text-primary transition-colors"
-                                        >
-                                            qoder.com/account/integrations
-                                        </a>
-                                    </>
-                                )}
+                                {flow.patTab.description}
                             </p>
                             <input
                                 type="password"
-                                placeholder={
-                                    isCodeBuddy || isCodex
-                                        ? "eyJhbGciOi..."
-                                        : isCline
-                                          ? "cline_..."
-                                          : "pt-..."
-                                }
+                                autoComplete="off"
+                                autoCorrect="off"
+                                autoCapitalize="off"
+                                spellCheck={false}
+                                placeholder={flow.patTab.placeholder}
                                 value={patInput}
                                 onChange={(e) => setPatInput(e.target.value)}
-                                className="w-full rounded-2xl border-0 bg-field px-4 py-2.5 text-xs font-mono text-ink placeholder:text-text-faint focus-visible:ring-2 focus-visible:ring-ink focus-visible:outline-none shadow-none"
+                                className={INPUT_FIELD}
                             />
                         </div>
 
@@ -685,7 +633,7 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                                 variant="outline"
                                 size="sm"
                                 onClick={() => onOpenChange(false)}
-                                className="rounded-full px-4 h-9 text-xs font-semibold cursor-pointer border-hairline bg-canvas hover:bg-canvas-soft text-ink shadow-none"
+                                className={BTN_SECONDARY}
                             >
                                 Cancel
                             </Button>
@@ -693,18 +641,12 @@ export function ConnectOAuthModal({ provider, open, onOpenChange }: ConnectOAuth
                                 type="submit"
                                 size="sm"
                                 disabled={patMutation.isPending}
-                                className="rounded-full px-5 h-9 text-xs font-semibold cursor-pointer gap-1.5 shadow-none"
+                                className={BTN_PRIMARY}
                             >
                                 {patMutation.isPending && (
                                     <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
                                 )}
-                                {patMutation.isPending
-                                    ? "Connecting…"
-                                    : isCodeBuddy
-                                      ? "Connect CodeBuddy"
-                                      : isCline
-                                        ? "Connect API Key"
-                                        : "Connect PAT"}
+                                {patMutation.isPending ? "Connecting…" : flow.patTab.submitLabel}
                             </Button>
                         </div>
                     </form>

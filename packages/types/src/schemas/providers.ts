@@ -33,6 +33,19 @@ export const VerifyProviderSchema = z.object({
 
 export type VerifyProviderZod = z.infer<typeof VerifyProviderSchema>;
 
+/**
+ * Verify one saved provider connection by its internal ID. The endpoint loads
+ * the stored credential server-side; no secret material is accepted from the
+ * request body.
+ */
+export const VerifyConnectionSchema = z.object({
+    connection_id: z
+        .string({ required_error: "Field 'connection_id' is required" })
+        .min(1, "Field 'connection_id' cannot be empty")
+});
+
+export type VerifyConnectionZod = z.infer<typeof VerifyConnectionSchema>;
+
 export const AddCustomModelSchema = z.object({
     model_id: z
         .string({ required_error: "Field 'model_id' is required" })

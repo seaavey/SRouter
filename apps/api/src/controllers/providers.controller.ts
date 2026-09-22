@@ -7,6 +7,7 @@ import {
     CreateProviderSchema,
     ToggleProviderSchema,
     ToggleRoundRobinSchema,
+    VerifyConnectionSchema,
     VerifyProviderSchema
 } from "@srouter/types";
 import { loadSavedProvidersFromDB, registry } from "@/services/registry.js";
@@ -70,6 +71,20 @@ export class ProvidersController {
         }
 
         const Result = await ProvidersLogic.VerifyConnection(Parsed.data);
+        return Ok(c, Result);
+    }
+
+    public static async VerifySavedConnection(c: Context): Promise<Response> {
+        const RawBody = await c.req.json().catch(() => null);
+        const Parsed = VerifyConnectionSchema.safeParse(RawBody);
+        if (!Parsed.success) {
+            return Err(c, Parsed.error.issues[0]?.message || "Invalid verification payload", 400);
+        }
+
+        const Result = await ProvidersLogic.VerifySavedConnection(Parsed.data.connection_id);
+        if (!Result.success && Result.message.includes("not found")) {
+            return Err(c, Result.message, 404);
+        }
         return Ok(c, Result);
     }
 

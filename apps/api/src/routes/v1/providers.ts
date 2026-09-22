@@ -16,6 +16,11 @@ ProvidersRouter.get("/providers/:providerId", ApiKeyAuth, ProvidersController.Ge
 
 // Mutation endpoints require Admin Auth
 ProvidersRouter.post("/providers/verify", RequireAdmin, ProvidersController.VerifyProvider);
+ProvidersRouter.post(
+    "/providers/connections/verify",
+    RequireAdmin,
+    ProvidersController.VerifySavedConnection
+);
 ProvidersRouter.post("/providers", RequireAdmin, ProvidersController.AddProvider);
 ProvidersRouter.delete("/providers/:id", RequireAdmin, ProvidersController.DeleteProvider);
 

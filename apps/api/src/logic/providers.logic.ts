@@ -22,6 +22,7 @@ import {
     getHiddenModelsByProviderDB,
     addHiddenModelDB,
     deleteHiddenModelDB,
+    getProviderByIdDB,
     getRoundRobinDB,
     getProviderEnabledDB,
     setRoundRobinDB,
@@ -555,5 +556,54 @@ export class ProvidersLogic {
             const Msg = Err instanceof Error ? Err.message : "Tidak dapat terhubung ke endpoint.";
             return { success: false, message: `Gagal terhubung ke host: ${Msg}` };
         }
+    }
+
+    /**
+     * Verify one saved connection by its internal ID: loads the stored
+     * credential server-side and probes the upstream models endpoint. Unlike
+     * VerifyConnection, no secret material travels in the request body.
+     */
+    public static async VerifySavedConnection(ConnectionId: string): Promise<{
+        success: boolean;
+        message: string;
+        modelsCount?: number;
+        connection_id: string;
+        provider_id?: string;
+    }> {
+        const Connection = await getProviderByIdDB(ConnectionId);
+        if (!Connection) {
+            return {
+                success: false,
+                message: `Connection '${ConnectionId}' not found`,
+                connection_id: ConnectionId
+            };
+        }
+
+        const Secret = Connection.accessToken || Connection.apiKey;
+        if (!Secret) {
+            return {
+                success: false,
+                message: "Connection has no stored credential to verify.",
+                connection_id: ConnectionId,
+                provider_id: Connection.providerId || Connection.id
+            };
+        }
+
+        const Protocol: ProviderProtocol =
+            Connection.protocol && isProviderProtocol(Connection.protocol)
+                ? Connection.protocol
+                : "openai";
+
+        const Result = await ProvidersLogic.VerifyConnection({
+            protocol: Protocol,
+            base_url: Connection.base_url,
+            api_key: Secret
+        });
+
+        return {
+            ...Result,
+            connection_id: ConnectionId,
+            provider_id: Connection.providerId || Connection.id
+        };
     }
 }

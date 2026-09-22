@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 const ICON_MAPPING: Record<string, string> = {
     bai: "/icons/providers/bai.svg",
@@ -68,23 +68,48 @@ const ICON_MAPPING: Record<string, string> = {
     zen: "/icons/providers/opencode.png"
 };
 
-export function ProviderIcon({
+/** Key terpanjang dicocokkan lebih dulu agar "openai_codex" menang atas "openai". */
+const ICON_KEYS_BY_LENGTH = Object.keys(ICON_MAPPING).sort((a, b) => b.length - a.length);
+
+function resolveIconPath(id: string): string | undefined {
+    const exact = ICON_MAPPING[id];
+    if (exact) return exact;
+    for (const key of ICON_KEYS_BY_LENGTH) {
+        if (id.includes(key)) return ICON_MAPPING[key];
+    }
+    return undefined;
+}
+
+function InitialFallback({ providerId, className }: { providerId: string; className?: string }) {
+    const initial = providerId.trim().charAt(0).toUpperCase() || "P";
+    return (
+        <div
+            className={`${className} flex items-center justify-center rounded-[30%] bg-canvas-soft text-[11px] font-bold text-ink select-none shrink-0 font-mono group-data-highlighted/item:bg-accent group-data-highlighted/item:text-accent-foreground`}
+            title={providerId}
+        >
+            {initial}
+        </div>
+    );
+}
+
+export default function ProviderIcon({
     providerId,
+    providerUrl,
     className = "size-5"
 }: {
     providerId: string;
+    providerUrl?: string;
     className?: string;
 }) {
     const [hasError, setHasError] = useState(false);
     const id = providerId.toLowerCase().trim();
+    const faviconUrl = getProviderFaviconUrl(providerUrl);
 
-    if (
-        id === "opencode" ||
-        id === "opencode_zen" ||
-        id === "opencode-zen" ||
-        id === "zen" ||
-        id.includes("opencode")
-    ) {
+    useEffect(() => {
+        setHasError(false);
+    }, [id, faviconUrl]);
+
+    if (id.includes("opencode") || id === "zen") {
         return (
             <svg
                 fill="currentColor"
@@ -100,38 +125,14 @@ export function ProviderIcon({
     }
 
     if (hasError) {
-        const initial = providerId.trim().charAt(0).toUpperCase() || "P";
-        return (
-            <div
-                className={`${className} flex items-center justify-center rounded-[30%] bg-canvas-soft text-[11px] font-bold text-ink select-none shrink-0 font-mono group-data-highlighted/item:bg-accent group-data-highlighted/item:text-accent-foreground`}
-                title={providerId}
-            >
-                {initial}
-            </div>
-        );
+        return <InitialFallback providerId={providerId} className={className} />;
     }
 
-    let src: string | undefined = ICON_MAPPING[id];
+    const resolved = resolveIconPath(id);
+    const src = resolved ?? faviconUrl;
 
     if (!src) {
-        for (const key of Object.keys(ICON_MAPPING)) {
-            if (id.includes(key)) {
-                src = ICON_MAPPING[key];
-                break;
-            }
-        }
-    }
-
-    if (!src) {
-        const initial = providerId.trim().charAt(0).toUpperCase() || "P";
-        return (
-            <div
-                className={`${className} flex items-center justify-center rounded-[30%] bg-canvas-soft text-[11px] font-bold text-ink select-none shrink-0 font-mono group-data-highlighted/item:bg-accent group-data-highlighted/item:text-accent-foreground`}
-                title={providerId}
-            >
-                {initial}
-            </div>
-        );
+        return <InitialFallback providerId={providerId} className={className} />;
     }
 
     const themeAwareClass = src.endsWith(".svg") ? "dark:invert" : "";
@@ -140,10 +141,23 @@ export function ProviderIcon({
         <img
             src={src}
             alt={providerId}
+            loading="lazy"
             className={`${className} rounded-[30%] object-contain shrink-0 ${themeAwareClass}`}
             onError={() => {
                 setHasError(true);
             }}
         />
     );
+}
+
+function getProviderFaviconUrl(providerUrl?: string): string | undefined {
+    if (!providerUrl) return undefined;
+
+    try {
+        const url = new URL(providerUrl);
+        if (url.protocol !== "http:" && url.protocol !== "https:") return undefined;
+        return `${url.origin}/favicon.ico`;
+    } catch {
+        return undefined;
+    }
 }

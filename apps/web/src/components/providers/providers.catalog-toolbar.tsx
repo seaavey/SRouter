@@ -17,7 +17,7 @@ interface CatalogToolbarProps {
     onAddCustom?: () => void;
 }
 
-export function CatalogToolbar({
+export default function CatalogToolbar({
     isFetching,
     onRefresh,
     filterOptions,
@@ -75,7 +75,7 @@ export function CatalogToolbar({
             </header>
             <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between border border-hairline-soft p-1.5 bg-canvas-soft rounded-2xl sm:rounded-full">
                 <div
-                    role="tablist"
+                    role="group"
                     aria-label="Filter providers by category"
                     className="flex items-center gap-1 p-0.5 overflow-x-auto no-scrollbar scroll-smooth min-w-0"
                 >
@@ -85,8 +85,7 @@ export function CatalogToolbar({
                             <button
                                 key={option.value}
                                 type="button"
-                                role="tab"
-                                aria-selected={isActive}
+                                aria-pressed={isActive}
                                 onClick={() => onFilterChange(option.value)}
                                 className={`rounded-full px-3 py-1.5 text-xs transition-colors cursor-pointer flex items-center gap-1.5 shrink-0 select-none ${
                                     isActive

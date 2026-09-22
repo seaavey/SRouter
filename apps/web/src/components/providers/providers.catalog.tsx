@@ -1,8 +1,8 @@
 import { CATEGORY_DESCRIPTIONS, CATEGORY_LABELS } from "@srouter/constants";
 import { Search } from "lucide-react";
 import type { ProviderDefinition } from "@srouter/types";
-import { ProviderRow } from "./providers.row";
-import { ProviderCard } from "./providers.card";
+import ProviderRow from "./providers.row";
+import ProviderCard from "./providers.card";
 
 interface CatalogGroup {
     category: string;
@@ -15,7 +15,7 @@ interface CatalogProps {
     viewMode?: "grid" | "list";
 }
 
-export function Catalog({ groups, search, viewMode = "grid" }: CatalogProps) {
+export default function Catalog({ groups, search, viewMode = "grid" }: CatalogProps) {
     const normalizedSearch = search.trim();
     const allProviders = groups.flatMap((g) => g.providers);
 

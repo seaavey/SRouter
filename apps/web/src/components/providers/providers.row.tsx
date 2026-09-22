@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { ArrowUpRight, Layers } from "lucide-react";
 import type { ProviderDefinition } from "@srouter/types";
-import { ProviderIcon } from "@/components/providers";
+import { ProviderIcon, ProviderStatusBadge } from "@/components/providers";
 import { getConnectedCount, isProviderEnabled } from "@/utils/provider.utils";
 
 const protocolLabels: Record<string, string> = {
@@ -18,7 +18,7 @@ function authLabel(provider: ProviderDefinition): string {
     return "Public";
 }
 
-export function ProviderRow({ provider }: { provider: ProviderDefinition }) {
+export default function ProviderRow({ provider }: { provider: ProviderDefinition }) {
     const connectedCount = getConnectedCount(provider);
     const isConnected = connectedCount > 0;
     const isEnabled = isProviderEnabled(provider);
@@ -32,7 +32,15 @@ export function ProviderRow({ provider }: { provider: ProviderDefinition }) {
         >
             <div className="flex items-center gap-3.5 min-w-0">
                 <div className="flex size-10 shrink-0 items-center justify-center rounded-[30%] border border-hairline-soft bg-canvas-soft group-hover:border-hairline transition-colors">
-                    <ProviderIcon providerId={provider.id} className="size-5" />
+                    <ProviderIcon
+                        providerId={provider.id}
+                        providerUrl={
+                            provider.category === "custom_provider"
+                                ? provider.default_base_url
+                                : undefined
+                        }
+                        className="size-5"
+                    />
                 </div>
 
                 <div className="min-w-0">
@@ -41,22 +49,11 @@ export function ProviderRow({ provider }: { provider: ProviderDefinition }) {
                             {provider.name}
                         </span>
 
-                        {!isEnabled ? (
-                            <span className="inline-flex items-center gap-1.5 rounded-full bg-canvas-soft px-2 py-0.5 text-xs font-medium text-text-muted">
-                                <span className="size-1.5 rounded-full bg-text-muted/40" />
-                                <span>Disabled</span>
-                            </span>
-                        ) : isConnected ? (
-                            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                                <span className="size-1.5 rounded-full bg-emerald-500" />
-                                <span>{connectedCount} live</span>
-                            </span>
-                        ) : (
-                            <span className="inline-flex items-center gap-1.5 rounded-full bg-canvas-soft px-2 py-0.5 text-xs font-medium text-text-muted">
-                                <span className="size-1.5 rounded-full bg-text-muted/40" />
-                                <span>Ready</span>
-                            </span>
-                        )}
+                        <ProviderStatusBadge
+                            status={!isEnabled ? "disabled" : isConnected ? "connected" : "ready"}
+                            count={connectedCount}
+                            className="px-2"
+                        />
                     </div>
 
                     <div className="mt-0.5 flex items-center gap-2 text-xs text-text-muted font-mono">

@@ -4,6 +4,7 @@ import type { ProviderConfig } from "@srouter/types";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { useCopy } from "@/hooks/useCopy";
+import { getConnectionDisplayName } from "@/utils/provider-credentials.utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import {
@@ -24,43 +25,18 @@ interface ConnectionCardProps {
     requiresOAuth?: boolean;
     onToggleRoundRobin: (enabled: boolean) => void;
     onToggleProvider: (enabled: boolean) => void;
-    onRefresh: () => void;
+    onRefresh: () => Promise<unknown> | void;
     onAdd: () => void;
     onDelete: (connectionId: string) => void;
+    /** Probe satu koneksi tersimpan ke upstream via /providers/connections/verify. */
+    onVerify: (connectionId: string) => Promise<{ success: boolean; message: string }>;
 }
 
 function getConnectionDisplayTitle(connection: ProviderConfig): string {
-    if (connection.name && connection.name.includes("@")) {
-        return connection.name;
-    }
-    const token = connection.accessToken || connection.apiKey;
-    if (token && token.startsWith("eyJ")) {
-        try {
-            const parts = token.split(".");
-            if (parts.length >= 2) {
-                const payloadBase64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
-                const payload = JSON.parse(atob(payloadBase64));
-                const email =
-                    payload.email ||
-                    payload["https://api.openai.com/profile"]?.email ||
-                    payload.user_metadata?.email ||
-                    (typeof payload.preferred_username === "string" &&
-                    payload.preferred_username.includes("@")
-                        ? payload.preferred_username
-                        : undefined) ||
-                    (typeof payload.unique_name === "string" && payload.unique_name.includes("@")
-                        ? payload.unique_name
-                        : undefined);
-                if (email) {
-                    return email;
-                }
-            }
-        } catch {}
-    }
-    return connection.name;
+    return getConnectionDisplayName(connection) ?? connection.name ?? "";
 }
 
-export function ConnectionCard({
+export default function ConnectionCard({
     providerName,
     connections,
     roundRobin,
@@ -71,20 +47,25 @@ export function ConnectionCard({
     onToggleProvider,
     onRefresh,
     onAdd,
-    onDelete
+    onDelete,
+    onVerify
 }: ConnectionCardProps) {
     const { copied, copy } = useCopy();
-    const [isTesting, setIsTesting] = useState(false);
+    const [testingId, setTestingId] = useState<string | null>(null);
 
-    const handleTestConnection = async () => {
-        setIsTesting(true);
+    const handleTestConnection = async (connectionId: string) => {
+        setTestingId(connectionId);
         try {
-            await onRefresh();
-            toast.success(`Connected credentials for ${providerName} verified!`);
+            const Result = await onVerify(connectionId);
+            if (Result.success) {
+                toast.success(Result.message || `Credentials for ${providerName} verified!`);
+            } else {
+                toast.error(Result.message || `Connection check failed for ${providerName}`);
+            }
         } catch {
             toast.error(`Connection check failed for ${providerName}`);
         } finally {
-            setTimeout(() => setIsTesting(false), 600);
+            setTestingId(null);
         }
     };
 
@@ -144,22 +125,6 @@ export function ConnectionCard({
                                 </p>
                             </TooltipContent>
                         </Tooltip>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={handleTestConnection}
-                            disabled={isTesting || connections.length === 0}
-                            className="rounded-full px-4 h-8 text-xs font-semibold cursor-pointer gap-1.5 shadow-none border-hairline bg-canvas hover:bg-canvas-soft text-ink"
-                        >
-                            <RefreshCw
-                                className={`size-3.5 text-text-muted ${
-                                    isTesting ? "animate-spin text-ink" : ""
-                                }`}
-                                aria-hidden="true"
-                            />
-                            <span>{isTesting ? "Testing…" : "Test Connection"}</span>
-                        </Button>
                         <Button
                             type="button"
                             size="sm"
@@ -242,6 +207,25 @@ export function ConnectionCard({
                                     </div>
 
                                     <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+                                        <button
+                                            type="button"
+                                            onClick={() => void handleTestConnection(connection.id)}
+                                            disabled={testingId !== null || isDeleting}
+                                            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs text-text-muted hover:text-ink hover:bg-canvas disabled:opacity-50 cursor-pointer transition-all border border-transparent hover:border-hairline"
+                                            title="Verify this credential against the upstream API"
+                                        >
+                                            <RefreshCw
+                                                className={`size-3.5 ${
+                                                    testingId === connection.id
+                                                        ? "animate-spin text-ink"
+                                                        : ""
+                                                }`}
+                                                aria-hidden="true"
+                                            />
+                                            <span>
+                                                {testingId === connection.id ? "Testing…" : "Test"}
+                                            </span>
+                                        </button>
                                         <button
                                             type="button"
                                             onClick={() => onDelete(connection.id)}
