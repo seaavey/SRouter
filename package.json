@@ -27,9 +27,11 @@
         "url": "https://github.com/seaavey/SRouter/issues"
     },
     "scripts": {
-        "dev": "turbo dev",
+        "dev": "pnpm start:dev",
+        "dev:docs": "pnpm --filter docs dev",
+        "start:dev": "turbo run dev --filter=!docs",
         "start": "turbo start",
-        "build": "turbo build",
+        "build": "turbo run build --filter=!docs",
         "clean": "turbo clean || rm -rf apps/*/dist packages/*/dist .turbo",
         "format": "prettier --write .",
         "format:check": "prettier --check .",
