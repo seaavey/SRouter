@@ -32,7 +32,7 @@ If you discover a potential security vulnerability or sensitive information expo
 
 Please report it privately via:
 
-- **Email**: `security@srouter.dev` (or open a private GitHub Security Advisory)
+- **Email**: `security@srouter.web.id` (or open a private GitHub Security Advisory)
 
 ### What to include in your report:
 
