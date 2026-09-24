@@ -24,6 +24,10 @@ srouter.db
 .env.development
 .env.production
 
+# Local overrides (never commit)
+*.local
+.local/
+
 # Logs & Debug
 /logs/
 !apps/web/src/components/logs/
