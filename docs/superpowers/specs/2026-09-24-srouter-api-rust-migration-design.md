@@ -78,11 +78,11 @@ Batas modul Rust mengikuti tanggung jawab API: konfigurasi/application state/err
 Rust models + Utoipa
         -> OpenAPI yang deterministik
         -> generator TypeScript dari OpenAPI tersebut
-        -> `apps/api/generated/api.ts`
-        -> web imports via `@srouter/api-contract`
+        -> `apps/web/src/generated/api.ts`
+        -> web imports directly from the generated frontend module
 ```
 
-Generator TypeScript tidak memakai `packages/*` sebagai input. Generated contract berada di root server `apps/api/generated/`; web mengonsumsinya melalui alias TypeScript/Vite `@srouter/api-contract`. Perubahan web dibatasi pada alias dan consumer API-generated types yang diperlukan; desain dan implementasi UI tidak di-rewrite.
+Generator TypeScript tidak memakai `packages/*` sebagai input. Generated contract berada di frontend Vite pada `apps/web/src/generated/api.ts`; kode web mengimpornya langsung dari modul frontend tersebut. Tidak ada alias workspace baru atau impor lintas aplikasi. Perubahan web dibatasi pada generator dan consumer API-generated types yang diperlukan; desain dan implementasi UI tidak di-rewrite.
 
 Selama migrasi, source Node/Hono tetap tersedia sebagai oracle dan jalur rollback, tetapi Rust dijalankan sebagai service terpisah saat parity test/staging. Setelah gate cutover terpenuhi, produksi menjalankan Rust API binary. Node boleh tetap dipakai pada build stage untuk membangun aset web; image runtime API tidak membawa atau menjalankan Node.
 
