@@ -1,11 +1,16 @@
 use std::collections::HashMap;
+use std::net::SocketAddr;
 
-use srouter_server::{ApiConfig, AppState, ConfigError};
+use srouter_server::{APIConfig, AppState, app::create_router, http::listeners};
 
-fn main() -> Result<(), ConfigError> {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let environment: HashMap<String, String> = std::env::vars().collect();
-    let config = ApiConfig::from_env_map(&environment)?;
-    let _state = AppState::new(config);
+    let config = APIConfig::from_env_map(&environment)?;
+    // Wildcard bind matches the Node listener and keeps Docker/VPS traffic reachable.
+    let address = SocketAddr::from(([0, 0, 0, 0], config.port));
+
+    listeners::serve_main(create_router(AppState::new(config)), address).await?;
 
     Ok(())
 }

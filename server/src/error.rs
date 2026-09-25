@@ -1,7 +1,7 @@
 use serde::Serialize;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ApiError {
+pub struct APIError {
     status: u16,
     message: String,
     error_type: String,
@@ -9,7 +9,7 @@ pub struct ApiError {
     param: Option<String>,
 }
 
-impl ApiError {
+impl APIError {
     pub fn new(status: u16, message: impl Into<String>) -> Self {
         let error_type = match status {
             400 | 404 | 409 | 422 => "invalid_request_error",
@@ -77,7 +77,7 @@ pub struct ErrorBody {
 
 #[cfg(test)]
 mod tests {
-    use super::ApiError;
+    use super::APIError;
 
     #[test]
     fn status_codes_map_to_the_frozen_standard_error_types() {
@@ -91,7 +91,7 @@ mod tests {
             (429, "rate_limit_error"),
             (500, "api_error"),
         ] {
-            let api_error = ApiError::new(status, "request failed");
+            let api_error = APIError::new(status, "request failed");
             assert_eq!(api_error.status(), status);
             let envelope = serde_json::to_value(api_error.to_envelope()).unwrap();
 
@@ -102,7 +102,7 @@ mod tests {
     #[test]
     fn api_error_can_override_type_and_attach_code_and_param() {
         let envelope = serde_json::to_value(
-            ApiError::new(502, "upstream unavailable")
+            APIError::new(502, "upstream unavailable")
                 .with_error_type("upstream_error")
                 .with_code("upstream_unavailable")
                 .with_param("provider".to_owned())
@@ -126,7 +126,7 @@ mod tests {
     #[test]
     fn absent_code_and_param_are_omitted_from_the_error_envelope() {
         let envelope =
-            serde_json::to_value(ApiError::new(500, "internal failure").to_envelope()).unwrap();
+            serde_json::to_value(APIError::new(500, "internal failure").to_envelope()).unwrap();
 
         assert_eq!(
             envelope,

@@ -1,15 +1,15 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use srouter_server::config::{ApiConfig, ConfigError};
+use srouter_server::config::{APIConfig, ConfigError};
 
-fn config_from(entries: &[(&str, &str)]) -> Result<ApiConfig, ConfigError> {
+fn config_from(entries: &[(&str, &str)]) -> Result<APIConfig, ConfigError> {
     let environment = entries
         .iter()
         .map(|(key, value)| ((*key).to_owned(), (*value).to_owned()))
         .collect::<HashMap<_, _>>();
 
-    ApiConfig::from_env_map(&environment)
+    APIConfig::from_env_map(&environment)
 }
 
 #[test]
@@ -29,7 +29,6 @@ fn defaults_use_frozen_listener_and_sqlite_values() {
     assert!(!config.secure_cookies);
     assert!(config.web_dist_path.is_none());
     assert!(config.database_url.is_none());
-    assert!(config.claude_oauth_client_id.is_none());
 }
 
 #[test]
@@ -51,7 +50,6 @@ fn supported_environment_overrides_are_parsed_without_rewriting_database_url() {
             "DATABASE_URL",
             "postgresql://user:password@db.example.test/srouter?sslmode=require",
         ),
-        ("CLAUDE_OAUTH_CLIENT_ID", "claude-client-id"),
     ])
     .unwrap();
 
@@ -83,10 +81,6 @@ fn supported_environment_overrides_are_parsed_without_rewriting_database_url() {
         config.database_url.as_deref(),
         Some("postgresql://user:password@db.example.test/srouter?sslmode=require")
     );
-    assert_eq!(
-        config.claude_oauth_client_id.as_deref(),
-        Some("claude-client-id")
-    );
 }
 
 #[test]
@@ -95,14 +89,12 @@ fn empty_optional_environment_overrides_use_unset_defaults() {
         ("HOME", "/tmp/srouter-home"),
         ("OAUTH_HOST", ""),
         ("SROUTER_ADMIN_PASSWORD", ""),
-        ("CLAUDE_OAUTH_CLIENT_ID", ""),
         ("DATABASE_URL", ""),
     ])
     .unwrap();
 
     assert_eq!(config.oauth_host, "0.0.0.0");
     assert!(config.admin_password.is_none());
-    assert!(config.claude_oauth_client_id.is_none());
     assert!(config.database_url.is_none());
 }
 

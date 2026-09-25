@@ -5,7 +5,7 @@ use std::path::PathBuf;
 const REDACTED: &str = "[REDACTED]";
 
 #[derive(Clone, PartialEq, Eq)]
-pub struct ApiConfig {
+pub struct APIConfig {
     pub port: u16,
     pub oauth_port: u16,
     pub oauth_host: String,
@@ -16,10 +16,9 @@ pub struct ApiConfig {
     pub web_dist_path: Option<PathBuf>,
     pub database_path: PathBuf,
     pub database_url: Option<String>,
-    pub claude_oauth_client_id: Option<String>,
 }
 
-impl ApiConfig {
+impl APIConfig {
     pub fn from_env_map(environment: &HashMap<String, String>) -> Result<Self, ConfigError> {
         let port = parse_port(environment, "PORT", 3000)?;
         let oauth_port = parse_port(environment, "OAUTH_PORT", 1455)?;
@@ -71,18 +70,14 @@ impl ApiConfig {
                 .get("DATABASE_URL")
                 .filter(|url| !url.is_empty())
                 .cloned(),
-            claude_oauth_client_id: environment
-                .get("CLAUDE_OAUTH_CLIENT_ID")
-                .filter(|client_id| !client_id.is_empty())
-                .cloned(),
         })
     }
 }
 
-impl Debug for ApiConfig {
+impl Debug for APIConfig {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         formatter
-            .debug_struct("ApiConfig")
+            .debug_struct("APIConfig")
             .field("port", &self.port)
             .field("oauth_port", &self.oauth_port)
             .field("oauth_host", &self.oauth_host)
@@ -98,10 +93,6 @@ impl Debug for ApiConfig {
             .field(
                 "database_url",
                 &self.database_url.as_ref().map(|_| REDACTED),
-            )
-            .field(
-                "claude_oauth_client_id",
-                &self.claude_oauth_client_id.as_ref().map(|_| REDACTED),
             )
             .finish()
     }
