@@ -5,14 +5,14 @@
 
 ## Tujuan
 
-Ganti seluruh implementasi runtime `apps/api` dari Node.js/Hono ke binary Rust/Axum dengan parity pada kontrak dan perilaku API yang ada. API Rust menjadi sumber kebenaran untuk model API dan OpenAPI, tidak menggunakan kode atau data dari `packages/*`, dan tidak memerlukan runtime Node.js di image produksi.
+Ganti runtime API Node.js/Hono dengan binary Rust/Axum yang dibangun mandiri di `server/`. Pertahankan `apps/api` tanpa perubahan selama implementasi dan parity berjalan; pensiunkan setelah cutover diverifikasi. Pertahankan kontrak API kecuali fitur tunnel yang sengaja dikeluarkan dari target Rust. API Rust menjadi sumber kebenaran untuk model API dan OpenAPI, tidak menggunakan kode atau data dari `packages/*`, dan tidak memerlukan runtime Node.js di image produksi.
 
 ## Cakupan
 
 Termasuk dalam #151:
 
-- Semua route dan perilaku API yang saat ini dilayani `apps/api`.
-- Provider routing, executors, protocol translation, authentication/OAuth, persistence, pricing/quota, streaming, observability, tunnel, serta background/startup tasks yang diperlukan API.
+- Semua route dan perilaku API yang saat ini dilayani `apps/api`, kecuali fitur Cloudflare Tunnel yang secara eksplisit dikeluarkan dari target Rust.
+- Provider routing, executors, protocol translation, authentication/OAuth, persistence, pricing/quota, streaming, observability, serta background/startup tasks yang diperlukan API.
 - Kontrak OpenAPI yang dihasilkan dari model Rust dan tipe API TypeScript yang dihasilkan untuk consumer web.
 - Docker, CI, dokumentasi migrasi API, parity tests, dan benchmark yang diperlukan untuk cutover.
 - Implementasi Node/Hono API dihapus setelah parity dan cutover diverifikasi.
@@ -21,6 +21,7 @@ Di luar cakupan #151:
 
 - Rewrite UI React/Vite, CLI, atau website/docs ke Rust.
 - Penghapusan direktori `packages/*` dari repository. Direktori tersebut tetap dibutuhkan consumer lain dan baru dapat dihapus setelah migrasi consumer pada issue terpisah.
+- Migrasi fitur Cloudflare Tunnel dan endpoint `/v1/tunnel/*`. Endpoint ini ada di checkout saat ini, tetapi sengaja tidak dipertahankan pada API Rust; hilangnya fitur tersebut menjadi perubahan kontrak yang disetujui.
 - Perubahan kontrak API publik yang tidak diperlukan untuk parity.
 
 ## Constraint sumber `packages/*`
@@ -44,7 +45,8 @@ Pemeriksaan akhir mencakup pencarian referensi package pada file Rust/Cargo/buil
 - Listener OAuth mempertahankan route callback dan proxy lokal untuk chat, messages, dan models.
 - Main listener mempertahankan `/health`, discovery `/v1`, seluruh route dashboard/API, dan compatibility routes `/v1/v1` untuk chat, messages, dan models.
 - Jika direktori web dist yang dipilih oleh `WEB_DIST_PATH` tersedia, server melayani static assets dan SPA fallback. Dalam mode API-only, root tetap memberikan informasi API.
-- Route domains mencakup admin, auth, chat completions, Anthropic messages, database import/export, images, keys, logs/analytics, models, pricing, providers/favorites, quota termasuk alias kompatibilitas yang ada, settings/fallbacks, dan tunnel.
+- Route domains yang dipertahankan mencakup admin, auth, chat completions, Anthropic messages, database import/export, images, keys, logs/analytics, models, pricing, providers/favorites, quota termasuk alias kompatibilitas yang ada, dan settings/fallbacks.
+- Endpoint dan background task Cloudflare Tunnel tidak dimigrasikan. Node/Hono tetap memiliki perilaku lama selama periode fallback; endpoint tersebut tidak tersedia setelah cutover Rust.
 
 ### Middleware, error, dan keamanan
 
@@ -64,15 +66,15 @@ Pemeriksaan akhir mencakup pencarian referensi package pada file Rust/Cargo/buil
 
 ### Startup dan integrasi
 
-- Startup mengikuti dependency order yang ada: inisialisasi schema PostgreSQL sebelum operasi yang memerlukannya, bootstrap admin, autostart tunnel dengan penanganan error terisolasi, lalu provider registry.
+- Startup menginisialisasi schema PostgreSQL sebelum operasi yang memerlukannya, lalu bootstrap admin dan memulai provider registry. Autostart Cloudflare Tunnel tidak termasuk target Rust.
 - Pertahankan token-refresh sweeper dan warmup model registry.
 - Pertahankan konfigurasi yang digunakan deployment untuk port, storage, admin bootstrap, CORS, URL publik, dan lokasi web dist.
 
 ## Arsitektur target
 
-`apps/api` menjadi Cargo package mandiri. Rust binary menggunakan Axum/Tokio untuk HTTP/async, Reqwest untuk upstream, Serde untuk model, SQLx untuk SQLite/PostgreSQL, Tower/Tower HTTP untuk middleware, Tracing untuk logging, Utoipa untuk OpenAPI, dan rustls untuk TLS jika diperlukan.
+`server/` menjadi Cargo project mandiri di root repository, terpisah dari `apps/api` dan tidak dimasukkan ke pnpm workspace. Rust binary menggunakan Axum/Tokio untuk HTTP/async, Reqwest untuk upstream, Serde untuk model, SQLx untuk SQLite/PostgreSQL, Tower/Tower HTTP untuk middleware, Tracing untuk logging, Utoipa untuk OpenAPI, dan rustls untuk TLS jika diperlukan.
 
-Batas modul Rust mengikuti tanggung jawab API: konfigurasi/application state/error, routes/handlers, auth, provider registry dan executors, translator, domain services, database, pricing/quota, streaming, dan telemetry. Model publik request/response didefinisikan di Rust. Alur kontrak:
+Source Rust diorganisasi per fitur di `server/src/features/`, dengan transport lintas fitur di `http/` dan integrasi teknis di `infrastructure/`. Tiap fitur dapat memiliki route, handler, service, dan repository yang relevan tanpa membuat layer global `routes/`, `controllers/`, `logic/`, dan `services/` yang memecah satu fitur ke banyak tempat. Model publik request/response didefinisikan di Rust. Alur kontrak:
 
 ```text
 Rust models + Utoipa
@@ -90,22 +92,23 @@ Root pnpm workspace dan `packages/*` tidak dihapus dalam issue ini karena aplika
 
 ## Strategi migrasi
 
-1. **Freeze kontrak:** inventaris route/method/auth, request/response, headers, errors, SSE, OAuth listener, compatibility paths, dan efek persistence. Hubungkan tiap area dengan parity-test case dari source/tests API di luar `packages/*`.
-2. **Rust foundation:** tambahkan Cargo package, config, state, error mapping, observability, listener utama/OAuth, health route, dan guard otomatis no-package.
-3. **Persistence dan security:** implementasikan SQLx migrations/repositories, startup lifecycle, admin/auth sessions, API keys, CORS/CSRF, body limits, rate limits, dan audit behavior dengan database temporer.
-4. **Dashboard/domain routes:** pindahkan admin, keys, settings/fallbacks, providers/favorites, models, pricing, quota, logs/analytics, tunnel, dan database transfer sebagai vertical slices.
-5. **Gateway routes:** pindahkan provider OAuth/token refresh, provider executors, OpenAI/Anthropic request mapping, images, chat/messages, tool interception, pricing/usage accounting, retries/fallbacks, dan SSE.
-6. **Contract/deployment:** generate OpenAPI dan TypeScript API types dari Rust; update consumer API web seperlunya; ubah CI dan Docker sehingga runtime production tidak menyertakan Node.
-7. **Parity/cutover:** jalankan parity matrix dan benchmark pada environment yang sama, uji staging dengan backup/rollback, cutover ke Rust, lalu hapus source/dependencies Hono API setelah verifikasi.
+1. **Freeze kontrak:** inventaris route/method/auth, request/response, headers, errors, SSE, OAuth listener, compatibility paths, dan efek persistence. Tandai tunnel sebagai pengecualian dan hubungkan setiap route yang dipertahankan ke parity test dari sumber API yang diizinkan.
+2. **Rust runtime:** buat Cargo project mandiri di `server/`, konfigurasi, state, error mapping, observability, kedua listener, health route, dan middleware bersama. Biarkan `apps/api` tetap utuh sebagai oracle/fallback.
+3. **Persistence gate:** tetapkan kontrak database dari sumber yang diizinkan sebelum menulis SQLx migration; jika schema kompatibilitas tidak dapat dibuktikan, hentikan pekerjaan database dan minta keputusan.
+4. **Feature slices:** implementasikan admin auth, API keys, provider management/OAuth, adapters, gateway, catalog, dashboard, dan database transfer dalam modul feature-first. Tunnel tidak dimigrasikan.
+5. **Contract/deployment:** hasilkan OpenAPI dari Rust dan TypeScript langsung ke `apps/web/src/generated/api.ts`; tambahkan CI dan candidate Docker runtime tanpa mengubah `apps/api`.
+6. **Parity/cutover:** jalankan parity matrix untuk route yang dipertahankan, benchmark, dan staging dengan backup/rollback; pindahkan deployment ke Rust setelah gate lulus.
+7. **Retirement:** setelah rollback window, pensiunkan source dan dependency Node/Hono API. Pertahankan direktori `packages/*` dan aplikasi non-API.
 
 Setiap vertical slice memiliki tes Rust dan parity case sebelum dependensi Hono untuk area itu dipensiunkan. Tidak ada big-bang cutover sebelum acceptance gates selesai.
 
 ## Acceptance criteria
 
-- [ ] Semua route dan perilaku `apps/api` yang tercakup kontrak memiliki implementasi Rust/Axum.
+- [ ] Semua route dan perilaku `apps/api` yang dipertahankan dalam kontrak memiliki implementasi Rust/Axum; endpoint tunnel dicatat sebagai pengecualian yang disengaja.
 - [ ] Compatibility `/v1/v1/*`, kedua listener, OAuth callbacks, static web serving, dan konfigurasi deployment tetap berjalan.
 - [ ] Chat/messages dan image paths mempertahankan streaming/SSE dan perilaku OpenAI/Anthropic yang kompatibel.
 - [ ] Auth, provider routing, DB behavior, logging, dan startup tasks lulus parity checks.
+- [ ] Endpoint dan autostart Cloudflare Tunnel tidak tersedia di API Rust setelah cutover; pengecualian ini terdokumentasi untuk consumer.
 - [ ] SQLite dan PostgreSQL behavior diuji; database lama dapat digunakan atau ditransisikan tanpa kehilangan data.
 - [ ] OpenAPI dapat dihasilkan deterministik dari Rust; generated web types lolos drift check.
 - [ ] Source/build/runtime/codegen Rust tidak membaca atau memakai data dari `packages/*`; Rust build berjalan mandiri.
