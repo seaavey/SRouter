@@ -39,6 +39,7 @@ impl ApiConfig {
             oauth_port,
             oauth_host: environment
                 .get("OAUTH_HOST")
+                .filter(|host| !host.is_empty())
                 .cloned()
                 .unwrap_or_else(|| "0.0.0.0".to_owned()),
             public_url: environment
@@ -54,7 +55,10 @@ impl ApiConfig {
                 .filter(|origin| !origin.is_empty())
                 .map(str::to_owned)
                 .collect(),
-            admin_password: environment.get("SROUTER_ADMIN_PASSWORD").cloned(),
+            admin_password: environment
+                .get("SROUTER_ADMIN_PASSWORD")
+                .filter(|password| !password.is_empty())
+                .cloned(),
             secure_cookies: environment
                 .get("SROUTER_SECURE_COOKIES")
                 .is_some_and(|value| value == "true"),
@@ -63,8 +67,14 @@ impl ApiConfig {
                 .filter(|path| !path.is_empty())
                 .map(PathBuf::from),
             database_path,
-            database_url: environment.get("DATABASE_URL").cloned(),
-            claude_oauth_client_id: environment.get("CLAUDE_OAUTH_CLIENT_ID").cloned(),
+            database_url: environment
+                .get("DATABASE_URL")
+                .filter(|url| !url.is_empty())
+                .cloned(),
+            claude_oauth_client_id: environment
+                .get("CLAUDE_OAUTH_CLIENT_ID")
+                .filter(|client_id| !client_id.is_empty())
+                .cloned(),
         })
     }
 }

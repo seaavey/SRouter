@@ -90,6 +90,23 @@ fn supported_environment_overrides_are_parsed_without_rewriting_database_url() {
 }
 
 #[test]
+fn empty_optional_environment_overrides_use_unset_defaults() {
+    let config = config_from(&[
+        ("HOME", "/tmp/srouter-home"),
+        ("OAUTH_HOST", ""),
+        ("SROUTER_ADMIN_PASSWORD", ""),
+        ("CLAUDE_OAUTH_CLIENT_ID", ""),
+        ("DATABASE_URL", ""),
+    ])
+    .unwrap();
+
+    assert_eq!(config.oauth_host, "0.0.0.0");
+    assert!(config.admin_password.is_none());
+    assert!(config.claude_oauth_client_id.is_none());
+    assert!(config.database_url.is_none());
+}
+
+#[test]
 fn invalid_listener_ports_return_the_environment_variable_name() {
     let invalid_main_port = config_from(&[("HOME", "/tmp/srouter-home"), ("PORT", "not-a-port")]);
     assert!(matches!(
