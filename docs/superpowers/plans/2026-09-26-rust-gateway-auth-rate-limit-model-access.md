@@ -179,9 +179,9 @@ No new empty directories; no route/controller/service layer is introduced.
 
 **Steps:**
 
-- [x] Write inline unit tests: `limit_zero_is_unlimited`, `requests_up_to_the_limit_pass`, `the_request_over_the_limit_returns_the_retry_after`, `the_window_resets_after_sixty_seconds`, `windows_are_isolated_per_key_and_address`, `expired_windows_are_evicted_above_the_cap` (uses `with_max_tracked(2)`, then asserts `tracked_windows()` dropped the expired entries).
+- [x] Write inline unit tests: `requests_up_to_the_limit_pass`, `the_request_over_the_limit_returns_the_retry_after`, `the_window_resets_after_sixty_seconds`, `windows_are_isolated_per_key_and_address`, `expired_windows_are_evicted_above_the_cap` (uses `with_max_tracked(2)`, then asserts `tracked_windows()` dropped the expired entries), and `the_rate_limit_message_pluralizes_the_request_count`. `rate_limit = 0` cannot be unit tested at this level because the middleware skips before `check` runs, so it is covered by `an_unlimited_key_is_never_rate_limited`.
 - [x] Run `cargo test --lib rate_limit` and confirm failure.
-- [x] Implement `RateLimiter` and the middleware; add unit tests for the `"{id}:{address}"` key and the `unknown` fallback.
+- [x] Implement `RateLimiter` and the middleware. The `"{id}:{address}"` window key and the `unknown` fallback live in the middleware, so they are proven end to end by `requests_without_connect_info_share_one_unknown_window` rather than by a unit test of `RateLimiter`.
 - [x] Write `server/tests/rate_limit.rs`: `requests_beyond_the_key_limit_return_429_with_retry_after` (`Retry-After` parses to `1..=60`), `an_unlimited_key_is_never_rate_limited`, `admin_session_and_anonymous_requests_are_not_rate_limited`, `rate_limiting_runs_before_body_validation` (malformed JSON: first request `400`, next `429`), `auth_runs_before_the_rate_limit` (unknown key stays `401`, never `429`).
 - [x] Wire the layer in `app.rs` as `.layer(from_fn_with_state(state.clone(), rate_limit))` immediately before the auth layer (the last layer added runs first, so auth stays outermost).
 - [x] Run `cargo test --test rate_limit`, then `cargo test`, `cargo fmt --check`, `git diff --check`.

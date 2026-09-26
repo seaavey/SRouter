@@ -119,7 +119,9 @@ async fn remote_requests_need_a_key_even_when_the_requirement_is_off() {
 }
 
 #[tokio::test]
-async fn a_valid_key_passes_and_identifies_the_principal() {
+async fn a_valid_key_passes_auth() {
+    // Principal propagation is observed end to end in `tests/model_access.rs`
+    // (allowlist rejection) and `tests/rate_limit.rs` (per-key window).
     let app = test_app(security_state(
         false,
         keyed(api_key_record("key_1")),

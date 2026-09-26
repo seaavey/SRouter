@@ -185,9 +185,27 @@ async fn rate_limiting_runs_before_body_validation() {
 }
 
 #[tokio::test]
-async fn auth_runs_before_the_rate_limit() {
+async fn requests_without_connect_info_share_one_unknown_window() {
+    let app = test_app(security_state(false, keyed(1), vec![]));
+
+    // No ConnectInfo: the window key falls back to the literal `unknown`
+    // address, so both requests must land in the same window.
+    let first = app.clone().oneshot(keyed_request(CHAT)).await.unwrap();
+    assert_eq!(first.status(), StatusCode::NOT_FOUND);
+
+    let second = app.clone().oneshot(keyed_request(CHAT)).await.unwrap();
+    assert_eq!(second.status(), StatusCode::TOO_MANY_REQUESTS);
+}
+
+#[tokio::test]
+async fn an_unknown_key_is_rejected_without_touching_the_window() {
     let app = test_app(security_state(true, keyed(1), vec![]));
 
+    // Layer ordering itself is proven by
+    // `requests_beyond_the_key_limit_return_429_with_retry_after`: were the
+    // limiter outermost it would never see a principal and nothing would ever
+    // be counted. What this test adds is that a bad credential never reaches
+    // the limiter state, even for a key that is rate limited.
     for _ in 0..3 {
         let response = app
             .clone()

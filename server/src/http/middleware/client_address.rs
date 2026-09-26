@@ -4,16 +4,14 @@ use axum::extract::ConnectInfo;
 use axum::http::Extensions;
 use axum::http::request::Parts;
 
-/// Returns the socket peer address of the request, or `None` when the listener
-/// is not serving connect info.
+/// Returns the socket peer address carried in request extensions, or `None`
+/// when the listener is not serving connect info.
 ///
 /// Proxy and client-identifying headers are deliberately never consulted. The
 /// Node runtime falls back to the request URL hostname because Hono's
 /// `getConnInfo` fails in its test harness; that fallback lets a remote client
 /// claim `localhost` by setting `Host`, and the real Rust listener always has
 /// connect info.
-/// Returns the socket peer address carried in request extensions, or `None`
-/// when the listener is not serving connect info.
 pub fn client_address(extensions: &Extensions) -> Option<String> {
     extensions
         .get::<ConnectInfo<SocketAddr>>()

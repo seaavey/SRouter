@@ -142,35 +142,48 @@ fn missing_api_key(is_loopback: bool) -> APIError {
 
 /// `x-api-key` wins over `Authorization`; a present-but-blank `x-api-key`
 /// suppresses the fallback exactly like the Node middleware's truthiness check.
+/// Values are read lossily instead of rejected as non-UTF-8 so a malformed
+/// header still counts as present and reaches the key lookup, the way Node's
+/// raw strings do.
 fn request_key(headers: &HeaderMap) -> Option<String> {
-    if let Some(value) = headers
-        .get("x-api-key")
-        .and_then(|value| value.to_str().ok())
-        .filter(|value| !value.is_empty())
+    if let Some(raw) = headers.get("x-api-key")
+        && !raw.as_bytes().is_empty()
     {
-        let trimmed = value.trim();
+        let trimmed = String::from_utf8_lossy(raw.as_bytes()).trim().to_owned();
 
-        return (!trimmed.is_empty()).then(|| trimmed.to_owned());
+        return (!trimmed.is_empty()).then_some(trimmed);
     }
 
-    let authorization = headers.get(header::AUTHORIZATION)?.to_str().ok()?.trim();
-    let candidate = authorization
+    let authorization = headers.get(header::AUTHORIZATION)?;
+    let text = String::from_utf8_lossy(authorization.as_bytes());
+    let trimmed = text.trim();
+    let candidate = trimmed
         .strip_prefix("Bearer ")
         .map(str::trim)
-        .unwrap_or(authorization);
+        .unwrap_or(trimmed);
 
     (!candidate.is_empty()).then(|| candidate.to_owned())
 }
 
-/// Reads one cookie by name; the session token itself is base64url, so no
-/// percent-decoding is required.
+/// Reads one cookie by name. Node joins duplicate `Cookie` headers with `"; "`
+/// and passes quoted values through unchanged, so both behaviors are kept; the
+/// session token itself is base64url and needs no percent-decoding.
 fn cookie_value(headers: &HeaderMap, name: &str) -> Option<String> {
-    let cookies = headers.get(header::COOKIE)?.to_str().ok()?;
+    let cookies = headers
+        .get_all(header::COOKIE)
+        .iter()
+        .map(|value| String::from_utf8_lossy(value.as_bytes()).into_owned())
+        .collect::<Vec<String>>()
+        .join("; ");
+
+    if cookies.is_empty() {
+        return None;
+    }
 
     cookies.split(';').find_map(|pair| {
         let (key, value) = pair.split_once('=')?;
 
-        (key.trim() == name).then(|| value.trim().trim_matches('"').to_owned())
+        (key.trim() == name).then(|| value.trim().to_owned())
     })
 }
 
@@ -189,7 +202,7 @@ fn now_ms() -> i64 {
 
 #[cfg(test)]
 mod tests {
-    use axum::http::{HeaderMap, HeaderName, HeaderValue};
+    use axum::http::{HeaderMap, HeaderName, HeaderValue, header};
 
     use super::{auth_required, cookie_value, request_key};
 
@@ -257,6 +270,63 @@ mod tests {
             None
         );
         assert_eq!(cookie_value(&headers(&[]), "srouter_admin_session"), None);
+    }
+
+    #[test]
+    fn a_non_utf8_x_api_key_is_used_and_suppresses_the_authorization_fallback() {
+        let mut map = HeaderMap::new();
+        map.insert("x-api-key", HeaderValue::from_bytes(&[0xff]).unwrap());
+        map.insert(
+            header::AUTHORIZATION,
+            HeaderValue::from_static("Bearer key"),
+        );
+
+        // Node treats the raw value as truthy and looks it up, so the Bearer
+        // value must never be consulted.
+        let candidate = request_key(&map).expect("a present x-api-key yields a candidate");
+        assert_ne!(candidate, "key");
+        assert_eq!(candidate, String::from_utf8_lossy(&[0xff]).into_owned());
+    }
+
+    #[test]
+    fn a_non_utf8_authorization_value_still_reaches_the_lookup() {
+        let mut map = HeaderMap::new();
+        map.insert(
+            header::AUTHORIZATION,
+            HeaderValue::from_bytes(&[0xff]).unwrap(),
+        );
+
+        assert_eq!(
+            request_key(&map).as_deref(),
+            Some(String::from_utf8_lossy(&[0xff]).as_ref())
+        );
+    }
+
+    #[test]
+    fn duplicate_cookie_headers_are_joined() {
+        let mut map = HeaderMap::new();
+        map.append(header::COOKIE, HeaderValue::from_static("a=1"));
+        map.append(
+            header::COOKIE,
+            HeaderValue::from_static("srouter_admin_session=token"),
+        );
+
+        assert_eq!(
+            cookie_value(&map, "srouter_admin_session").as_deref(),
+            Some("token")
+        );
+    }
+
+    #[test]
+    fn quoted_cookie_values_are_not_unwrapped() {
+        // The Node cookie parser keeps the quotes, so the hashed value stays
+        // wrong for a quoted token and Rust must reject it the same way.
+        let map = headers(&[("cookie", "srouter_admin_session=\"token\"")]);
+
+        assert_eq!(
+            cookie_value(&map, "srouter_admin_session").as_deref(),
+            Some("\"token\"")
+        );
     }
 
     #[test]
