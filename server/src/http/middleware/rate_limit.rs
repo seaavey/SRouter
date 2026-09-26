@@ -124,21 +124,22 @@ pub async fn rate_limit(State(state): State<AppState>, request: Request, next: N
 }
 
 fn rate_limit_error(limit: u32, retry_after_seconds: u64) -> Response {
-    let mut error = APIError::new(
-        429,
-        format!(
-            "Rate limit exceeded: this API key allows {limit} request{} per minute.",
-            if limit == 1 { "" } else { "s" }
-        ),
-    )
-    .with_code("rate_limit_exceeded")
-    .into_response();
+    let mut error = APIError::new(429, rate_limit_message(limit))
+        .with_code("rate_limit_exceeded")
+        .into_response();
 
     if let Ok(value) = HeaderValue::from_str(&retry_after_seconds.to_string()) {
         error.headers_mut().insert(header::RETRY_AFTER, value);
     }
 
     error
+}
+
+fn rate_limit_message(limit: u32) -> String {
+    format!(
+        "Rate limit exceeded: this API key allows {limit} request{} per minute.",
+        if limit == 1 { "" } else { "s" }
+    )
 }
 
 fn now_ms() -> i64 {
@@ -204,5 +205,17 @@ mod tests {
         // Every window has expired, so the next request drops them all.
         assert_eq!(limiter.check("key_4:203.0.113.7", 1, 120_000), None);
         assert_eq!(limiter.tracked_windows(), 1);
+    }
+
+    #[test]
+    fn the_rate_limit_message_pluralizes_the_request_count() {
+        assert_eq!(
+            super::rate_limit_message(1),
+            "Rate limit exceeded: this API key allows 1 request per minute."
+        );
+        assert_eq!(
+            super::rate_limit_message(3),
+            "Rate limit exceeded: this API key allows 3 requests per minute."
+        );
     }
 }
