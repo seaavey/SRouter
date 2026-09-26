@@ -5,6 +5,7 @@ use crate::error::APIError;
 use crate::features::admin_auth::{AdminSessionStore, EmptyAdminSessionStore};
 use crate::features::api_keys::{APIKeyStore, EmptyAPIKeyStore};
 use crate::features::providers::ProviderRegistry;
+use crate::http::middleware::rate_limit::RateLimiter;
 
 /// Persistence-backed security dependencies. Until the SQLx stores land behind
 /// the schema gate the process runs with `unconfigured()`, which behaves like a
@@ -13,6 +14,7 @@ use crate::features::providers::ProviderRegistry;
 pub struct SecurityState {
     pub api_keys: Arc<dyn APIKeyStore>,
     pub admin_sessions: Arc<dyn AdminSessionStore>,
+    pub rate_limiter: Arc<RateLimiter>,
     configured: bool,
 }
 
@@ -22,6 +24,7 @@ impl SecurityState {
         Self {
             api_keys,
             admin_sessions,
+            rate_limiter: Arc::new(RateLimiter::new()),
             configured: true,
         }
     }
@@ -31,6 +34,7 @@ impl SecurityState {
         Self {
             api_keys: Arc::new(EmptyAPIKeyStore),
             admin_sessions: Arc::new(EmptyAdminSessionStore),
+            rate_limiter: Arc::new(RateLimiter::new()),
             configured: false,
         }
     }
