@@ -1,6 +1,6 @@
 # Rust Gateway Middleware (Auth, Rate Limit, Model Access) Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Port the Node API-key auth, fixed-window rate limit, and model allowlist middleware to the Rust gateway so `/v1/chat/completions` and its `/v1/v1` alias enforce the frozen contract.
 
@@ -104,13 +104,13 @@ No new empty directories; no route/controller/service layer is introduced.
 
 **Steps:**
 
-- [ ] Write inline `#[cfg(test)]` tests: `loopback_addresses_are_exact` (`127.0.0.1`, `::1` true; `127.0.0.2`, `203.0.113.7`, `localhost`, `""` false), `v4_mapped_loopback_is_normalized` (`::FFFF:127.0.0.1` true), `connect_info_supplies_the_client_address` (`ConnectInfo(SocketAddr::from(([203, 0, 113, 7], 5555)))` → `Some("203.0.113.7")`), `header_only_requests_have_no_client_address` (no connect info, `Host: localhost` and `X-Forwarded-For: 127.0.0.1` → `None`), `connect_info_beats_request_headers` (connect info `203.0.113.7` plus `Host: localhost` → `Some("203.0.113.7")`).
-- [ ] Run `cd server && cargo test --lib client_address` and confirm it fails because the module does not exist yet.
-- [ ] Implement both functions and register the module in `http/middleware/mod.rs`.
-- [ ] Change `serve_main` to `axum::serve(listener, router.into_make_service_with_connect_info::<SocketAddr>())`.
-- [ ] Run `cargo test --lib client_address`, then `cargo test`, `cargo fmt --check`, and `git diff --check`.
-- [ ] Commit: `feat(server): resolve the gateway client address from the connection`.
-- [ ] Append the `.local/CONTEXT.md` entry and format `.local/`.
+- [x] Write inline `#[cfg(test)]` tests: `loopback_addresses_are_exact` (`127.0.0.1`, `::1` true; `127.0.0.2`, `203.0.113.7`, `localhost`, `""` false), `v4_mapped_loopback_is_normalized` (`::FFFF:127.0.0.1` true), `connect_info_supplies_the_client_address` (`ConnectInfo(SocketAddr::from(([203, 0, 113, 7], 5555)))` → `Some("203.0.113.7")`), `header_only_requests_have_no_client_address` (no connect info, `Host: localhost` and `X-Forwarded-For: 127.0.0.1` → `None`), `connect_info_beats_request_headers` (connect info `203.0.113.7` plus `Host: localhost` → `Some("203.0.113.7")`).
+- [x] Run `cd server && cargo test --lib client_address` and confirm it fails because the module does not exist yet.
+- [x] Implement both functions and register the module in `http/middleware/mod.rs`.
+- [x] Change `serve_main` to `axum::serve(listener, router.into_make_service_with_connect_info::<SocketAddr>())`.
+- [x] Run `cargo test --lib client_address`, then `cargo test`, `cargo fmt --check`, and `git diff --check`.
+- [x] Commit: `feat(server): resolve the gateway client address from the connection`.
+- [x] Append the `.local/CONTEXT.md` entry and format `.local/`.
 
 ## Task 2: Add pluggable security state and store traits
 
@@ -130,12 +130,12 @@ No new empty directories; no route/controller/service layer is introduced.
 
 **Steps:**
 
-- [ ] Add the two dependencies and write failing unit tests: `hash_session_token_matches_node` (`sha256("abc")` → `ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad`), `empty_api_key_store_reports_no_keys_and_no_requirement`, `empty_admin_session_store_rejects_every_session`, `unconfigured_security_state_reports_no_persistence`.
-- [ ] Run `cargo test --lib` and confirm the tests fail (missing modules).
-- [ ] Implement the types, traits, empty stores, and `AppState::with_security`; no middleware yet.
-- [ ] Run `cargo test` (existing chat/http/database tests must stay green), `cargo fmt --check`, `git diff --check`.
-- [ ] Commit: `feat(server): add pluggable api key and admin session stores`.
-- [ ] Append the `.local/CONTEXT.md` entry and format `.local/`.
+- [x] Add the two dependencies and write failing unit tests: `hash_session_token_matches_node` (`sha256("abc")` → `ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad`), `empty_api_key_store_reports_no_keys_and_no_requirement`, `empty_admin_session_store_rejects_every_session`, `unconfigured_security_state_reports_no_persistence`.
+- [x] Run `cargo test --lib` and confirm the tests fail (missing modules).
+- [x] Implement the types, traits, empty stores, and `AppState::with_security`; no middleware yet.
+- [x] Run `cargo test` (existing chat/http/database tests must stay green), `cargo fmt --check`, `git diff --check`.
+- [x] Commit: `feat(server): add pluggable api key and admin session stores`.
+- [x] Append the `.local/CONTEXT.md` entry and format `.local/`.
 
 ## Task 3: Enforce API-key and admin-session auth on gateway routes
 
@@ -155,14 +155,14 @@ No new empty directories; no route/controller/service layer is introduced.
 
 **Steps:**
 
-- [ ] Write `server/tests/api_key_auth.rs` against `create_router` with an empty `ProviderRegistry::new()`: `anonymous_loopback_requests_pass_when_the_requirement_is_off`, `loopback_requests_need_a_key_when_the_requirement_is_on`, `remote_requests_need_a_key_even_when_the_requirement_is_off`, `a_valid_key_passes_and_identifies_the_principal`, `an_unknown_key_returns_invalid_api_key_when_required`, `an_unknown_key_passes_anonymously_when_not_required_and_loopback`, `a_disabled_key_returns_api_key_disabled`, `exhausted_credit_returns_402_insufficient_credit`, `exhausted_quota_returns_429_quota_exceeded`, `credit_is_checked_before_quota`, `a_valid_admin_session_cookie_passes_without_a_key`, `an_unknown_admin_session_cookie_does_not_pass`, `x_api_key_wins_over_the_authorization_header`, `a_bare_authorization_value_is_treated_as_a_key`, `whitespace_only_credentials_are_treated_as_missing`, `spoofed_client_headers_do_not_change_the_decision`, `the_v1_v1_alias_is_protected_too`, `rejections_keep_the_frozen_security_headers`.
-- [ ] Asserts: exact `message`, `code`, and `type` from the parity table for every rejection; "passes" means the request reached the handler, observed as `404` from the empty registry.
-- [ ] Run `cargo test --test api_key_auth` and confirm it fails (no middleware yet).
-- [ ] Implement the middleware, credential/cookie extraction, and error constructors; add inline unit tests for `request_key`, `cookie_value`, and `auth_required`.
-- [ ] Wire the layer in `app.rs`, add the startup warning, and update the existing request builders (`chat_completions.rs` helpers plus its inline request near line 272, `opencode_live.rs`) to inject loopback connect info.
-- [ ] Run `cargo test --test api_key_auth`, then `cargo test`, `cargo fmt --check`, `git diff --check`. Boot smoke check: `cd server && PORT=3801 cargo run`, then `curl -i -X POST localhost:3801/v1/chat/completions -H 'Content-Type: application/json' -d '{"model":"does-not-exist","messages":[{"role":"user","content":"hi"}]}'` returns `404` (loopback anonymous passed auth), and repeating with `-H 'Host: example.com' -H 'X-Forwarded-For: 127.0.0.1'` still returns `404`; `Ctrl-C` exits `0`.
-- [ ] Commit: `feat(server): enforce api key and admin session auth on gateway routes`.
-- [ ] Append the `.local/CONTEXT.md` entry and format `.local/`.
+- [x] Write `server/tests/api_key_auth.rs` against `create_router` with an empty `ProviderRegistry::new()`: `anonymous_loopback_requests_pass_when_the_requirement_is_off`, `loopback_requests_need_a_key_when_the_requirement_is_on`, `remote_requests_need_a_key_even_when_the_requirement_is_off`, `a_valid_key_passes_and_identifies_the_principal`, `an_unknown_key_returns_invalid_api_key_when_required`, `an_unknown_key_passes_anonymously_when_not_required_and_loopback`, `a_disabled_key_returns_api_key_disabled`, `exhausted_credit_returns_402_insufficient_credit`, `exhausted_quota_returns_429_quota_exceeded`, `credit_is_checked_before_quota`, `a_valid_admin_session_cookie_passes_without_a_key`, `an_unknown_admin_session_cookie_does_not_pass`, `x_api_key_wins_over_the_authorization_header`, `a_bare_authorization_value_is_treated_as_a_key`, `whitespace_only_credentials_are_treated_as_missing`, `spoofed_client_headers_do_not_change_the_decision`, `the_v1_v1_alias_is_protected_too`, `rejections_keep_the_frozen_security_headers`.
+- [x] Asserts: exact `message`, `code`, and `type` from the parity table for every rejection; "passes" means the request reached the handler, observed as `404` from the empty registry.
+- [x] Run `cargo test --test api_key_auth` and confirm it fails (no middleware yet).
+- [x] Implement the middleware, credential/cookie extraction, and error constructors; add inline unit tests for `request_key`, `cookie_value`, and `auth_required`.
+- [x] Wire the layer in `app.rs`, add the startup warning, and update the existing request builders (`chat_completions.rs` helpers plus its inline request near line 272, `opencode_live.rs`) to inject loopback connect info.
+- [x] Run `cargo test --test api_key_auth`, then `cargo test`, `cargo fmt --check`, `git diff --check`. Boot smoke check: `cd server && PORT=3801 cargo run`, then `curl -i -X POST localhost:3801/v1/chat/completions -H 'Content-Type: application/json' -d '{"model":"does-not-exist","messages":[{"role":"user","content":"hi"}]}'` returns `404` (loopback anonymous passed auth), and repeating with `-H 'Host: example.com' -H 'X-Forwarded-For: 127.0.0.1'` still returns `404`; `Ctrl-C` exits `0`.
+- [x] Commit: `feat(server): enforce api key and admin session auth on gateway routes`.
+- [x] Append the `.local/CONTEXT.md` entry and format `.local/`.
 
 ## Task 4: Enforce the fixed-window rate limit
 
@@ -179,14 +179,14 @@ No new empty directories; no route/controller/service layer is introduced.
 
 **Steps:**
 
-- [ ] Write inline unit tests: `limit_zero_is_unlimited`, `requests_up_to_the_limit_pass`, `the_request_over_the_limit_returns_the_retry_after`, `the_window_resets_after_sixty_seconds`, `windows_are_isolated_per_key_and_address`, `expired_windows_are_evicted_above_the_cap` (uses `with_max_tracked(2)`, then asserts `tracked_windows()` dropped the expired entries).
-- [ ] Run `cargo test --lib rate_limit` and confirm failure.
-- [ ] Implement `RateLimiter` and the middleware; add unit tests for the `"{id}:{address}"` key and the `unknown` fallback.
-- [ ] Write `server/tests/rate_limit.rs`: `requests_beyond_the_key_limit_return_429_with_retry_after` (`Retry-After` parses to `1..=60`), `an_unlimited_key_is_never_rate_limited`, `admin_session_and_anonymous_requests_are_not_rate_limited`, `rate_limiting_runs_before_body_validation` (malformed JSON: first request `400`, next `429`), `auth_runs_before_the_rate_limit` (unknown key stays `401`, never `429`).
-- [ ] Wire the layer in `app.rs` as `.layer(from_fn_with_state(state.clone(), rate_limit))` immediately before the auth layer (the last layer added runs first, so auth stays outermost).
-- [ ] Run `cargo test --test rate_limit`, then `cargo test`, `cargo fmt --check`, `git diff --check`.
-- [ ] Commit: `feat(server): enforce fixed-window api key rate limits`.
-- [ ] Append the `.local/CONTEXT.md` entry and format `.local/`.
+- [x] Write inline unit tests: `limit_zero_is_unlimited`, `requests_up_to_the_limit_pass`, `the_request_over_the_limit_returns_the_retry_after`, `the_window_resets_after_sixty_seconds`, `windows_are_isolated_per_key_and_address`, `expired_windows_are_evicted_above_the_cap` (uses `with_max_tracked(2)`, then asserts `tracked_windows()` dropped the expired entries).
+- [x] Run `cargo test --lib rate_limit` and confirm failure.
+- [x] Implement `RateLimiter` and the middleware; add unit tests for the `"{id}:{address}"` key and the `unknown` fallback.
+- [x] Write `server/tests/rate_limit.rs`: `requests_beyond_the_key_limit_return_429_with_retry_after` (`Retry-After` parses to `1..=60`), `an_unlimited_key_is_never_rate_limited`, `admin_session_and_anonymous_requests_are_not_rate_limited`, `rate_limiting_runs_before_body_validation` (malformed JSON: first request `400`, next `429`), `auth_runs_before_the_rate_limit` (unknown key stays `401`, never `429`).
+- [x] Wire the layer in `app.rs` as `.layer(from_fn_with_state(state.clone(), rate_limit))` immediately before the auth layer (the last layer added runs first, so auth stays outermost).
+- [x] Run `cargo test --test rate_limit`, then `cargo test`, `cargo fmt --check`, `git diff --check`.
+- [x] Commit: `feat(server): enforce fixed-window api key rate limits`.
+- [x] Append the `.local/CONTEXT.md` entry and format `.local/`.
 
 ## Task 5: Enforce API-key model allowlists
 
@@ -202,13 +202,13 @@ No new empty directories; no route/controller/service layer is introduced.
 
 **Steps:**
 
-- [ ] Write inline unit tests mirroring `apps/api/tests/api-keys-allowed-models.test.ts`: `null`/empty list allows everything, membership enforcement, `srouter/` prefix both directions, bare vs provider-qualified both directions, `openai/gpt-4o` does not match `anthropic/gpt-4o`, `openai/gpt-4o` does not match `openai/gpt-4o-mini`, case-insensitive matching, empty model skipped.
-- [ ] Run `cargo test --lib access` and confirm failure.
-- [ ] Implement `access.rs` and wire the handler call.
-- [ ] Write `server/tests/model_access.rs`: `a_disallowed_model_returns_403_model_not_allowed`, `an_allowed_model_reaches_the_provider` (allowlist `space-bunny-free`, request `opencode_zen/space-bunny-free` through the fake upstream returns `200`), `an_admin_session_is_not_restricted`, `an_unrestricted_key_is_not_restricted`, `invalid_json_fails_before_the_model_check` (missing `messages` with a disallowed model returns `400`, not `403`).
-- [ ] Run `cargo test --test model_access`, then `cargo test`, `cargo fmt --check`, `git diff --check`.
-- [ ] Commit: `feat(server): enforce api key model allowlists on chat completions`.
-- [ ] Append the `.local/CONTEXT.md` entry and format `.local/`.
+- [x] Write inline unit tests mirroring `apps/api/tests/api-keys-allowed-models.test.ts`: `null`/empty list allows everything, membership enforcement, `srouter/` prefix both directions, bare vs provider-qualified both directions, `openai/gpt-4o` does not match `anthropic/gpt-4o`, `openai/gpt-4o` does not match `openai/gpt-4o-mini`, case-insensitive matching, empty model skipped.
+- [x] Run `cargo test --lib access` and confirm failure.
+- [x] Implement `access.rs` and wire the handler call.
+- [x] Write `server/tests/model_access.rs`: `a_disallowed_model_returns_403_model_not_allowed`, `an_allowed_model_reaches_the_provider` (allowlist `space-bunny-free`, request `opencode_zen/space-bunny-free` through the fake upstream returns `200`), `an_admin_session_is_not_restricted`, `an_unrestricted_key_is_not_restricted`, `invalid_json_fails_before_the_model_check` (missing `messages` with a disallowed model returns `400`, not `403`).
+- [x] Run `cargo test --test model_access`, then `cargo test`, `cargo fmt --check`, `git diff --check`.
+- [x] Commit: `feat(server): enforce api key model allowlists on chat completions`.
+- [x] Append the `.local/CONTEXT.md` entry and format `.local/`.
 
 ## Task 6: Back the stores with SQLx — BLOCKED, do not start
 
