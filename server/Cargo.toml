@@ -1,0 +1,22 @@
+[package]
+name = "srouter-server"
+# Reported as `X-Version` and in the API info body.
+version = "0.2.0"
+edition = "2024"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+axum = "0.8.9"
+futures-util = "0.3"
+hex = "0.4"
+reqwest = { version = "0.13", default-features = false, features = ["json", "stream", "rustls"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+sqlx = { version = "0.9", default-features = false, features = ["runtime-tokio", "tls-rustls", "sqlite", "postgres"] }
+tokio = { version = "1.53.1", features = ["macros", "net", "rt-multi-thread", "signal", "time"] }
+
+[dev-dependencies]
+tower = { version = "0.5.3", features = ["util"] }
