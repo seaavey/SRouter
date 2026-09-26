@@ -24,7 +24,7 @@ fn test_app() -> Router {
     let environment = HashMap::from([("HOME".to_owned(), "/tmp/srouter-test-home".to_owned())]);
     let config = APIConfig::from_env_map(&environment).unwrap();
 
-    create_router(AppState::new(config))
+    create_router(AppState::new(config).expect("application state"))
 }
 
 fn assert_frozen_headers(response: &Response) {

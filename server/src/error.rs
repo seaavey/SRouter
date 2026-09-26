@@ -1,3 +1,7 @@
+use std::fmt;
+
+use axum::http::StatusCode;
+use axum::response::{IntoResponse, Response};
 use serde::Serialize;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -56,6 +60,21 @@ impl APIError {
                 param: self.param.clone(),
             },
         }
+    }
+}
+
+impl fmt::Display for APIError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(formatter, "{}: {}", self.status, self.message)
+    }
+}
+
+impl std::error::Error for APIError {}
+
+impl IntoResponse for APIError {
+    fn into_response(self) -> Response {
+        let status = StatusCode::from_u16(self.status).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+        (status, axum::Json(self.to_envelope())).into_response()
     }
 }
 

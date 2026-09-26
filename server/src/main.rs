@@ -9,8 +9,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = APIConfig::from_env_map(&environment)?;
     // Wildcard bind matches the Node listener and keeps Docker/VPS traffic reachable.
     let address = SocketAddr::from(([0, 0, 0, 0], config.port));
+    let state = AppState::new(config)?;
 
-    listeners::serve_main(create_router(AppState::new(config)), address).await?;
+    listeners::serve_main(create_router(state), address).await?;
 
     Ok(())
 }
