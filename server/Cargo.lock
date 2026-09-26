@@ -1713,9 +1713,11 @@ version = "0.2.0"
 dependencies = [
  "axum",
  "futures-util",
+ "hex",
  "reqwest",
  "serde",
  "serde_json",
+ "sha2 0.10.9",
  "sqlx",
  "tokio",
  "tower",

@@ -14,4 +14,4 @@ pub use features::providers::{
 };
 pub use features::providers::{ProviderRegistry, ResolvedModel};
 pub use infrastructure::database::AppDatabase;
-pub use state::AppState;
+pub use state::{AppState, SecurityState};
