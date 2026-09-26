@@ -13,9 +13,12 @@ pub async fn serve_main(router: Router, address: SocketAddr) -> io::Result<()> {
         listener.local_addr()?.port()
     );
 
-    axum::serve(listener, router)
-        .with_graceful_shutdown(shutdown_signal())
-        .await
+    axum::serve(
+        listener,
+        router.into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .with_graceful_shutdown(shutdown_signal())
+    .await
 }
 
 async fn shutdown_signal() {
