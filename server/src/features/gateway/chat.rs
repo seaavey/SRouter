@@ -4,7 +4,7 @@ use std::pin::Pin;
 use axum::{
     Json,
     body::{Body, Bytes, to_bytes},
-    extract::{Request, State},
+    extract::{Extension, Request, State},
     http::{StatusCode, Version, header},
     response::{IntoResponse, Response},
 };
@@ -12,6 +12,7 @@ use futures_util::{Stream, StreamExt};
 use serde_json::Value;
 
 use crate::error::APIError;
+use crate::features::api_keys::{APIPrincipal, ensure_model_allowed};
 use crate::features::gateway::model::{
     ChatCompletionRequest, ChatRole, parse_chat_completion_request,
 };
@@ -28,11 +29,19 @@ const MAX_BODY_BYTES: usize = 25 * 1024 * 1024;
 /// against the provider registry and the matching adapter performs the call.
 pub async fn create_completion(
     State(state): State<AppState>,
+    principal: Option<Extension<APIPrincipal>>,
     request: Request,
 ) -> Result<Response, APIError> {
     let version = request.version();
     let body = read_json_body(request).await?;
     let mut chat_request = parse_chat_completion_request(body)?;
+
+    // Node checks the allowlist after validation and before the controller, so
+    // this runs before provider resolution and before the stream opens.
+    ensure_model_allowed(
+        principal.as_ref().and_then(|ext| ext.0.api_key.as_ref()),
+        &chat_request.model,
+    )?;
 
     // Normalize `developer` messages to `system` to match the frozen API v1 contract.
     for message in &mut chat_request.messages {
