@@ -1,9 +1,12 @@
 # SRouter database schema v2 (Rust migration)
 
-**Status:** Proposed schema contract for the Rust persistence layer. Derived from the observed
-Node/SQLite schema (disposable-probe dump documented out of band) plus API-visible behavior in
-`docs/api-v1-contract.md`. Not yet applied to any database; Task 6 (SQLx stores) stays blocked
-until this contract is approved via the persistence gate in `docs/api-database-contract.md`.
+**Status:** Implemented schema contract for the Rust persistence layer. The DDL lives in
+`server/migrations/0002_v2_schema.sql` and is applied on connect by
+`server/src/infrastructure/database/migrations.rs` (version gate + legacy v1 transform), covered
+by `server/tests/schema.rs`. Derived from the observed Node/SQLite schema (disposable-probe dump
+documented out of band) plus API-visible behavior in `docs/api-v1-contract.md`. Task 6 (SQLx
+stores) may now be written against this schema per the persistence gate in
+`docs/api-database-contract.md`.
 
 Scope: SQLite is the primary target. No PostgreSQL-only feature is used, no ORM is assumed, and
 no speculative feature is added.

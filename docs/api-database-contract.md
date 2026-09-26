@@ -1,6 +1,8 @@
 # API Database Compatibility Contract
 
-**Status:** Persistence schema gate is blocked pending an independent schema contract.
+**Status:** Persistence schema gate satisfied by the independent schema contract
+`docs/schemas-database.md`, implemented in `server/migrations/0002_v2_schema.sql` and
+`server/src/infrastructure/database/migrations.rs`.
 
 This document records database behavior visible through the API routes and their tests. It does not infer or reproduce the internal schema. No production database, package source, or production `DATABASE_URL` was accessed.
 
@@ -84,4 +86,11 @@ The Rust test helper must create unique temporary SQLite databases and remove th
 
 ## Persistence implementation gate
 
-**Blocked:** The allowed HTTP routes and tests establish operation outcomes, but they do not establish the complete existing database schema or compatibility contract. No SQLx migration, schema conversion, or Rust repository query may be written until an independent schema contract identifies the required schema and documents an allowed provenance for every field and relation. Do not use `packages/*`, database exports, production databases, or guessed schema as substitutes.
+**Open for schema v2:** The allowed HTTP routes and tests establish operation outcomes but never
+the internal schema; the independent schema contract that supplies it is
+`docs/schemas-database.md` (provenance: disposable-probe dump of the observed v1 schema plus
+API-visible behavior in `docs/api-v1-contract.md`). Schema application is implemented and tested
+in `server/migrations/0002_v2_schema.sql`, `server/src/infrastructure/database/migrations.rs`,
+and `server/tests/schema.rs`. Repository queries may now be written against schema v2 as defined
+there; any field or relation outside that contract still requires provenance before use, and
+`packages/*`, database exports, and production databases remain forbidden as schema sources.

@@ -1,7 +1,8 @@
-//! Persistence backend selection. Opening a connection is all this module does:
-//! migrations, schema conversion, and repository queries stay behind the schema
-//! gate documented in `docs/api-database-contract.md`.
+//! Persistence backend selection. Opening a connection applies the versioned
+//! schema (SQLite, `docs/schemas-database.md`); repository queries stay behind
+//! the persistence gate in `docs/api-database-contract.md`.
 
+mod migrations;
 mod postgres;
 mod sqlite;
 
@@ -19,8 +20,9 @@ pub enum AppDatabase {
 
 impl AppDatabase {
     /// Connects to PostgreSQL when `DATABASE_URL` is configured, otherwise to
-    /// SQLite at `APIConfig::database_path`. No migration or schema change is
-    /// applied here.
+    /// SQLite at `APIConfig::database_path`. The SQLite backend brings the
+    /// file to schema v2 on connect (fresh install or legacy v1 transform);
+    /// PostgreSQL is left untouched until it has a version carrier.
     pub async fn connect(config: &APIConfig) -> Result<Self, APIError> {
         match config.database_url.as_deref() {
             Some(database_url) => postgres::connect(database_url)
@@ -29,12 +31,15 @@ impl AppDatabase {
                 .map_err(|error| {
                     APIError::new(500, format!("could not connect to PostgreSQL: {error}"))
                 }),
-            None => sqlite::connect(&config.database_path)
-                .await
-                .map(Self::Sqlite)
-                .map_err(|error| {
-                    APIError::new(500, format!("could not open the SQLite database: {error}"))
-                }),
+            None => {
+                let pool = sqlite::connect(&config.database_path)
+                    .await
+                    .map_err(|error| {
+                        APIError::new(500, format!("could not open the SQLite database: {error}"))
+                    })?;
+                migrations::run(&pool).await?;
+                Ok(Self::Sqlite(pool))
+            }
         }
     }
 
