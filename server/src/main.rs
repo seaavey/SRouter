@@ -11,6 +11,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let address = SocketAddr::from(([0, 0, 0, 0], config.port));
     let state = AppState::new(config)?;
 
+    if !state.security.is_persistence_configured() {
+        eprintln!(
+            "warning: security stores are not configured; key auth, rate limits, and model allowlists read no persisted data"
+        );
+    }
+
     listeners::serve_main(create_router(state), address).await?;
 
     Ok(())

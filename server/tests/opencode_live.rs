@@ -9,9 +9,11 @@
 //! model registered for `opencode_zen`.
 
 use std::collections::HashMap;
+use std::net::SocketAddr;
 
 use axum::{
     body::{Body, to_bytes},
+    extract::ConnectInfo,
     http::{Request, StatusCode, header},
 };
 use srouter_server::{APIConfig, AppState, app::create_router};
@@ -34,17 +36,18 @@ async fn opencode_zen_answers_a_chat_completion() {
         "stream": false
     });
 
-    let response = app
-        .oneshot(
-            Request::builder()
-                .method("POST")
-                .uri("/v1/chat/completions")
-                .header(header::CONTENT_TYPE, "application/json")
-                .body(Body::from(serde_json::to_vec(&body).unwrap()))
-                .unwrap(),
-        )
-        .await
+    let mut request = Request::builder()
+        .method("POST")
+        .uri("/v1/chat/completions")
+        .header(header::CONTENT_TYPE, "application/json")
+        .body(Body::from(serde_json::to_vec(&body).unwrap()))
         .unwrap();
+    // The gateway only bypasses API-key enforcement for loopback peers.
+    request
+        .extensions_mut()
+        .insert(ConnectInfo(SocketAddr::from(([127, 0, 0, 1], 40_000))));
+
+    let response = app.oneshot(request).await.unwrap();
 
     let status = response.status();
     let bytes = to_bytes(response.into_body(), 65536).await.unwrap();

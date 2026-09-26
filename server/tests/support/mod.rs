@@ -4,20 +4,26 @@
 
 #![allow(dead_code)]
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use axum::{
     Json, Router,
     body::Body,
-    http::{StatusCode, header},
+    extract::ConnectInfo,
+    http::{Request, StatusCode, header},
     response::{IntoResponse, Response},
     routing::post,
 };
+use futures_util::future::BoxFuture;
+use srouter_server::features::admin_auth::AdminSessionStore;
+use srouter_server::features::api_keys::{APIKeyRecord, APIKeyStore};
 use srouter_server::features::providers::{ProviderRegistry, adapters::opencode_zen};
 use srouter_server::infrastructure::database::AppDatabase;
-use srouter_server::{APIConfig, APIError, AppState};
+use srouter_server::{APIConfig, APIError, AppState, SecurityState};
 use tokio::net::TcpListener;
 use tokio::task::JoinHandle;
 
@@ -109,16 +115,163 @@ impl Drop for FakeUpstream {
 /// Application state whose `opencode_zen` provider points at a local fake
 /// upstream, so gateway tests never reach the network.
 pub async fn app_state_with_fake_upstream() -> (FakeUpstream, AppState) {
-    let upstream = FakeUpstream::start().await;
-    let environment = HashMap::from([("HOME".to_owned(), "/tmp/srouter-test-home".to_owned())]);
-    let config = APIConfig::from_env_map(&environment).expect("test configuration");
+    app_state_with_fake_upstream_and_security(SecurityState::unconfigured()).await
+}
 
+/// Same fake-upstream state with explicit security stores.
+pub async fn app_state_with_fake_upstream_and_security(
+    security: SecurityState,
+) -> (FakeUpstream, AppState) {
+    let upstream = FakeUpstream::start().await;
     let mut providers = ProviderRegistry::new();
     providers.register(
         opencode_zen::adapter_with_base_url(upstream.base_url()).expect("opencode_zen adapter"),
     );
 
-    (upstream, AppState::with_registry(config, providers))
+    (
+        upstream,
+        AppState::with_security(test_config(), providers, security),
+    )
+}
+
+/// Configuration pointing at the default temporary home used by state helpers.
+pub fn test_config() -> APIConfig {
+    let environment = HashMap::from([("HOME".to_owned(), "/tmp/srouter-test-home".to_owned())]);
+    APIConfig::from_env_map(&environment).expect("test configuration")
+}
+
+/// State with an empty provider registry: every gateway request stops at model
+/// resolution with `404`, so tests observe auth outcomes without any network.
+pub fn empty_registry_state(security: SecurityState) -> AppState {
+    AppState::with_security(test_config(), ProviderRegistry::new(), security)
+}
+
+/// Security state wired with fixture stores.
+pub fn security_state(
+    require_api_key: bool,
+    keys: Vec<(String, APIKeyRecord)>,
+    valid_session_hashes: Vec<String>,
+) -> SecurityState {
+    SecurityState::new(
+        Arc::new(FixtureAPIKeyStore::new(require_api_key, keys)),
+        Arc::new(FixtureAdminSessionStore::new(valid_session_hashes)),
+    )
+}
+
+/// A fully permissive key record; tests override the fields they exercise.
+pub fn api_key_record(id: &str) -> APIKeyRecord {
+    APIKeyRecord {
+        id: id.to_owned(),
+        enabled: true,
+        rate_limit: 0,
+        quota_limit: 0.0,
+        usage_tokens: 0.0,
+        credit_limit: 0.0,
+        usage_cost: 0.0,
+        allowed_models: None,
+    }
+}
+
+/// Key records are looked up by their raw value, so fixtures never hash keys.
+pub struct FixtureAPIKeyStore {
+    keys: HashMap<String, APIKeyRecord>,
+    require_api_key: bool,
+}
+
+impl FixtureAPIKeyStore {
+    pub fn new(require_api_key: bool, keys: Vec<(String, APIKeyRecord)>) -> Self {
+        Self {
+            keys: keys.into_iter().collect(),
+            require_api_key,
+        }
+    }
+}
+
+impl APIKeyStore for FixtureAPIKeyStore {
+    fn find_by_key<'a>(
+        &'a self,
+        key: &'a str,
+    ) -> BoxFuture<'a, Result<Option<APIKeyRecord>, APIError>> {
+        let record = self.keys.get(key).cloned();
+
+        Box::pin(async move { Ok(record) })
+    }
+
+    fn require_api_key(&self) -> BoxFuture<'_, Result<bool, APIError>> {
+        let required = self.require_api_key;
+
+        Box::pin(async move { Ok(required) })
+    }
+}
+
+/// Admin sessions are looked up by token hash, exactly like the SQLx store will.
+pub struct FixtureAdminSessionStore {
+    valid_hashes: HashSet<String>,
+}
+
+impl FixtureAdminSessionStore {
+    pub fn new(valid_token_hashes: Vec<String>) -> Self {
+        Self {
+            valid_hashes: valid_token_hashes.into_iter().collect(),
+        }
+    }
+}
+
+impl AdminSessionStore for FixtureAdminSessionStore {
+    fn has_valid_session<'a>(
+        &'a self,
+        token_hash: &'a str,
+        _now_ms: i64,
+    ) -> BoxFuture<'a, Result<bool, APIError>> {
+        let valid = self.valid_hashes.contains(token_hash);
+
+        Box::pin(async move { Ok(valid) })
+    }
+}
+
+/// Injects a loopback peer, matching a request from the local machine.
+pub fn with_loopback_client(mut request: Request<Body>) -> Request<Body> {
+    request
+        .extensions_mut()
+        .insert(ConnectInfo(SocketAddr::from(([127, 0, 0, 1], 40_000))));
+
+    request
+}
+
+/// Injects a public peer address, matching a remote client.
+pub fn with_remote_client(mut request: Request<Body>, address: &str) -> Request<Body> {
+    let socket: SocketAddr = format!("{address}:40000")
+        .parse()
+        .expect("remote test address");
+
+    request.extensions_mut().insert(ConnectInfo(socket));
+
+    request
+}
+
+/// JSON request builder shared by the middleware tests.
+pub fn json_request(method: &str, uri: &str, body: serde_json::Value) -> Request<Body> {
+    json_request_with_headers(method, uri, body, &[])
+}
+
+/// JSON request builder with extra headers.
+pub fn json_request_with_headers(
+    method: &str,
+    uri: &str,
+    body: serde_json::Value,
+    headers: &[(&str, &str)],
+) -> Request<Body> {
+    let mut builder = Request::builder()
+        .method(method)
+        .uri(uri)
+        .header(header::CONTENT_TYPE, "application/json");
+    for (name, value) in headers {
+        builder = builder.header(*name, *value);
+    }
+
+    builder
+        .body(Body::from(serde_json::to_vec(&body).expect("request body")))
+        .expect("request")
 }
 
 async fn fake_chat_completion(Json(payload): Json<serde_json::Value>) -> Response {

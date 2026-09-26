@@ -6,7 +6,7 @@ use axum::{
     http::{Request, StatusCode, Version, header},
 };
 use srouter_server::app::create_router;
-use support::{FakeUpstream, app_state_with_fake_upstream};
+use support::{FakeUpstream, app_state_with_fake_upstream, with_loopback_client};
 use tower::ServiceExt;
 
 async fn test_app() -> (FakeUpstream, Router) {
@@ -16,23 +16,27 @@ async fn test_app() -> (FakeUpstream, Router) {
 }
 
 fn chat_request(uri: &str, body: serde_json::Value) -> Request<Body> {
-    Request::builder()
-        .method("POST")
-        .uri(uri)
-        .version(Version::HTTP_11)
-        .header(header::CONTENT_TYPE, "application/json")
-        .body(Body::from(serde_json::to_vec(&body).unwrap()))
-        .unwrap()
+    with_loopback_client(
+        Request::builder()
+            .method("POST")
+            .uri(uri)
+            .version(Version::HTTP_11)
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(Body::from(serde_json::to_vec(&body).unwrap()))
+            .unwrap(),
+    )
 }
 
 fn raw_request(uri: &str, body: String) -> Request<Body> {
-    Request::builder()
-        .method("POST")
-        .uri(uri)
-        .version(Version::HTTP_11)
-        .header(header::CONTENT_TYPE, "application/json")
-        .body(Body::from(body))
-        .unwrap()
+    with_loopback_client(
+        Request::builder()
+            .method("POST")
+            .uri(uri)
+            .version(Version::HTTP_11)
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(Body::from(body))
+            .unwrap(),
+    )
 }
 
 async fn json_body(response: axum::response::Response) -> serde_json::Value {
@@ -269,14 +273,16 @@ async fn schema_invalid_body_returns_400_with_error_envelope() {
 #[tokio::test]
 async fn oversized_content_length_returns_413_request_too_large() {
     let (_upstream, app) = test_app().await;
-    let request = Request::builder()
-        .method("POST")
-        .uri("/v1/chat/completions")
-        .version(Version::HTTP_11)
-        .header(header::CONTENT_TYPE, "application/json")
-        .header(header::CONTENT_LENGTH, "26214401")
-        .body(Body::from("{}"))
-        .unwrap();
+    let request = with_loopback_client(
+        Request::builder()
+            .method("POST")
+            .uri("/v1/chat/completions")
+            .version(Version::HTTP_11)
+            .header(header::CONTENT_TYPE, "application/json")
+            .header(header::CONTENT_LENGTH, "26214401")
+            .body(Body::from("{}"))
+            .unwrap(),
+    );
 
     let response = app.oneshot(request).await.unwrap();
 

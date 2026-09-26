@@ -1,7 +1,9 @@
-use axum::{Json, Router, middleware::from_fn, routing::get};
+use axum::middleware::{from_fn, from_fn_with_state};
+use axum::{Json, Router, routing::get};
 use serde::Serialize;
 
 use crate::features::gateway::routes::create_gateway_router;
+use crate::http::middleware::api_key_auth::api_key_auth;
 use crate::http::middleware::security_headers::security_headers;
 use crate::state::AppState;
 
@@ -33,7 +35,10 @@ async fn health() -> Json<HealthResponse> {
 
 /// Mounts feature routers here as their migration tasks land.
 pub fn create_router(state: AppState) -> Router {
-    let gateway_routes = create_gateway_router();
+    // The last layer added runs first, so auth stays outermost and the rate
+    // limit (added later) sees the principal it attached.
+    let gateway_routes =
+        create_gateway_router().layer(from_fn_with_state(state.clone(), api_key_auth));
 
     Router::new()
         .route("/", get(api_info))

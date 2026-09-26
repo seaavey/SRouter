@@ -1,6 +1,7 @@
 use std::net::SocketAddr;
 
 use axum::extract::ConnectInfo;
+use axum::http::Extensions;
 use axum::http::request::Parts;
 
 /// Returns the socket peer address of the request, or `None` when the listener
@@ -11,11 +12,17 @@ use axum::http::request::Parts;
 /// `getConnInfo` fails in its test harness; that fallback lets a remote client
 /// claim `localhost` by setting `Host`, and the real Rust listener always has
 /// connect info.
-pub fn resolve_client_address(parts: &Parts) -> Option<String> {
-    parts
-        .extensions
+/// Returns the socket peer address carried in request extensions, or `None`
+/// when the listener is not serving connect info.
+pub fn client_address(extensions: &Extensions) -> Option<String> {
+    extensions
         .get::<ConnectInfo<SocketAddr>>()
         .map(|ConnectInfo(address)| address.ip().to_string())
+}
+
+/// Parts-facing wrapper used by tests and future extractors.
+pub fn resolve_client_address(parts: &Parts) -> Option<String> {
+    client_address(&parts.extensions)
 }
 
 /// Matches Node's `isLoopbackAddress`: lowercase, strip one `::ffff:` prefix,
