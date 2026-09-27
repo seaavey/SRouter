@@ -110,11 +110,19 @@ pub fn parse_allowed_models(raw: Option<&str>) -> Option<Vec<String>> {
     (!parsed.is_empty()).then_some(parsed)
 }
 
-/// Serializes an allowlist for storage; `None` stores SQL `NULL`.
+/// Collapses an empty allowlist to `None` ("unrestricted"). Node stores `NULL`
+/// and returns `null` for `[]`, so both the value written and the value echoed
+/// in a response must normalize the same way (`docs/schemas-database.md` §7-B).
+pub fn normalize_allowed_models(models: Option<Vec<String>>) -> Option<Vec<String>> {
+    models.filter(|models| !models.is_empty())
+}
+
+/// Serializes an allowlist for storage; `None` and an empty list both store SQL
+/// `NULL`.
 pub fn serialize_allowed_models(models: Option<&[String]>) -> Result<Option<String>, APIError> {
-    match models {
+    match normalize_allowed_models(models.map(<[String]>::to_vec)) {
         None => Ok(None),
-        Some(models) => serde_json::to_string(models).map(Some).map_err(|error| {
+        Some(models) => serde_json::to_string(&models).map(Some).map_err(|error| {
             APIError::new(500, format!("could not encode allowed_models: {error}"))
         }),
     }
@@ -143,8 +151,8 @@ pub struct APIPrincipal {
 #[cfg(test)]
 mod tests {
     use super::{
-        generate_key_id, generate_key_secret, hash_api_key, key_prefix_of, parse_allowed_models,
-        serialize_allowed_models,
+        generate_key_id, generate_key_secret, hash_api_key, key_prefix_of,
+        normalize_allowed_models, parse_allowed_models, serialize_allowed_models,
     };
 
     #[test]
@@ -189,5 +197,16 @@ mod tests {
         assert_eq!(stored.as_deref(), Some(r#"["gpt-4o"]"#));
         assert_eq!(parse_allowed_models(stored.as_deref()), Some(models));
         assert_eq!(serialize_allowed_models(None).unwrap(), None);
+    }
+
+    #[test]
+    fn an_empty_allowlist_stores_null_like_node() {
+        assert_eq!(serialize_allowed_models(Some(&[])).unwrap(), None);
+        assert_eq!(normalize_allowed_models(Some(Vec::new())), None);
+        assert_eq!(normalize_allowed_models(None), None);
+        assert_eq!(
+            normalize_allowed_models(Some(vec!["gpt-4o".to_owned()])),
+            Some(vec!["gpt-4o".to_owned()])
+        );
     }
 }

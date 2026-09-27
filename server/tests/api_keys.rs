@@ -235,6 +235,61 @@ async fn an_allowlist_round_trips_through_create_and_patch() {
 }
 
 #[tokio::test]
+async fn an_empty_allowlist_is_stored_and_reported_as_null() {
+    let database = TestDatabase::new().unwrap();
+    let app = admin_app(&database).await;
+
+    let (_, created) = create_key(
+        &app,
+        serde_json::json!({ "name": "Unrestricted", "allowed_models": [] }),
+    )
+    .await;
+    let id = created["id"].as_str().unwrap().to_owned();
+    assert_eq!(created["allowed_models"], serde_json::Value::Null);
+
+    let restricted = app
+        .clone()
+        .oneshot(admin_request(
+            "PATCH",
+            &format!("{KEYS}/{id}"),
+            serde_json::json!({ "allowed_models": ["gpt-4o"] }),
+        ))
+        .await
+        .unwrap();
+    let body = json_body(restricted).await;
+    assert_eq!(body["allowed_models"], serde_json::json!(["gpt-4o"]));
+
+    // `[]` clears an allowlist exactly like an explicit `null`, in the response
+    // and in the stored row; Node writes `NULL` for both.
+    let cleared = app
+        .clone()
+        .oneshot(admin_request(
+            "PATCH",
+            &format!("{KEYS}/{id}"),
+            serde_json::json!({ "allowed_models": [] }),
+        ))
+        .await
+        .unwrap();
+    let body = json_body(cleared).await;
+    assert_eq!(body["allowed_models"], serde_json::Value::Null);
+
+    let stored: Option<String> =
+        sqlx::query_scalar("SELECT allowed_models FROM api_keys WHERE id = ?")
+            .bind(&id)
+            .fetch_one(database.connect().await.unwrap().sqlite_pool().unwrap())
+            .await
+            .unwrap();
+    assert_eq!(stored, None);
+
+    let listed = app
+        .oneshot(admin_request("GET", KEYS, serde_json::json!(null)))
+        .await
+        .unwrap();
+    let body = json_body(listed).await;
+    assert_eq!(body["data"][0]["allowed_models"], serde_json::Value::Null);
+}
+
+#[tokio::test]
 async fn requests_without_an_admin_session_are_rejected() {
     let database = TestDatabase::new().unwrap();
     let app = admin_app(&database).await;

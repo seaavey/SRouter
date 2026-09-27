@@ -11,8 +11,8 @@ use crate::clock::now_ms;
 use crate::error::APIError;
 use crate::features::api_keys::model::{
     APIKey, APIKeyRecord, CreateAPIKeyInput, CreatedAPIKey, UpdateAPIKeyInput, generate_key_id,
-    generate_key_secret, hash_api_key, key_prefix_of, parse_allowed_models,
-    serialize_allowed_models,
+    generate_key_secret, hash_api_key, key_prefix_of, normalize_allowed_models,
+    parse_allowed_models, serialize_allowed_models,
 };
 use crate::features::api_keys::repository::APIKeyRepository;
 use crate::features::api_keys::store::APIKeyStore;
@@ -94,7 +94,10 @@ impl APIKeyRepository for SQLxAPIKeyStore {
             let secret = generate_key_secret()?;
             let key_prefix = key_prefix_of(&secret);
             let created_at = now_ms();
-            let allowed_models = serialize_allowed_models(input.allowed_models.as_deref())?;
+            // An empty list means "unrestricted", so the stored row and the
+            // response must both carry `NULL`/`null`.
+            let allowed_models = normalize_allowed_models(input.allowed_models);
+            let allowed_models_json = serialize_allowed_models(allowed_models.as_deref())?;
 
             sqlx::query(
                 "INSERT INTO api_keys (id, key_hash, key_prefix, name, enabled, rate_limit, \
@@ -109,7 +112,7 @@ impl APIKeyRepository for SQLxAPIKeyStore {
             .bind(i64::from(input.rate_limit))
             .bind(i64::from(input.quota_limit))
             .bind(input.credit_limit)
-            .bind(allowed_models)
+            .bind(allowed_models_json)
             .bind(created_at)
             .execute(pool)
             .await
@@ -126,7 +129,7 @@ impl APIKeyRepository for SQLxAPIKeyStore {
                     usage_tokens: 0,
                     credit_limit: input.credit_limit,
                     usage_cost: 0.0,
-                    allowed_models: input.allowed_models,
+                    allowed_models,
                     created_at,
                 },
                 secret,
@@ -167,13 +170,11 @@ impl APIKeyRepository for SQLxAPIKeyStore {
             if let Some(credit_limit) = patch.credit_limit {
                 key.credit_limit = credit_limit;
             }
-            let allowed_models = match patch.allowed_models {
-                None => serialize_allowed_models(key.allowed_models.as_deref())?,
-                Some(models) => {
-                    key.allowed_models = models;
-                    serialize_allowed_models(key.allowed_models.as_deref())?
-                }
-            };
+            if let Some(models) = patch.allowed_models {
+                // `[]` clears the allowlist exactly like an explicit `null`.
+                key.allowed_models = normalize_allowed_models(models);
+            }
+            let allowed_models = serialize_allowed_models(key.allowed_models.as_deref())?;
 
             sqlx::query(
                 "UPDATE api_keys SET name = ?, enabled = ?, rate_limit = ?, quota_limit = ?, \
