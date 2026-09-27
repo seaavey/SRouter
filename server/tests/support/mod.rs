@@ -21,7 +21,7 @@ use axum::{
 use futures_util::future::BoxFuture;
 use srouter_server::features::admin_auth::AdminSessionStore;
 use srouter_server::features::api_keys::{APIKeyRecord, APIKeyStore};
-use srouter_server::features::providers::{ProviderRegistry, adapters::opencode_zen};
+use srouter_server::features::providers::{ProviderRegistry, opencode};
 use srouter_server::infrastructure::database::AppDatabase;
 use srouter_server::infrastructure::database::admin_auth::SQLxAdminAuthStore;
 use srouter_server::infrastructure::database::api_keys::SQLxAPIKeyStore;
@@ -127,7 +127,7 @@ pub async fn app_state_with_fake_upstream_and_security(
     let upstream = FakeUpstream::start().await;
     let mut providers = ProviderRegistry::new();
     providers.register(
-        opencode_zen::adapter_with_base_url(upstream.base_url()).expect("opencode_zen adapter"),
+        opencode::adapter_with_base_url(upstream.base_url()).expect("opencode_zen adapter"),
     );
 
     (

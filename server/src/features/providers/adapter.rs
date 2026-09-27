@@ -1,7 +1,5 @@
-//! Provider adapters. Each adapter maps a typed inference request onto its
-//! upstream protocol and returns a typed response or a streamed body.
-
-pub mod opencode_zen;
+//! Provider adapters and base executors. Each adapter maps a typed inference
+//! request onto its upstream protocol and returns a typed response or a streamed body.
 
 use std::pin::Pin;
 
@@ -14,24 +12,29 @@ use crate::error::APIError;
 use crate::features::gateway::model::ChatCompletionRequest;
 use crate::features::gateway::sse;
 use crate::features::providers::model::ModelDefinition;
+use crate::features::providers::opencode::OpenCodeExecutor;
 use crate::infrastructure::upstream::{STREAM_IDLE_TIMEOUT, UpstreamClient};
 
 /// A provider stream of raw SSE bytes. Upstream failures are already encoded
 /// as in-stream error events, so the stream itself never yields an error.
 pub type ProviderStream = Pin<Box<dyn Stream<Item = Bytes> + Send>>;
 
-/// The adapters the registry can dispatch to. Adding a protocol means adding a
-/// variant here and handling it in the delegating methods below.
+/// The adapters/executors the registry can dispatch to. Adding a protocol means
+/// adding a variant here and handling it in the delegating methods below.
 #[derive(Clone)]
 pub enum ProviderAdapter {
     OpenAI(OpenAIAdapter),
+    OpenCode(OpenCodeExecutor),
 }
+
+pub type ProviderExecutor = ProviderAdapter;
 
 impl ProviderAdapter {
     /// The provider's registered base id.
     pub fn id(&self) -> &'static str {
         match self {
             Self::OpenAI(adapter) => adapter.id(),
+            Self::OpenCode(adapter) => adapter.id(),
         }
     }
 
@@ -39,6 +42,7 @@ impl ProviderAdapter {
     pub fn keys(&self) -> &'static [&'static str] {
         match self {
             Self::OpenAI(adapter) => adapter.keys(),
+            Self::OpenCode(adapter) => adapter.keys(),
         }
     }
 
@@ -46,6 +50,7 @@ impl ProviderAdapter {
     pub fn models(&self) -> &'static [ModelDefinition] {
         match self {
             Self::OpenAI(adapter) => adapter.models(),
+            Self::OpenCode(adapter) => adapter.models(),
         }
     }
 
@@ -58,6 +63,7 @@ impl ProviderAdapter {
     ) -> Result<Value, APIError> {
         match self {
             Self::OpenAI(adapter) => adapter.chat_completion(model, request).await,
+            Self::OpenCode(adapter) => adapter.chat_completion(model, request).await,
         }
     }
 
@@ -71,11 +77,12 @@ impl ProviderAdapter {
     ) -> Result<ProviderStream, APIError> {
         match self {
             Self::OpenAI(adapter) => adapter.chat_completion_stream(model, request).await,
+            Self::OpenCode(adapter) => adapter.chat_completion_stream(model, request).await,
         }
     }
 }
 
-/// Adapter for providers that implement the OpenAI chat completions protocol.
+/// Adapter/Executor for providers that implement the OpenAI chat completions protocol.
 #[derive(Clone)]
 pub struct OpenAIAdapter {
     id: &'static str,
@@ -84,6 +91,8 @@ pub struct OpenAIAdapter {
     models: &'static [ModelDefinition],
     client: UpstreamClient,
 }
+
+pub type OpenAIExecutor = OpenAIAdapter;
 
 impl OpenAIAdapter {
     pub fn new(
@@ -168,42 +177,7 @@ impl OpenAIAdapter {
             return Err(upstream_stream_status_error(status, &detail));
         }
 
-        Ok(Self::encode_stream(response.bytes_stream()))
-    }
-
-    /// Wraps the upstream byte stream so a stalled connection or a transport
-    /// failure ends the response with an in-stream error event instead of
-    /// hanging or aborting the connection mid-body.
-    fn encode_stream<S>(upstream: S) -> ProviderStream
-    where
-        S: Stream<Item = Result<Bytes, reqwest::Error>> + Send + 'static,
-    {
-        let upstream = Box::pin(upstream);
-
-        let events = futures_util::stream::unfold(Some(upstream), |state| async move {
-            let mut upstream = state?;
-            match tokio::time::timeout(STREAM_IDLE_TIMEOUT, upstream.next()).await {
-                Ok(Some(Ok(bytes))) => Some((bytes, Some(upstream))),
-                Ok(Some(Err(error))) => {
-                    let failure =
-                        APIError::new(500, format!("OpenAI Provider Stream Error: {error}"));
-                    Some((sse::error_event_bytes(&failure), None))
-                }
-                Ok(None) => None,
-                Err(_) => {
-                    let failure = APIError::new(
-                        500,
-                        format!(
-                            "OpenAI Provider Stream Error: upstream stalled for {}s",
-                            STREAM_IDLE_TIMEOUT.as_secs()
-                        ),
-                    );
-                    Some((sse::error_event_bytes(&failure), None))
-                }
-            }
-        });
-
-        Box::pin(events)
+        Ok(encode_stream(response.bytes_stream()))
     }
 
     /// Builds the upstream payload: the caller's request with the resolved
@@ -228,9 +202,43 @@ impl OpenAIAdapter {
     }
 }
 
+/// Wraps the upstream byte stream so a stalled connection or a transport
+/// failure ends the response with an in-stream error event instead of
+/// hanging or aborting the connection mid-body.
+pub(crate) fn encode_stream<S>(upstream: S) -> ProviderStream
+where
+    S: Stream<Item = Result<Bytes, reqwest::Error>> + Send + 'static,
+{
+    let upstream = Box::pin(upstream);
+
+    let events = futures_util::stream::unfold(Some(upstream), |state| async move {
+        let mut upstream = state?;
+        match tokio::time::timeout(STREAM_IDLE_TIMEOUT, upstream.next()).await {
+            Ok(Some(Ok(bytes))) => Some((bytes, Some(upstream))),
+            Ok(Some(Err(error))) => {
+                let failure = APIError::new(500, format!("Provider Stream Error: {error}"));
+                Some((sse::error_event_bytes(&failure), None))
+            }
+            Ok(None) => None,
+            Err(_) => {
+                let failure = APIError::new(
+                    500,
+                    format!(
+                        "Provider Stream Error: upstream stalled for {}s",
+                        STREAM_IDLE_TIMEOUT.as_secs()
+                    ),
+                );
+                Some((sse::error_event_bytes(&failure), None))
+            }
+        }
+    });
+
+    Box::pin(events)
+}
+
 /// Provider failures surface as `500 api_error` with the Node gateway's
 /// message shape; the frozen contract maps unhandled errors to `500`.
-fn upstream_error(error: reqwest::Error) -> APIError {
+pub(crate) fn upstream_error(error: reqwest::Error) -> APIError {
     let message = if error.is_timeout() {
         format!("upstream request timed out: {error}")
     } else {
@@ -240,14 +248,14 @@ fn upstream_error(error: reqwest::Error) -> APIError {
     APIError::new(500, message)
 }
 
-fn upstream_status_error(status: StatusCode, detail: &str) -> APIError {
+pub(crate) fn upstream_status_error(status: StatusCode, detail: &str) -> APIError {
     APIError::new(
         500,
         format!("OpenAI Provider Error ({}): {detail}", status.as_u16()),
     )
 }
 
-fn upstream_stream_status_error(status: StatusCode, detail: &str) -> APIError {
+pub(crate) fn upstream_stream_status_error(status: StatusCode, detail: &str) -> APIError {
     APIError::new(
         500,
         format!(

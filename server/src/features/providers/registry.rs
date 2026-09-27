@@ -4,7 +4,8 @@
 use std::collections::HashMap;
 
 use crate::error::APIError;
-use crate::features::providers::adapters::{ProviderAdapter, opencode_zen};
+use crate::features::providers::adapter::ProviderAdapter;
+use crate::features::providers::opencode;
 
 /// A resolved request target: the adapter to call and the bare model id the
 /// provider expects upstream.
@@ -28,7 +29,7 @@ impl ProviderRegistry {
     /// Builds the registry with the built-in providers registered.
     pub fn with_defaults() -> Result<Self, APIError> {
         let mut registry = Self::new();
-        registry.register(opencode_zen::adapter()?);
+        registry.register(opencode::adapter()?);
 
         Ok(registry)
     }
@@ -70,11 +71,11 @@ impl ProviderRegistry {
 #[cfg(test)]
 mod tests {
     use super::ProviderRegistry;
-    use crate::features::providers::adapters::opencode_zen;
+    use crate::features::providers::opencode;
 
     fn registry_with_opencode() -> ProviderRegistry {
         let mut registry = ProviderRegistry::new();
-        registry.register(opencode_zen::adapter_with_base_url("http://127.0.0.1:1/v1").unwrap());
+        registry.register(opencode::adapter_with_base_url("http://127.0.0.1:1/v1").unwrap());
 
         registry
     }
