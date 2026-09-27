@@ -2,7 +2,10 @@ use axum::middleware::{from_fn, from_fn_with_state};
 use axum::{Json, Router, routing::get};
 use serde::Serialize;
 
+use crate::features::admin_auth::create_admin_router;
+use crate::features::api_keys::create_api_keys_router;
 use crate::features::gateway::routes::create_gateway_router;
+use crate::http::middleware::admin_session::require_admin_session;
 use crate::http::middleware::api_key_auth::api_key_auth;
 use crate::http::middleware::rate_limit::rate_limit;
 use crate::http::middleware::security_headers::security_headers;
@@ -41,13 +44,23 @@ pub fn create_router(state: AppState) -> Router {
     let gateway_routes = create_gateway_router()
         .layer(from_fn_with_state(state.clone(), rate_limit))
         .layer(from_fn_with_state(state.clone(), api_key_auth));
+    // Key management is admin-session only, so it carries its own guard instead
+    // of the gateway's API-key/auth-session chain.
+    let keys_routes =
+        create_api_keys_router().layer(from_fn_with_state(state.clone(), require_admin_session));
+    // Admin auth routes enforce their own session requirement per handler, so
+    // they are mounted without a shared guard.
+    let v1_routes = gateway_routes
+        .clone()
+        .merge(keys_routes)
+        .merge(create_admin_router());
 
     Router::new()
         .route("/", get(api_info))
         .route("/health", get(health))
         // Production mounts chat routes under `/v1` and the `/v1/v1` compat alias
         // only; root-level mounts exist in the Node test harness, not here.
-        .nest("/v1", gateway_routes.clone())
+        .nest("/v1", v1_routes)
         .nest("/v1/v1", gateway_routes)
         .layer(from_fn(security_headers))
         .with_state(state)

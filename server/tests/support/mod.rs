@@ -23,6 +23,8 @@ use srouter_server::features::admin_auth::AdminSessionStore;
 use srouter_server::features::api_keys::{APIKeyRecord, APIKeyStore};
 use srouter_server::features::providers::{ProviderRegistry, adapters::opencode_zen};
 use srouter_server::infrastructure::database::AppDatabase;
+use srouter_server::infrastructure::database::admin_auth::SQLxAdminAuthStore;
+use srouter_server::infrastructure::database::api_keys::SQLxAPIKeyStore;
 use srouter_server::{APIConfig, APIError, AppState, SecurityState};
 use tokio::net::TcpListener;
 use tokio::task::JoinHandle;
@@ -156,6 +158,34 @@ pub fn security_state(
         Arc::new(FixtureAPIKeyStore::new(require_api_key, keys)),
         Arc::new(FixtureAdminSessionStore::new(valid_session_hashes)),
     )
+}
+
+/// Security state backed by a real SQLx store on the temporary database, with
+/// fixture admin sessions so key-CRUD tests can authenticate without seeding
+/// the admin tables.
+pub async fn sqlx_security_state(
+    database: &TestDatabase,
+    valid_session_hashes: Vec<String>,
+) -> SecurityState {
+    let app_database = database.connect().await.expect("temporary database");
+    let store = Arc::new(SQLxAPIKeyStore::new(app_database));
+
+    SecurityState::with_repository(
+        store.clone(),
+        Arc::new(FixtureAdminSessionStore::new(valid_session_hashes)),
+        store,
+    )
+}
+
+/// Security state with real SQLx API-key and admin-auth stores, both on the
+/// temporary database. Used by the admin-auth and key-management tests.
+pub async fn sqlx_admin_security_state(database: &TestDatabase) -> SecurityState {
+    let app_database = database.connect().await.expect("temporary database");
+    let api_key_store = Arc::new(SQLxAPIKeyStore::new(app_database.clone()));
+    let admin_store = Arc::new(SQLxAdminAuthStore::new(app_database));
+
+    SecurityState::with_repository(api_key_store.clone(), admin_store.clone(), api_key_store)
+        .with_admin_auth(admin_store)
 }
 
 /// A fully permissive key record; tests override the fields they exercise.

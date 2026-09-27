@@ -2,8 +2,13 @@ use std::sync::Arc;
 
 use crate::config::APIConfig;
 use crate::error::APIError;
-use crate::features::admin_auth::{AdminSessionStore, EmptyAdminSessionStore};
-use crate::features::api_keys::{APIKeyStore, EmptyAPIKeyStore};
+use crate::features::admin_auth::{
+    AdminAuthRepository, AdminSessionStore, EmptyAdminAuthRepository, EmptyAdminSessionStore,
+    LoginThrottle,
+};
+use crate::features::api_keys::{
+    APIKeyRepository, APIKeyStore, EmptyAPIKeyRepository, EmptyAPIKeyStore,
+};
 use crate::features::providers::ProviderRegistry;
 use crate::http::middleware::rate_limit::RateLimiter;
 
@@ -14,19 +19,46 @@ use crate::http::middleware::rate_limit::RateLimiter;
 pub struct SecurityState {
     pub api_keys: Arc<dyn APIKeyStore>,
     pub admin_sessions: Arc<dyn AdminSessionStore>,
+    /// Management CRUD source behind `/v1/keys`. Separate from `api_keys`, which
+    /// only serves authentication lookups.
+    pub key_repository: Arc<dyn APIKeyRepository>,
+    /// Account and session lifecycle behind `/v1/admin/*`.
+    pub admin_auth: Arc<dyn AdminAuthRepository>,
+    pub login_throttle: Arc<LoginThrottle>,
     pub rate_limiter: Arc<RateLimiter>,
     configured: bool,
 }
 
 impl SecurityState {
-    /// Wraps explicit, persistence-backed stores.
+    /// Wraps explicit, persistence-backed stores with the unconfigured
+    /// management repository. Prefer [`SecurityState::with_repository`] once a
+    /// database backs `/v1/keys`.
     pub fn new(api_keys: Arc<dyn APIKeyStore>, admin_sessions: Arc<dyn AdminSessionStore>) -> Self {
+        Self::with_repository(api_keys, admin_sessions, Arc::new(EmptyAPIKeyRepository))
+    }
+
+    /// Wraps explicit, persistence-backed stores including the `/v1/keys`
+    /// repository.
+    pub fn with_repository(
+        api_keys: Arc<dyn APIKeyStore>,
+        admin_sessions: Arc<dyn AdminSessionStore>,
+        key_repository: Arc<dyn APIKeyRepository>,
+    ) -> Self {
         Self {
             api_keys,
             admin_sessions,
+            key_repository,
+            admin_auth: Arc::new(EmptyAdminAuthRepository),
+            login_throttle: Arc::new(LoginThrottle::new()),
             rate_limiter: Arc::new(RateLimiter::new()),
             configured: true,
         }
+    }
+
+    /// Attaches the admin account/session repository backing `/v1/admin/*`.
+    pub fn with_admin_auth(mut self, admin_auth: Arc<dyn AdminAuthRepository>) -> Self {
+        self.admin_auth = admin_auth;
+        self
     }
 
     /// Builds the empty-default state used while no database is wired in.
@@ -34,6 +66,9 @@ impl SecurityState {
         Self {
             api_keys: Arc::new(EmptyAPIKeyStore),
             admin_sessions: Arc::new(EmptyAdminSessionStore),
+            key_repository: Arc::new(EmptyAPIKeyRepository),
+            admin_auth: Arc::new(EmptyAdminAuthRepository),
+            login_throttle: Arc::new(LoginThrottle::new()),
             rate_limiter: Arc::new(RateLimiter::new()),
             configured: false,
         }

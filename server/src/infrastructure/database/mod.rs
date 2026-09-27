@@ -2,6 +2,8 @@
 //! schema (SQLite, `docs/schemas-database.md`); repository queries stay behind
 //! the persistence gate in `docs/api-database-contract.md`.
 
+pub mod admin_auth;
+pub mod api_keys;
 mod migrations;
 mod postgres;
 mod sqlite;
