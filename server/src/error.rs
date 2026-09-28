@@ -51,6 +51,10 @@ impl APIError {
         self.status
     }
 
+    pub fn message(&self) -> &str {
+        &self.message
+    }
+
     pub fn to_envelope(&self) -> ErrorEnvelope {
         ErrorEnvelope {
             error: ErrorBody {

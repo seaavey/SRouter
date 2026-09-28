@@ -6,6 +6,7 @@ pub mod admin_auth;
 pub mod api_keys;
 mod migrations;
 mod postgres;
+pub mod request_logs;
 mod sqlite;
 
 use sqlx::{PgPool, SqlitePool};

@@ -18,11 +18,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Opening the database brings SQLite to schema v2 before the listeners start.
     let database = AppDatabase::connect(&config).await?;
     let api_key_store = Arc::new(SQLxAPIKeyStore::new(database.clone()));
-    let admin_store = Arc::new(SQLxAdminAuthStore::new(database));
+    let admin_store = Arc::new(SQLxAdminAuthStore::new(database.clone()));
     let security =
         SecurityState::with_repository(api_key_store.clone(), admin_store.clone(), api_key_store)
             .with_admin_auth(admin_store);
-    let state = AppState::with_security(config, ProviderRegistry::with_defaults()?, security);
+    let state = AppState::with_security(config, ProviderRegistry::with_defaults()?, security)
+        .with_database(database);
 
     listeners::serve_main(create_router(state), address).await?;
 

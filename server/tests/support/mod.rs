@@ -326,6 +326,75 @@ async fn fake_chat_completion(Json(payload): Json<serde_json::Value>) -> Respons
     }
 
     if streaming {
+        if model.contains("search") {
+            let messages = payload.get("messages").and_then(|m| m.as_array());
+            let has_tool_response = messages.is_some_and(|msgs| {
+                msgs.iter()
+                    .any(|msg| msg.get("role").and_then(|r| r.as_str()) == Some("tool"))
+            });
+
+            if has_tool_response {
+                let chunk_done = serde_json::json!({
+                    "id": "chatcmpl-stream-done",
+                    "object": "chat.completion.chunk",
+                    "created": 2,
+                    "model": model,
+                    "choices": [{
+                        "index": 0,
+                        "delta": {
+                            "content": "Grounded streaming search response"
+                        },
+                        "finish_reason": "stop"
+                    }]
+                });
+                let body = format!("data: {chunk_done}\n\ndata: [DONE]\n\n");
+                return Response::builder()
+                    .status(StatusCode::OK)
+                    .header(header::CONTENT_TYPE, "text/event-stream")
+                    .body(Body::from(body))
+                    .expect("fake SSE response");
+            } else {
+                let chunk1 = serde_json::json!({
+                    "id": "chatcmpl-stream-call",
+                    "object": "chat.completion.chunk",
+                    "created": 1,
+                    "model": model,
+                    "choices": [{
+                        "index": 0,
+                        "delta": {
+                            "role": "assistant",
+                            "tool_calls": [{
+                                "index": 0,
+                                "id": "call_search_stream_1",
+                                "type": "function",
+                                "function": {
+                                    "name": "web_search",
+                                    "arguments": "{\"query\":\"rust streaming\"}"
+                                }
+                            }]
+                        }
+                    }]
+                });
+                let chunk2 = serde_json::json!({
+                    "id": "chatcmpl-stream-call",
+                    "object": "chat.completion.chunk",
+                    "created": 1,
+                    "model": model,
+                    "choices": [{
+                        "index": 0,
+                        "delta": {},
+                        "finish_reason": "tool_calls"
+                    }]
+                });
+                let body = format!("data: {chunk1}\n\ndata: {chunk2}\n\ndata: [DONE]\n\n");
+                return Response::builder()
+                    .status(StatusCode::OK)
+                    .header(header::CONTENT_TYPE, "text/event-stream")
+                    .body(Body::from(body))
+                    .expect("fake SSE response");
+            }
+        }
+
         let body = format!(
             "data: {{\"id\":\"chatcmpl-fake\",\"object\":\"chat.completion.chunk\",\"created\":1,\"model\":\"{model}\",\"choices\":[{{\"index\":0,\"delta\":{{\"content\":\"fake stream\"}}}}]}}\n\ndata: [DONE]\n\n"
         );
@@ -335,6 +404,60 @@ async fn fake_chat_completion(Json(payload): Json<serde_json::Value>) -> Respons
             .header(header::CONTENT_TYPE, "text/event-stream")
             .body(Body::from(body))
             .expect("fake SSE response");
+    }
+
+    if model.contains("search") {
+        let messages = payload.get("messages").and_then(|m| m.as_array());
+        let has_tool_response = messages.is_some_and(|msgs| {
+            msgs.iter()
+                .any(|msg| msg.get("role").and_then(|r| r.as_str()) == Some("tool"))
+        });
+
+        if has_tool_response {
+            return Json(serde_json::json!({
+                "id": "chatcmpl-search-done",
+                "object": "chat.completion",
+                "created": 2,
+                "model": model,
+                "choices": [{
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": "Grounded search response based on tool results"
+                    },
+                    "finish_reason": "stop"
+                }],
+                "usage": { "prompt_tokens": 50, "completion_tokens": 20, "total_tokens": 70 },
+                "echo": payload
+            }))
+            .into_response();
+        } else {
+            return Json(serde_json::json!({
+                "id": "chatcmpl-search-call",
+                "object": "chat.completion",
+                "created": 1,
+                "model": model,
+                "choices": [{
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": null,
+                        "tool_calls": [{
+                            "id": "call_search_123",
+                            "type": "function",
+                            "function": {
+                                "name": "web_search",
+                                "arguments": "{\"query\":\"rust async features\"}"
+                            }
+                        }]
+                    },
+                    "finish_reason": "tool_calls"
+                }],
+                "usage": { "prompt_tokens": 30, "completion_tokens": 15, "total_tokens": 45 },
+                "echo": payload
+            }))
+            .into_response();
+        }
     }
 
     Json(serde_json::json!({
@@ -347,7 +470,18 @@ async fn fake_chat_completion(Json(payload): Json<serde_json::Value>) -> Respons
             "message": { "role": "assistant", "content": "fake upstream reply" },
             "finish_reason": "stop"
         }],
-        "usage": { "prompt_tokens": 1, "completion_tokens": 2, "total_tokens": 3 },
+        "usage": if payload.get("prompt_cache_key").is_some() || model.contains("cached") {
+            serde_json::json!({
+                "prompt_tokens": 100,
+                "completion_tokens": 20,
+                "total_tokens": 120,
+                "prompt_tokens_details": {
+                    "cached_tokens": 80
+                }
+            })
+        } else {
+            serde_json::json!({ "prompt_tokens": 1, "completion_tokens": 2, "total_tokens": 3 })
+        },
         // Echoes the request so tests can assert field forwarding; its
         // presence also proves unknown upstream fields survive the gateway.
         "echo": payload

@@ -377,6 +377,7 @@ async fn known_request_fields_are_forwarded_and_unknown_fields_are_dropped() {
         "top_p": 0.9,
         "n": 1,
         "user": "tester",
+        "prompt_cache_key": "cache-sess-1",
         "custom_field": "must be dropped"
     });
 
@@ -399,6 +400,7 @@ async fn known_request_fields_are_forwarded_and_unknown_fields_are_dropped() {
     assert_eq!(echo["top_p"], 0.9);
     assert_eq!(echo["n"], 1);
     assert_eq!(echo["user"], "tester");
+    assert_eq!(echo["prompt_cache_key"], "cache-sess-1");
     // `developer` is normalized to `system` before the upstream call.
     assert_eq!(echo["messages"][0]["role"], "system");
     assert_eq!(echo["messages"][0]["content"][0]["type"], "text");
@@ -492,4 +494,302 @@ async fn stream_unknown_model_emits_a_404_error_event() {
     assert!(text.contains("No provider is registered for model"));
     assert!(text.contains("\"type\":\"invalid_request_error\""));
     assert!(!text.contains("[DONE]"));
+}
+
+#[tokio::test]
+async fn post_v1_chat_completions_forwards_cache_control_and_returns_cached_tokens() {
+    let (_upstream, app) = test_app().await;
+    let body = serde_json::json!({
+        "model": "opencode_zen/space-bunny-free",
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": "Long prompt to cache",
+                        "cache_control": { "type": "ephemeral" }
+                    }
+                ],
+                "cache_control": { "type": "ephemeral" }
+            }
+        ],
+        "prompt_cache_key": "cache-sess-ctx-1"
+    });
+
+    let response = app
+        .oneshot(chat_request("/v1/chat/completions", body))
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let json = json_body(response).await;
+
+    // Upstream receives cache_control on message and content parts
+    let echo = &json["echo"];
+    assert_eq!(echo["prompt_cache_key"], "cache-sess-ctx-1");
+    assert_eq!(echo["messages"][0]["cache_control"]["type"], "ephemeral");
+    assert_eq!(
+        echo["messages"][0]["content"][0]["cache_control"]["type"],
+        "ephemeral"
+    );
+
+    // Response usage contains normalized cached tokens details
+    assert_eq!(json["usage"]["prompt_tokens"], 100);
+    assert_eq!(json["usage"]["completion_tokens"], 20);
+    assert_eq!(json["usage"]["total_tokens"], 120);
+    assert_eq!(json["usage"]["prompt_tokens_details"]["cached_tokens"], 80);
+}
+
+#[tokio::test]
+async fn post_v1_chat_completions_records_log_with_cached_tokens_in_database() {
+    let test_db = support::TestDatabase::new().expect("test db");
+    let database = test_db.connect().await.expect("db connect");
+
+    let (upstream, state) = app_state_with_fake_upstream().await;
+    let state = state.with_database(database.clone());
+    let app = create_router(state);
+
+    let body = serde_json::json!({
+        "model": "opencode_zen/space-bunny-free",
+        "messages": [ { "role": "user", "content": "Test DB request log" } ],
+        "prompt_cache_key": "cache-db-key-1"
+    });
+
+    let response = app
+        .oneshot(chat_request("/v1/chat/completions", body))
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    // Verify request_logs row in SQLite database
+    let pool = database.sqlite_pool().unwrap();
+    let row = sqlx::query(
+        "SELECT model, prompt_tokens, completion_tokens, total_tokens, cached_tokens, status_code FROM request_logs ORDER BY created_at DESC LIMIT 1"
+    )
+    .fetch_one(pool)
+    .await
+    .expect("request log row must exist");
+
+    let model: String = sqlx::Row::try_get(&row, "model").unwrap();
+    let prompt_tokens: i64 = sqlx::Row::try_get(&row, "prompt_tokens").unwrap();
+    let completion_tokens: i64 = sqlx::Row::try_get(&row, "completion_tokens").unwrap();
+    let total_tokens: i64 = sqlx::Row::try_get(&row, "total_tokens").unwrap();
+    let cached_tokens: i64 = sqlx::Row::try_get(&row, "cached_tokens").unwrap();
+    let status_code: i64 = sqlx::Row::try_get(&row, "status_code").unwrap();
+
+    assert_eq!(model, "opencode_zen/space-bunny-free");
+    assert_eq!(status_code, 200);
+    assert_eq!(prompt_tokens, 100);
+    assert_eq!(completion_tokens, 20);
+    assert_eq!(total_tokens, 120);
+    assert_eq!(cached_tokens, 80);
+
+    drop(upstream);
+}
+
+#[tokio::test]
+async fn post_v1_chat_completions_intercepts_web_search_when_not_provided_by_client() {
+    let (upstream, state) = app_state_with_fake_upstream().await;
+    let state = state.with_search(
+        srouter_server::features::gateway::search::SearchService::with_mock(|query, _limit| {
+            Some(
+                srouter_server::features::gateway::search::WebSearchResponse {
+                    query: query.to_owned(),
+                    results: vec![srouter_server::features::gateway::search::WebSearchResult {
+                        title: "Rust Async Book".to_owned(),
+                        url: "https://rust-lang.github.io/async-book/".to_owned(),
+                        snippet: "An introduction to async programming in Rust.".to_owned(),
+                    }],
+                    source: Some("mock_engine".to_owned()),
+                },
+            )
+        }),
+    );
+    let app = create_router(state);
+
+    let body = serde_json::json!({
+        "model": "opencode_zen/space-bunny-search",
+        "messages": [ { "role": "user", "content": "What is async in Rust?" } ],
+        "stream": false
+    });
+
+    let response = app
+        .oneshot(chat_request("/v1/chat/completions", body))
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let json = json_body(response).await;
+
+    // Upstream was re-called with tool results; grounded answer returned
+    assert_eq!(
+        json["choices"][0]["message"]["content"],
+        "Grounded search response based on tool results"
+    );
+    assert_eq!(json["choices"][0]["finish_reason"], "stop");
+
+    // Total tokens accumulated across both turns: 45 (turn 1) + 70 (turn 2) = 115
+    assert_eq!(json["usage"]["prompt_tokens"], 80);
+    assert_eq!(json["usage"]["completion_tokens"], 35);
+    assert_eq!(json["usage"]["total_tokens"], 115);
+
+    // Verify messages delivered to upstream in turn 2
+    let echo_messages = json["echo"]["messages"].as_array().unwrap();
+    assert_eq!(echo_messages.len(), 3);
+    assert_eq!(echo_messages[0]["role"], "user");
+    assert_eq!(echo_messages[1]["role"], "assistant");
+    assert_eq!(echo_messages[2]["role"], "tool");
+    assert!(
+        echo_messages[2]["content"]
+            .as_str()
+            .unwrap()
+            .contains("Rust Async Book")
+    );
+
+    drop(upstream);
+}
+
+#[tokio::test]
+async fn post_v1_chat_completions_does_not_intercept_when_tool_is_provided_by_client() {
+    let (upstream, state) = app_state_with_fake_upstream().await;
+    let state = state.with_search(
+        srouter_server::features::gateway::search::SearchService::with_mock(|query, _limit| {
+            Some(
+                srouter_server::features::gateway::search::WebSearchResponse {
+                    query: query.to_owned(),
+                    results: vec![],
+                    source: Some("mock_engine".to_owned()),
+                },
+            )
+        }),
+    );
+    let app = create_router(state);
+
+    let body = serde_json::json!({
+        "model": "opencode_zen/space-bunny-search",
+        "messages": [ { "role": "user", "content": "What is async in Rust?" } ],
+        "tools": [{
+            "type": "function",
+            "function": {
+                "name": "web_search",
+                "description": "Search the web"
+            }
+        }],
+        "stream": false
+    });
+
+    let response = app
+        .oneshot(chat_request("/v1/chat/completions", body))
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let json = json_body(response).await;
+
+    // Tool call returned directly to client without gateway interception
+    assert_eq!(json["choices"][0]["finish_reason"], "tool_calls");
+    assert_eq!(
+        json["choices"][0]["message"]["tool_calls"][0]["function"]["name"],
+        "web_search"
+    );
+    assert_eq!(json["usage"]["total_tokens"], 45);
+
+    drop(upstream);
+}
+
+#[tokio::test]
+async fn stream_chat_completions_intercepts_web_search_and_streams_final_answer() {
+    let (upstream, state) = app_state_with_fake_upstream().await;
+    let state = state.with_search(
+        srouter_server::features::gateway::search::SearchService::with_mock(|query, _limit| {
+            Some(
+                srouter_server::features::gateway::search::WebSearchResponse {
+                    query: query.to_owned(),
+                    results: vec![srouter_server::features::gateway::search::WebSearchResult {
+                        title: "Rust Async Book".to_owned(),
+                        url: "https://rust-lang.github.io/async-book/".to_owned(),
+                        snippet: "An introduction to async programming in Rust.".to_owned(),
+                    }],
+                    source: Some("mock_engine".to_owned()),
+                },
+            )
+        }),
+    );
+    let app = create_router(state);
+
+    let body = serde_json::json!({
+        "model": "opencode_zen/space-bunny-search",
+        "messages": [ { "role": "user", "content": "What is async in Rust?" } ],
+        "stream": true
+    });
+
+    let response = app
+        .oneshot(chat_request("/v1/chat/completions", body))
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response.headers()[header::CONTENT_TYPE],
+        "text/event-stream"
+    );
+
+    let text = text_body(response).await;
+    // Grounded answer streamed from turn 2
+    assert!(text.contains("Grounded streaming search response"));
+    assert!(text.contains("[DONE]"));
+
+    drop(upstream);
+}
+
+#[tokio::test]
+async fn stream_chat_completions_does_not_intercept_when_tool_is_provided_by_client() {
+    let (upstream, state) = app_state_with_fake_upstream().await;
+    let state = state.with_search(
+        srouter_server::features::gateway::search::SearchService::with_mock(|query, _limit| {
+            Some(
+                srouter_server::features::gateway::search::WebSearchResponse {
+                    query: query.to_owned(),
+                    results: vec![],
+                    source: Some("mock_engine".to_owned()),
+                },
+            )
+        }),
+    );
+    let app = create_router(state);
+
+    let body = serde_json::json!({
+        "model": "opencode_zen/space-bunny-search",
+        "messages": [ { "role": "user", "content": "What is async in Rust?" } ],
+        "tools": [{
+            "type": "function",
+            "function": {
+                "name": "web_search",
+                "description": "Search the web"
+            }
+        }],
+        "stream": true
+    });
+
+    let response = app
+        .oneshot(chat_request("/v1/chat/completions", body))
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response.headers()[header::CONTENT_TYPE],
+        "text/event-stream"
+    );
+
+    let text = text_body(response).await;
+    // Tool calls stream yielded directly to client
+    assert!(text.contains("web_search"));
+    assert!(text.contains("call_search_stream_1"));
+    assert!(text.contains("tool_calls"));
+    assert!(text.contains("[DONE]"));
+
+    drop(upstream);
 }

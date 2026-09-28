@@ -9,8 +9,10 @@ use crate::features::admin_auth::{
 use crate::features::api_keys::{
     APIKeyRepository, APIKeyStore, EmptyAPIKeyRepository, EmptyAPIKeyStore,
 };
+use crate::features::gateway::search::SearchService;
 use crate::features::providers::ProviderRegistry;
 use crate::http::middleware::rate_limit::RateLimiter;
+use crate::infrastructure::database::AppDatabase;
 
 /// Persistence-backed security dependencies. Until the SQLx stores land behind
 /// the schema gate the process runs with `unconfigured()`, which behaves like a
@@ -87,6 +89,8 @@ pub struct AppState {
     pub config: Arc<APIConfig>,
     pub providers: Arc<ProviderRegistry>,
     pub security: SecurityState,
+    pub database: Option<AppDatabase>,
+    pub search: Arc<SearchService>,
 }
 
 impl AppState {
@@ -115,7 +119,21 @@ impl AppState {
             config: Arc::new(config),
             providers: Arc::new(providers),
             security,
+            database: None,
+            search: Arc::new(SearchService::new()),
         }
+    }
+
+    /// Attaches the persistent database connection for request logging and analytics.
+    pub fn with_database(mut self, database: AppDatabase) -> Self {
+        self.database = Some(database);
+        self
+    }
+
+    /// Overrides the search service (used by tests to inject mock search results).
+    pub fn with_search(mut self, search: SearchService) -> Self {
+        self.search = Arc::new(search);
+        self
     }
 }
 

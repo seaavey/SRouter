@@ -4,7 +4,8 @@ use futures_util::StreamExt;
 use serde_json::Value;
 
 use crate::error::APIError;
-use crate::features::gateway::model::ChatCompletionRequest;
+use crate::features::gateway::model::{ChatCompletionRequest, ChatContent, ChatMessage};
+use crate::features::gateway::usage::UsageBreakdown;
 use crate::features::providers::adapter::{
     ProviderAdapter, ProviderStream, encode_stream, upstream_error, upstream_status_error,
     upstream_stream_status_error,
@@ -74,7 +75,7 @@ impl OpenCodeExecutor {
         request: &ChatCompletionRequest,
     ) -> Result<Value, APIError> {
         // space-bunny-free can be invoked with standard direct JSON if not streaming:
-        if model == "space-bunny-free" {
+        if model.starts_with("space-bunny") {
             let session_id = generate_opencode_session_id();
             let response = self
                 .client
@@ -146,6 +147,7 @@ impl OpenCodeExecutor {
         let mut full_content = String::new();
         let mut chunk_id = format!("chatcmpl-{}", random_hex(16));
         let mut created_ts = crate::clock::now_ms() / 1000;
+        let mut upstream_usage: Option<Value> = None;
 
         while let Some(item) = stream.next().await {
             let bytes = item.map_err(upstream_error)?;
@@ -165,10 +167,28 @@ impl OpenCodeExecutor {
                         if let Some(content) = val["choices"][0]["delta"]["content"].as_str() {
                             full_content.push_str(content);
                         }
+                        if let Some(usage) = val.get("usage") {
+                            upstream_usage = Some(usage.clone());
+                        }
                     }
                 }
             }
         }
+
+        let usage = if let Some(u) = upstream_usage {
+            UsageBreakdown::from_value(&u).to_openai_json()
+        } else {
+            let prompt_tokens = estimate_prompt_tokens(&request.messages);
+            let completion_tokens = (full_content.chars().count() / 4).max(1) as i64;
+            let total_tokens = prompt_tokens + completion_tokens;
+            UsageBreakdown {
+                prompt_tokens,
+                completion_tokens,
+                total_tokens,
+                ..Default::default()
+            }
+            .to_openai_json()
+        };
 
         Ok(serde_json::json!({
             "id": chunk_id,
@@ -183,11 +203,7 @@ impl OpenCodeExecutor {
                 },
                 "finish_reason": "stop"
             }],
-            "usage": {
-                "prompt_tokens": 0,
-                "completion_tokens": 0,
-                "total_tokens": 0
-            }
+            "usage": usage
         }))
     }
 
@@ -241,8 +257,8 @@ impl OpenCodeExecutor {
         body["model"] = Value::String(model.to_owned());
         body["stream"] = Value::Bool(stream);
 
-        // Models other than space-bunny-free require OpenCode harness wrapping:
-        if model != "space-bunny-free" {
+        // Models other than space-bunny require OpenCode harness wrapping:
+        if !model.starts_with("space-bunny") {
             if let Some(messages) = body.get_mut("messages").and_then(|m| m.as_array_mut()) {
                 let needs_harness = messages
                     .first()
@@ -325,6 +341,24 @@ pub fn generate_opencode_session_id() -> String {
     }
 
     format!("ses_{hex_part}{rand_part}")
+}
+
+fn estimate_prompt_tokens(messages: &[ChatMessage]) -> i64 {
+    let mut total_chars = 0;
+    for m in messages {
+        match &m.content {
+            ChatContent::Text(t) => total_chars += t.chars().count(),
+            ChatContent::Parts(parts) => {
+                for p in parts {
+                    if let Some(t) = &p.text {
+                        total_chars += t.chars().count();
+                    }
+                }
+            }
+            ChatContent::Null => {}
+        }
+    }
+    (total_chars / 4).max(1) as i64
 }
 
 fn random_hex(len: usize) -> String {

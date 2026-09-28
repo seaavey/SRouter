@@ -149,6 +149,11 @@ pub struct ImageUrl {
     pub detail: Option<ImageDetail>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CacheControl {
+    pub r#type: String,
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ContentPart {
     #[serde(rename = "type")]
@@ -157,6 +162,8 @@ pub struct ContentPart {
     pub text: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub image_url: Option<ImageUrl>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cache_control: Option<CacheControl>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -189,6 +196,8 @@ pub struct ChatMessage {
     pub tool_calls: Option<Vec<ToolCall>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tool_call_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cache_control: Option<CacheControl>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -225,6 +234,8 @@ pub struct ToolDefinition {
     #[serde(rename = "type")]
     pub kind: ToolKind,
     pub function: ToolFunction,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cache_control: Option<CacheControl>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -342,6 +353,10 @@ pub struct ChatCompletionRequest {
     pub enable_thinking: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub thinking_budget: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prompt_cache_key: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prompt_cache_retention: Option<String>,
 }
 
 impl ChatCompletionRequest {
@@ -504,6 +519,16 @@ impl ChatCompletionRequest {
         if let Some(Thinking::Config(config)) = &self.thinking {
             if let Some(budget_tokens) = config.budget_tokens {
                 check_positive_cap(budget_tokens, "thinking.budget_tokens")?;
+            }
+        }
+
+        if let Some(prompt_cache_key) = &self.prompt_cache_key {
+            if prompt_cache_key.chars().count() > MAX_MODEL_LENGTH {
+                return Err(invalid_request(
+                    "String must contain at most 300 character(s)",
+                    Some("prompt_cache_key"),
+                    "too_big",
+                ));
             }
         }
 
