@@ -2,6 +2,7 @@
 
 pub mod chat;
 pub mod model;
+pub mod models;
 pub mod routes;
 pub mod sse;
 

@@ -56,6 +56,10 @@ impl OpenCodeExecutor {
         self.keys
     }
 
+    pub fn alias(&self) -> &'static str {
+        OPENCODE_ZEN_PROVIDER.alias
+    }
+
     pub fn models(&self) -> &'static [ModelDefinition] {
         self.models
     }

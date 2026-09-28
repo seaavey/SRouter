@@ -5,6 +5,7 @@ use std::collections::HashMap;
 
 use crate::error::APIError;
 use crate::features::providers::adapter::ProviderAdapter;
+use crate::features::providers::model::ModelObject;
 use crate::features::providers::opencode;
 
 /// A resolved request target: the adapter to call and the bare model id the
@@ -66,6 +67,37 @@ impl ProviderRegistry {
                 model: model.to_owned(),
             })
     }
+
+    /// Lists every advertised model as `<alias>/<bare>` entries, mirroring
+    /// Node's `buildModelList`. The registry is static, so callers treat the
+    /// `refresh`/`force` query params as accepted-but-ignored.
+    pub fn list_models(&self) -> Vec<ModelObject> {
+        use std::collections::HashSet;
+
+        let mut models = Vec::new();
+        let mut seen = HashSet::new();
+
+        // Deterministic order: sort adapters by base id so output is stable
+        // across runs regardless of HashMap iteration order.
+        let mut adapters: Vec<&ProviderAdapter> = self.adapters.values().collect();
+        adapters.sort_by_key(|adapter| adapter.id());
+        let mut emitted_adapters = HashSet::new();
+
+        for adapter in adapters {
+            if !emitted_adapters.insert(adapter.id()) {
+                continue;
+            }
+            let alias = adapter.alias();
+            for entry in adapter.models() {
+                let id = format!("{alias}/{}", entry.id);
+                if seen.insert(id.clone()) {
+                    models.push(ModelObject::new(id, alias.to_owned()));
+                }
+            }
+        }
+
+        models
+    }
 }
 
 #[cfg(test)]
@@ -109,5 +141,23 @@ mod tests {
         assert!(registry.resolve("anthropic/claude-sonnet-4").is_none());
         assert!(registry.resolve("does-not-exist").is_none());
         assert!(registry.resolve("").is_none());
+    }
+
+    #[test]
+    fn list_models_uses_the_user_facing_alias_prefix() {
+        let registry = registry_with_opencode();
+        let models = registry.list_models();
+
+        assert_eq!(models.len(), opencode::OPENCODE_ZEN_MODELS.len());
+        assert!(
+            models
+                .iter()
+                .all(|entry| entry.object == "model" && entry.owned_by == "zen")
+        );
+        assert!(
+            models
+                .iter()
+                .any(|entry| entry.id == "zen/space-bunny-free")
+        );
     }
 }

@@ -46,6 +46,14 @@ impl ProviderAdapter {
         }
     }
 
+    /// The user-facing model prefix, mirroring Node's `providerAliasFor`.
+    pub fn alias(&self) -> &'static str {
+        match self {
+            Self::OpenAI(adapter) => adapter.alias(),
+            Self::OpenCode(adapter) => adapter.alias(),
+        }
+    }
+
     /// The models this adapter advertises.
     pub fn models(&self) -> &'static [ModelDefinition] {
         match self {
@@ -117,6 +125,10 @@ impl OpenAIAdapter {
 
     pub fn keys(&self) -> &'static [&'static str] {
         self.keys
+    }
+
+    pub fn alias(&self) -> &'static str {
+        self.id
     }
 
     pub fn models(&self) -> &'static [ModelDefinition] {
