@@ -8,6 +8,7 @@ use axum::{
 use srouter_server::SecurityState;
 use srouter_server::app::create_router;
 use srouter_server::features::providers::ProviderRegistry;
+use srouter_server::infrastructure::database::catalog_flags::favorite_model_ids;
 use support::{api_key_record, security_state, with_loopback_client, with_remote_client};
 use tower::ServiceExt;
 
@@ -154,4 +155,22 @@ async fn allowlisted_keys_see_only_their_models() {
     assert_eq!(denied.status(), StatusCode::FORBIDDEN);
     let json = json_body(denied).await;
     assert_eq!(json["error"]["code"], "model_not_allowed");
+}
+
+#[tokio::test]
+async fn favorite_model_ids_returns_lowercased_stored_ids() {
+    let test_database = support::TestDatabase::new().unwrap();
+    let database = test_database.connect().await.unwrap();
+
+    sqlx::query("INSERT INTO favorite_models (model_id, created_at) VALUES (?, ?)")
+        .bind("Zen/Space-Bunny-Free")
+        .bind(1_700_000_000_i64)
+        .execute(database.sqlite_pool().unwrap())
+        .await
+        .unwrap();
+
+    let ids = favorite_model_ids(&database).await.unwrap();
+
+    assert!(ids.contains("zen/space-bunny-free"));
+    assert_eq!(ids.len(), 1);
 }
