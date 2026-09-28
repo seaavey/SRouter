@@ -7,6 +7,8 @@ use crate::features::api_keys::create_api_keys_router;
 use crate::features::gateway::routes::create_gateway_router;
 use crate::http::middleware::admin_session::require_admin_session;
 use crate::http::middleware::api_key_auth::api_key_auth;
+use crate::http::middleware::cors::cors;
+use crate::http::middleware::csrf::csrf_origin_guard;
 use crate::http::middleware::rate_limit::rate_limit;
 use crate::http::middleware::security_headers::security_headers;
 use crate::state::AppState;
@@ -50,10 +52,15 @@ pub fn create_router(state: AppState) -> Router {
         create_api_keys_router().layer(from_fn_with_state(state.clone(), require_admin_session));
     // Admin auth routes enforce their own session requirement per handler, so
     // they are mounted without a shared guard.
+    // CSRF origin defense rejects cross-origin mutations using admin cookies before
+    // authentication or handler execution runs.
     let v1_routes = gateway_routes
         .clone()
         .merge(keys_routes)
-        .merge(create_admin_router());
+        .merge(create_admin_router())
+        .layer(from_fn_with_state(state.clone(), csrf_origin_guard));
+    let v1_compat_routes =
+        gateway_routes.layer(from_fn_with_state(state.clone(), csrf_origin_guard));
 
     Router::new()
         .route("/", get(api_info))
@@ -61,7 +68,8 @@ pub fn create_router(state: AppState) -> Router {
         // Production mounts chat routes under `/v1` and the `/v1/v1` compat alias
         // only; root-level mounts exist in the Node test harness, not here.
         .nest("/v1", v1_routes)
-        .nest("/v1/v1", gateway_routes)
+        .nest("/v1/v1", v1_compat_routes)
+        .layer(from_fn_with_state(state.clone(), cors))
         .layer(from_fn(security_headers))
         .with_state(state)
 }
