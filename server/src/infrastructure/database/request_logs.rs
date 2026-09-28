@@ -80,12 +80,15 @@ pub async fn insert_request_log(
     .map_err(|error| APIError::new(500, format!("could not insert request log: {error}")))?;
 
     if let Some(key_id) = input.api_key_id {
-        if input.usage.total_tokens > 0 {
-            let _ = sqlx::query("UPDATE api_keys SET usage_tokens = usage_tokens + ? WHERE id = ?")
-                .bind(input.usage.total_tokens)
-                .bind(key_id)
-                .execute(pool)
-                .await;
+        if input.usage.total_tokens > 0 || input.estimated_cost > 0.0 {
+            let _ = sqlx::query(
+                "UPDATE api_keys SET usage_tokens = usage_tokens + ?, usage_cost = usage_cost + ? WHERE id = ?",
+            )
+            .bind(input.usage.total_tokens)
+            .bind(input.estimated_cost)
+            .bind(key_id)
+            .execute(pool)
+            .await;
         }
     }
 
