@@ -24,29 +24,26 @@ fn is_unsafe_method(method: &Method) -> bool {
 }
 
 fn hosts_match(origin_url: &reqwest::Url, request_host: &str) -> bool {
-    let origin_authority = match origin_url.port() {
-        Some(port) => format!("{}:{}", origin_url.host_str().unwrap_or(""), port),
-        None => origin_url.host_str().unwrap_or("").to_owned(),
+    let (req_host_only, req_port) = match request_host.split_once(':') {
+        Some((h, p)) => (h, p.parse::<u16>().ok()),
+        None => (request_host, None),
     };
 
-    if origin_authority.eq_ignore_ascii_case(request_host) {
-        return true;
+    let origin_host = origin_url.host_str().unwrap_or("");
+    if !origin_host.eq_ignore_ascii_case(req_host_only) {
+        return false;
     }
 
-    if let Some(origin_host_only) = origin_url.host_str() {
-        if origin_host_only.eq_ignore_ascii_case(request_host) {
-            let is_default_port = match (origin_url.scheme(), origin_url.port()) {
-                ("http", Some(80)) | ("http", None) => true,
-                ("https", Some(443)) | ("https", None) => true,
-                _ => false,
-            };
-            if is_default_port {
-                return true;
-            }
-        }
-    }
+    let default_port = match origin_url.scheme() {
+        "http" => Some(80),
+        "https" => Some(443),
+        _ => None,
+    };
 
-    false
+    let effective_origin_port = origin_url.port().or(default_port);
+    let effective_req_port = req_port.or(default_port);
+
+    effective_origin_port == effective_req_port
 }
 
 /// Enforces the CSRF origin guard on state-changing requests using cookie authentication.
