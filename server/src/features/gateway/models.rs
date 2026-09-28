@@ -3,6 +3,8 @@
 //! and `force` query params plus `Cache-Control: no-cache` revalidation are
 //! accepted but intentionally no-ops.
 
+use std::collections::HashSet;
+
 use axum::{
     Json,
     extract::{Extension, Path, Query, State},
@@ -14,6 +16,7 @@ use serde::{Deserialize, Serialize};
 use crate::error::APIError;
 use crate::features::api_keys::{APIPrincipal, ensure_model_allowed, is_model_allowed};
 use crate::features::providers::ModelObject;
+use crate::infrastructure::database::catalog_flags::favorite_model_ids;
 use crate::state::AppState;
 
 const MODEL_CACHE_CONTROL: &str = "public, max-age=60, stale-while-revalidate=300";
@@ -27,7 +30,35 @@ pub struct ModelsQuery {
 #[derive(Debug, Serialize)]
 struct ModelListResponse {
     object: String,
-    data: Vec<ModelObject>,
+    data: Vec<CatalogModel>,
+}
+
+/// A catalog entry: the OpenAI model fields plus the operator's favorite flag.
+#[derive(Debug, Serialize)]
+struct CatalogModel {
+    id: String,
+    object: String,
+    owned_by: String,
+    favorite: bool,
+}
+
+impl CatalogModel {
+    fn from_model(model: &ModelObject, favorites: &HashSet<String>) -> Self {
+        Self {
+            id: model.id.clone(),
+            object: model.object.clone(),
+            owned_by: model.owned_by.clone(),
+            favorite: favorites.contains(&model.id.to_lowercase()),
+        }
+    }
+}
+
+/// Reads the favorite list, or an empty set when no database backs this process.
+async fn favorites(state: &AppState) -> Result<HashSet<String>, APIError> {
+    match state.database.as_ref() {
+        Some(database) => favorite_model_ids(database).await,
+        None => Ok(HashSet::new()),
+    }
 }
 
 fn is_refresh_requested(query: &ModelsQuery) -> bool {
@@ -53,11 +84,13 @@ pub async fn list_models(
         .as_ref()
         .and_then(|ext| ext.0.api_key.as_ref())
         .and_then(|record| record.allowed_models.as_deref());
-    let data: Vec<ModelObject> = state
+    let favorites = favorites(&state).await?;
+    let data: Vec<CatalogModel> = state
         .providers
         .list_models()
         .into_iter()
         .filter(|model| allowed.is_none_or(|list| is_model_allowed(Some(list), &model.id)))
+        .map(|model| CatalogModel::from_model(&model, &favorites))
         .collect();
 
     Ok((
@@ -91,11 +124,14 @@ pub async fn get_model(
     let models = state.providers.list_models();
     let found = find_model(&models, &model);
     match found {
-        Some(entry) => Ok((
-            [(axum::http::header::CACHE_CONTROL, MODEL_CACHE_CONTROL)],
-            Json(entry.clone()),
-        )
-            .into_response()),
+        Some(entry) => {
+            let entry = CatalogModel::from_model(entry, &favorites(&state).await?);
+            Ok((
+                [(axum::http::header::CACHE_CONTROL, MODEL_CACHE_CONTROL)],
+                Json(entry),
+            )
+                .into_response())
+        }
         None => {
             Err(APIError::new(404, format!("Model '{model}' not found"))
                 .with_code("model_not_found"))

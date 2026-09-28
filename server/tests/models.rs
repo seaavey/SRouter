@@ -20,6 +20,18 @@ fn test_app(security: SecurityState) -> Router {
     create_router(state)
 }
 
+fn app_with_database(database: srouter_server::AppDatabase) -> Router {
+    let providers = ProviderRegistry::with_defaults().expect("default providers");
+    let state = srouter_server::AppState::with_security(
+        support::test_config(),
+        providers,
+        SecurityState::unconfigured(),
+    )
+    .with_database(database);
+
+    create_router(state)
+}
+
 fn get_request(uri: &str) -> Request<Body> {
     with_loopback_client(
         Request::builder()
@@ -173,4 +185,71 @@ async fn favorite_model_ids_returns_lowercased_stored_ids() {
 
     assert!(ids.contains("zen/space-bunny-free"));
     assert_eq!(ids.len(), 1);
+}
+
+#[tokio::test]
+async fn models_list_marks_favorited_entries() {
+    let test_database = support::TestDatabase::new().unwrap();
+    let database = test_database.connect().await.unwrap();
+
+    sqlx::query("INSERT INTO favorite_models (model_id, created_at) VALUES (?, ?)")
+        .bind("zen/big-pickle")
+        .bind(1_700_000_000_i64)
+        .execute(database.sqlite_pool().unwrap())
+        .await
+        .unwrap();
+
+    let app = app_with_database(database);
+    let response = app.oneshot(get_request("/v1/models")).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let json = json_body(response).await;
+
+    let entry = |id: &str| {
+        json["data"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|entry| entry["id"] == id)
+            .unwrap_or_else(|| panic!("missing catalog entry {id}"))
+            .clone()
+    };
+    assert_eq!(entry("zen/big-pickle")["favorite"], serde_json::json!(true));
+    assert_eq!(
+        entry("zen/space-bunny-free")["favorite"],
+        serde_json::json!(false)
+    );
+}
+
+#[tokio::test]
+async fn get_single_model_reports_favorite() {
+    let test_database = support::TestDatabase::new().unwrap();
+    let database = test_database.connect().await.unwrap();
+
+    sqlx::query("INSERT INTO favorite_models (model_id, created_at) VALUES (?, ?)")
+        .bind("zen/space-bunny-free")
+        .bind(1_700_000_000_i64)
+        .execute(database.sqlite_pool().unwrap())
+        .await
+        .unwrap();
+
+    let app = app_with_database(database);
+
+    let favorited = app
+        .clone()
+        .oneshot(get_request("/v1/models/zen%2Fspace-bunny-free"))
+        .await
+        .unwrap();
+    assert_eq!(favorited.status(), StatusCode::OK);
+    let json = json_body(favorited).await;
+    assert_eq!(json["id"], "zen/space-bunny-free");
+    assert_eq!(json["favorite"], serde_json::json!(true));
+
+    let plain = app
+        .oneshot(get_request("/v1/models/big-pickle"))
+        .await
+        .unwrap();
+    assert_eq!(plain.status(), StatusCode::OK);
+    let json = json_body(plain).await;
+    assert_eq!(json["id"], "zen/big-pickle");
+    assert_eq!(json["favorite"], serde_json::json!(false));
 }
