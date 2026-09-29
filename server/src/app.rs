@@ -9,6 +9,7 @@ use crate::features::logs::create_logs_router;
 use crate::features::providers::management::{
     create_providers_management_router, create_providers_read_router,
 };
+use crate::features::settings::{create_settings_management_router, create_settings_read_router};
 use crate::http::middleware::admin_session::require_admin_session;
 use crate::http::middleware::api_key_auth::api_key_auth;
 use crate::http::middleware::cors::cors;
@@ -63,6 +64,10 @@ pub fn create_router(state: AppState) -> Router {
     let providers_mgmt_routes = create_providers_management_router()
         .layer(from_fn_with_state(state.clone(), require_admin_session));
     let logs_routes = create_logs_router().layer(from_fn_with_state(state.clone(), api_key_auth));
+    let settings_read_routes =
+        create_settings_read_router().layer(from_fn_with_state(state.clone(), api_key_auth));
+    let settings_mgmt_routes = create_settings_management_router()
+        .layer(from_fn_with_state(state.clone(), require_admin_session));
     // Admin auth routes enforce their own session requirement per handler, so
     // they are mounted without a shared guard.
     // CSRF origin defense rejects cross-origin mutations using admin cookies before
@@ -74,6 +79,8 @@ pub fn create_router(state: AppState) -> Router {
         .merge(providers_read_routes)
         .merge(providers_mgmt_routes)
         .merge(logs_routes)
+        .merge(settings_read_routes)
+        .merge(settings_mgmt_routes)
         .layer(from_fn_with_state(state.clone(), csrf_origin_guard));
     let v1_compat_routes =
         gateway_routes.layer(from_fn_with_state(state.clone(), csrf_origin_guard));

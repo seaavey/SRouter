@@ -9,6 +9,7 @@ mod migrations;
 mod postgres;
 pub mod providers;
 pub mod request_logs;
+pub mod settings;
 mod sqlite;
 
 use sqlx::{PgPool, SqlitePool};
