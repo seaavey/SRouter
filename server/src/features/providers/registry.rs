@@ -1,7 +1,7 @@
 //! Provider registry: resolves a requested model onto the adapter that serves
 //! it. Registration covers the provider base id and its aliases.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::error::APIError;
 use crate::features::providers::adapter::ProviderAdapter;
@@ -25,6 +25,28 @@ pub struct ProviderRegistry {
 impl ProviderRegistry {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Every lookup key of each provider whose base id is disabled. A catalog
+    /// entry carries the alias prefix while the settings row carries the base
+    /// id, so the whole key set is reported, not just the base id.
+    pub fn disabled_keys(&self, disabled: &HashSet<String>) -> HashSet<String> {
+        let mut adapters: Vec<&ProviderAdapter> = self.adapters.values().collect();
+        adapters.sort_by_key(|adapter| adapter.id());
+        adapters.dedup_by_key(|adapter| adapter.id());
+
+        let mut keys = HashSet::new();
+        for adapter in adapters {
+            if adapter
+                .keys()
+                .iter()
+                .any(|key| disabled.contains(key.to_lowercase().as_str()))
+            {
+                keys.extend(adapter.keys().iter().map(|key| key.to_lowercase()));
+            }
+        }
+
+        keys
     }
 
     /// Builds the registry with the built-in providers registered.
@@ -72,8 +94,6 @@ impl ProviderRegistry {
     /// Node's `buildModelList`. The registry is static, so callers treat the
     /// `refresh`/`force` query params as accepted-but-ignored.
     pub fn list_models(&self) -> Vec<ModelObject> {
-        use std::collections::HashSet;
-
         let mut models = Vec::new();
         let mut seen = HashSet::new();
 
@@ -102,6 +122,8 @@ impl ProviderRegistry {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
+
     use super::ProviderRegistry;
     use crate::features::providers::opencode;
 
@@ -141,6 +163,24 @@ mod tests {
         assert!(registry.resolve("anthropic/claude-sonnet-4").is_none());
         assert!(registry.resolve("does-not-exist").is_none());
         assert!(registry.resolve("").is_none());
+    }
+
+    #[test]
+    fn disabled_keys_reports_every_alias_of_the_disabled_provider() {
+        let registry = registry_with_opencode();
+        let disabled = HashSet::from([String::from("opencode_zen")]);
+
+        let keys = registry.disabled_keys(&disabled);
+
+        assert!(keys.contains("opencode_zen"));
+        assert!(keys.contains("zen"));
+        assert!(keys.contains("opencode"));
+        assert!(registry.disabled_keys(&HashSet::new()).is_empty());
+        assert!(
+            registry
+                .disabled_keys(&HashSet::from([String::from("anthropic")]))
+                .is_empty()
+        );
     }
 
     #[test]

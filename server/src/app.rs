@@ -5,6 +5,9 @@ use serde::Serialize;
 use crate::features::admin_auth::create_admin_router;
 use crate::features::api_keys::create_api_keys_router;
 use crate::features::gateway::routes::create_gateway_router;
+use crate::features::providers::management::{
+    create_providers_management_router, create_providers_read_router,
+};
 use crate::http::middleware::admin_session::require_admin_session;
 use crate::http::middleware::api_key_auth::api_key_auth;
 use crate::http::middleware::cors::cors;
@@ -50,6 +53,14 @@ pub fn create_router(state: AppState) -> Router {
     // of the gateway's API-key/auth-session chain.
     let keys_routes =
         create_api_keys_router().layer(from_fn_with_state(state.clone(), require_admin_session));
+    // The provider catalog is a read surface, so it carries the gateway's
+    // API-key guard instead of the admin-session one.
+    let providers_read_routes =
+        create_providers_read_router().layer(from_fn_with_state(state.clone(), api_key_auth));
+    // Hiding and restoring a model is an operator action, so it carries the
+    // admin-session guard instead of the API-key one.
+    let providers_mgmt_routes = create_providers_management_router()
+        .layer(from_fn_with_state(state.clone(), require_admin_session));
     // Admin auth routes enforce their own session requirement per handler, so
     // they are mounted without a shared guard.
     // CSRF origin defense rejects cross-origin mutations using admin cookies before
@@ -58,6 +69,8 @@ pub fn create_router(state: AppState) -> Router {
         .clone()
         .merge(keys_routes)
         .merge(create_admin_router())
+        .merge(providers_read_routes)
+        .merge(providers_mgmt_routes)
         .layer(from_fn_with_state(state.clone(), csrf_origin_guard));
     let v1_compat_routes =
         gateway_routes.layer(from_fn_with_state(state.clone(), csrf_origin_guard));

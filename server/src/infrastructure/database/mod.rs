@@ -7,6 +7,7 @@ pub mod api_keys;
 pub mod catalog_flags;
 mod migrations;
 mod postgres;
+pub mod providers;
 pub mod request_logs;
 mod sqlite;
 

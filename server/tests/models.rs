@@ -221,6 +221,122 @@ async fn models_list_marks_favorited_entries() {
 }
 
 #[tokio::test]
+async fn hidden_models_are_absent_from_the_catalog() {
+    let test_database = support::TestDatabase::new().unwrap();
+    let database = test_database.connect().await.unwrap();
+
+    sqlx::query(
+        "INSERT INTO provider_model_overrides (provider_id, model_id, custom, hidden, created_at) \
+         VALUES (?, ?, 0, 1, ?)",
+    )
+    .bind("opencode_zen")
+    .bind("zen/big-pickle")
+    .bind(1_700_000_000_i64)
+    .execute(database.sqlite_pool().unwrap())
+    .await
+    .unwrap();
+
+    let app = app_with_database(database);
+    let response = app
+        .clone()
+        .oneshot(get_request("/v1/models"))
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let json = json_body(response).await;
+    let ids: Vec<&str> = json["data"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|entry| entry["id"].as_str().unwrap())
+        .collect();
+    assert!(!ids.contains(&"zen/big-pickle"), "ids: {ids:?}");
+    assert_eq!(ids.len(), 6);
+
+    let single = app
+        .oneshot(get_request("/v1/models/zen%2Fbig-pickle"))
+        .await
+        .unwrap();
+    assert_eq!(single.status(), StatusCode::NOT_FOUND);
+    let error = json_body(single).await;
+    assert_eq!(error["error"]["code"], "model_not_found");
+}
+
+#[tokio::test]
+async fn hidden_flags_match_however_the_row_was_spelled() {
+    let test_database = support::TestDatabase::new().unwrap();
+    let database = test_database.connect().await.unwrap();
+
+    sqlx::query(
+        "INSERT INTO provider_model_overrides (provider_id, model_id, custom, hidden, created_at) \
+         VALUES (?, ?, 0, 1, ?)",
+    )
+    .bind("OpenCode_Zen")
+    .bind("Zen/Big-Pickle")
+    .bind(1_700_000_000_i64)
+    .execute(database.sqlite_pool().unwrap())
+    .await
+    .unwrap();
+
+    let response = app_with_database(database)
+        .oneshot(get_request("/v1/models"))
+        .await
+        .unwrap();
+    let json = json_body(response).await;
+
+    assert!(
+        json["data"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|entry| entry["id"] != "zen/big-pickle")
+    );
+}
+
+#[tokio::test]
+async fn disabling_a_provider_hides_its_alias_prefixed_models() {
+    let test_database = support::TestDatabase::new().unwrap();
+    let database = test_database.connect().await.unwrap();
+    let pool = database.sqlite_pool().unwrap().clone();
+
+    sqlx::query(
+        "INSERT INTO settings (key, value) VALUES ('provider_enabled_opencode_zen', 'false')",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    let app = app_with_database(database.clone());
+    let response = app
+        .clone()
+        .oneshot(get_request("/v1/models"))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(json_body(response).await["data"], serde_json::json!([]));
+
+    // The single route drops it too, rather than serving a disabled model.
+    let single = app
+        .oneshot(get_request("/v1/models/zen%2Fbig-pickle"))
+        .await
+        .unwrap();
+    assert_eq!(single.status(), StatusCode::NOT_FOUND);
+
+    sqlx::query("UPDATE settings SET value = 'true' WHERE key = 'provider_enabled_opencode_zen'")
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    let reenabled = app_with_database(database)
+        .oneshot(get_request("/v1/models"))
+        .await
+        .unwrap();
+    let body = json_body(reenabled).await;
+    assert_eq!(body["data"].as_array().unwrap().len(), 7);
+}
+
+#[tokio::test]
 async fn get_single_model_reports_favorite() {
     let test_database = support::TestDatabase::new().unwrap();
     let database = test_database.connect().await.unwrap();

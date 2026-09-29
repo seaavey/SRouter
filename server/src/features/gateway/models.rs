@@ -16,7 +16,9 @@ use serde::{Deserialize, Serialize};
 use crate::error::APIError;
 use crate::features::api_keys::{APIPrincipal, ensure_model_allowed, is_model_allowed};
 use crate::features::providers::ModelObject;
-use crate::infrastructure::database::catalog_flags::favorite_model_ids;
+use crate::infrastructure::database::catalog_flags::{
+    disabled_provider_ids, favorite_model_ids, hidden_model_ids,
+};
 use crate::state::AppState;
 
 const MODEL_CACHE_CONTROL: &str = "public, max-age=60, stale-while-revalidate=300";
@@ -61,6 +63,43 @@ async fn favorites(state: &AppState) -> Result<HashSet<String>, APIError> {
     }
 }
 
+/// The models this catalog must not serve: hidden ones, and every model of a
+/// disabled provider. Both reads happen once per request, never per entry.
+#[derive(Default)]
+struct CatalogExclusions {
+    hidden: HashSet<String>,
+    disabled: HashSet<String>,
+}
+
+impl CatalogExclusions {
+    /// A model is dropped when it is hidden by id, or when its provider—via the
+    /// id prefix or `owned_by`—is disabled.
+    fn excludes(&self, model: &ModelObject) -> bool {
+        if self.hidden.contains(&model.id.to_lowercase()) {
+            return true;
+        }
+
+        let prefix = model.id.split('/').next().unwrap_or(&model.id);
+
+        self.disabled.contains(&prefix.to_lowercase())
+            || self.disabled.contains(&model.owned_by.to_lowercase())
+    }
+}
+
+/// Reads the exclusions, or empty sets when no database backs this process.
+async fn catalog_exclusions(state: &AppState) -> Result<CatalogExclusions, APIError> {
+    let Some(database) = state.database.as_ref() else {
+        return Ok(CatalogExclusions::default());
+    };
+
+    Ok(CatalogExclusions {
+        hidden: hidden_model_ids(database).await?,
+        disabled: state
+            .providers
+            .disabled_keys(&disabled_provider_ids(database).await?),
+    })
+}
+
 fn is_refresh_requested(query: &ModelsQuery) -> bool {
     [query.refresh.as_deref(), query.force.as_deref()]
         .into_iter()
@@ -85,10 +124,14 @@ pub async fn list_models(
         .and_then(|ext| ext.0.api_key.as_ref())
         .and_then(|record| record.allowed_models.as_deref());
     let favorites = favorites(&state).await?;
+    let exclusions = catalog_exclusions(&state).await?;
     let data: Vec<CatalogModel> = state
         .providers
         .list_models()
         .into_iter()
+        // Drop hidden and disabled models before the allowlist runs, so the
+        // allowlist never sees a model this deployment refuses to serve.
+        .filter(|model| !exclusions.excludes(model))
         .filter(|model| allowed.is_none_or(|list| is_model_allowed(Some(list), &model.id)))
         .map(|model| CatalogModel::from_model(&model, &favorites))
         .collect();
@@ -116,13 +159,23 @@ pub async fn get_model(
         return Err(APIError::new(400, "Model ID parameter is required"));
     }
 
+    // A hidden or disabled model is not in the catalog at all, so the single
+    // route answers 404 exactly like the list route's omission.
+    let exclusions = catalog_exclusions(&state).await?;
+    let models = state.providers.list_models();
+    let found = find_model(&models, &model).filter(|entry| !exclusions.excludes(entry));
+
+    if found.is_none() {
+        return Err(
+            APIError::new(404, format!("Model '{model}' not found")).with_code("model_not_found")
+        );
+    }
+
     ensure_model_allowed(
         principal.as_ref().and_then(|ext| ext.0.api_key.as_ref()),
         &model,
     )?;
 
-    let models = state.providers.list_models();
-    let found = find_model(&models, &model);
     match found {
         Some(entry) => {
             let entry = CatalogModel::from_model(entry, &favorites(&state).await?);

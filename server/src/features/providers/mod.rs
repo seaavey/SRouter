@@ -1,6 +1,7 @@
 //! Provider management, registry lifecycle, and provider implementations.
 
 pub mod adapter;
+pub mod management;
 pub mod model;
 pub mod opencode;
 pub mod registry;
