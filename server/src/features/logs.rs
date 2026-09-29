@@ -17,7 +17,7 @@ use uuid::Uuid;
 
 use crate::error::APIError;
 use crate::infrastructure::database::request_logs::{
-    RequestLog, get_request_log, list_request_logs, subscribe_request_logs, usage_stats,
+    ObjectKind, RequestLog, get_request_log, list_request_logs, subscribe_request_logs, usage_stats,
 };
 use crate::state::AppState;
 
@@ -40,7 +40,7 @@ struct LogsQuery {
 
 #[derive(Serialize)]
 struct LogsResponse {
-    object: &'static str,
+    object: ObjectKind,
     data: Vec<RequestLog>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pagination: Option<Pagination>,
@@ -93,7 +93,7 @@ async fn list_logs(
         },
     });
     Ok(Json(LogsResponse {
-        object: "list",
+        object: ObjectKind::List,
         data: page.data,
         pagination,
     }))
@@ -188,8 +188,24 @@ async fn log_events(State(state): State<AppState>, request: Request) -> Result<R
     Ok(response)
 }
 
+#[derive(Serialize)]
+#[serde(tag = "type")]
+enum LiveEvent {
+    #[serde(rename = "connected")]
+    Connected,
+    #[serde(rename = "usage.updated")]
+    UsageUpdated { stats: serde_json::Value },
+    #[serde(rename = "request.logged")]
+    RequestLogged { log: RequestLog },
+}
+
+fn sse_event(event: &LiveEvent) -> String {
+    let payload = serde_json::to_string(event).expect("live events are infallible to serialize");
+    format!("data: {payload}\n\n")
+}
+
 fn connected_event() -> Result<Bytes, Infallible> {
-    Ok(Bytes::from_static(b"data: {\"type\":\"connected\"}\n\n"))
+    Ok(Bytes::from(sse_event(&LiveEvent::Connected)))
 }
 
 async fn live_events(
@@ -209,21 +225,9 @@ async fn live_events(
         if log_id.is_some() && log.is_none() {
             return Ok(None);
         }
-        let mut event = format!(
-            "data: {}\n\n",
-            serde_json::json!({
-                "type": "usage.updated",
-                "stats": stats
-            })
-        );
+        let mut event = sse_event(&LiveEvent::UsageUpdated { stats });
         if let Some(log) = log {
-            event.push_str(&format!(
-                "data: {}\n\n",
-                serde_json::json!({
-                    "type": "request.logged",
-                    "log": log
-                })
-            ));
+            event.push_str(&sse_event(&LiveEvent::RequestLogged { log }));
         }
         Ok::<_, APIError>(Some(Bytes::from(event)))
     }

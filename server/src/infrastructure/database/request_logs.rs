@@ -39,6 +39,13 @@ pub struct LogsPage {
     pub total: i64,
 }
 
+#[derive(Clone, Copy, Debug, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ObjectKind {
+    List,
+    Usage,
+}
+
 static LOG_EVENTS: OnceLock<tokio::sync::broadcast::Sender<Uuid>> = OnceLock::new();
 
 fn log_events() -> &'static tokio::sync::broadcast::Sender<Uuid> {
@@ -168,7 +175,7 @@ pub async fn usage_stats(database: &AppDatabase) -> Result<serde_json::Value, AP
         })
         .collect::<Result<Vec<_>, APIError>>()?;
     Ok(serde_json::json!({
-        "object": "usage",
+        "object": ObjectKind::Usage,
         "totalRequests": total_requests,
         "totalSuccessRequests": successes,
         "totalTokens": total_tokens,
