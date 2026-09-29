@@ -106,6 +106,19 @@ The OAuth listener also mounts `/v1/messages`, `/v1/chat/completions`, `/v1/chat
 | Database transfer | `/v1/admin/database/export` (`GET`) | Admin session only | Streams a snapshot as `application/octet-stream` with an attachment filename. API keys and loopback access do not replace an admin session. |
 | Database transfer | `/v1/admin/database/import` (`POST`) | Admin session only | Accepts exactly one multipart file in field `database`, maximum 25 MiB. The main listener's global body limit returns `413` for an oversized `Content-Length`; the route maps an oversized chunked upload to `400` with `upload_too_large`. Validates before replacement, makes a recoverable backup, clears the admin cookie after success, and returns `ok`, `backup_path`, `restart_required`, and `reauth_required`. |
 
+### Providers in the Rust build
+
+The Rust catalog serves a single driver (`opencode_zen`). Where the rows above describe Node, the Rust build differs as follows.
+
+- **One write route.** `PATCH /v1/providers/{provider_id}` replaces Node's `PATCH /v1/providers/:providerId/enabled`, `POST /v1/providers/:providerId/hidden-models`, and `DELETE /v1/providers/:providerId/hidden-models/:modelId`. Every field is optional and applied in one transaction: `enabled` (boolean), plus the model-id lists `hide`, `restore`, `favorite`, and `unfavorite`. A request that names no field, a non-boolean `enabled`, or a list entry that is not a non-empty string returns `400` with `Invalid payload`; an unknown provider returns `400` with `Provider '<id>' not found`. The response is the provider detail entry read back after the write.
+- **Idempotent writes.** Hiding an already hidden model keeps its single override row, restoring a model that is not hidden succeeds without changing anything, and favoriting or unfavoriting repeats safely. Model ids are stored lowercased and matched case-insensitively, so a row written elsewhere with different casing is still found.
+- **Hidden state is a flag, not a listing.** `GET /v1/providers/:providerId/hidden-models` is not served. The detail response carries `hidden` and `favorite` on each `models[]` entry, and it lists hidden models instead of filtering them out, unlike Node. `GET /v1/models` still drops hidden models and every model of a disabled provider.
+- **Favorites.** `/v1/favorites` is not served. Favorites are written through the provider `PATCH`; the backing table carries no provider dimension, so the model id alone identifies the row.
+- **No round-robin.** `PATCH /v1/providers/:providerId/round-robin` is not served, and no `round_robin` field is emitted.
+- **No credential material.** `connections[]` never carries a stored secret; the credential column is not read at all.
+- **Field naming.** Connection status reports snake_case `connected_count` instead of Node's `connectedCount`.
+- **Scope.** Besides the write route, the build serves `GET /v1/providers`, `GET /v1/providers/catalog`, and `GET /v1/providers/{provider_id}`. `POST /v1/providers`, `DELETE /v1/providers/:id`, `POST /v1/providers/verify`, `POST /v1/providers/connections/verify`, and the custom-model routes remain Node-only, and the catalog holds the single seeded driver. The provider routes are not mounted under the `/v1/v1` alias either.
+
 ## Compatibility aliases and retired routes
 
 The main listener mounts these compatibility paths under `/v1/v1`: `/chat/completions`, `/chat/completion`, `/messages`, `/models`, and `/models/:model`. They use the same route handlers and feature middleware as their `/v1` counterparts. The OAuth listener exposes only its `/v1` mounts, not `/v1/v1`.
@@ -168,7 +181,7 @@ Rust schema and SQL details remain gated by `docs/api-database-contract.md`; thi
 | Startup, listeners, static web | `main.rs`, `app.rs`, `http/listeners.rs`, `http/static_files.rs` | `startup.test.ts`, `web-dist.test.ts` |
 | Admin auth and API keys | `features/admin_auth/`, `features/api_keys/`, shared HTTP middleware | `admin-auth-route.test.ts`, `admin-auth-service.test.ts`, `admin-auth-store.test.ts`, `admin-auth-middleware.test.ts`, `api-keys.test.ts`, `api-keys-credit-db.test.ts`, `api-keys-credit-route.test.ts`, `api-keys-quota-credit.test.ts`, `api-keys-usage-deduction.test.ts`, `api-keys-allowed-models.test.ts`, `settings-auth.test.ts` |
 | Provider OAuth and token refresh | `features/provider_auth/` | `auth-providers.test.ts`, `token-refresh.test.ts`, `antigravity-provider.test.ts`, `codebuddy-provider.test.ts`, `qoder-provider.test.ts`, `tokenrouter-provider.test.ts`, `kiro-provider.test.ts`, `bai-provider.test.ts`, `neosantara-provider.test.ts`, `experientiallabs-provider.test.ts` |
-| Provider management and favorites | `features/providers/` | `custom-provider-uuid.test.ts`, `round-robin-endpoint.test.ts`, `verify-connection.test.ts` |
+| Provider management and favorites | `features/providers/`, `infrastructure/database/providers.rs`, `infrastructure/database/catalog_flags.rs` | `custom-provider-uuid.test.ts`, `round-robin-endpoint.test.ts`, `verify-connection.test.ts`; Rust evidence: `tests/providers.rs`, `tests/models.rs` |
 | Chat, messages, images, fallback, translation | `features/gateway/`, shared upstream adapter | `messages.test.ts`, `opencode-compat.test.ts`, `images-*.test.ts`, `fallback-policy.test.ts`, `fallbacks-cascade.test.ts`, `tool-interceptor.test.ts`, `malformed-json.test.ts`, `request-limits.test.ts` |
 | Models, pricing, quota | `features/catalog/` | `models-endpoint.test.ts`, `pricing-route.test.ts`, `quota-oauth-filter.test.ts` |
 | Logs, analytics, settings | `features/dashboard/` | `analytics.test.ts`, `logs-pagination.test.ts`, `settings-auth.test.ts` |
