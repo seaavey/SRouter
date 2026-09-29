@@ -32,7 +32,9 @@ use crate::features::gateway::model::{
 };
 use crate::features::gateway::usage::{UsageBreakdown, normalize_response_usage};
 use crate::http::middleware::client_address::client_address;
-use crate::infrastructure::database::request_logs::{RequestLogInput, insert_request_log};
+use crate::infrastructure::database::request_logs::{
+    RequestLogInput, generate_log_id, insert_request_log,
+};
 use crate::state::AppState;
 
 const MAX_BODY_BYTES: usize = 25 * 1024 * 1024;
@@ -45,6 +47,16 @@ pub async fn create_message(
 ) -> Response {
     let start_time = crate::clock::now_ms();
     let version = request.version();
+    let request_id = match generate_log_id() {
+        Ok(id) => id,
+        Err(error) => return error.into_response(),
+    };
+    let method = request.method().as_str().to_owned();
+    let path = request
+        .extensions()
+        .get::<axum::extract::OriginalUri>()
+        .map(|axum::extract::OriginalUri(uri)| uri.path().to_owned())
+        .unwrap_or_else(|| request.uri().path().to_owned());
     let client_ip = client_address(request.extensions());
     let user_agent = request
         .headers()
@@ -131,6 +143,9 @@ pub async fn create_message(
                     let _ = insert_request_log(
                         db,
                         RequestLogInput {
+                            request_id: &request_id,
+                            method: &method,
+                            path: &path,
                             api_key_id: api_key_id.as_deref(),
                             ip_address: client_ip.as_deref(),
                             user_agent: user_agent.as_deref(),
@@ -144,6 +159,8 @@ pub async fn create_message(
                             fallback_path: None,
                             fallback_reason: Some(err.message()),
                             resolved_model: Some(&resolved.model),
+                            error_code: None,
+                            error_message: Some(err.message()),
                             created_at: crate::clock::now_ms(),
                         },
                     )
@@ -251,6 +268,9 @@ pub async fn create_message(
         let _ = insert_request_log(
             db,
             RequestLogInput {
+                request_id: &request_id,
+                method: &method,
+                path: &path,
                 api_key_id: api_key_id.as_deref(),
                 ip_address: client_ip.as_deref(),
                 user_agent: user_agent.as_deref(),
@@ -264,6 +284,8 @@ pub async fn create_message(
                 fallback_path: None,
                 fallback_reason: None,
                 resolved_model: Some(&resolved.model),
+                error_code: None,
+                error_message: None,
                 created_at: crate::clock::now_ms(),
             },
         )

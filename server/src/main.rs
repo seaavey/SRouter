@@ -15,7 +15,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Wildcard bind matches the Node listener and keeps Docker/VPS traffic reachable.
     let address = SocketAddr::from(([0, 0, 0, 0], config.port));
 
-    // Opening the database brings SQLite to schema v2 before the listeners start.
+    // Opening the database brings SQLite to schema v3 before the listeners start.
     let database = AppDatabase::connect(&config).await?;
     let api_key_store = Arc::new(SQLxAPIKeyStore::new(database.clone()));
     let admin_store = Arc::new(SQLxAdminAuthStore::new(database.clone()));

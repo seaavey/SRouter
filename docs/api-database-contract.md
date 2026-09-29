@@ -86,11 +86,13 @@ The Rust test helper must create unique temporary SQLite databases and remove th
 
 ## Persistence implementation gate
 
-**Open for schema v2:** The allowed HTTP routes and tests establish operation outcomes but never
+**Open for schema v3:** The allowed HTTP routes and tests establish operation outcomes but never
 the internal schema; the independent schema contract that supplies it is
 `docs/schemas-database.md` (provenance: disposable-probe dump of the observed v1 schema plus
 API-visible behavior in `docs/api-v1-contract.md`). Schema application is implemented and tested
-in `server/migrations/0002_v2_schema.sql`, `server/src/infrastructure/database/migrations.rs`,
+in `server/migrations/0002_v2_schema.sql`, `server/migrations/0003_request_logs.sql`,
+`server/src/infrastructure/database/migrations.rs`,
 and `server/tests/schema.rs`. Repository queries may now be written against schema v2 as defined
-there; any field or relation outside that contract still requires provenance before use, and
+there; request-log v3 additions and legacy mapping are documented in `docs/schemas-database.md`;
+any field or relation outside that contract still requires provenance before use, and
 `packages/*`, database exports, and production databases remain forbidden as schema sources.

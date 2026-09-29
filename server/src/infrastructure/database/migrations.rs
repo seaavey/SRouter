@@ -1,7 +1,7 @@
 //! Version-guarded schema application (contract: `docs/schemas-database.md`).
 //!
-//! Fresh files get the v2 DDL directly. Legacy v1 files (any table present,
-//! `user_version` below 2) are transformed first: shape-changed tables are
+//! Fresh files get the current DDL directly. Legacy files (any table present,
+//! `user_version` below 3) are transformed first: shape-changed tables are
 //! read, dropped and recreated by the DDL, renamed tables keep their rows,
 //! and the transformed data is restored before the new version is recorded.
 //! The whole run happens in one transaction, so a failure leaves the file at
@@ -18,11 +18,12 @@ use crate::error::APIError;
 
 /// The schema version this build writes. A database reporting a higher
 /// version is refused instead of downgraded.
-const SCHEMA_VERSION: i64 = 2;
+const SCHEMA_VERSION: i64 = 3;
 
-/// The complete v2 DDL (`server/migrations/0002_v2_schema.sql`), every
+/// The v2 base DDL (`server/migrations/0002_v2_schema.sql`), every
 /// statement written as `IF NOT EXISTS`.
 const SCHEMA_SQL: &str = include_str!("../../../migrations/0002_v2_schema.sql");
+const REQUEST_LOGS_V3_SQL: &str = include_str!("../../../migrations/0003_request_logs.sql");
 
 /// Brings the SQLite file to [`SCHEMA_VERSION`].
 pub async fn run(pool: &SqlitePool) -> Result<(), APIError> {
@@ -59,11 +60,17 @@ pub async fn run(pool: &SqlitePool) -> Result<(), APIError> {
     sqlx::raw_sql(SCHEMA_SQL)
         .execute(&mut *transaction)
         .await
-        .map_err(sql_error("apply the v2 schema"))?;
+        .map_err(sql_error("apply the current schema"))?;
 
     legacy.restore(&mut transaction).await?;
 
-    sqlx::query("PRAGMA user_version = 2")
+    sqlx::raw_sql(REQUEST_LOGS_V3_SQL)
+        .execute(&mut *transaction)
+        .await
+        .map_err(sql_error("apply request-log v3 migration"))?;
+    upgrade_legacy_request_logs(&mut transaction).await?;
+
+    sqlx::query("PRAGMA user_version = 3")
         .execute(&mut *transaction)
         .await
         .map_err(sql_error("record the schema version"))?;
@@ -186,6 +193,7 @@ async fn capture_legacy(
         transaction,
         "request_logs",
         &[
+            ("api_key_id", "TEXT"),
             ("ip_address", "TEXT"),
             ("user_agent", "TEXT"),
             ("cached_tokens", "INTEGER NOT NULL DEFAULT 0"),
@@ -255,6 +263,72 @@ async fn ensure_columns(
             .await
             .map_err(sql_error("add a column older databases are missing"))?;
     }
+    Ok(())
+}
+
+/// Converts legacy IDs to UUIDs while retaining original IDs and log history.
+/// Old rows have no request grouping or HTTP path, so mark those fields UNKNOWN.
+async fn upgrade_legacy_request_logs(
+    transaction: &mut Transaction<'_, sqlx::Sqlite>,
+) -> Result<(), APIError> {
+    let rows = sqlx::query(
+        "SELECT id, request_id, method, path, legacy_id, api_key_id, legacy_api_key_id \
+         FROM request_logs",
+    )
+    .fetch_all(&mut **transaction)
+    .await
+    .map_err(sql_error("read legacy request logs"))?;
+
+    for row in &rows {
+        let old_id = required_text(row, "id")?;
+        let parsed_id = uuid::Uuid::parse_str(&old_id);
+        let is_legacy_id = parsed_id.is_err();
+        let id = match parsed_id {
+            Ok(id) => id.to_string(),
+            Err(_) => super::request_logs::generate_log_id()?,
+        };
+        let request_id = column_text(row, "request_id")
+            .and_then(|value| uuid::Uuid::parse_str(&value).ok())
+            .map(|id| id.to_string())
+            .unwrap_or_else(|| id.clone());
+        let method = column_text(row, "method").unwrap_or_else(|| "UNKNOWN".to_owned());
+        let path = column_text(row, "path").unwrap_or_else(|| "UNKNOWN".to_owned());
+        let old_legacy_id = column_text(row, "legacy_id");
+        let legacy_id = if is_legacy_id {
+            Some(old_id.as_str())
+        } else {
+            old_legacy_id.as_deref()
+        };
+        let old_api_key_id = column_text(row, "api_key_id");
+        let api_key_id = old_api_key_id
+            .as_deref()
+            .and_then(|value| uuid::Uuid::parse_str(value).ok())
+            .map(|id| id.to_string());
+        let old_legacy_api_key_id = column_text(row, "legacy_api_key_id");
+        let legacy_api_key_id = if api_key_id.is_none() {
+            old_api_key_id.as_deref()
+        } else {
+            old_legacy_api_key_id.as_deref()
+        };
+
+        sqlx::query(
+            "UPDATE request_logs SET id = ?, request_id = ?, method = ?, path = ?, \
+             api_key_id = ?, legacy_id = COALESCE(legacy_id, ?), \
+             legacy_api_key_id = COALESCE(legacy_api_key_id, ?) WHERE id = ?",
+        )
+        .bind(id)
+        .bind(request_id)
+        .bind(method)
+        .bind(path)
+        .bind(api_key_id)
+        .bind(legacy_id)
+        .bind(legacy_api_key_id)
+        .bind(old_id)
+        .execute(&mut **transaction)
+        .await
+        .map_err(sql_error("upgrade a legacy request log"))?;
+    }
+
     Ok(())
 }
 

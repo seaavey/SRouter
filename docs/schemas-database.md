@@ -1,8 +1,9 @@
-# SRouter database schema v2 (Rust migration)
+# SRouter database schema v3 (Rust migration)
 
-**Status:** Implemented schema contract for the Rust persistence layer. The DDL lives in
-`server/migrations/0002_v2_schema.sql` and is applied on connect by
-`server/src/infrastructure/database/migrations.rs` (version gate + legacy v1 transform), covered
+**Status:** Implemented schema contract for the Rust persistence layer. The base DDL lives in
+`server/migrations/0002_v2_schema.sql`; request-log v3 additions live in
+`server/migrations/0003_request_logs.sql`. Both are applied on connect by
+`server/src/infrastructure/database/migrations.rs` (version gate + legacy transforms), covered
 by `server/tests/schema.rs`. Derived from the observed Node/SQLite schema (disposable-probe dump
 documented out of band) plus API-visible behavior in `docs/api-v1-contract.md`. Task 6 (SQLx
 stores) may now be written against this schema per the persistence gate in
@@ -48,7 +49,7 @@ no speculative feature is added.
 | `favorite_models`                 | **remain**   | Favorites are global (no provider) and cannot fold into a per-provider table without changing semantics.                                                                        |
 | `fallback_rules`                  | **remain**   | Already clean; only `max_retries` tightened to `NOT NULL DEFAULT 1`.                                                                                                            |
 | `oauth_sessions`                  | **remain**   | Real OAuth/PKCE domain; seven columns are exactly what the flow needs.                                                                                                          |
-| `request_logs`                    | **remain**   | Kept as one wide practical log; see §7-G for why `fallback_occurred` and `total_tokens` are deliberately kept.                                                                  |
+| `request_logs`                    | **remain**   | v3 adds request UUID and HTTP metadata in place; old IDs and non-UUID API key IDs are retained in legacy columns.                                                              |
 | `system_settings`                 | **rename**   | → `settings` for consistent naming; key/value content is domain data (§1-8).                                                                                                    |
 | `srouter_schema_meta`             | **remove**   | Replaced by `PRAGMA user_version` (SQLite-native versioning, zero tables).                                                                                                      |
 
@@ -201,10 +202,14 @@ PRAGMA synchronous = NORMAL;
 PRAGMA busy_timeout = 5000;
 PRAGMA foreign_keys = ON;      -- no FKs are declared; kept for future-proofing only
 -- schema version lives here, not in a table:
-PRAGMA user_version;           -- 0/1 = legacy v1 data, 2 = v2, >2 = refuse to open
+PRAGMA user_version;           -- 0/1 = legacy v1, 2 = v2, 3 = current, >3 = refuse to open
 ```
 
-Fresh installs create all tables above and set `PRAGMA user_version = 2`.
+Fresh installs create all tables above and set `PRAGMA user_version = 3`.
+
+Schema v3 adds nullable `request_id`, `user_id`, `method`, `path`, `error_code`, `error_message`,
+`legacy_id`, and `legacy_api_key_id` columns to `request_logs` via
+`server/migrations/0003_request_logs.sql`.
 
 ## 4. Indexes (necessary only)
 
@@ -270,14 +275,15 @@ Dropped from v1, with reasons:
 | `custom_models.(provider_id, model_id)`                   | `provider_model_overrides.(provider_id, model_id)` + `custom = 1` | Composite PK preserved.                                                                |
 | `hidden_models.(provider_id, model_id)`                   | idem + `hidden = 1`                                               | Overlap rows become `custom = 1, hidden = 1`.                                          |
 | `system_settings.key/value`                               | `settings.key/value`                                              | Keys unchanged: `require_api_key`, `round_robin_*`, `provider_enabled_*`, tunnel keys. |
-| `srouter_schema_meta('schema_version','1')`               | `PRAGMA user_version = 2`                                         | See §7-F.                                                                              |
+| `srouter_schema_meta('schema_version','1')`               | `PRAGMA user_version = 3`                                         | See §7-F.                                                                              |
 
-## 6. Migration procedure (v1 → v2)
+## 6. Migration procedure (v1 → v3)
 
 Order of operations, all inside one transaction after a file backup and `PRAGMA wal_checkpoint`:
 
 1. **Guard:** read `user_version`; if `0` or `1`, and `srouter_schema_meta.schema_version` exists,
-   treat the file as v1. If `2`, nothing to do. If `>2`, refuse to open.
+   treat the file as v1. If `2`, upgrade its request logs as described below. If `3`, nothing to do.
+   If `>3`, refuse to open.
 2. **Renames** (SQLite metadata-only, instant):
 
     ```sql
@@ -336,8 +342,14 @@ Order of operations, all inside one transaction after a file backup and `PRAGMA 
    rebuild like the tables above.
 7. **Straight-copy tables** (`admin_sessions`, `favorite_models`, `oauth_sessions`,
    `request_logs`) are untouched.
-8. **Version:** `DROP TABLE srouter_schema_meta;` then `PRAGMA user_version = 2;` after commit.
-9. **Verify:** row counts per table match expectations; spot-check one migrated key (auth via
+8. **Request logs:** add v3 columns in place. Convert non-UUID `id` values to generated UUIDs and
+   preserve original values in `legacy_id`; use each row's new `id` as `request_id` because v1/v2
+   cannot prove which rows share an inbound request. Preserve non-UUID `api_key_id` in
+   `legacy_api_key_id` and set UUID `api_key_id` to `NULL`. Set missing `method` and `path` to
+   `UNKNOWN`; leave `user_id` and error fields `NULL`. Existing token, status, timing, provider,
+   and model values remain untouched. All changes share migration transaction.
+9. **Version:** `DROP TABLE srouter_schema_meta;` then set `PRAGMA user_version = 3` in transaction.
+10. **Verify:** row counts per table match expectations; spot-check one migrated key (auth via
    hash) and one merged override row; refuse to proceed on any mismatch (leave the file at v1).
 
 SQLite cannot add `NOT NULL`/`UNIQUE` in place, so every tightening above uses the standard
@@ -347,10 +359,10 @@ all in the single transaction from step 1.
 ## 7. Migration and compatibility considerations
 
 - **A. The migration is one-way; run it at cutover with the Node process stopped.** Node cannot
-  operate on a v2 file: `SELECT ... FROM api_keys WHERE key = ?` fails (`no such column`), and
+  operate on a v2/v3 file: `SELECT ... FROM api_keys WHERE key = ?` fails (`no such column`), and
   Node's schema init would re-create renamed/dropped tables (`custom_models`, `hidden_models`,
   `system_settings`) empty, making saved preferences look missing from Node's side. **Tradeoff:**
-  a Node+Rust shadow period sharing one v2 file is unsafe — shadow comparisons must use a copy of
+  a Node+Rust shadow period sharing a migrated file is unsafe — shadow comparisons must use a copy of
   the database plus a dry-run of the migrator. Take a backup first.
 - **B. Hashing `api_keys.key` deliberately changes observable behavior.** After migration
   `GET /v1/keys` can no longer return full key values, so the dashboard's copy-from-list and
@@ -380,7 +392,7 @@ all in the single transaction from step 1.
   history. v1 ran with `foreign_keys = 0` and no declared FKs; adding FKs to an existing SQLite
   file is expensive and risky, so v2 matches current behavior. Rust still enables the pragma
   (harmless no-op).
-- **H. `request_logs` keeps every v1 column.** `total_tokens` stays denormalized because the
+- **H. `request_logs` keeps every v1 column and adds nullable v3 metadata.** `total_tokens` stays denormalized because the
   dashboard sums it; `fallback_occurred` stays because `fallback_path` may be empty even when a
   fallback happened, so the flag is not derivable from `path IS NOT NULL`.
 - **I. Provider toggles stay split, matching v1 semantics.** `providers.enabled` is
@@ -390,8 +402,8 @@ all in the single transaction from step 1.
 - **J. Node-side consumers to update at cutover (not during shadow):** `packages/db` transfer
   validation (expects exact v1 columns incl. `srouter_schema_meta`), CLI `srouter migrate`
   (copies tables by name), and web UI key display/search.
-- **K. Connection behavior in Rust:** gate on `user_version` before any query; treat `0/1` as
-  legacy (run §6), `2` as ready, `>2` as an error.
+- **K. Connection behavior in Rust:** gate on `user_version` before any query; treat `0/1` and `2`
+  as legacy (run §6), `3` as ready, `>3` as an error.
 
 ## 8. Rust type recommendations
 

@@ -7,7 +7,7 @@ use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use sqlx::{Row, SqlitePool};
 use support::TestDatabase;
 
-const V2_TABLES: [&str; 10] = [
+const V3_TABLES: [&str; 10] = [
     "admin_accounts",
     "admin_sessions",
     "api_keys",
@@ -20,7 +20,7 @@ const V2_TABLES: [&str; 10] = [
     "settings",
 ];
 
-const V2_INDEXES: [&str; 5] = [
+const V3_INDEXES: [&str; 5] = [
     "idx_api_keys_key_hash",
     "idx_request_logs_created",
     "idx_request_logs_provider",
@@ -29,25 +29,25 @@ const V2_INDEXES: [&str; 5] = [
 ];
 
 #[tokio::test]
-async fn fresh_database_gets_the_complete_v2_schema() {
+async fn fresh_database_gets_the_complete_v3_schema() {
     let test_database = TestDatabase::new().expect("temporary database");
     let database = test_database.connect().await.expect("connect to SQLite");
     let pool = database.sqlite_pool().expect("SQLite pool").clone();
 
-    assert_eq!(user_version(&pool).await, 2, "user_version must be 2");
+    assert_eq!(user_version(&pool).await, 3, "user_version must be 3");
 
     let tables = table_names(&pool).await;
-    for expected in V2_TABLES {
+    for expected in V3_TABLES {
         assert!(tables.contains(expected), "missing table {expected}");
     }
     assert_eq!(
         tables.len(),
-        V2_TABLES.len(),
+        V3_TABLES.len(),
         "unexpected extra tables: {tables:?}"
     );
 
     let indexes = index_names(&pool).await;
-    for expected in V2_INDEXES {
+    for expected in V3_INDEXES {
         assert!(
             indexes.contains(expected),
             "missing index {expected}; found {indexes:?}"
@@ -59,18 +59,18 @@ async fn fresh_database_gets_the_complete_v2_schema() {
     drop(database);
     let reopened = test_database.connect().await.expect("reconnect");
     let reopened_pool = reopened.sqlite_pool().expect("SQLite pool").clone();
-    assert_eq!(table_names(&reopened_pool).await.len(), V2_TABLES.len());
+    assert_eq!(table_names(&reopened_pool).await.len(), V3_TABLES.len());
 }
 
 #[tokio::test]
-async fn legacy_v1_database_is_transformed_to_v2() {
+async fn legacy_v1_database_is_transformed_to_v3() {
     let test_database = TestDatabase::new().expect("temporary database");
     seed_legacy_database(test_database.path()).await;
 
     let database = test_database.connect().await.expect("migrate legacy file");
     let pool = database.sqlite_pool().expect("SQLite pool").clone();
 
-    assert_eq!(user_version(&pool).await, 2);
+    assert_eq!(user_version(&pool).await, 3);
 
     // Renamed and merged tables.
     let tables = table_names(&pool).await;
@@ -83,11 +83,11 @@ async fn legacy_v1_database_is_transformed_to_v2() {
     ] {
         assert!(!tables.contains(legacy), "legacy table {legacy} remains");
     }
-    for expected in V2_TABLES {
+    for expected in V3_TABLES {
         assert!(tables.contains(expected), "missing table {expected}");
     }
     let indexes = index_names(&pool).await;
-    for expected in V2_INDEXES {
+    for expected in V3_INDEXES {
         assert!(indexes.contains(expected), "missing index {expected}");
     }
 
@@ -253,8 +253,8 @@ async fn legacy_v1_database_is_transformed_to_v2() {
         .unwrap();
     assert_eq!(logs, 1);
     let log = sqlx::query(
-        "SELECT prompt_tokens, cached_tokens, estimated_cost, fallback_occurred \
-         FROM request_logs WHERE id = 'log_1'",
+        "SELECT prompt_tokens, cached_tokens, estimated_cost, fallback_occurred, \
+         legacy_api_key_id FROM request_logs WHERE legacy_id = 'log_1'",
     )
     .fetch_one(&pool)
     .await
@@ -263,6 +263,12 @@ async fn legacy_v1_database_is_transformed_to_v2() {
     assert_eq!(log.try_get::<i64, _>("cached_tokens").unwrap(), 1);
     assert_eq!(log.try_get::<f64, _>("estimated_cost").unwrap(), 0.5);
     assert_eq!(log.try_get::<i64, _>("fallback_occurred").unwrap(), 0);
+    assert_eq!(
+        log.try_get::<Option<String>, _>("legacy_api_key_id")
+            .unwrap()
+            .as_deref(),
+        Some("key_1")
+    );
 
     // A second connect is a no-op on the migrated file.
     pool.close().await;
@@ -336,7 +342,7 @@ async fn legacy_database_with_missing_optional_columns_still_migrates() {
     let database = test_database.connect().await.expect("migrate drift file");
     let migrated = database.sqlite_pool().expect("SQLite pool").clone();
 
-    assert_eq!(user_version(&migrated).await, 2);
+    assert_eq!(user_version(&migrated).await, 3);
 
     // request_logs gained the columns Node's ALTERs used to add.
     let columns = table_columns(&migrated, "request_logs").await;
@@ -370,13 +376,94 @@ async fn legacy_database_with_missing_optional_columns_still_migrates() {
             .unwrap();
     assert!(credentials.contains("sk-old"));
 
-    // The untouched log row survived with its late-added columns defaulted.
+    // The log row survives with a generated UUID and explicit legacy mapping.
     let tokens: i64 =
-        sqlx::query_scalar("SELECT cached_tokens FROM request_logs WHERE id = 'log_old'")
+        sqlx::query_scalar("SELECT cached_tokens FROM request_logs WHERE legacy_id = 'log_old'")
             .fetch_one(&migrated)
             .await
             .unwrap();
     assert_eq!(tokens, 0);
+    let migrated_log = sqlx::query(
+        "SELECT id, request_id, method, path FROM request_logs WHERE legacy_id = 'log_old'",
+    )
+    .fetch_one(&migrated)
+    .await
+    .unwrap();
+    let id: String = migrated_log.try_get("id").unwrap();
+    let request_id: String = migrated_log.try_get("request_id").unwrap();
+    assert!(uuid::Uuid::parse_str(&id).is_ok());
+    assert_eq!(id, request_id);
+    assert_eq!(
+        migrated_log.try_get::<String, _>("method").unwrap(),
+        "UNKNOWN"
+    );
+    assert_eq!(
+        migrated_log.try_get::<String, _>("path").unwrap(),
+        "UNKNOWN"
+    );
+}
+
+#[tokio::test]
+async fn v2_request_logs_keep_legacy_ids_when_upgraded_to_v3() {
+    let test_database = TestDatabase::new().expect("temporary database");
+    let options = SqliteConnectOptions::new()
+        .filename(test_database.path())
+        .create_if_missing(true);
+    let pool = SqlitePoolOptions::new()
+        .connect_with(options)
+        .await
+        .expect("seed pool");
+    sqlx::raw_sql(
+        "CREATE TABLE request_logs (
+            id TEXT PRIMARY KEY,
+            api_key_id TEXT,
+            provider_id TEXT NOT NULL,
+            model TEXT NOT NULL,
+            prompt_tokens INTEGER NOT NULL DEFAULT 0,
+            completion_tokens INTEGER NOT NULL DEFAULT 0,
+            total_tokens INTEGER NOT NULL DEFAULT 0,
+            status_code INTEGER NOT NULL,
+            latency_ms INTEGER NOT NULL,
+            created_at INTEGER NOT NULL
+        );
+        INSERT INTO request_logs (id, api_key_id, provider_id, model, status_code, latency_ms, created_at)
+            VALUES ('log_existing', 'key_existing', 'openai', 'gpt-x', 200, 18, 1000);
+        PRAGMA user_version = 2;",
+    )
+    .execute(&pool)
+    .await
+    .expect("seed v2 request logs");
+    pool.close().await;
+
+    let database = test_database.connect().await.expect("upgrade v2 database");
+    let pool = database.sqlite_pool().expect("SQLite pool");
+    assert_eq!(user_version(pool).await, 3);
+    let row = sqlx::query(
+        "SELECT id, request_id, api_key_id, legacy_id, legacy_api_key_id, method, path \
+         FROM request_logs WHERE legacy_id = 'log_existing'",
+    )
+    .fetch_one(pool)
+    .await
+    .expect("upgraded request log");
+    let id: String = row.try_get("id").unwrap();
+    assert!(uuid::Uuid::parse_str(&id).is_ok());
+    assert_eq!(row.try_get::<String, _>("request_id").unwrap(), id);
+    assert_eq!(
+        row.try_get::<Option<String>, _>("api_key_id").unwrap(),
+        None
+    );
+    assert_eq!(
+        row.try_get::<String, _>("legacy_id").unwrap(),
+        "log_existing"
+    );
+    assert_eq!(
+        row.try_get::<Option<String>, _>("legacy_api_key_id")
+            .unwrap()
+            .as_deref(),
+        Some("key_existing")
+    );
+    assert_eq!(row.try_get::<String, _>("method").unwrap(), "UNKNOWN");
+    assert_eq!(row.try_get::<String, _>("path").unwrap(), "UNKNOWN");
 }
 
 #[tokio::test]

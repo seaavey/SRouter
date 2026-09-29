@@ -26,7 +26,7 @@ pub enum AppDatabase {
 impl AppDatabase {
     /// Connects to PostgreSQL when `DATABASE_URL` is configured, otherwise to
     /// SQLite at `APIConfig::database_path`. The SQLite backend brings the
-    /// file to schema v2 on connect (fresh install or legacy v1 transform);
+    /// file to schema v3 on connect (fresh install or legacy upgrade);
     /// PostgreSQL is left untouched until it has a version carrier.
     pub async fn connect(config: &APIConfig) -> Result<Self, APIError> {
         match config.database_url.as_deref() {
