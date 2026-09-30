@@ -249,9 +249,9 @@ Relevant gateway contracts the executor must satisfy:
 
 Depends on Task 2 (signer) and Task 5 (executor + credentials); independent of Task 6.
 
-- [ ] Widen the adapter surface so a catalog can change at runtime: `ProviderAdapter::models()` and both impls return `Vec<ModelDefinition>` instead of `&'static [ModelDefinition]` (the OpenCode adapter returns its static slice as a `Vec`); update `registry.rs:86,111` and the two slice-equality asserts in `opencode/tests.rs`.
-- [ ] New `qoder/catalog.rs`: `QoderCatalog { fetched_at_ms, models: Vec<ModelDefinition>, configs: BTreeMap<String, ModelConfig> }` plus `ModelConfig { key, is_reasoning, max_output_tokens, source, is_vl }` and `QoderCatalog::seed()` built from `QODER_MODELS`.
-- [ ] `parse_chat_list(&Value) -> QoderCatalog`: skip entries with an empty `key` or `enable != true`; `name = display_name` (fallback `key`); context = `max_input_tokens`, else the largest `context_config.*.token_count`, else `180000`; max output = `max_output_tokens` (default `32768`); `is_reasoning = is_reasoning || thinking_config.is_some()`; `source = "system"` unless the entry carries another; sort by `key` so repeated fetches compare equal.
+- [x] Widen the adapter surface so a catalog can change at runtime: `ProviderAdapter::models()` and both impls return `Vec<String>` (model ids) instead of `&'static [ModelDefinition]`; only ids are advertised anywhere today, and a live catalog cannot hand out `&'static str` without leaking. Update `registry.rs` and the two slice-equality asserts in `opencode/tests.rs`.
+- [x] New `qoder/catalog.rs`: `QoderCatalog { fetched_at_ms, models: Vec<String>, configs: BTreeMap<String, ModelConfig> }` plus `ModelConfig { key, is_reasoning, max_output_tokens, source }` and `QoderCatalog::seed()` built from `QODER_MODELS`. `is_vl` and the context window are not parsed: no response field carries them, and an unread field is dead code.
+- [x] `parse_chat_list(&Value) -> Option<QoderCatalog>`: skip entries with an empty `key` or `enable != true`; max output = `max_output_tokens` (default `32768`); `is_reasoning = is_reasoning || thinking_config.is_some()`; `source = "system"` unless the entry carries another; configs land in a `BTreeMap`, so the advertised list is sorted and repeated fetches compare equal. A response without a usable entry yields `None`, which keeps the current snapshot.
 - [ ] Hold the snapshot in `QoderExecutor` as `Arc<RwLock<QoderCatalog>>` seeded from `QoderCatalog::seed()`; `models()` is `snapshot.models.clone()`, so the advertised list is the seed until the first successful fetch.
 - [ ] `refresh_catalog()`: COSY-signed `GET {base}/algo/api/v2/model/list` with an **empty body** (`Cosy-Bodylength: "0"`, `Cosy-Bodyhash = md5("")`, `Cosy-Sigpath: /api/v2/model/list`, `Accept: application/json`, `Accept-Encoding: identity`), parse `chat[]`, write the snapshot. On any failure (transport error, non-2xx, malformed JSON, missing `chat`), keep the previous snapshot and return `Err`; **a catalog is never emptied**.
 - [ ] `maybe_refresh(ttl)`: no-op when `fetched_at_ms` is fresher than the TTL (5 minutes) or no credentials exist; otherwise `tokio::spawn` the refresh and return immediately (fire-and-forget, no request ever waits on the network).
@@ -291,8 +291,20 @@ cargo clippy --manifest-path server/Cargo.toml --all-targets --all-features -- -
 git diff --check
 ```
 
+Recorded results for this slice: `--lib` 128 passed, `provider_auth` 11, `qoder_provider` 8, `models` 11, `providers` 29, `chat_completions` 24, `messages` 11, plus `admin_auth` 13, `api_key_auth` 19, `api_keys` 11, `configuration` 9, `cors` 12, `csrf` 6, `database` 3, `http_runtime` 5, `logs` 5, `model_access` 11, `rate_limit` 6, `reasoning_stream` 5, `schema` 5, `settings` 7. `cargo fmt --check` and `cargo clippy --all-targets --all-features -- -D warnings` are both clean.
+
 Black-box evidence for the auth flow (read, do not modify): `apps/api/tests/qoder-provider.test.ts`.
 Optional live smoke (network, ignored by default, needs a real connected account): `server/tests/qoder_live.rs` mirroring `opencode_live.rs`, run with `-- --ignored`.
+
+## Implementation notes (deviations recorded while building)
+
+1. `ProviderAdapter::models()` returns `Vec<String>` (ids), not `Vec<ModelDefinition>`. Nothing in the Rust build reads `ModelDefinition.name`, and a live catalog cannot produce `&'static str` without leaking; names would have been dead data.
+2. Unit tests live inline in each module (`#[cfg(test)] mod tests` in `types.rs`, `cosy.rs`, `catalog.rs`, `executor.rs`, `provider_auth/qoder.rs`) instead of one `qoder/tests.rs`, so they can reach private helpers.
+3. `model/list` entries do not fill `is_vl` or the context window: no response field carries them.
+4. The seed catalog now holds two drivers (`opencode_zen`, `qoder`) behind a `SEED_PROVIDERS` slice. `/v1/providers`, `/v1/providers/catalog`, the detail route, and `PATCH /providers/{id}` all iterate it, because the Providers page cannot reach a connect button for a driver the catalog does not serve. Count assertions moved with it: `server/tests/providers.rs` 1 -> 2 seeded entries, `server/tests/models.rs` 6 -> 18 models and 7 -> 19 after re-enabling.
+5. `login` and `poll` carry `require_admin_session` at mount time and `callback` is public, which is contract rows 59-60.
+6. `machine_id_for(&AppDatabase)` is shared by the executor and the login route, so the browser challenge and the signed requests present the same machine.
+7. New dependencies: `md-5`, `aes`, `cbc` (feature `alloc`), `rsa` (feature `pem`), and `url` (already in `Cargo.lock` through reqwest).
 
 ## Follow-up (do not start without being asked)
 

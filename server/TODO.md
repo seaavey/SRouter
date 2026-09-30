@@ -153,10 +153,11 @@ Status legend: `[x]` done and covered by a Rust test, `[ ]` missing, `[~]` parti
 
 ## 4. Providers: management, registry, catalog
 
-Current Rust scope (documented deviation): one driver `opencode_zen`, read routes
-`GET /v1/providers`, `GET /v1/providers/catalog`, `GET /v1/providers/{provider_id}`, one write
-route `PATCH /v1/providers/{provider_id}` with `enabled|hide|restore|favorite|unfavorite`
-(`features/providers/management/routes.rs`). Everything below is still Node-only.
+Current Rust scope (documented deviation): two drivers `opencode_zen` and `qoder` served from
+the `SEED_PROVIDERS` slice, read routes `GET /v1/providers`, `GET /v1/providers/catalog`,
+`GET /v1/providers/{provider_id}`, one write route `PATCH /v1/providers/{provider_id}` with
+`enabled|hide|restore|favorite|unfavorite` (`features/providers/management/routes.rs`).
+Everything below is still Node-only.
 
 - [ ] `POST /v1/providers` — create a provider connection (admin session, validated provider JSON).
 - [ ] `DELETE /v1/providers/{id}` — delete a connection (`404` when missing), refresh live registry.
@@ -168,6 +169,11 @@ route `PATCH /v1/providers/{provider_id}` with `enabled|hide|restore|favorite|un
 - [ ] `DELETE /v1/providers/{providerId}/models/{modelId}` — remove custom model.
 - [ ] `PATCH /v1/providers/{providerId}/round-robin` — `enabled` flag.
       (`apps/api/tests/round-robin-endpoint.test.ts`.)
+- [x] Second driver registered: `qoder` (`features/providers/qoder/`), COSY-signed chat with the
+      envelope-to-OpenAI translation, a static 12-model seed under the `qd` alias, and the live
+      catalog from `model/list` on a 5-minute TTL. Independent provenance for every constant and
+      model is recorded in the `qoder/types.rs` module doc; protocol analysis and decisions live in
+      `docs/superpowers/plans/2026-09-30-rust-provider-qoder.md`.
 - [ ] Round-robin/selection policy in the registry itself, if the driver set grows past one.
 - [ ] `GET /v1/providers/{providerId}/hidden-models` — Node returns `{models:[...]}`. Rust folded
       this into the detail payload; the route is not served. Either implement the route for parity or
@@ -177,6 +183,8 @@ route `PATCH /v1/providers/{provider_id}` with `enabled|hide|restore|favorite|un
       `favorites` mutations today only work through the provider PATCH).
 - [ ] Catalog provenance: record an allowed independent source for every built-in provider entry
       and model list before the driver set is extended (`docs/api-v1-contract.md` "Scope").
+      The `qoder` entry and its models are recorded (`features/providers/qoder/types.rs`);
+      `opencode_zen` still needs its own record.
 - [ ] Model-registry warmup after the main listener starts (`warmModelRegistry` in Node).
 - [ ] Registry lifecycle on write: Node refreshes the live registry after connection
       create/delete; Rust writes rows but never rebuilds `ProviderRegistry`.
@@ -189,18 +197,27 @@ Nothing exists in Rust. Source of truth for the route list: `docs/api-v1-contrac
 "Retained route inventory" (rows 57-65) and `apps/api/src/routes/v1/auth.ts` (34 routes).
 
 - [ ] Privileged routes (admin session): `/v1/auth/cline/device` (GET), `/v1/auth/cline/poll`
-      (GET, POST), `/v1/auth/{openai,antigravity,claude,qoder}/login` (GET, supports
+      (GET, POST), `/v1/auth/{openai,antigravity,claude}/login` (GET, supports
       `client_id`, `redirect_uri`, `prompt`, `format=json`), `/v1/auth/{codebuddy,codebuddy-cn}/login`
       (GET) and `/poll` (GET, POST), and every `/token` route
       (`cline, openai, antigravity, commandcode, anthropic, atria, claude, tokenrouter, codebuddy,
 codebuddy-cn, qoder`) → validated token import, `201`.
-- [ ] Public routes: `/v1/auth/{openai,antigravity,claude,qoder}/callback` (GET, POST) reading
+- [x] `qoder` privileged routes: `GET /v1/auth/qoder/login` (supports `client_id`, `redirect_uri`,
+      `format=json`, otherwise redirects to the device URL) and `/v1/auth/qoder/poll` (GET, POST,
+      `state` from query or JSON body) in `features/provider_auth/qoder.rs`, mounted behind
+      `require_admin_session` (`server/tests/provider_auth.rs`).
+- [x] Public route: `/v1/auth/qoder/callback` (GET, POST) reading `code` and `state` from query,
+      JSON body, or `callback_url`; missing values → `400`.
+- [ ] Public routes: `/v1/auth/{openai,antigravity,claude}/callback` (GET, POST) reading
       `code` and `state` from query, JSON body, or `callback_url`; missing values → `400`.
+- [x] `qoder` `/token` import is deliberately deferred: the slice is OAuth only (plan decision,
+      web PAT tab returns `404` until it lands).
 - [ ] Callback URL selection: `SROUTER_PUBLIC_URL` switches callbacks to the main listener's
       `/v1/auth/.../callback`; local mode uses the OAuth listener; user-supplied non-local callback
       URLs pass through unchanged (`apps/api/src/utils/callbackUrl.ts`).
-- [ ] PKCE + state lifecycle: state creation, replay/expiry rejection, device-poll state read from
-      query or JSON body.
+- [~] PKCE + state lifecycle: state creation, replay/expiry rejection, device-poll state read from
+  query or JSON body. Done for `qoder` (`infrastructure/database/oauth_sessions.rs`: save,
+  claim, release, delete, 15-minute sweep); the other providers still need it.
 - [ ] Token refresh sweeper and scheduling (`apps/api/src/services/tokenRefresh.ts`), started only
       after database/provider state is ready, stopped on shutdown.
 - [ ] Env override `CLAUDE_OAUTH_CLIENT_ID`.
