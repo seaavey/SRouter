@@ -4,7 +4,7 @@
 
 **Goal:** Add a new built-in provider `qoder` to the Rust gateway (`server/`) — device-flow OAuth connect plus inference through Qoder's COSY-signed SSE endpoint — so `qd/<model>` resolves, streams, and returns OpenAI-compatible responses.
 
-**Architecture:** One new provider module (`features/providers/qoder/`) owning protocol constants, the COSY signer/codec, and the executor, wired into the existing `ProviderAdapter` enum exactly like `opencode`. One new route module (`features/provider_auth/`) serving the three contract routes `/v1/auth/qoder/{login,poll,callback}`. Credentials are read by the executor straight from the `providers` row at request time (the registry is static and is built before `AppState`, so adapters cannot take part in handler dependency injection). No new table: `oauth_sessions` and `providers.credentials` already exist (`server/migrations/0002_v2_schema.sql`; current `user_version` is 3).
+**Architecture:** One new provider module (`features/providers/qoder/`) owning protocol constants, the COSY signer/codec, and the executor, wired into the existing `ProviderAdapter` enum exactly like `opencode`. One new route module (`features/provider_auth/`) serving the three contract routes `/v1/auth/qoder/{login,poll,callback}`. Credentials are read by the executor straight from the `providers` row at request time (the registry is static and is built before `AppState`, so adapters cannot take part in handler dependency injection), while a TTL-refreshed model snapshot fetched from `model/list` lives inside the qoder adapter so the advertised list stays current without rebuilding the registry (Task 7). No new table: `oauth_sessions` and `providers.credentials` already exist (`server/migrations/0002_v2_schema.sql`; current `user_version` is 3).
 
 **Tech Stack:** Rust edition 2024 (stable), axum 0.8, sqlx 0.9 (SQLite), reqwest 0.13 (rustls), serde/serde_json, tokio 1. New crates this slice: `md-5` (COSY signature), `aes` + `cbc` (AES-128-CBC info encryption), `rsa` (PKCS#1 v1.5 `Cosy-Key` wrapping). `base64`, `sha2`, `uuid` (v4), `hex`, `getrandom` are already present.
 
@@ -114,7 +114,7 @@ Static seed for phase 1 (provenance: independent sources above, cross-checked fo
 | `kmodel`        | Kimi K2.7 (Qoder)         | frontier                 |
 | `mmodel`        | MiniMax M3 (Qoder)        | frontier                 |
 
-Friendly-name aliases resolve to keys: `qwen3.7-max→qmodel_latest`, `qwen3.7-plus→qmodel`, `deepseek-v4-pro→dmodel`, `deepseek-v4-flash→dfmodel`, `glm-5.2→gm51model`, `kimi-k2.7→kmodel`, `minimax-m3→mmodel`. Live catalog fetch (`model/list`) is a follow-up: it is authoritative and already reachable once the signer lands.
+Friendly-name aliases resolve to keys: `qwen3.7-max→qmodel_latest`, `qwen3.7-plus→qmodel`, `deepseek-v4-pro→dmodel`, `deepseek-v4-flash→dfmodel`, `glm-5.2→gm51model`, `kimi-k2.7→kmodel`, `minimax-m3→mmodel`. The live catalog (`model/list`, Task 7) is authoritative: a COSY-signed GET with an **empty body** (`Cosy-Bodylength: "0"`, `Cosy-Bodyhash = md5("")`, `Cosy-Sigpath: /api/v2/model/list`) returning plain JSON `{chat:[…]}` — not an SSE envelope — with the entry shape in the endpoint table above.
 
 ### Failure modes to handle
 
@@ -157,35 +157,37 @@ Relevant gateway contracts the executor must satisfy:
 - **D1 — Credential plumbing.** `ProviderRegistry::with_defaults()` becomes `with_defaults() == with_database(None)`, and `main.rs` builds the registry with `Some(database.clone())`. The `QoderExecutor` stores `Option<AppDatabase>` and loads its row per request (one `SELECT`, WAL-local; a cache would hide reconnects). No `OnceLock`, no new trait, no DI layer.
 - **D2 — Credential JSON shape.** The `credentials` column layout is not covered by `docs/api-database-contract.md` ("provider record layout is unknown") and its only writer lives in `packages/*`, which this plan may not read. Rust therefore defines its own layout — `{"access_token", "refresh_token", "token_expires_at", "last_refreshed_at", "provider_specific_data":{...}}` — and its reader accepts the camelCase aliases (`accessToken`, `refreshToken`, `expiresAt`) as a compatibility fallback. Reading rows written by a Node build beyond those two spellings is **not** claimed; it needs an explicit decision (see Review Focus).
 - **D3 — Registry shape.** Register the adapter statically at boot with keys `["qoder", "qd"]` and user-facing alias `qd` (so `/v1/models` lists `qd/<key>`), matching the alias the Node registry resolves `qd/ultimate` against. Consequence: `qd/*` models are advertised even with no connection, and a request without one fails with a clear `authentication_error` instead of `404`. Dynamic registration on connect is a follow-up (TODO §4 "Registry lifecycle on write").
-- **D4 — Model list.** Static seed from the analysis table; no network call at boot, no `refresh`/`force` behavior change (`registry.rs:94` already treats them as accepted-but-ignored).
+- **D4 — Model catalog.** The static seed from the analysis table is the initial value and the permanent fallback. Task 7 refreshes a live snapshot from `model/list` on a 5-minute TTL (boot, successful connect, `/v1/models`, pre-request), and `refresh=true`/`force=true` only zero that TTL check — the static registry itself still treats those params as accepted-but-ignored (`registry.rs:94`).
 - **D5 — Auth URLs are testable.** The auth module takes an endpoint struct with `Default` (`login_url`, `device_token_url`, `userinfo_url`) so the fake upstream can be injected; production defaults are the Global hosts.
 - **D6 — Scope of the OAuth listener.** Callbacks are mounted on the main listener under `/v1` only. The `:1455` listener (TODO §1.4) is a separate slice; `SROUTER_PUBLIC_URL` handling is not re-implemented here.
 
 ## File Structure
 
-| File                                                   | Responsibility                                                                                                         |
-| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
-| `server/Cargo.toml`                                    | modify — add `md-5`, `aes`, `cbc`, `rsa`                                                                               |
-| `server/src/features/providers/qoder/mod.rs`           | new — module wiring + `adapter()`, `adapter_with_base_url_and_db()` constructors                                       |
-| `server/src/features/providers/qoder/types.rs`         | new — endpoints, client constants, RSA key, model catalog + aliases, `QODER_PROVIDER` metadata, provenance doc comment |
-| `server/src/features/providers/qoder/cosy.rs`          | new — body encode/decode primitives, AES/RSA/MD5 header signer (pure functions)                                        |
-| `server/src/features/providers/qoder/executor.rs`      | new — request build, signed POST/GET, envelope→OpenAI translation, non-stream aggregation                              |
-| `server/src/features/providers/qoder/tests.rs`         | new — unit tests for codec, signer inputs, request body, envelope translation                                          |
-| `server/src/features/providers/mod.rs`                 | modify — `pub mod qoder;` + re-exports                                                                                 |
-| `server/src/features/providers/adapter.rs`             | modify — `ProviderAdapter::Qoder` variant + delegating `id/keys/alias/models/chat_completion/chat_completion_stream`   |
-| `server/src/features/providers/registry.rs`            | modify — register qoder in `with_defaults()`; `with_database(...)` constructor                                         |
-| `server/src/features/provider_auth/mod.rs`             | new — router export (`create_qoder_auth_router`)                                                                       |
-| `server/src/features/provider_auth/qoder.rs`           | new — login / poll / callback handlers + session lifecycle                                                             |
-| `server/src/infrastructure/database/oauth_sessions.rs` | new — save / claim / release / delete / cleanup-expired                                                                |
-| `server/src/infrastructure/database/providers.rs`      | modify — `upsert_qoder_connection`, `load_qoder_credentials`                                                           |
-| `server/src/infrastructure/database/mod.rs`            | modify — register `pub mod oauth_sessions;`                                                                            |
-| `server/src/constants.rs`                              | modify — `providers::qoder::*` message catalog                                                                         |
-| `server/src/app.rs`                                    | modify — mount `create_qoder_auth_router()` (admin-session layered except `callback`)                                  |
-| `server/src/main.rs`                                   | modify — build the registry with the live database                                                                     |
-| `server/tests/support/mod.rs`                          | modify — `FakeQoderUpstream` (chat + model list + device poll + userinfo, fragmented SSE mode) and a registry helper   |
-| `server/tests/provider_auth.rs`                        | new — login / poll / callback HTTP tests                                                                               |
-| `server/tests/qoder_provider.rs`                       | new — signed request shape, stream translation, non-stream aggregation, no-connection error                            |
-| `server/TODO.md`                                       | modify — tick the Qoder rows of §5, add §4 provenance note                                                             |
+| File                                                   | Responsibility                                                                                                                                                           |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `server/Cargo.toml`                                    | modify — add `md-5`, `aes`, `cbc`, `rsa`                                                                                                                                 |
+| `server/src/features/providers/qoder/mod.rs`           | new — module wiring + `adapter()`, `adapter_with_base_url_and_db()` constructors                                                                                         |
+| `server/src/features/providers/qoder/types.rs`         | new — endpoints, client constants, RSA key, model catalog + aliases, `QODER_PROVIDER` metadata, provenance doc comment                                                   |
+| `server/src/features/providers/qoder/cosy.rs`          | new — body encode/decode primitives, AES/RSA/MD5 header signer (pure functions)                                                                                          |
+| `server/src/features/providers/qoder/executor.rs`      | new — request build, signed POST/GET, envelope→OpenAI translation, non-stream aggregation                                                                                |
+| `server/src/features/providers/qoder/catalog.rs`       | new — `QoderCatalog` snapshot, `ModelConfig`, `parse_chat_list`, seed fallback, TTL refresh helpers                                                                      |
+| `server/src/features/providers/qoder/tests.rs`         | new — unit tests for codec, signer inputs, request body, envelope translation                                                                                            |
+| `server/src/features/providers/mod.rs`                 | modify — `pub mod qoder;` + re-exports                                                                                                                                   |
+| `server/src/features/providers/adapter.rs`             | modify — `ProviderAdapter::Qoder` variant + delegating `id/keys/alias/models/chat_completion/chat_completion_stream`; `models()` returns `Vec<ModelDefinition>` (Task 7) |
+| `server/src/features/providers/registry.rs`            | modify — register qoder in `with_defaults()`; `with_database(...)` constructor                                                                                           |
+| `server/src/features/provider_auth/mod.rs`             | new — router export (`create_qoder_auth_router`)                                                                                                                         |
+| `server/src/features/provider_auth/qoder.rs`           | new — login / poll / callback handlers + session lifecycle                                                                                                               |
+| `server/src/infrastructure/database/oauth_sessions.rs` | new — save / claim / release / delete / cleanup-expired                                                                                                                  |
+| `server/src/infrastructure/database/providers.rs`      | modify — `upsert_qoder_connection`, `load_qoder_credentials`                                                                                                             |
+| `server/src/infrastructure/database/mod.rs`            | modify — register `pub mod oauth_sessions;`                                                                                                                              |
+| `server/src/constants.rs`                              | modify — `providers::qoder::*` message catalog                                                                                                                           |
+| `server/src/app.rs`                                    | modify — mount `create_qoder_auth_router()` (admin-session layered except `callback`)                                                                                    |
+| `server/src/main.rs`                                   | modify — build the registry with the live database                                                                                                                       |
+| `server/tests/support/mod.rs`                          | modify — `FakeQoderUpstream` (chat + model list + device poll + userinfo, fragmented SSE mode) and a registry helper                                                     |
+| `server/tests/provider_auth.rs`                        | new — login / poll / callback HTTP tests                                                                                                                                 |
+| `server/tests/qoder_provider.rs`                       | new — signed request shape, stream translation, non-stream aggregation, no-connection error                                                                              |
+| `server/tests/models.rs`                               | modify — dynamic catalog refresh (`model/list`) assertions, TTL no-op, seed fallback                                                                                     |
+| `server/TODO.md`                                       | modify — tick the Qoder rows of §5, add §4 provenance note                                                                                                               |
 
 ---
 
@@ -241,11 +243,26 @@ Relevant gateway contracts the executor must satisfy:
 - [ ] Tests in `server/tests/qoder_provider.rs` using `FakeQoderUpstream` with a **fragmented** SSE writer (frame split mid-`data:`): stream test asserts every chunk arrives, the last byte is `[DONE]`, and tool-call fragments reassemble; non-stream test asserts the aggregated message, `finish_reason`, and usage; error-envelope test asserts an in-stream `error` event; no-connection test asserts `401` + message; `/v1/messages` smoke test asserts Anthropic events are produced from a Qoder stream.
 - [ ] Verify: `cargo test --manifest-path server/Cargo.toml --test qoder_provider`, then `--test chat_completions`, `--test messages`, `--test models`, `--test providers` (regressions from the registry change).
 
-### Task 7: contract notes, backlog sync, quality gates
+### Task 7: dynamic model catalog (`model/list`)
+
+Depends on Task 2 (signer) and Task 5 (executor + credentials); independent of Task 6.
+
+- [ ] Widen the adapter surface so a catalog can change at runtime: `ProviderAdapter::models()` and both impls return `Vec<ModelDefinition>` instead of `&'static [ModelDefinition]` (the OpenCode adapter returns its static slice as a `Vec`); update `registry.rs:86,111` and the two slice-equality asserts in `opencode/tests.rs`.
+- [ ] New `qoder/catalog.rs`: `QoderCatalog { fetched_at_ms, models: Vec<ModelDefinition>, configs: BTreeMap<String, ModelConfig> }` plus `ModelConfig { key, is_reasoning, max_output_tokens, source, is_vl }` and `QoderCatalog::seed()` built from `QODER_MODELS`.
+- [ ] `parse_chat_list(&Value) -> QoderCatalog`: skip entries with an empty `key` or `enable != true`; `name = display_name` (fallback `key`); context = `max_input_tokens`, else the largest `context_config.*.token_count`, else `180000`; max output = `max_output_tokens` (default `32768`); `is_reasoning = is_reasoning || thinking_config.is_some()`; `source = "system"` unless the entry carries another; sort by `key` so repeated fetches compare equal.
+- [ ] Hold the snapshot in `QoderExecutor` as `Arc<RwLock<QoderCatalog>>` seeded from `QoderCatalog::seed()`; `models()` is `snapshot.models.clone()`, so the advertised list is the seed until the first successful fetch.
+- [ ] `refresh_catalog()`: COSY-signed `GET {base}/algo/api/v2/model/list` with an **empty body** (`Cosy-Bodylength: "0"`, `Cosy-Bodyhash = md5("")`, `Cosy-Sigpath: /api/v2/model/list`, `Accept: application/json`, `Accept-Encoding: identity`), parse `chat[]`, write the snapshot. On any failure — transport, non-2xx, malformed JSON, missing `chat` — keep the previous snapshot and return `Err`; **a catalog is never emptied**.
+- [ ] `maybe_refresh(ttl)`: no-op when `fetched_at_ms` is fresher than the TTL (5 minutes) or no credentials exist; otherwise `tokio::spawn` the refresh and return immediately (fire-and-forget — no request ever waits on the network).
+- [ ] Trigger points: `main.rs` right after the registry is built (spawn, drop the handle), `provider_auth/qoder.rs` immediately after a successful poll (the first fetch after connect), `gateway/models.rs::list_models` before reading the registry (this is where `refresh=true`/`force=true` zeroes the TTL check), and `executor.rs` before an upstream call.
+- [ ] `build_request` prefers the snapshot's `ModelConfig` when filling `model_config` (`key`, `is_reasoning`, `max_output_tokens`, `source`) and falls back to the static table for a key the catalog does not know (alias resolution happens first, so `qd/qwen3.7-max` → `qmodel`).
+- [ ] Tests (`server/tests/models.rs` and `qoder_provider.rs` against the fake upstream's `model/list` route): a refresh replaces the seed with the fetched keys under the `qd/` prefix; `enable: false` and keyless entries are dropped; a failing or `chat`-less response leaves the seed intact; the GET carries `Cosy-Bodylength: "0"` and `Cosy-Sigpath: /api/v2/model/list`; `build_request` picks up `is_reasoning` from the snapshot; a second read inside the TTL issues no second upstream GET.
+- [ ] Verify: `cargo test --manifest-path server/Cargo.toml --test models`, then `--test qoder_provider`.
+
+### Task 8: contract notes, backlog sync, quality gates
 
 - [ ] `server/TODO.md` §5: tick the `qoder` login/callback rows and the "PKCE + state lifecycle" row (Qoder scope), annotate that `/v1/auth/qoder/token` and PAT flows are deliberately deferred; §4: add the provenance note pointing at `qoder/types.rs`.
 - [ ] Document deviations where the repo expects them: `docs/api-v1-contract.md` "Scope" is _not_ edited in this slice (server-only constraint); instead the deviations are recorded in `server/TODO.md` next to the ticked rows — if a contract edit is wanted, it is a follow-up decision.
-- [ ] Run: `cargo fmt --manifest-path server/Cargo.toml -- --check`, `cargo clippy --manifest-path server/Cargo.toml --all-targets --all-features -- -D warnings`, and the four focused test files one at a time.
+- [ ] Run: `cargo fmt --manifest-path server/Cargo.toml -- --check`, `cargo clippy --manifest-path server/Cargo.toml --all-targets --all-features -- -D warnings`, and the focused test files one at a time: `--lib qoder`, `--test provider_auth`, `--test qoder_provider`, `--test models`.
 - [ ] `git diff --check`; commit as `feat(server): add Qoder provider with device-flow OAuth`.
 
 ## Review Focus
@@ -257,6 +274,7 @@ Relevant gateway contracts the executor must satisfy:
 5. **Schema freeze.** `V3_TABLES.len() == 10` must still hold; no migration touched.
 6. **D2 blast radius.** If a real Node-written credential row must be readable, stop and request a decision instead of guessing more key spellings.
 7. **Static advertisement.** Confirm `qd/*` models showing up before any connection is acceptable (D3), or move to registry lifecycle work first.
+8. **Catalog safety.** A failed or malformed `model/list` response must never empty the advertised list — the adapter keeps its previous snapshot, and a fetch-less build still serves the seed (Task 7).
 
 ## Verification
 
@@ -264,6 +282,7 @@ Relevant gateway contracts the executor must satisfy:
 cd server
 cargo test --manifest-path server/Cargo.toml --test provider_auth
 cargo test --manifest-path server/Cargo.toml --test qoder_provider
+cargo test --manifest-path server/Cargo.toml --test models
 cargo test --manifest-path server/Cargo.toml --lib qoder
 cargo fmt --manifest-path server/Cargo.toml -- --check
 cargo clippy --manifest-path server/Cargo.toml --all-targets --all-features -- -D warnings
@@ -276,7 +295,6 @@ Optional live smoke (network, ignored by default, needs a real connected account
 ## Follow-up (do not start without being asked)
 
 - `/v1/auth/qoder/token` PAT import + the web's PAT/bulk-PAT tabs (contract rows 61).
-- Dynamic model catalog: COSY-signed `GET /algo/api/v2/model/list` with a TTL cache and registry refresh (TODO §4 "Registry lifecycle on write").
 - Quota/usage: `GET /api/v2/quota/usage` behind `/v1/quota`.
 - China/VPC hosts and `jobToken/exchange` + `jobToken/refresh` PAT lifecycle.
 - The `:1455` OAuth listener and `SROUTER_PUBLIC_URL` callback selection (TODO §1.4).
