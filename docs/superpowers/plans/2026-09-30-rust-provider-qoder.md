@@ -97,7 +97,10 @@ event: finish
 
 ### Model catalog
 
-Static seed for phase 1 (provenance: independent sources above, cross-checked for drift against the Node catalog):
+Keys observed at analysis time (provenance: independent sources above, cross-checked for drift
+against the Node catalog). Phase 1 shipped this as a static seed. The seed is gone: the server
+advertises only what `model/list` returned, and these keys survive as a fixture in the
+`qoder/types.rs` alias tests:
 
 | id              | name                      | kind                     |
 | --------------- | ------------------------- | ------------------------ |
@@ -158,8 +161,8 @@ Relevant gateway contracts the executor must satisfy:
 
 - **D1: Credential plumbing.** `ProviderRegistry::with_defaults()` becomes `with_defaults() == with_database(None)`, and `main.rs` builds the registry with `Some(database.clone())`. The `QoderExecutor` stores `Option<AppDatabase>` and loads its row per request (one `SELECT`, WAL-local; a cache would hide reconnects). No `OnceLock`, no new trait, no DI layer.
 - **D2: Credential JSON shape.** The `credentials` column layout is not covered by `docs/api-database-contract.md` ("provider record layout is unknown") and its only writer lives in `packages/*`, which this plan may not read. Rust therefore defines its own layout, `{"access_token", "refresh_token", "token_expires_at", "last_refreshed_at", "provider_specific_data":{...}}`, and its reader accepts the camelCase aliases (`accessToken`, `refreshToken`, `expiresAt`) as a compatibility fallback. Reading rows written by a Node build beyond those two spellings is **not** claimed; it needs an explicit decision (see Review Focus).
-- **D3: Registry shape.** Register the adapter statically at boot with keys `["qoder", "qd"]` and user-facing alias `qd` (so `/v1/models` lists `qd/<key>`), matching the alias the Node registry resolves `qd/ultimate` against. Consequence: `qd/*` models are advertised even with no connection, and a request without one fails with a clear `authentication_error` instead of `404`. Dynamic registration on connect is a follow-up (TODO §4 "Registry lifecycle on write").
-- **D4: Model catalog.** The static seed from the analysis table is the initial value and the permanent fallback. Task 7 refreshes a live snapshot from `model/list` on a 5-minute TTL (boot, successful connect, `/v1/models`, pre-request), and `refresh=true`/`force=true` only zero that TTL check; the static registry itself still treats those params as accepted-but-ignored (`registry.rs:94`).
+- **D3: Registry shape.** Register the adapter statically at boot with keys `["qoder", "qd"]` and user-facing alias `qd` (so `/v1/models` lists `qd/<key>`), matching the alias the Node registry resolves `qd/ultimate` against. Consequence: a `qd/<key>` request resolves on the prefix alone, with no catalog entry needed, so it fails with a clear `authentication_error` when no connection is stored instead of a `404` that hides the real cause. Dynamic registration on connect is a follow-up (TODO §4 "Registry lifecycle on write").
+- **D4: Model catalog.** Amended 2026-09-30, this supersedes the seeded fallback. Nothing is seeded: `QoderCatalog` starts empty and only a successful `model/list` fetch puts a `qd/*` model in `/v1/models`, so an instance without a Qoder connection advertises none. Task 7 refreshes on a 5-minute TTL (boot, successful connect, `/v1/models`, pre-request). A caller whose snapshot is still empty waits for the fetch, coalesced one at a time behind a mutex with a 10 s request cap, because there is otherwise nothing to hand back; once the snapshot holds models the refresh runs in the background and no request pays for it. A failed fetch never empties a snapshot that already landed, and an unfilled one retries no sooner than 30 s. `refresh=true`/`force=true` and a `Cache-Control: no-cache` revalidation break through both the TTL and the retry window, and a successful connect forces one fetch before the operator reads the list. `resolve_model_key` keeps the friendly-name alias table, and a key the catalog does not know still chats on the default request settings (`is_reasoning: false`, `max_output_tokens: 32768`, `source: "system"`) rather than being refused as unknown. This is a deliberate deviation from Node, which advertises its static list whether or not a connection exists.
 - **D5: Auth URLs are testable.** The auth module takes an endpoint struct with `Default` (`login_url`, `device_token_url`, `userinfo_url`) so the fake upstream can be injected; production defaults are the Global hosts.
 - **D6: Scope of the OAuth listener.** Callbacks are mounted on the main listener under `/v1` only. The `:1455` listener (TODO §1.4) is a separate slice; `SROUTER_PUBLIC_URL` handling is not re-implemented here.
 
@@ -169,10 +172,10 @@ Relevant gateway contracts the executor must satisfy:
 | ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `server/Cargo.toml`                                    | modify: add `md-5`, `aes`, `cbc`, `rsa`                                                                                                                                 |
 | `server/src/features/providers/qoder/mod.rs`           | new: module wiring + `adapter()`, `adapter_with_base_url_and_db()` constructors                                                                                         |
-| `server/src/features/providers/qoder/types.rs`         | new: endpoints, client constants, RSA key, model catalog + aliases, `QODER_PROVIDER` metadata, provenance doc comment                                                   |
+| `server/src/features/providers/qoder/types.rs`         | new: endpoints, client constants, RSA key, model aliases, `QODER_PROVIDER` metadata, provenance doc comment                                                             |
 | `server/src/features/providers/qoder/cosy.rs`          | new: body encode/decode primitives, AES/RSA/MD5 header signer (pure functions)                                                                                          |
 | `server/src/features/providers/qoder/executor.rs`      | new: request build, signed POST/GET, envelope→OpenAI translation, non-stream aggregation                                                                                |
-| `server/src/features/providers/qoder/catalog.rs`       | new: `QoderCatalog` snapshot, `ModelConfig`, `parse_chat_list`, seed fallback, TTL refresh helpers                                                                      |
+| `server/src/features/providers/qoder/catalog.rs`       | new: `QoderCatalog` snapshot, `ModelConfig`, `parse_chat_list`, TTL and retry-window refresh helpers                                                                    |
 | `server/src/features/providers/qoder/tests.rs`         | new: unit tests for codec, signer inputs, request body, envelope translation                                                                                            |
 | `server/src/features/providers/mod.rs`                 | modify: `pub mod qoder;` + re-exports                                                                                                                                   |
 | `server/src/features/providers/adapter.rs`             | modify: `ProviderAdapter::Qoder` variant + delegating `id/keys/alias/models/chat_completion/chat_completion_stream`; `models()` returns `Vec<ModelDefinition>` (Task 7) |
@@ -188,14 +191,14 @@ Relevant gateway contracts the executor must satisfy:
 | `server/tests/support/mod.rs`                          | modify: `FakeQoderUpstream` (chat + model list + device poll + userinfo, fragmented SSE mode) and a registry helper                                                     |
 | `server/tests/provider_auth.rs`                        | new: login / poll / callback HTTP tests                                                                                                                                 |
 | `server/tests/qoder_provider.rs`                       | new: signed request shape, stream translation, non-stream aggregation, no-connection error                                                                              |
-| `server/tests/models.rs`                               | modify: dynamic catalog refresh (`model/list`) assertions, TTL no-op, seed fallback                                                                                     |
+| `server/tests/models.rs`                               | modify: dynamic catalog refresh (`model/list`) assertions, TTL no-op, live-only counts                                                                                  |
 | `server/TODO.md`                                       | modify: tick the Qoder rows of §5, add §4 provenance note                                                                                                               |
 
 ---
 
 ### Task 1: module skeleton, catalog, and registry wiring
 
-- [ ] `server/src/features/providers/qoder/types.rs`: endpoints, static client constants, RSA PEM, `QODER_MODELS: &[ModelDefinition]`, alias map, `QODER_PROVIDER: ProviderMetadata { id: "qoder", name: "Qoder", category: "oauth", protocol: "openai", base_url, web_url: "https://qoder.com", requires_api_key: false, requires_oauth: true, supports_custom_url: false, status_message }`, plus a module doc comment of one plain line per provenance source (the five sources above, no narrative, no history).
+- [ ] `server/src/features/providers/qoder/types.rs`: endpoints, static client constants, RSA PEM, alias map, `QODER_PROVIDER: ProviderMetadata { id: "qoder", name: "Qoder", category: "oauth", protocol: "openai", base_url, web_url: "https://qoder.com", requires_api_key: false, requires_oauth: true, supports_custom_url: false, status_message }`, plus a module doc comment of one plain line per provenance source (the five sources above, no narrative, no history).
 - [ ] `mod.rs` exporting `QODER_*` constants and placeholder `adapter()`/`adapter_with_base_url_and_db()` constructors (executor body lands in Task 5).
 - [ ] Add `ProviderAdapter::Qoder(QoderExecutor)` and its seven delegating methods in `adapter.rs`.
 - [ ] `registry.rs`: `with_defaults()` → `with_database(None)`; register `qoder::adapter()?` next to `opencode::adapter()?`.
@@ -250,15 +253,15 @@ Relevant gateway contracts the executor must satisfy:
 Depends on Task 2 (signer) and Task 5 (executor + credentials); independent of Task 6.
 
 - [x] Widen the adapter surface so a catalog can change at runtime: `ProviderAdapter::models()` and both impls return `Vec<String>` (model ids) instead of `&'static [ModelDefinition]`; only ids are advertised anywhere today, and a live catalog cannot hand out `&'static str` without leaking. Update `registry.rs` and the two slice-equality asserts in `opencode/tests.rs`.
-- [x] New `qoder/catalog.rs`: `QoderCatalog { fetched_at_ms, models: Vec<String>, configs: BTreeMap<String, ModelConfig> }` plus `ModelConfig { key, is_reasoning, max_output_tokens, source }` and `QoderCatalog::seed()` built from `QODER_MODELS`. `is_vl` and the context window are not parsed: no response field carries them, and an unread field is dead code.
+- [x] New `qoder/catalog.rs`: `QoderCatalog { fetched_at_ms, attempted_at_ms, models: Vec<String>, configs: BTreeMap<String, ModelConfig> }` plus `ModelConfig { key, is_reasoning, max_output_tokens, source }`. Amended 2026-09-30: the snapshot starts from `QoderCatalog::empty()`, and the `seed()` built from `QODER_MODELS` is deleted. `is_vl` and the context window are not parsed: no response field carries them, and an unread field is dead code.
 - [x] `parse_chat_list(&Value) -> Option<QoderCatalog>`: skip entries with an empty `key` or `enable != true`; max output = `max_output_tokens` (default `32768`); `is_reasoning = is_reasoning || thinking_config.is_some()`; `source = "system"` unless the entry carries another; configs land in a `BTreeMap`, so the advertised list is sorted and repeated fetches compare equal. A response without a usable entry yields `None`, which keeps the current snapshot.
-- [ ] Hold the snapshot in `QoderExecutor` as `Arc<RwLock<QoderCatalog>>` seeded from `QoderCatalog::seed()`; `models()` is `snapshot.models.clone()`, so the advertised list is the seed until the first successful fetch.
-- [ ] `refresh_catalog()`: COSY-signed `GET {base}/algo/api/v2/model/list` with an **empty body** (`Cosy-Bodylength: "0"`, `Cosy-Bodyhash = md5("")`, `Cosy-Sigpath: /api/v2/model/list`, `Accept: application/json`, `Accept-Encoding: identity`), parse `chat[]`, write the snapshot. On any failure (transport error, non-2xx, malformed JSON, missing `chat`), keep the previous snapshot and return `Err`; **a catalog is never emptied**.
-- [ ] `maybe_refresh(ttl)`: no-op when `fetched_at_ms` is fresher than the TTL (5 minutes) or no credentials exist; otherwise `tokio::spawn` the refresh and return immediately (fire-and-forget, no request ever waits on the network).
-- [ ] Trigger points: `main.rs` right after the registry is built (spawn, drop the handle), `provider_auth/qoder.rs` immediately after a successful poll (the first fetch after connect), `gateway/models.rs::list_models` before reading the registry (this is where `refresh=true`/`force=true` zeroes the TTL check), and `executor.rs` before an upstream call.
-- [ ] `build_request` prefers the snapshot's `ModelConfig` when filling `model_config` (`key`, `is_reasoning`, `max_output_tokens`, `source`) and falls back to the static table for a key the catalog does not know (alias resolution happens first, so `qd/qwen3.7-max` → `qmodel`).
-- [ ] Tests (`server/tests/models.rs` and `qoder_provider.rs` against the fake upstream's `model/list` route): a refresh replaces the seed with the fetched keys under the `qd/` prefix; `enable: false` and keyless entries are dropped; a failing or `chat`-less response leaves the seed intact; the GET carries `Cosy-Bodylength: "0"` and `Cosy-Sigpath: /api/v2/model/list`; `build_request` picks up `is_reasoning` from the snapshot; a second read inside the TTL issues no second upstream GET.
-- [ ] Verify: `cargo test --manifest-path server/Cargo.toml --test models`, then `--test qoder_provider`.
+- [x] Hold the snapshot in `QoderExecutor` as `Arc<RwLock<QoderCatalog>>` starting from `QoderCatalog::shared_empty()`; `models()` is `snapshot.models.clone()`, so nothing is advertised before the first successful fetch.
+- [x] `refresh_catalog()`: COSY-signed `GET {base}/algo/api/v2/model/list` with an **empty body** (`Cosy-Bodylength: "0"`, `Cosy-Bodyhash = md5("")`, `Cosy-Sigpath: /api/v2/model/list`, `Accept: application/json`, `Accept-Encoding: identity`), parse `chat[]`, write the snapshot. On any failure (transport error, non-2xx, malformed JSON, missing `chat`), keep the previous snapshot and return `Err`; **a catalog is never emptied**.
+- [x] `maybe_refresh(force)`: an empty snapshot makes the caller wait for the fetch, because there is nothing else to hand back. Waiters queue behind one `Arc<tokio::sync::Mutex>` and the double check inside it, so a burst of first requests starts exactly one GET; the GET is capped at 10 s (`CATALOG_REQUEST_TIMEOUT`, chat inherits 120 s) and an unfilled snapshot retries no sooner than 30 s (`CATALOG_RETRY_MS`). Once the snapshot holds models the refresh is spawned in the background and no request pays for it.
+- [x] Trigger points: `main.rs` right after the registry is built (spawned off the boot path, sharing the executor's catalog), `provider_auth/qoder.rs` immediately after a successful connect (forced, so the operator reads a live list on the next request), `gateway/models.rs::list_models` and `get_model` before reading the registry (this is where `refresh=true`/`force=true` and a `Cache-Control: no-cache` revalidation force it), and `executor.rs` before an upstream call.
+- [x] `build_request` prefers the snapshot's `ModelConfig` when filling `model_config` (`key`, `is_reasoning`, `max_output_tokens`, `source`) and falls back to the default settings for a key the catalog does not know (alias resolution happens first, so `qd/qwen3.7-max` → `qmodel`).
+- [x] Tests (`server/tests/models.rs` and `qoder_provider.rs` against the fake upstream's `model/list` route): nothing is advertised before a fetch lands and the opencode list still is, so the claim cannot pass on an empty catalog; a refresh replaces the empty snapshot with the fetched keys under the `qd/` prefix; `enable: false` and keyless entries are dropped; a failing or `chat`-less response leaves the last good snapshot intact; the GET carries `Cosy-Bodylength: "0"` and `Cosy-Sigpath: /api/v2/model/list`; a chat on an empty snapshot fetches first and then uses the real `is_reasoning` and `max_output_tokens`; an unknown key still chats on the default settings; eight concurrent `/v1/models` reads share one GET; disabling a provider hides its models on a registry whose catalog is live.
+- [x] Verify: `cargo test --manifest-path server/Cargo.toml --test models`, then `--test qoder_provider`.
 
 ### Task 8: contract notes, backlog sync, quality gates
 
@@ -275,8 +278,8 @@ Depends on Task 2 (signer) and Task 5 (executor + credentials); independent of T
 4. **`[DONE]` termination.** The gateway does not append it; if the executor forgets it, clients hang after the last chunk.
 5. **Schema freeze.** `V3_TABLES.len() == 10` must still hold; no migration touched.
 6. **D2 blast radius.** If a real Node-written credential row must be readable, stop and request a decision instead of guessing more key spellings.
-7. **Static advertisement.** Confirm `qd/*` models showing up before any connection is acceptable (D3), or move to registry lifecycle work first.
-8. **Catalog safety.** A failed or malformed `model/list` response must never empty the advertised list: the adapter keeps its previous snapshot, and a fetch-less build still serves the seed (Task 7).
+7. **Static advertisement.** Resolved 2026-09-30: the operator rejected it. A `qd/*` id reaches `/v1/models` only after `model/list` confirmed the key, while the prefix still resolves a request with no catalog entry, so `qd/<anything>` gets a clear `authentication_error` rather than a `404` (D3, D4).
+8. **Catalog safety.** A failed or malformed `model/list` response must never empty the advertised list: the adapter keeps its previous snapshot, and a build that has never fetched advertises no `qd` model at all (Task 7).
 
 ## Verification
 
@@ -301,11 +304,18 @@ Optional live smoke (network, ignored by default, needs a real connected account
 1. `ProviderAdapter::models()` returns `Vec<String>` (ids), not `Vec<ModelDefinition>`. Nothing in the Rust build reads `ModelDefinition.name`, and a live catalog cannot produce `&'static str` without leaking; names would have been dead data.
 2. Unit tests live inline in each module (`#[cfg(test)] mod tests` in `types.rs`, `cosy.rs`, `catalog.rs`, `executor.rs`, `provider_auth/qoder.rs`) instead of one `qoder/tests.rs`, so they can reach private helpers.
 3. `model/list` entries do not fill `is_vl` or the context window: no response field carries them.
-4. The seed catalog now holds two drivers (`opencode_zen`, `qoder`) behind a `SEED_PROVIDERS` slice. `/v1/providers`, `/v1/providers/catalog`, the detail route, and `PATCH /providers/{id}` all iterate it, because the Providers page cannot reach a connect button for a driver the catalog does not serve. Count assertions moved with it: `server/tests/providers.rs` 1 -> 2 seeded entries, `server/tests/models.rs` 6 -> 18 models and 7 -> 19 after re-enabling. The Qwen 3.8 seed rows raised both again: 14 qoder models, so 20 hidden-filtered and 21 after re-enabling.
+4. The `SEED_PROVIDERS` slice holds two drivers (`opencode_zen`, `qoder`) as provider _metadata_.
+   `/v1/providers`, `/v1/providers/catalog`, the detail route, and `PATCH /providers/{id}` all
+   iterate it, because the Providers page cannot reach a connect button for a driver the catalog
+   does not serve. It carries no model list: `/v1/models` counts are the opencode seven plus
+   whatever `qd/*` keys upstream has returned, so `server/tests/models.rs` counts against
+   `OPENCODE_ZEN_MODELS` and the fake upstream's `FAKE_QODER_KEYS` instead of literals.
+   `server/tests/providers.rs` counts 2 seeded entries.
 5. Live verification against the real Qoder upstream (device flow + inference, 2026-09-30): `qd/auto`, `qd/qwen3.8-flash`, `qd/qfmodel`, `qd/qmodel_38max`, `qd/qwen3.7-max`, and `/v1/messages` all answered; streaming ended with `data: [DONE]`; tool calls came back as `finish_reason: "tool_calls"`; the live catalog replaced the 14-model seed with 15 upstream keys. Hermes Agent v0.21.5 then ran two tool-calling turns through the gateway on `qd/qwen3.8-flash` and `qd/qfmodel`.
 6. `login` and `poll` carry `require_admin_session` at mount time and `callback` is public, which is contract rows 59-60.
 7. `machine_id_for(&AppDatabase)` is shared by the executor and the login route, so the browser challenge and the signed requests present the same machine.
 8. New dependencies: `md-5`, `aes`, `cbc` (feature `alloc`), `rsa` (feature `pem`), and `url` (already in `Cargo.lock` through reqwest).
+9. The Qoder model seed was deleted on the operator's explicit request (2026-09-30), so `QoderCatalog` starts empty and a `qd/*` id reaches `/v1/models` only after a successful `model/list`. Node still advertises its static list whether or not a connection exists: a deliberate divergence, recorded in D4. The alias table in `qoder/types.rs` is the only model data left in the build, and the analysis table above is now a test fixture rather than an advertisement.
 
 ## Follow-up (do not start without being asked)
 
@@ -313,4 +323,4 @@ Optional live smoke (network, ignored by default, needs a real connected account
 - Quota/usage: `GET /api/v2/quota/usage` behind `/v1/quota`.
 - China/VPC hosts and `jobToken/exchange` + `jobToken/refresh` PAT lifecycle.
 - The `:1455` OAuth listener and `SROUTER_PUBLIC_URL` callback selection (TODO §1.4).
-- Registry rebuild on connect/disconnect so `qd/*` is advertised only while connected.
+- Connection lifecycle past a fetch: a disconnect or an expired token leaves the last fetched `qd/*` list standing, because a failed refresh never empties a snapshot that landed. Only a rebuild on write would clear it sooner.

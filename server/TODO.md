@@ -170,9 +170,10 @@ Everything below is still Node-only.
 - [ ] `PATCH /v1/providers/{providerId}/round-robin` — `enabled` flag.
       (`apps/api/tests/round-robin-endpoint.test.ts`.)
 - [x] Second driver registered: `qoder` (`features/providers/qoder/`), COSY-signed chat with the
-      envelope-to-OpenAI translation, a static 12-model seed under the `qd` alias, and the live
-      catalog from `model/list` on a 5-minute TTL. Independent provenance for every constant and
-      model is recorded in the `qoder/types.rs` module doc; protocol analysis and decisions live in
+      envelope-to-OpenAI translation, and a model list that exists only after `model/list` has
+      answered, on a 5-minute TTL. Nothing is seeded: a build without a Qoder connection advertises
+      no `qd` model. Independent provenance for every constant is recorded in the `qoder/types.rs`
+      module doc; protocol analysis and decisions live in
       `docs/superpowers/plans/2026-09-30-rust-provider-qoder.md`.
 - [ ] Round-robin/selection policy in the registry itself, if the driver set grows past one.
 - [ ] `GET /v1/providers/{providerId}/hidden-models` — Node returns `{models:[...]}`. Rust folded
@@ -183,11 +184,14 @@ Everything below is still Node-only.
       `favorites` mutations today only work through the provider PATCH).
 - [ ] Catalog provenance: record an allowed independent source for every built-in provider entry
       and model list before the driver set is extended (`docs/api-v1-contract.md` "Scope").
-      The `qoder` entry and its models are recorded (`features/providers/qoder/types.rs`);
+      The `qoder` entry is recorded, and its models are no longer a list to record: they are read
+      from upstream, and `features/providers/qoder/types.rs` keeps only the alias table;
       `opencode_zen` still needs its own record.
-- [ ] Model-registry warmup after the main listener starts (`warmModelRegistry` in Node).
+- [ ] Model-registry warmup after the main listener starts (`warmModelRegistry` in Node). The live
+      `qoder` catalog is already warmed at boot (`server/src/main.rs`); a DB-driven provider is not.
 - [ ] Registry lifecycle on write: Node refreshes the live registry after connection
-      create/delete; Rust writes rows but never rebuilds `ProviderRegistry`.
+      create/delete; Rust writes rows but never rebuilds `ProviderRegistry`. `qoder` needs no
+      rebuild: the device-flow connection force-refreshes the catalog in place.
 
 ---
 
