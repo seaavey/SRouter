@@ -1,7 +1,8 @@
 //! OpenAI-compatible model catalog: `GET /v1/models` and
-//! `GET /v1/models/{*model}`. The registry is static, so the Node `refresh`
-//! and `force` query params plus `Cache-Control: no-cache` revalidation are
-//! accepted but intentionally no-ops.
+//! `GET /v1/models/{*model}`. The `refresh` and `force` query params plus a
+//! `Cache-Control: no-cache` revalidation all ask for a catalog fetch; a route
+//! whose list is read from upstream waits for that fetch only while it still has
+//! no models to serve.
 
 use std::collections::HashSet;
 
@@ -114,10 +115,12 @@ pub async fn list_models(
     headers: HeaderMap,
 ) -> Result<Response, APIError> {
     // `refresh`/`force` and a cache revalidation both mean "answer from a
-    // freshly fetched catalog", so they only shorten the TTL check.
+    // freshly fetched catalog", so they break the TTL gate. A route with nothing
+    // to serve still waits for the fetch this starts.
     state
         .providers
-        .maybe_refresh_catalogs(is_refresh_requested(&query) || revalidation_requested(&headers));
+        .maybe_refresh_catalogs(is_refresh_requested(&query) || revalidation_requested(&headers))
+        .await;
 
     let allowed = principal
         .as_ref()
@@ -158,7 +161,8 @@ pub async fn get_model(
 ) -> Result<Response, APIError> {
     state
         .providers
-        .maybe_refresh_catalogs(is_refresh_requested(&query));
+        .maybe_refresh_catalogs(is_refresh_requested(&query))
+        .await;
 
     if model.trim().is_empty() {
         return Err(APIError::new(400, constants::gateway::MODEL_ID_REQUIRED));

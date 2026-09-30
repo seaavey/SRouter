@@ -7,4 +7,4 @@ pub mod executor;
 pub mod types;
 
 pub use executor::{QoderExecutor, adapter, adapter_with_endpoints};
-pub use types::{QODER_KEYS, QODER_MODELS, QODER_PROVIDER, QoderEndpoints};
+pub use types::{QODER_KEYS, QODER_PROVIDER, QoderEndpoints};

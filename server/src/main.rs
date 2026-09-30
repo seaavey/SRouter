@@ -23,9 +23,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         SecurityState::with_repository(api_key_store.clone(), admin_store.clone(), api_key_store)
             .with_admin_auth(admin_store);
     let registry = ProviderRegistry::with_database(Some(database.clone()))?;
-    // Ask the live catalog to fill itself in the background; the seed answers
-    // requests until it lands.
-    registry.maybe_refresh_catalogs(false);
+    // Warm up the live catalog off the boot path: a first request that arrives
+    // before this lands joins the same fetch instead of starting a second one.
+    let warmup = registry.clone();
+    tokio::spawn(async move {
+        warmup.maybe_refresh_catalogs(false).await;
+    });
     let state = AppState::with_security(config, registry, security).with_database(database);
 
     listeners::serve_main(create_router(state), address).await?;

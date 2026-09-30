@@ -1,9 +1,9 @@
-//! Qoder model catalog: the live snapshot read from `model/list` and the static
-//! seed it falls back to.
+//! Qoder model catalog: the live snapshot read from `model/list`.
 //!
 //! The registry is static, so the snapshot lives inside the provider adapter and
-//! is replaced in place. A failed fetch never empties it: the previous snapshot
-//! (or the seed) keeps being advertised until the next attempt succeeds.
+//! is replaced in place. Nothing is advertised that upstream has not confirmed:
+//! the snapshot starts empty, and a failed fetch never empties one that already
+//! landed.
 
 use std::collections::BTreeMap;
 use std::sync::{Arc, RwLock};
@@ -11,11 +11,16 @@ use std::sync::{Arc, RwLock};
 use serde_json::Value;
 
 use crate::clock::now_ms;
-use crate::features::providers::qoder::types::{QODER_DEFAULT_MAX_OUTPUT, QODER_MODELS};
+use crate::features::providers::qoder::types::QODER_DEFAULT_MAX_OUTPUT;
 
-/// How long one fetch stays fresh. `0` marks the seed, which is always stale so
-/// the first request after boot can replace it.
+/// How long one fetch stays fresh. `0` marks a snapshot that has never been
+/// filled, so the first request after boot is always due to fill it.
 pub const CATALOG_TTL_MS: i64 = 5 * 60 * 1000;
+
+/// How long a failed attempt on an unfilled snapshot is worth holding off. The
+/// catalog GET can wait out its own timeout, and without this window every
+/// request on an install that has no working catalog queues behind a fresh one.
+pub const CATALOG_RETRY_MS: i64 = 30 * 1000;
 
 /// Request settings of one upstream model key, used to fill the `model_config`
 /// block of a chat request.
@@ -31,6 +36,9 @@ pub struct ModelConfig {
 #[derive(Clone, Debug)]
 pub struct QoderCatalog {
     pub fetched_at_ms: i64,
+    /// When the last fetch was started, whether or not it succeeded. Only an
+    /// unfilled snapshot obeys it; a filled one is governed by `CATALOG_TTL_MS`.
+    pub attempted_at_ms: i64,
     pub models: Vec<String>,
     pub configs: BTreeMap<String, ModelConfig>,
 }
@@ -39,29 +47,14 @@ pub struct QoderCatalog {
 pub type SharedCatalog = Arc<RwLock<QoderCatalog>>;
 
 impl QoderCatalog {
-    /// The static seed: what is advertised before the first successful fetch.
-    pub fn seed() -> Self {
-        let mut configs = BTreeMap::new();
-
-        for model in QODER_MODELS {
-            configs.insert(
-                model.id.to_owned(),
-                ModelConfig {
-                    key: model.id.to_owned(),
-                    is_reasoning: SEED_REASONING.contains(&model.id),
-                    max_output_tokens: QODER_DEFAULT_MAX_OUTPUT,
-                    source: "system".to_owned(),
-                },
-            );
-        }
-
+    /// The starting snapshot: upstream has not confirmed any model yet, so
+    /// nothing is advertised until a fetch lands.
+    pub fn empty() -> Self {
         Self {
             fetched_at_ms: 0,
-            models: QODER_MODELS
-                .iter()
-                .map(|model| model.id.to_owned())
-                .collect(),
-            configs,
+            attempted_at_ms: 0,
+            models: Vec::new(),
+            configs: BTreeMap::new(),
         }
     }
 
@@ -113,6 +106,7 @@ impl QoderCatalog {
 
         Some(Self {
             fetched_at_ms: now_ms(),
+            attempted_at_ms: now_ms(),
             models: configs.keys().cloned().collect(),
             configs,
         })
@@ -123,53 +117,78 @@ impl QoderCatalog {
         self.configs.get(key)
     }
 
-    /// Whether the snapshot is old enough to be worth replacing.
-    pub fn is_stale(&self) -> bool {
-        self.fetched_at_ms == 0 || now_ms() - self.fetched_at_ms >= CATALOG_TTL_MS
+    /// Whether nothing has been advertised yet, which is what makes a caller
+    /// wait for the fetch instead of serving a stale list.
+    pub fn is_empty(&self) -> bool {
+        self.models.is_empty()
     }
 
-    /// Builds a shared handle holding the seed.
-    pub fn shared_seed() -> SharedCatalog {
-        Arc::new(RwLock::new(Self::seed()))
+    /// Whether a fetch is worth starting now. `force` ignores every gate; an
+    /// unfilled snapshot obeys the retry window; a filled one the TTL.
+    pub fn refresh_is_due(&self, force: bool, now_ms: i64) -> bool {
+        if force {
+            return true;
+        }
+
+        if self.models.is_empty() {
+            return now_ms - self.attempted_at_ms >= CATALOG_RETRY_MS;
+        }
+
+        self.fetched_at_ms == 0 || now_ms - self.fetched_at_ms >= CATALOG_TTL_MS
+    }
+
+    /// Builds a shared handle holding the empty starting snapshot.
+    pub fn shared_empty() -> SharedCatalog {
+        Arc::new(RwLock::new(Self::empty()))
     }
 }
-
-/// Seed rows the upstream has not confirmed yet: a key the static list marks as
-/// reasoning gets the flag so a fresh install never sends the wrong config.
-const SEED_REASONING: &[&str] = &[
-    "ultimate",
-    "performance",
-    "dmodel",
-    "dfmodel",
-    "gm51model",
-    "qfmodel",
-    "qmodel_38max",
-];
 
 #[cfg(test)]
 mod tests {
     use serde_json::json;
 
-    use super::QoderCatalog;
-    use crate::features::providers::qoder::types::QODER_MODELS;
+    use super::{CATALOG_RETRY_MS, QoderCatalog};
 
     #[test]
-    fn seed_advertises_every_static_model_with_reasoning_flags() {
-        let catalog = QoderCatalog::seed();
+    fn an_unfilled_snapshot_advertises_nothing_and_is_due_at_boot() {
+        let catalog = QoderCatalog::empty();
 
-        assert_eq!(catalog.models.len(), QODER_MODELS.len());
-        assert_eq!(catalog.fetched_at_ms, 0, "the seed must always look stale");
-        assert!(catalog.is_stale());
+        assert!(catalog.models.is_empty());
+        assert!(catalog.is_empty());
+        assert!(catalog.configs.is_empty());
+        assert!(catalog.config_for("auto").is_none());
         assert!(
-            catalog
-                .config_for("ultimate")
-                .is_some_and(|config| config.is_reasoning)
+            catalog.refresh_is_due(false, crate::clock::now_ms()),
+            "a snapshot that never fetched must be worth filling"
         );
+    }
+
+    #[test]
+    fn an_unfilled_snapshot_holds_off_between_attempts() {
+        let mut catalog = QoderCatalog::empty();
+        catalog.attempted_at_ms = 1_000;
+
         assert!(
-            catalog
-                .config_for("lite")
-                .is_some_and(|config| !config.is_reasoning)
+            !catalog.refresh_is_due(false, 1_000 + CATALOG_RETRY_MS - 1),
+            "a failed attempt must not make every request queue behind a new fetch"
         );
+        assert!(catalog.refresh_is_due(false, 1_000 + CATALOG_RETRY_MS));
+        assert!(
+            catalog.refresh_is_due(true, 1_000),
+            "force breaks through the retry window"
+        );
+    }
+
+    #[test]
+    fn a_filled_snapshot_obeys_the_ttl_not_the_retry_window() {
+        let parsed = QoderCatalog::parse_chat_list(&json!({
+            "chat": [{"key": "auto", "enable": true}]
+        }))
+        .expect("catalog parses");
+
+        assert!(!parsed.is_empty());
+        assert!(!parsed.refresh_is_due(false, parsed.fetched_at_ms));
+        assert!(parsed.refresh_is_due(true, parsed.fetched_at_ms));
     }
 
     #[test]
@@ -196,7 +215,7 @@ mod tests {
                 .config_for("thinking-model")
                 .is_some_and(|c| c.is_reasoning)
         );
-        assert!(!parsed.is_stale());
+        assert_eq!(parsed.attempted_at_ms, parsed.fetched_at_ms);
     }
 
     #[test]

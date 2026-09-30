@@ -26,6 +26,9 @@ use srouter_server::features::providers::{ProviderRegistry, opencode};
 use srouter_server::infrastructure::database::AppDatabase;
 use srouter_server::infrastructure::database::admin_auth::SQLxAdminAuthStore;
 use srouter_server::infrastructure::database::api_keys::SQLxAPIKeyStore;
+use srouter_server::infrastructure::database::providers::{
+    QoderConnectionWrite, upsert_qoder_connection,
+};
 use srouter_server::{APIConfig, APIError, AppState, SecurityState};
 use tokio::net::TcpListener;
 use tokio::task::JoinHandle;
@@ -145,6 +148,9 @@ pub struct FakeQoderState {
     /// Whether the chat stream is written in many small pieces, so the
     /// translation has to reassemble a frame split across reads.
     pub fragment_chat: bool,
+    /// Whether `model/list` answers slowly, to widen the window in which
+    /// concurrent catalog fetchers would otherwise each start their own GET.
+    pub slow_model_list: bool,
     pub chat_requests: usize,
     pub model_list_requests: usize,
     pub poll_requests: usize,
@@ -161,6 +167,7 @@ impl Default for FakeQoderState {
         Self {
             approve_device: false,
             fragment_chat: false,
+            slow_model_list: false,
             chat_requests: 0,
             model_list_requests: 0,
             poll_requests: 0,
@@ -338,13 +345,17 @@ async fn qoder_chat(
 }
 
 async fn qoder_model_list(State(state): State<SharedQoderState>, headers: HeaderMap) -> Response {
-    let catalog = {
+    let (catalog, slow) = {
         let mut guard = state.lock().expect("fake qoder state");
         guard.model_list_requests += 1;
         guard.last_model_list_body_length = header_text(&headers, "cosy-bodylength");
         guard.last_model_list_sig_path = header_text(&headers, "cosy-sigpath");
-        guard.model_catalog.clone()
+
+        (guard.model_catalog.clone(), guard.slow_model_list)
     };
+    if slow {
+        tokio::time::sleep(std::time::Duration::from_millis(150)).await;
+    }
 
     Json(catalog).into_response()
 }
@@ -385,6 +396,47 @@ fn header_text(headers: &HeaderMap, name: &str) -> String {
         .and_then(|value| value.to_str().ok())
         .unwrap_or_default()
         .to_owned()
+}
+
+/// Keys the fake `model/list` serves, in the order the catalog sorts them. One
+/// of them is an alias target, so the friendly-name path stays exercised.
+pub const FAKE_QODER_KEYS: &[&str] = &["auto", "qmodel", "qmodel_latest"];
+
+/// A `model/list` body whose settings differ from the executor's defaults, so a
+/// test can tell the upstream row from a fallback.
+pub fn qoder_catalog_body() -> serde_json::Value {
+    serde_json::json!({
+        "chat": [
+            {"key": "auto", "enable": true, "is_reasoning": false, "max_output_tokens": 8192},
+            {"key": "qmodel_latest", "enable": true, "max_output_tokens": 4096,
+             "thinking_config": {"enabled": {"efforts": ["low"]}}},
+            {"key": "qmodel", "enable": true},
+            {"key": "turned-off", "enable": false}
+        ]
+    })
+}
+
+/// Stores the Qoder connection a signed request authenticates against. Without
+/// it the catalog can never fill, because every fetch refuses before the network.
+pub async fn connect_qoder(database: &TestDatabase) {
+    let app_database = database.connect().await.expect("temporary database");
+
+    upsert_qoder_connection(
+        &app_database,
+        &QoderConnectionWrite {
+            id: "qoder_1".to_owned(),
+            name: "Qoder (Seaavey Dev)".to_owned(),
+            account_name: "Seaavey Dev".to_owned(),
+            access_token: "dt-fixture-token".to_owned(),
+            refresh_token: Some("rt-fixture-token".to_owned()),
+            token_expires_at: Some(srouter_server::clock::now_ms() + 86_400_000),
+            user_id: "user-fixture".to_owned(),
+            email: "seaavey@example.com".to_owned(),
+            organization_id: "org-fixture".to_owned(),
+        },
+    )
+    .await
+    .expect("connection stored");
 }
 
 /// A registry whose `qoder` adapter points at the fake upstream and can read

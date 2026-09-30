@@ -72,10 +72,11 @@ impl ProviderAdapter {
     }
 
     /// Asks the adapter to refresh a time-varying catalog. Adapters with a
-    /// fixed list do nothing.
-    pub fn maybe_refresh(&self, force: bool) {
+    /// fixed list do nothing. A Qoder caller whose catalog is still empty waits
+    /// for the fetch, because there is nothing else to serve.
+    pub async fn maybe_refresh(&self, force: bool) {
         if let Self::Qoder(adapter) = self {
-            adapter.maybe_refresh(force);
+            adapter.maybe_refresh(force).await;
         }
     }
 

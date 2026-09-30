@@ -54,6 +54,8 @@ impl ProviderRegistry {
 
     /// Builds the registry with the built-in providers registered and no
     /// database handle, which is the shape a test or a database-less boot uses.
+    /// A Qoder adapter without a database can never read credentials, so it
+    /// advertises no model at all.
     pub fn with_defaults() -> Result<Self, APIError> {
         Self::with_database(None)
     }
@@ -79,12 +81,12 @@ impl ProviderRegistry {
 
     /// Asks every adapter with a time-varying catalog to refresh when stale, or
     /// unconditionally when the caller asked for a forced refresh.
-    pub fn maybe_refresh_catalogs(&self, force: bool) {
+    pub async fn maybe_refresh_catalogs(&self, force: bool) {
         let mut seen = HashSet::new();
 
         for adapter in self.adapters.values() {
             if seen.insert(adapter.id()) {
-                adapter.maybe_refresh(force);
+                adapter.maybe_refresh(force).await;
             }
         }
     }
@@ -123,8 +125,9 @@ impl ProviderRegistry {
     }
 
     /// Lists every advertised model as `<alias>/<bare>` entries, mirroring
-    /// Node's `buildModelList`. The registry is static, so callers treat the
-    /// `refresh`/`force` query params as accepted-but-ignored.
+    /// Node's `buildModelList`. A provider whose catalog is read from upstream
+    /// contributes only what that catalog holds right now, so the list can grow
+    /// between requests.
     pub fn list_models(&self) -> Vec<ModelObject> {
         let mut models = Vec::new();
         let mut seen = HashSet::new();
@@ -157,7 +160,7 @@ mod tests {
     use std::collections::HashSet;
 
     use super::ProviderRegistry;
-    use crate::features::providers::{opencode, qoder};
+    use crate::features::providers::opencode;
 
     fn registry_with_opencode() -> ProviderRegistry {
         let mut registry = ProviderRegistry::new();
@@ -234,7 +237,7 @@ mod tests {
     }
 
     #[test]
-    fn resolves_both_qoder_prefixes_and_a_bare_qoder_model() {
+    fn resolves_both_qoder_prefixes_without_a_catalog_entry() {
         let registry = ProviderRegistry::with_defaults().expect("default registry");
 
         for prefix in ["qoder", "qd"] {
@@ -245,9 +248,6 @@ mod tests {
             assert_eq!(resolved.model, "auto");
             assert_eq!(resolved.adapter.id(), "qoder");
         }
-
-        let bare = registry.resolve("auto").expect("bare advertised model");
-        assert_eq!(bare.adapter.id(), "qoder");
     }
 
     #[test]
@@ -261,14 +261,14 @@ mod tests {
     }
 
     #[test]
-    fn list_models_prefixes_every_qoder_model_with_qd() {
+    fn the_default_registry_advertises_no_qoder_model() {
         let registry = ProviderRegistry::with_defaults().expect("default registry");
         let models = registry.list_models();
 
-        assert!(models.iter().any(|entry| entry.id == "qd/auto"));
-        assert_eq!(
-            models.iter().filter(|entry| entry.owned_by == "qd").count(),
-            qoder::QODER_MODELS.len()
+        assert_eq!(models.len(), opencode::OPENCODE_ZEN_MODELS.len());
+        assert!(
+            !models.iter().any(|entry| entry.owned_by == "qd"),
+            "the qoder catalog is filled only by a live fetch"
         );
     }
 }

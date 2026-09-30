@@ -7,9 +7,12 @@ use axum::{
 };
 use srouter_server::SecurityState;
 use srouter_server::app::create_router;
-use srouter_server::features::providers::ProviderRegistry;
+use srouter_server::features::providers::{OPENCODE_ZEN_MODELS, ProviderRegistry};
 use srouter_server::infrastructure::database::catalog_flags::favorite_model_ids;
-use support::{api_key_record, security_state, with_loopback_client, with_remote_client};
+use support::{
+    FAKE_QODER_KEYS, FakeQoderUpstream, api_key_record, connect_qoder, qoder_catalog_body,
+    qoder_registry, security_state, with_loopback_client, with_remote_client,
+};
 use tower::ServiceExt;
 
 fn test_app(security: SecurityState) -> Router {
@@ -32,6 +35,19 @@ fn app_with_database(database: srouter_server::AppDatabase) -> Router {
     create_router(state)
 }
 
+/// App whose `qoder` adapter reads its catalog through the fake upstream, so the
+/// provider has live models that can be shown and hidden.
+fn app_with_live_qoder(database: srouter_server::AppDatabase, fake: &FakeQoderUpstream) -> Router {
+    let state = srouter_server::AppState::with_security(
+        support::test_config(),
+        qoder_registry(Some(database.clone()), fake),
+        SecurityState::unconfigured(),
+    )
+    .with_database(database);
+
+    create_router(state)
+}
+
 fn get_request(uri: &str) -> Request<Body> {
     with_loopback_client(
         Request::builder()
@@ -45,6 +61,23 @@ fn get_request(uri: &str) -> Request<Body> {
 async fn json_body(response: axum::response::Response) -> serde_json::Value {
     let bytes = to_bytes(response.into_body(), 65_536).await.unwrap();
     serde_json::from_slice(&bytes).unwrap()
+}
+
+/// The ids `/v1/models` serves for this app, read through a fresh clone.
+async fn catalog_ids(app: &Router) -> Vec<String> {
+    let response = app
+        .clone()
+        .oneshot(get_request("/v1/models"))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+
+    json_body(response).await["data"]
+        .as_array()
+        .expect("model list")
+        .iter()
+        .map(|entry| entry["id"].as_str().unwrap().to_owned())
+        .collect()
 }
 
 #[tokio::test]
@@ -254,8 +287,9 @@ async fn hidden_models_are_absent_from_the_catalog() {
     assert!(!ids.contains(&"zen/big-pickle"), "ids: {ids:?}");
     assert_eq!(
         ids.len(),
-        20,
-        "seven opencode models minus the hidden one, plus fourteen qoder models"
+        OPENCODE_ZEN_MODELS.len() - 1,
+        "the advertised opencode list minus the hidden one, and no qoder model \
+         because upstream never answered: {ids:?}"
     );
 
     let single = app
@@ -288,14 +322,19 @@ async fn hidden_flags_match_however_the_row_was_spelled() {
         .await
         .unwrap();
     let json = json_body(response).await;
+    let ids: Vec<&str> = json["data"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|entry| entry["id"].as_str().unwrap())
+        .collect();
 
-    assert!(
-        json["data"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .all(|entry| entry["id"] != "zen/big-pickle")
+    assert_eq!(
+        ids.len(),
+        OPENCODE_ZEN_MODELS.len() - 1,
+        "a row spelled in another case still hides exactly one model: {ids:?}"
     );
+    assert!(ids.iter().all(|id| *id != "zen/big-pickle"), "{ids:?}");
 }
 
 #[tokio::test]
@@ -303,6 +342,9 @@ async fn disabling_a_provider_hides_its_alias_prefixed_models() {
     let test_database = support::TestDatabase::new().unwrap();
     let database = test_database.connect().await.unwrap();
     let pool = database.sqlite_pool().unwrap().clone();
+    let fake = FakeQoderUpstream::start().await;
+    fake.with(|state| state.model_catalog = qoder_catalog_body());
+    connect_qoder(&test_database).await;
 
     sqlx::query(
         "INSERT INTO settings (key, value) VALUES ('provider_enabled_opencode_zen', 'false')",
@@ -311,23 +353,11 @@ async fn disabling_a_provider_hides_its_alias_prefixed_models() {
     .await
     .unwrap();
 
-    let app = app_with_database(database.clone());
-    let response = app
-        .clone()
-        .oneshot(get_request("/v1/models"))
-        .await
-        .unwrap();
-    assert_eq!(response.status(), StatusCode::OK);
-    let data = json_body(response).await;
-    let ids: Vec<&str> = data["data"]
-        .as_array()
-        .expect("model list")
-        .iter()
-        .filter_map(|entry| entry["id"].as_str())
-        .collect();
+    let app = app_with_live_qoder(database.clone(), &fake);
+    let ids = catalog_ids(&app).await;
     assert_eq!(
         ids.len(),
-        14,
+        FAKE_QODER_KEYS.len(),
         "only the disabled provider's models disappear: {ids:?}"
     );
     assert!(
@@ -337,6 +367,7 @@ async fn disabling_a_provider_hides_its_alias_prefixed_models() {
 
     // The single route drops it too, rather than serving a disabled model.
     let single = app
+        .clone()
         .oneshot(get_request("/v1/models/zen%2Fbig-pickle"))
         .await
         .unwrap();
@@ -346,13 +377,38 @@ async fn disabling_a_provider_hides_its_alias_prefixed_models() {
         .execute(&pool)
         .await
         .unwrap();
-
-    let reenabled = app_with_database(database)
-        .oneshot(get_request("/v1/models"))
+    sqlx::query("INSERT INTO settings (key, value) VALUES ('provider_enabled_qoder', 'false')")
+        .execute(&pool)
         .await
         .unwrap();
-    let body = json_body(reenabled).await;
-    assert_eq!(body["data"].as_array().unwrap().len(), 21);
+
+    let flipped = catalog_ids(&app).await;
+    assert_eq!(
+        flipped.len(),
+        OPENCODE_ZEN_MODELS.len(),
+        "the other provider is hidden the same way: {flipped:?}"
+    );
+    assert!(
+        flipped.iter().all(|id| id.starts_with("zen/")),
+        "{flipped:?}"
+    );
+    assert_eq!(
+        fake.model_list_requests(),
+        1,
+        "hiding a provider does not make the next request refetch its catalog"
+    );
+
+    sqlx::query("UPDATE settings SET value = 'true' WHERE key = 'provider_enabled_qoder'")
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    let ids = catalog_ids(&app).await;
+    assert_eq!(
+        ids.len(),
+        OPENCODE_ZEN_MODELS.len() + FAKE_QODER_KEYS.len(),
+        "re-enabling both providers brings both lists back: {ids:?}"
+    );
 }
 
 #[tokio::test]

@@ -7,48 +7,24 @@ mod support;
 use axum::{
     Router,
     body::{Body, to_bytes},
-    http::{Request, StatusCode},
+    http::{Method, Request, StatusCode, Uri},
     response::Response,
 };
+use futures_util::future::join_all;
 use srouter_server::app::create_router;
+use srouter_server::features::providers::OPENCODE_ZEN_MODELS;
 use srouter_server::features::providers::ProviderAdapter;
 use srouter_server::features::providers::qoder::{self};
-use srouter_server::infrastructure::database::providers::{
-    QoderConnectionWrite, upsert_qoder_connection,
-};
+use srouter_server::infrastructure::database::AppDatabase;
 use support::{
-    FakeQoderUpstream, TestDatabase, json_request, qoder_registry, qoder_state,
-    with_loopback_client,
+    FAKE_QODER_KEYS, FakeQoderUpstream, TestDatabase, connect_qoder, json_request,
+    qoder_catalog_body, qoder_registry, qoder_state, with_loopback_client,
 };
 use tower::ServiceExt;
 
-/// Writes the connection every chat test authenticates with.
-async fn connect(database: &TestDatabase) {
-    let app_database = database.connect().await.expect("temporary database");
-
-    upsert_qoder_connection(
-        &app_database,
-        &QoderConnectionWrite {
-            id: "qoder_1".to_owned(),
-            name: "Qoder (Seaavey Dev)".to_owned(),
-            account_name: "Seaavey Dev".to_owned(),
-            access_token: "dt-fixture-token".to_owned(),
-            refresh_token: Some("rt-fixture-token".to_owned()),
-            token_expires_at: Some(srouter_server::clock::now_ms() + 86_400_000),
-            user_id: "user-fixture".to_owned(),
-            email: "seaavey@example.com".to_owned(),
-            organization_id: "org-fixture".to_owned(),
-        },
-    )
-    .await
-    .expect("connection stored");
-}
-
 async fn app(database: &TestDatabase, fake: &FakeQoderUpstream) -> Router {
-    let app_database = database.connect().await.expect("temporary database");
-
     create_router(qoder_state(
-        app_database,
+        database.connect().await.expect("temporary database"),
         srouter_server::SecurityState::unconfigured(),
         fake,
     ))
@@ -58,16 +34,56 @@ fn chat_request(body: serde_json::Value) -> Request<Body> {
     with_loopback_client(json_request("POST", "/v1/chat/completions", body))
 }
 
+fn models_request() -> Request<Body> {
+    with_loopback_client(
+        Request::builder()
+            .method(Method::GET)
+            .uri(Uri::from_static("/v1/models"))
+            .body(Body::empty())
+            .unwrap(),
+    )
+}
+
 async fn body_text(response: Response) -> String {
     let bytes = to_bytes(response.into_body(), 1_048_576).await.unwrap();
 
     String::from_utf8(bytes.to_vec()).expect("utf8 body")
 }
 
+/// The `id` values a `/v1/models` body advertises.
+async fn catalog_ids(response: Response) -> Vec<String> {
+    let body: serde_json::Value =
+        serde_json::from_slice(&to_bytes(response.into_body(), 65_536).await.unwrap()).unwrap();
+
+    body["data"]
+        .as_array()
+        .expect("model list")
+        .iter()
+        .filter_map(|entry| entry["id"].as_str().map(str::to_owned))
+        .collect()
+}
+
+/// The signed body of the most recent chat request, decoded back to JSON.
+fn sent_body(fake: &FakeQoderUpstream) -> serde_json::Value {
+    let decoded = qoder::cosy::decode_body(&fake.last_encoded_body()).expect("body decodes");
+
+    serde_json::from_slice(&decoded).expect("body is json")
+}
+
+/// The qoder adapter out of a registry that can read `database`.
+fn qoder_executor(database: Option<AppDatabase>, fake: &FakeQoderUpstream) -> ProviderAdapter {
+    let providers = qoder_registry(database, fake);
+
+    match providers.resolve("qd/auto").expect("resolves").adapter {
+        ProviderAdapter::Qoder(executor) => ProviderAdapter::Qoder(executor),
+        _ => panic!("the registry must hold the qoder adapter"),
+    }
+}
+
 #[tokio::test]
 async fn a_streaming_chat_translates_the_envelope_into_openai_frames() {
     let database = TestDatabase::new().unwrap();
-    connect(&database).await;
+    connect_qoder(&database).await;
     let fake = FakeQoderUpstream::start().await;
     let app = app(&database, &fake).await;
     let request = chat_request(serde_json::json!({
@@ -104,8 +120,7 @@ async fn a_streaming_chat_translates_the_envelope_into_openai_frames() {
         !encoded.contains('{'),
         "the body never travels as plain json"
     );
-    let sent = qoder::cosy::decode_body(&encoded).expect("body decodes");
-    let sent: serde_json::Value = serde_json::from_slice(&sent).expect("body is json");
+    let sent = sent_body(&fake);
 
     assert_eq!(sent["system"], "be brief");
     assert_eq!(sent["messages"][0]["role"], "user");
@@ -117,7 +132,7 @@ async fn a_streaming_chat_translates_the_envelope_into_openai_frames() {
 #[tokio::test]
 async fn a_fragmented_stream_is_reassembled_into_complete_frames() {
     let database = TestDatabase::new().unwrap();
-    connect(&database).await;
+    connect_qoder(&database).await;
     let fake = FakeQoderUpstream::start().await;
     fake.with(|state| state.fragment_chat = true);
     let app = app(&database, &fake).await;
@@ -144,7 +159,7 @@ async fn a_fragmented_stream_is_reassembled_into_complete_frames() {
 #[tokio::test]
 async fn a_buffered_chat_aggregates_the_stream_into_one_completion() {
     let database = TestDatabase::new().unwrap();
-    connect(&database).await;
+    connect_qoder(&database).await;
     let fake = FakeQoderUpstream::start().await;
     let app = app(&database, &fake).await;
     let request = chat_request(serde_json::json!({
@@ -189,42 +204,63 @@ async fn a_chat_without_a_connection_is_refused() {
         0,
         "no upstream call without credentials"
     );
+    assert_eq!(
+        fake.model_list_requests(),
+        0,
+        "a catalog fetch without credentials must not reach the network"
+    );
 }
 
 #[tokio::test]
-async fn the_catalog_advertises_the_qoder_models() {
+async fn the_catalog_advertises_only_what_upstream_returned() {
     let database = TestDatabase::new().unwrap();
+    connect_qoder(&database).await;
     let fake = FakeQoderUpstream::start().await;
+    fake.with(|state| state.model_catalog = qoder_catalog_body());
     let app = app(&database, &fake).await;
-    let request = with_loopback_client(
-        Request::builder()
-            .method("GET")
-            .uri("/v1/models")
-            .body(Body::empty())
-            .unwrap(),
-    );
 
-    let response = app.oneshot(request).await.unwrap();
+    let response = app.oneshot(models_request()).await.unwrap();
 
     assert_eq!(response.status(), StatusCode::OK);
-    let bytes = to_bytes(response.into_body(), 65_536).await.unwrap();
-    let body: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
-    let ids: Vec<&str> = body["data"]
-        .as_array()
-        .expect("model list")
+    let ids = catalog_ids(response).await;
+    let expected: Vec<String> = FAKE_QODER_KEYS
         .iter()
-        .filter_map(|entry| entry["id"].as_str())
+        .map(|key| format!("qd/{key}"))
         .collect();
+    let qd: Vec<&String> = ids.iter().filter(|id| id.starts_with("qd/")).collect();
 
-    assert!(ids.contains(&"qd/auto"), "{ids:?}");
-    assert!(ids.contains(&"qd/qmodel_latest"), "{ids:?}");
-    assert!(ids.contains(&"zen/space-bunny-free"), "{ids:?}");
+    assert_eq!(qd, expected.iter().collect::<Vec<_>>(), "{ids:?}");
+    assert!(ids.contains(&"zen/space-bunny-free".to_owned()));
+    assert_eq!(
+        fake.model_list_requests(),
+        1,
+        "the request that had nothing to serve waited for its own fetch"
+    );
+}
+
+#[tokio::test]
+async fn no_qoder_model_is_advertised_before_a_fetch_lands() {
+    let database = TestDatabase::new().unwrap();
+    connect_qoder(&database).await;
+    let fake = FakeQoderUpstream::start().await;
+    fake.with(|state| state.model_catalog = serde_json::json!({ "chat": [] }));
+    let app = app(&database, &fake).await;
+
+    let ids = catalog_ids(app.oneshot(models_request()).await.unwrap()).await;
+    let qd_count = ids.iter().filter(|id| id.starts_with("qd/")).count();
+
+    assert_eq!(qd_count, 0, "{ids:?}");
+    assert_eq!(
+        ids.len(),
+        OPENCODE_ZEN_MODELS.len(),
+        "the other driver must still be there, or this passes for the wrong reason"
+    );
 }
 
 #[tokio::test]
 async fn the_messages_route_answers_from_the_qoder_stream() {
     let database = TestDatabase::new().unwrap();
-    connect(&database).await;
+    connect_qoder(&database).await;
     let fake = FakeQoderUpstream::start().await;
     let app = app(&database, &fake).await;
     let request = with_loopback_client(json_request(
@@ -249,9 +285,9 @@ async fn the_messages_route_answers_from_the_qoder_stream() {
 }
 
 #[tokio::test]
-async fn the_live_catalog_replaces_the_seed_and_stops_refreshing_within_the_ttl() {
+async fn the_live_catalog_replaces_the_empty_snapshot_and_stops_refreshing_within_the_ttl() {
     let database = TestDatabase::new().unwrap();
-    connect(&database).await;
+    connect_qoder(&database).await;
     let fake = FakeQoderUpstream::start().await;
     fake.with(|state| {
         state.model_catalog = serde_json::json!({
@@ -262,18 +298,16 @@ async fn the_live_catalog_replaces_the_seed_and_stops_refreshing_within_the_ttl(
         })
     });
 
-    let providers = qoder_registry(
+    let ProviderAdapter::Qoder(executor) = qoder_executor(
         Some(database.connect().await.expect("temporary database")),
         &fake,
-    );
-    let executor = match providers.resolve("qd/auto").expect("resolves").adapter {
-        ProviderAdapter::Qoder(executor) => executor,
-        _ => panic!("the registry must hold the qoder adapter"),
+    ) else {
+        unreachable!("the registry holds the qoder adapter");
     };
 
     assert!(
-        executor.models().contains(&"auto".to_owned()),
-        "the seed answers before the first fetch"
+        executor.models().is_empty(),
+        "nothing is advertised before the first fetch"
     );
 
     executor.refresh_catalog().await.expect("catalog refreshes");
@@ -291,15 +325,16 @@ async fn the_live_catalog_replaces_the_seed_and_stops_refreshing_within_the_ttl(
         "disabled entries are dropped"
     );
 
-    executor.maybe_refresh(false);
-    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    // Filled and fresh: the due check is synchronous, so nothing is spawned.
+    executor.maybe_refresh(false).await;
     assert_eq!(
         fake.model_list_requests(),
         1,
         "a fresh catalog is not fetched again inside the ttl"
     );
 
-    executor.maybe_refresh(true);
+    // Forced on a filled snapshot still runs off the request path.
+    executor.maybe_refresh(true).await;
     tokio::time::sleep(std::time::Duration::from_millis(100)).await;
     assert_eq!(
         fake.model_list_requests(),
@@ -309,23 +344,176 @@ async fn the_live_catalog_replaces_the_seed_and_stops_refreshing_within_the_ttl(
 }
 
 #[tokio::test]
-async fn a_failed_catalog_fetch_keeps_the_previous_snapshot() {
+async fn a_failed_fetch_keeps_the_last_good_snapshot() {
     let database = TestDatabase::new().unwrap();
-    connect(&database).await;
+    connect_qoder(&database).await;
+    let fake = FakeQoderUpstream::start().await;
+    fake.with(|state| state.model_catalog = qoder_catalog_body());
+
+    let ProviderAdapter::Qoder(executor) = qoder_executor(
+        Some(database.connect().await.expect("temporary database")),
+        &fake,
+    ) else {
+        unreachable!("the registry holds the qoder adapter");
+    };
+
+    executor.refresh_catalog().await.expect("first fetch lands");
+    let previous = executor.models();
+    assert_eq!(previous.len(), FAKE_QODER_KEYS.len());
+
+    fake.with(|state| state.model_catalog = serde_json::json!({"error": "no catalog"}));
+    executor.refresh_catalog().await.expect("nothing to parse");
+
+    assert_eq!(
+        executor.models(),
+        previous,
+        "a failed fetch must not empty a snapshot that already landed"
+    );
+}
+
+#[tokio::test]
+async fn a_fetch_that_never_succeeded_leaves_no_models() {
+    let database = TestDatabase::new().unwrap();
+    connect_qoder(&database).await;
     let fake = FakeQoderUpstream::start().await;
     fake.with(|state| state.model_catalog = serde_json::json!({"error": "no catalog"}));
 
-    let providers = qoder_registry(
+    let ProviderAdapter::Qoder(executor) = qoder_executor(
         Some(database.connect().await.expect("temporary database")),
         &fake,
-    );
-    let executor = match providers.resolve("qd/auto").expect("resolves").adapter {
-        ProviderAdapter::Qoder(executor) => executor,
-        _ => panic!("the registry must hold the qoder adapter"),
+    ) else {
+        unreachable!("the registry holds the qoder adapter");
     };
 
     executor.refresh_catalog().await.expect("nothing to parse");
 
-    assert_eq!(executor.models().len(), qoder::QODER_MODELS.len());
-    assert!(executor.models().contains(&"auto".to_owned()));
+    assert!(
+        executor.models().is_empty(),
+        "an id upstream never confirmed is never advertised"
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn thundering_herd_shares_one_fetch() {
+    let database = TestDatabase::new().unwrap();
+    connect_qoder(&database).await;
+    let fake = FakeQoderUpstream::start().await;
+    fake.with(|state| {
+        state.model_catalog = qoder_catalog_body();
+        state.slow_model_list = true;
+    });
+    let app = app(&database, &fake).await;
+
+    let responses = join_all(
+        (0..8)
+            .map(|_| {
+                let app = app.clone();
+                async move { app.oneshot(models_request()).await.unwrap() }
+            })
+            .collect::<Vec<_>>(),
+    )
+    .await;
+
+    let bodies = join_all(responses.into_iter().map(catalog_ids).collect::<Vec<_>>()).await;
+    for ids in &bodies {
+        assert_eq!(
+            ids.iter().filter(|id| id.starts_with("qd/")).count(),
+            FAKE_QODER_KEYS.len(),
+            "every concurrent request must end up with the filled catalog: {ids:?}"
+        );
+    }
+    assert_eq!(
+        fake.model_list_requests(),
+        1,
+        "the waiters must share the one fetch instead of each starting a GET"
+    );
+}
+
+#[tokio::test]
+async fn a_chat_with_an_empty_snapshot_fetches_the_real_config_first() {
+    let database = TestDatabase::new().unwrap();
+    connect_qoder(&database).await;
+    let fake = FakeQoderUpstream::start().await;
+    fake.with(|state| state.model_catalog = qoder_catalog_body());
+    let app = app(&database, &fake).await;
+    let request = chat_request(serde_json::json!({
+        "model": "qd/qwen3.7-max",
+        "messages": [{"role": "user", "content": "hi"}],
+        "stream": false
+    }));
+
+    let response = app.oneshot(request).await.unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        fake.model_list_requests(),
+        1,
+        "the chat filled the catalog before signing"
+    );
+
+    let sent = sent_body(&fake);
+    assert_eq!(
+        sent["model_config"]["key"], "qmodel_latest",
+        "the alias landed on the advertised key"
+    );
+    assert_eq!(sent["model_config"]["max_output_tokens"], 4096);
+    assert_eq!(sent["model_config"]["is_reasoning"], true);
+    assert_eq!(
+        sent["parameters"]["max_tokens"], 4096,
+        "the upstream row is used, not the fallback"
+    );
+}
+
+#[tokio::test]
+async fn an_unknown_key_still_chats_with_the_default_config() {
+    let database = TestDatabase::new().unwrap();
+    connect_qoder(&database).await;
+    let fake = FakeQoderUpstream::start().await;
+    fake.with(|state| state.model_catalog = qoder_catalog_body());
+    let app = app(&database, &fake).await;
+    let request = chat_request(serde_json::json!({
+        "model": "qd/not-in-the-catalog",
+        "messages": [{"role": "user", "content": "hi"}],
+        "stream": false
+    }));
+
+    let response = app.oneshot(request).await.unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let sent = sent_body(&fake);
+    assert_eq!(sent["model_config"]["key"], "not-in-the-catalog");
+    assert_eq!(sent["model_config"]["max_output_tokens"], 32_768);
+    assert_eq!(sent["model_config"]["is_reasoning"], false);
+}
+
+#[tokio::test]
+async fn a_bare_model_id_resolves_once_the_catalog_advertises_it() {
+    let database = TestDatabase::new().unwrap();
+    connect_qoder(&database).await;
+    let fake = FakeQoderUpstream::start().await;
+    fake.with(|state| state.model_catalog = qoder_catalog_body());
+    let providers = qoder_registry(
+        Some(database.connect().await.expect("temporary database")),
+        &fake,
+    );
+
+    assert!(
+        providers.resolve("auto").is_none(),
+        "a bare id needs an advertised model to resolve"
+    );
+
+    let ProviderAdapter::Qoder(executor) = providers
+        .resolve("qd/auto")
+        .expect("a prefix resolves without a catalog entry")
+        .adapter
+    else {
+        unreachable!("the registry holds the qoder adapter");
+    };
+    executor.refresh_catalog().await.expect("catalog refreshes");
+
+    assert_eq!(
+        providers.resolve("auto").expect("bare id").adapter.id(),
+        "qoder",
+        "the fetch filled the very catalog the registry serves from"
+    );
 }

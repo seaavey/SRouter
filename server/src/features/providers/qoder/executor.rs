@@ -49,7 +49,14 @@ pub struct QoderExecutor {
     client: UpstreamClient,
     catalog: SharedCatalog,
     machine_id: Arc<RwLock<Option<String>>>,
+    /// Shared through the `Arc` because the registry stores one clone of this
+    /// adapter per lookup key, and both clones must coalesce into one fetch.
+    refresh_lock: Arc<tokio::sync::Mutex<()>>,
 }
+
+/// Upper bound for the catalog GET. Chat inherits 120 s from the upstream
+/// client; a request that fills an empty catalog must not wait that long.
+const CATALOG_REQUEST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
 
 /// One request, ready to be sent: signed headers plus the encoded body.
 struct PreparedRequest {
@@ -72,8 +79,9 @@ impl QoderExecutor {
             endpoints,
             database,
             client,
-            catalog: QoderCatalog::shared_seed(),
+            catalog: QoderCatalog::shared_empty(),
             machine_id: Arc::new(RwLock::new(None)),
+            refresh_lock: Arc::new(tokio::sync::Mutex::new(())),
         }
     }
 
@@ -89,8 +97,8 @@ impl QoderExecutor {
         QODER_PROVIDER.alias
     }
 
-    /// Advertised model ids: the live snapshot, or the seed before the first
-    /// successful fetch.
+    /// Advertised model ids: the live snapshot, empty until the first fetch
+    /// lands. Nothing upstream has not confirmed is ever advertised.
     pub fn models(&self) -> Vec<String> {
         read_catalog(&self.catalog).models.clone()
     }
@@ -99,17 +107,49 @@ impl QoderExecutor {
         &self.endpoints
     }
 
-    /// Spawns a catalog refresh when the snapshot is stale, or right away when
-    /// `force` is set. Nothing awaits it, so no request ever waits on the list.
-    pub fn maybe_refresh(&self, force: bool) {
-        if self.database.is_none() || !(force || read_catalog(&self.catalog).is_stale()) {
+    /// Refreshes the catalog when it is due. A caller whose snapshot is still
+    /// empty waits, because there is nothing else to hand back; once the
+    /// snapshot holds models the fetch runs in the background and no request
+    /// pays for it.
+    pub async fn maybe_refresh(&self, force: bool) {
+        if self.database.is_none() {
+            return;
+        }
+
+        // An empty snapshot queues for the fetch even when the retry window says
+        // no new GET is due: the hold-off excuses starting a fetch, not walking
+        // away from one another request already has in flight.
+        if read_catalog(&self.catalog).is_empty() {
+            let _ = self.refresh_coalesced(force).await;
+            return;
+        }
+
+        if !self.refresh_is_due(force) {
             return;
         }
 
         let executor = self.clone();
         tokio::spawn(async move {
-            let _ = executor.refresh_catalog().await;
+            let _ = executor.refresh_coalesced(force).await;
         });
+    }
+
+    fn refresh_is_due(&self, force: bool) -> bool {
+        read_catalog(&self.catalog).refresh_is_due(force, now_ms())
+    }
+
+    /// Runs one fetch at a time. A waiter that finds the snapshot already filled
+    /// by the lock's previous holder returns without touching the network, which
+    /// is what keeps a burst of first requests from becoming a burst of fetches.
+    async fn refresh_coalesced(&self, force: bool) -> Result<(), APIError> {
+        let _guard = self.refresh_lock.lock().await;
+
+        if !self.refresh_is_due(force) {
+            return Ok(());
+        }
+
+        write_catalog(&self.catalog).attempted_at_ms = now_ms();
+        self.refresh_catalog().await
     }
 
     /// Replaces the snapshot with the upstream model list. Any failure leaves
@@ -131,7 +171,7 @@ impl QoderExecutor {
             .client
             .raw()
             .get(&url)
-            .timeout(self.client.request_timeout())
+            .timeout(CATALOG_REQUEST_TIMEOUT)
             .header("User-Agent", QODER_USER_AGENT)
             .header("Accept", "application/json")
             .header("Accept-Encoding", "identity");
@@ -160,7 +200,7 @@ impl QoderExecutor {
         model: &str,
         request: &ChatCompletionRequest,
     ) -> Result<Value, APIError> {
-        self.maybe_refresh(false);
+        self.maybe_refresh(false).await;
         let prepared = self.prepare(model, request).await?;
         let response = self.send_chat(&prepared, true).await?;
         let mut stream = response.bytes_stream();
@@ -190,7 +230,7 @@ impl QoderExecutor {
         model: &str,
         request: &ChatCompletionRequest,
     ) -> Result<ProviderStream, APIError> {
-        self.maybe_refresh(false);
+        self.maybe_refresh(false).await;
         let prepared = self.prepare(model, request).await?;
         let response = self.send_chat(&prepared, false).await?;
 

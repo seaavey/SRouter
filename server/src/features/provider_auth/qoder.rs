@@ -289,8 +289,9 @@ async fn connect(
         .await
         .map_err(PollFailure::Fatal)?;
 
-    // The catalog has a connection now, so let it pick up the live model list.
-    state.providers.maybe_refresh_catalogs(false);
+    // The catalog has a connection now, so fill it from the live model list
+    // before the operator's next request reads it.
+    state.providers.maybe_refresh_catalogs(true).await;
 
     Ok(ConnectedProvider {
         id,

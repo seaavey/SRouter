@@ -7,7 +7,7 @@
 //! - public protocol docs: `pi-qoder-provider` (npm), `qoder2api`, `qodercli2api`, `docs.qoder.com`
 //! - `apps/docs/src/pages/docs/concepts/providers-routing.md`
 
-use crate::features::providers::model::{ModelDefinition, ProviderMetadata};
+use crate::features::providers::model::ProviderMetadata;
 
 /// Gateway root for chat and the model catalog. China/VPC hosts are a follow-up.
 pub const QODER_BASE_URL: &str = "https://api3.qoder.sh";
@@ -25,65 +25,6 @@ pub const QODER_USERINFO_PATH: &str = "/api/v1/userinfo";
 /// Registry lookup keys: the base id plus the user-facing `qd` alias that
 /// `ProviderMetadata::alias` and the model list prefix use.
 pub const QODER_KEYS: &[&str] = &["qoder", "qd"];
-
-pub const QODER_MODELS: &[ModelDefinition] = &[
-    ModelDefinition {
-        id: "auto",
-        name: "Qoder Auto",
-    },
-    ModelDefinition {
-        id: "ultimate",
-        name: "Qoder Ultimate",
-    },
-    ModelDefinition {
-        id: "performance",
-        name: "Qoder Performance",
-    },
-    ModelDefinition {
-        id: "efficient",
-        name: "Qoder Efficient",
-    },
-    ModelDefinition {
-        id: "lite",
-        name: "Qoder Lite",
-    },
-    ModelDefinition {
-        id: "qmodel",
-        name: "Qwen 3.7 Plus (Qoder)",
-    },
-    ModelDefinition {
-        id: "qmodel_38max",
-        name: "Qwen 3.8 Max (Qoder)",
-    },
-    ModelDefinition {
-        id: "qmodel_latest",
-        name: "Qwen 3.7 Max (Qoder)",
-    },
-    ModelDefinition {
-        id: "qfmodel",
-        name: "Qwen 3.8 Flash (Qoder)",
-    },
-    ModelDefinition {
-        id: "dmodel",
-        name: "DeepSeek V4 Pro (Qoder)",
-    },
-    ModelDefinition {
-        id: "dfmodel",
-        name: "DeepSeek V4 Flash (Qoder)",
-    },
-    ModelDefinition {
-        id: "gm51model",
-        name: "GLM 5.2 (Qoder)",
-    },
-    ModelDefinition {
-        id: "kmodel",
-        name: "Kimi K2.7 (Qoder)",
-    },
-    ModelDefinition {
-        id: "mmodel",
-        name: "MiniMax M3 (Qoder)",
-    },
-];
 
 /// Friendly model names the gateway accepts in place of a raw model key.
 pub const QODER_MODEL_ALIASES: &[(&str, &str)] = &[
@@ -234,9 +175,31 @@ fn urlencode(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        QODER_KEYS, QODER_MODEL_ALIASES, QODER_MODELS, QODER_PROVIDER, QoderEndpoints,
-        resolve_model_key,
+        QODER_KEYS, QODER_MODEL_ALIASES, QODER_PROVIDER, QoderEndpoints, resolve_model_key,
     };
+
+    /// Raw model keys upstream was observed serving. This is a test fixture, not
+    /// an advertisement: the catalog takes its list from `model/list` alone.
+    /// Provenance: the raw-key rows of `packages/constants/src/providers/qoder.ts`.
+    const UPSTREAM_KEYS: &[&str] = &[
+        "auto",
+        "ultimate",
+        "performance",
+        "efficient",
+        "lite",
+        "qmodel",
+        "qmodel_latest",
+        "qmodel_38max",
+        "qmodel_preview",
+        "qfmodel",
+        "dmodel",
+        "dfmodel",
+        "gm51model",
+        "gmodel",
+        "kmodel",
+        "kmodel_latest",
+        "mmodel",
+    ];
 
     #[test]
     fn resolves_aliases_case_insensitively_and_passes_keys_through() {
@@ -247,12 +210,24 @@ mod tests {
     }
 
     #[test]
-    fn every_alias_target_is_an_advertised_model() {
-        for (alias, key) in QODER_MODEL_ALIASES {
+    fn every_alias_target_is_a_key_upstream_serves() {
+        for &(alias, key) in QODER_MODEL_ALIASES {
             assert!(
-                QODER_MODELS.iter().any(|model| model.id == *key),
+                UPSTREAM_KEYS.contains(&key),
                 "{alias} points at unknown key {key}"
             );
+        }
+    }
+
+    #[test]
+    fn the_alias_table_has_no_redundant_or_clashing_rows() {
+        let mut seen_aliases = std::collections::HashSet::new();
+
+        for &(alias, key) in QODER_MODEL_ALIASES {
+            assert!(!alias.is_empty() && !key.is_empty(), "{alias}");
+            assert_ne!(alias, key, "{alias} resolves to itself");
+            assert_eq!(alias, alias.to_lowercase(), "{alias} must be lowercase");
+            assert!(seen_aliases.insert(alias), "duplicate alias {alias}");
         }
     }
 

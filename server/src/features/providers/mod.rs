@@ -20,7 +20,7 @@ pub use model::{ModelDefinition, ModelObject, ProviderMetadata};
 pub use opencode::{
     OPENCODE_ZEN_BASE_URL, OPENCODE_ZEN_KEYS, OPENCODE_ZEN_MODELS, OPENCODE_ZEN_PROVIDER,
 };
-pub use qoder::{QODER_KEYS, QODER_MODELS, QODER_PROVIDER};
+pub use qoder::{QODER_KEYS, QODER_PROVIDER};
 
 /// Every driver the build knows about, in catalog order. The read routes serve
 /// this list so the Providers page can reach a driver that has no connection yet.
