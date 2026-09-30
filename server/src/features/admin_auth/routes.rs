@@ -11,6 +11,7 @@ use axum::{Json, Router};
 use serde_json::{Value, json};
 
 use crate::clock::now_ms;
+use crate::constants;
 use crate::error::APIError;
 use crate::http::middleware::client_address::{client_address, is_loopback_address};
 use crate::http::middleware::cookies::cookie_value;
@@ -57,25 +58,25 @@ async fn admin_setup(
 ) -> Result<Response, APIError> {
     let address = client_address(request.extensions());
     if !address.as_deref().is_some_and(is_loopback_address) {
-        return Err(
-            APIError::new(403, "Admin setup is only available from the local machine")
-                .with_code("setup_local_only"),
-        );
+        return Err(APIError::new(403, constants::admin::SETUP_LOCAL_ONLY)
+            .with_code(constants::code::SETUP_LOCAL_ONLY));
     }
 
     if state.security.admin_auth.has_admin_account().await? {
         return Err(already_set_up());
     }
 
-    let body = json_body(request, "Invalid setup payload").await?;
+    let body = json_body(request, constants::admin::INVALID_SETUP_PAYLOAD).await?;
     let (password, confirmation) = parse_setup(&body)?;
 
     if let Some(message) = validate_admin_password(&password) {
         return Err(invalid_password(message));
     }
     if confirmation != password {
-        return Err(APIError::new(400, "Password confirmation does not match")
-            .with_code("password_mismatch"));
+        return Err(
+            APIError::new(400, constants::admin::PASSWORD_CONFIRMATION_MISMATCH)
+                .with_code(constants::code::PASSWORD_MISMATCH),
+        );
     }
 
     let now = now_ms();
@@ -103,12 +104,11 @@ async fn admin_login(
     let address = client_address(request.extensions()).unwrap_or_else(|| "unknown".to_owned());
     let now = now_ms();
     if state.security.login_throttle.is_blocked(&address, now) {
-        return Err(
-            APIError::new(429, "Too many failed login attempts").with_code("login_rate_limited")
-        );
+        return Err(APIError::new(429, constants::admin::TOO_MANY_ATTEMPTS)
+            .with_code(constants::code::LOGIN_RATE_LIMITED));
     }
 
-    let body = json_body(request, "Invalid admin password").await?;
+    let body = json_body(request, constants::admin::INVALID_PASSWORD).await?;
     let Some(password) = parse_login(&body) else {
         return Err(invalid_credentials());
     };
@@ -140,7 +140,7 @@ async fn admin_change_password(
         return Err(authentication_required());
     }
 
-    let body = json_body(request, "Invalid payload").await?;
+    let body = json_body(request, constants::common::INVALID_PAYLOAD).await?;
     let (current, new_password, confirmation) = parse_change_password(&body)?;
 
     let stored = state.security.admin_auth.get_password_hash().await?;
@@ -148,8 +148,10 @@ async fn admin_change_password(
         .as_deref()
         .is_some_and(|hash| verify_admin_password(&current, hash))
     {
-        return Err(APIError::new(401, "Current admin password is incorrect")
-            .with_code("invalid_credentials"));
+        return Err(
+            APIError::new(401, constants::admin::CURRENT_PASSWORD_INCORRECT)
+                .with_code(constants::code::INVALID_CREDENTIALS),
+        );
     }
 
     if let Some(message) = validate_admin_password(&new_password) {
@@ -157,8 +159,8 @@ async fn admin_change_password(
     }
     if new_password != confirmation {
         return Err(
-            APIError::new(400, "New password confirmation does not match")
-                .with_code("password_mismatch"),
+            APIError::new(400, constants::admin::NEW_PASSWORD_CONFIRMATION_MISMATCH)
+                .with_code(constants::code::PASSWORD_MISMATCH),
         );
     }
 
@@ -169,11 +171,13 @@ async fn admin_change_password(
         .update_password_hash(&password_hash, now_ms())
         .await?
     {
-        return Err(APIError::new(500, "Failed to update admin password")
-            .with_code("password_update_failed"));
+        return Err(
+            APIError::new(500, constants::admin::FAILED_TO_UPDATE_PASSWORD)
+                .with_code(constants::code::PASSWORD_UPDATE_FAILED),
+        );
     }
 
-    Ok(Json(json!({ "message": "Admin password updated successfully" })).into_response())
+    Ok(Json(json!({ "message": constants::admin::PASSWORD_UPDATED })).into_response())
 }
 
 async fn admin_logout(
@@ -254,8 +258,12 @@ fn session_cookie(token: &str, secure: bool) -> Result<HeaderValue, APIError> {
         cookie.push_str("; Secure");
     }
 
-    HeaderValue::from_str(&cookie)
-        .map_err(|error| APIError::new(500, format!("could not build the session cookie: {error}")))
+    HeaderValue::from_str(&cookie).map_err(|error| {
+        APIError::new(
+            500,
+            constants::admin::could_not_build_session_cookie(&error),
+        )
+    })
 }
 
 fn cleared_cookie(secure: bool) -> Result<HeaderValue, APIError> {
@@ -264,8 +272,12 @@ fn cleared_cookie(secure: bool) -> Result<HeaderValue, APIError> {
         cookie.push_str("; Secure");
     }
 
-    HeaderValue::from_str(&cookie)
-        .map_err(|error| APIError::new(500, format!("could not build the cleared cookie: {error}")))
+    HeaderValue::from_str(&cookie).map_err(|error| {
+        APIError::new(
+            500,
+            constants::admin::could_not_build_cleared_cookie(&error),
+        )
+    })
 }
 
 async fn json_body(request: Request, message: &str) -> Result<Value, APIError> {
@@ -279,10 +291,14 @@ async fn json_body(request: Request, message: &str) -> Result<Value, APIError> {
 fn parse_setup(value: &Value) -> Result<(String, String), APIError> {
     let object = value
         .as_object()
-        .ok_or_else(|| invalid_password("Password is required"))?;
+        .ok_or_else(|| invalid_password(constants::admin::PASSWORD_REQUIRED))?;
 
-    let password = plain_string(object, "password", "Password is required")?;
-    let confirmation = plain_string(object, "confirmation", "Password confirmation is required")?;
+    let password = plain_string(object, "password", constants::admin::PASSWORD_REQUIRED)?;
+    let confirmation = plain_string(
+        object,
+        "confirmation",
+        constants::admin::PASSWORD_CONFIRMATION_REQUIRED,
+    )?;
 
     Ok((password, confirmation))
 }
@@ -290,11 +306,23 @@ fn parse_setup(value: &Value) -> Result<(String, String), APIError> {
 fn parse_change_password(value: &Value) -> Result<(String, String, String), APIError> {
     let object = value
         .as_object()
-        .ok_or_else(|| invalid_password("Current password is required"))?;
+        .ok_or_else(|| invalid_password(constants::admin::CURRENT_PASSWORD_REQUIRED))?;
 
-    let current = plain_string(object, "current_password", "Current password is required")?;
-    let new_password = plain_string(object, "new_password", "New password is required")?;
-    let confirmation = plain_string(object, "confirmation", "Password confirmation is required")?;
+    let current = plain_string(
+        object,
+        "current_password",
+        constants::admin::CURRENT_PASSWORD_REQUIRED,
+    )?;
+    let new_password = plain_string(
+        object,
+        "new_password",
+        constants::admin::NEW_PASSWORD_REQUIRED,
+    )?;
+    let confirmation = plain_string(
+        object,
+        "confirmation",
+        constants::admin::PASSWORD_CONFIRMATION_REQUIRED,
+    )?;
 
     Ok((current, new_password, confirmation))
 }
@@ -319,19 +347,22 @@ fn plain_string(
 }
 
 fn invalid_password(message: &str) -> APIError {
-    APIError::new(400, message).with_code("invalid_password")
+    APIError::new(400, message).with_code(constants::code::INVALID_PASSWORD)
 }
 
 fn invalid_credentials() -> APIError {
-    APIError::new(401, "Invalid admin password").with_code("invalid_credentials")
+    APIError::new(401, constants::admin::INVALID_PASSWORD)
+        .with_code(constants::code::INVALID_CREDENTIALS)
 }
 
 fn authentication_required() -> APIError {
-    APIError::new(401, "Admin authentication is required").with_code("authentication_required")
+    APIError::new(401, constants::admin::AUTH_REQUIRED)
+        .with_code(constants::code::AUTHENTICATION_REQUIRED)
 }
 
 fn already_set_up() -> APIError {
-    APIError::new(409, "Admin setup has already been completed").with_code("setup_already_complete")
+    APIError::new(409, constants::admin::SETUP_COMPLETED)
+        .with_code(constants::code::SETUP_ALREADY_COMPLETE)
 }
 
 #[cfg(test)]

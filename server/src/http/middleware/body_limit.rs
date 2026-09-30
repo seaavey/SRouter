@@ -4,6 +4,7 @@ use axum::http::header;
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
 
+use crate::constants;
 use crate::error::APIError;
 
 /// Max accepted request body in bytes (25 MB). Matches Node MAX_BODY_BYTES.
@@ -26,7 +27,7 @@ pub async fn body_limit(request: Request<Body>, next: Next) -> Response {
 }
 
 fn body_too_large() -> APIError {
-    APIError::new(413, "Request body too large")
-        .with_error_type("invalid_request_error")
-        .with_code("request_too_large")
+    APIError::new(413, constants::json::TOO_LARGE)
+        .with_error_type(constants::error_type::INVALID_REQUEST)
+        .with_code(constants::code::REQUEST_TOO_LARGE)
 }

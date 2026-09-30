@@ -13,6 +13,7 @@ use axum::{Json, Router};
 use serde::Serialize;
 use serde_json::Value;
 
+use crate::constants;
 use crate::error::APIError;
 use crate::features::providers::management::model::{
     CatalogResponse, GroupedCatalog, ProviderConnectionView, ProviderEntry, ProviderModel,
@@ -26,7 +27,7 @@ use crate::infrastructure::database::providers::{
 };
 use crate::state::AppState;
 
-const INVALID_PATCH_PAYLOAD: &str = "Invalid payload";
+const INVALID_PATCH_PAYLOAD: &str = constants::common::INVALID_PAYLOAD;
 
 /// Read routes. The composition root layers API-key auth on top, matching the
 /// Node router, which installs no admin guard on `GET /providers`.
@@ -103,7 +104,7 @@ async fn patch_provider(
     if base_id != OPENCODE_ZEN_PROVIDER.id && !provider_exists(database, base_id).await? {
         return Err(APIError::new(
             400,
-            format!("Provider '{provider_id}' not found"),
+            constants::providers::not_found(&provider_id),
         ));
     }
 
@@ -182,12 +183,10 @@ fn base_id_of(provider_id: &str) -> &str {
 /// Writes need a database to persist into; reporting success without one would
 /// silently drop the operator's change.
 fn require_database(state: &AppState) -> Result<&AppDatabase, APIError> {
-    state.database.as_ref().ok_or_else(|| {
-        APIError::new(
-            500,
-            "no database is configured; provider changes cannot be persisted",
-        )
-    })
+    state
+        .database
+        .as_ref()
+        .ok_or_else(|| APIError::new(500, constants::providers::DATABASE_REQUIRED))
 }
 
 /// Builds the detail entry: the catalog entry plus its connections and models.
@@ -221,7 +220,7 @@ fn provider_metadata(provider_id: &str) -> Result<ProviderMetadata, APIError> {
 
     Err(APIError::new(
         404,
-        format!("Provider '{provider_id}' not found"),
+        constants::providers::not_found(provider_id),
     ))
 }
 

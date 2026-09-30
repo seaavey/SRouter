@@ -121,60 +121,56 @@ impl SearchService {
         }
 
         // Test mock override takes precedence
-        if let Some(mock) = &self.mock {
-            if let Some(resp) = mock(trimmed, limit) {
-                return resp;
-            }
+        if let Some(mock) = &self.mock
+            && let Some(resp) = mock(trimmed, limit)
+        {
+            return resp;
         }
 
         // 1. Tavily API
-        if let Some(key) = &self.config.tavily_api_key {
-            if let Ok(resp) = self.search_tavily(key, trimmed, limit).await {
-                if !resp.results.is_empty() {
-                    return resp;
-                }
-            }
+        if let Some(key) = &self.config.tavily_api_key
+            && let Ok(resp) = self.search_tavily(key, trimmed, limit).await
+            && !resp.results.is_empty()
+        {
+            return resp;
         }
 
         // 2. Brave Search API
-        if let Some(key) = &self.config.brave_api_key {
-            if let Ok(resp) = self.search_brave(key, trimmed, limit).await {
-                if !resp.results.is_empty() {
-                    return resp;
-                }
-            }
+        if let Some(key) = &self.config.brave_api_key
+            && let Ok(resp) = self.search_brave(key, trimmed, limit).await
+            && !resp.results.is_empty()
+        {
+            return resp;
         }
 
         // 3. Serper API
-        if let Some(key) = &self.config.serper_api_key {
-            if let Ok(resp) = self.search_serper(key, trimmed, limit).await {
-                if !resp.results.is_empty() {
-                    return resp;
-                }
-            }
+        if let Some(key) = &self.config.serper_api_key
+            && let Ok(resp) = self.search_serper(key, trimmed, limit).await
+            && !resp.results.is_empty()
+        {
+            return resp;
         }
 
         // 4. SearXNG if configured
-        if let Some(searxng_url) = &self.config.searxng_url {
-            if let Ok(resp) = self.search_searxng(searxng_url, trimmed, limit).await {
-                if !resp.results.is_empty() {
-                    return resp;
-                }
-            }
+        if let Some(searxng_url) = &self.config.searxng_url
+            && let Ok(resp) = self.search_searxng(searxng_url, trimmed, limit).await
+            && !resp.results.is_empty()
+        {
+            return resp;
         }
 
         // 5. Zero-config Bing Web Search scraper
-        if let Ok(resp) = self.search_bing(trimmed, limit).await {
-            if !resp.results.is_empty() {
-                return resp;
-            }
+        if let Ok(resp) = self.search_bing(trimmed, limit).await
+            && !resp.results.is_empty()
+        {
+            return resp;
         }
 
         // 6. Zero-config Wikipedia search API fallback
-        if let Ok(resp) = self.search_wikipedia(trimmed, limit).await {
-            if !resp.results.is_empty() {
-                return resp;
-            }
+        if let Ok(resp) = self.search_wikipedia(trimmed, limit).await
+            && !resp.results.is_empty()
+        {
+            return resp;
         }
 
         WebSearchResponse {
@@ -514,12 +510,10 @@ pub fn parse_bing_html(html: &str, limit: usize) -> Vec<WebSearchResult> {
                             use base64::Engine;
                             if let Ok(decoded) =
                                 base64::engine::general_purpose::STANDARD.decode(b64)
+                                && let Ok(decoded_str) = String::from_utf8(decoded)
+                                && decoded_str.starts_with("http")
                             {
-                                if let Ok(decoded_str) = String::from_utf8(decoded) {
-                                    if decoded_str.starts_with("http") {
-                                        raw_url = decoded_str;
-                                    }
-                                }
+                                raw_url = decoded_str;
                             }
                         }
 

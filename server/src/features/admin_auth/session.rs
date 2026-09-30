@@ -6,6 +6,7 @@ use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use futures_util::future::BoxFuture;
 use sha2::{Digest, Sha256};
 
+use crate::constants;
 use crate::error::APIError;
 
 /// Cookie name frozen by `docs/api-v1-contract.md`.
@@ -19,7 +20,7 @@ pub const ADMIN_SESSION_TTL_MS: i64 = 7 * 24 * 60 * 60 * 1000;
 pub fn generate_session_token() -> Result<String, APIError> {
     let mut bytes = [0u8; 32];
     getrandom::fill(&mut bytes)
-        .map_err(|error| APIError::new(500, format!("could not generate a session: {error}")))?;
+        .map_err(|error| APIError::new(500, constants::admin::could_not_generate_session(error)))?;
 
     Ok(URL_SAFE_NO_PAD.encode(bytes))
 }

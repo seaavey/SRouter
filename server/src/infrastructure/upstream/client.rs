@@ -2,6 +2,7 @@ use std::time::Duration;
 
 use reqwest::Client;
 
+use crate::constants;
 use crate::error::APIError;
 
 /// Upper bound for a non-streaming upstream request. Streams are not given a
@@ -28,7 +29,7 @@ impl UpstreamClient {
             .user_agent(concat!("srouter-server/", env!("CARGO_PKG_VERSION")))
             .build()
             .map_err(|error| {
-                APIError::new(500, format!("could not build the HTTP client: {error}"))
+                APIError::new(500, constants::upstream::could_not_build_client(&error))
             })?;
 
         Ok(Self { client })

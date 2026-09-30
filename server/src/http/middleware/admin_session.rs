@@ -7,6 +7,7 @@ use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
 
 use crate::clock::now_ms;
+use crate::constants;
 use crate::error::APIError;
 use crate::features::admin_auth::{ADMIN_SESSION_COOKIE, hash_session_token};
 use crate::features::api_keys::{APIPrincipal, AuthSource};
@@ -37,8 +38,8 @@ pub async fn require_admin_session(
     };
 
     if !session_valid {
-        return APIError::new(401, "Admin authentication is required")
-            .with_code("authentication_required")
+        return APIError::new(401, constants::admin::AUTH_REQUIRED)
+            .with_code(constants::code::AUTHENTICATION_REQUIRED)
             .into_response();
     }
 

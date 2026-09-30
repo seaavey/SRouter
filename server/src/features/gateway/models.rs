@@ -13,6 +13,7 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 
+use crate::constants;
 use crate::error::APIError;
 use crate::features::api_keys::{APIPrincipal, ensure_model_allowed, is_model_allowed};
 use crate::features::providers::ModelObject;
@@ -20,8 +21,6 @@ use crate::infrastructure::database::catalog_flags::{
     disabled_provider_ids, favorite_model_ids, hidden_model_ids,
 };
 use crate::state::AppState;
-
-const MODEL_CACHE_CONTROL: &str = "public, max-age=60, stale-while-revalidate=300";
 
 #[derive(Debug, Default, Deserialize)]
 pub struct ModelsQuery {
@@ -137,7 +136,10 @@ pub async fn list_models(
         .collect();
 
     Ok((
-        [(axum::http::header::CACHE_CONTROL, MODEL_CACHE_CONTROL)],
+        [(
+            axum::http::header::CACHE_CONTROL,
+            constants::headers::value::MODEL_CACHE_CONTROL,
+        )],
         Json(ModelListResponse {
             object: String::from("list"),
             data,
@@ -156,7 +158,7 @@ pub async fn get_model(
     let _ = is_refresh_requested(&query);
 
     if model.trim().is_empty() {
-        return Err(APIError::new(400, "Model ID parameter is required"));
+        return Err(APIError::new(400, constants::gateway::MODEL_ID_REQUIRED));
     }
 
     // A hidden or disabled model is not in the catalog at all, so the single
@@ -167,7 +169,8 @@ pub async fn get_model(
 
     if found.is_none() {
         return Err(
-            APIError::new(404, format!("Model '{model}' not found")).with_code("model_not_found")
+            APIError::new(404, constants::gateway::model_not_found(&model))
+                .with_code(constants::code::MODEL_NOT_FOUND),
         );
     }
 
@@ -180,15 +183,18 @@ pub async fn get_model(
         Some(entry) => {
             let entry = CatalogModel::from_model(entry, &favorites(&state).await?);
             Ok((
-                [(axum::http::header::CACHE_CONTROL, MODEL_CACHE_CONTROL)],
+                [(
+                    axum::http::header::CACHE_CONTROL,
+                    constants::headers::value::MODEL_CACHE_CONTROL,
+                )],
                 Json(entry),
             )
                 .into_response())
         }
-        None => {
-            Err(APIError::new(404, format!("Model '{model}' not found"))
-                .with_code("model_not_found"))
-        }
+        None => Err(
+            APIError::new(404, constants::gateway::model_not_found(&model))
+                .with_code(constants::code::MODEL_NOT_FOUND),
+        ),
     }
 }
 

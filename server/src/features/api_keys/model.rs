@@ -3,6 +3,7 @@
 
 use sha2::{Digest, Sha256};
 
+use crate::constants;
 use crate::error::APIError;
 
 /// Prefix every minted secret carries; the same eight characters make up
@@ -123,14 +124,17 @@ pub fn serialize_allowed_models(models: Option<&[String]>) -> Result<Option<Stri
     match normalize_allowed_models(models.map(<[String]>::to_vec)) {
         None => Ok(None),
         Some(models) => serde_json::to_string(&models).map(Some).map_err(|error| {
-            APIError::new(500, format!("could not encode allowed_models: {error}"))
+            APIError::new(
+                500,
+                constants::keys::could_not_encode_allowed_models(&error),
+            )
         }),
     }
 }
 
 fn fill_random(bytes: &mut [u8]) -> Result<(), APIError> {
     getrandom::fill(bytes)
-        .map_err(|error| APIError::new(500, format!("could not generate a key secret: {error}")))
+        .map_err(|error| APIError::new(500, constants::keys::could_not_generate_secret(error)))
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

@@ -3,6 +3,7 @@
 use futures_util::StreamExt;
 use serde_json::Value;
 
+use crate::constants;
 use crate::error::APIError;
 use crate::features::gateway::model::{ChatCompletionRequest, ChatContent, ChatMessage};
 use crate::features::gateway::usage::UsageBreakdown;
@@ -105,10 +106,7 @@ impl OpenCodeExecutor {
             }
 
             return response.json::<Value>().await.map_err(|error| {
-                APIError::new(
-                    500,
-                    format!("could not decode the upstream response: {error}"),
-                )
+                APIError::new(500, constants::providers::could_not_decode_response(&error))
             });
         }
 
@@ -249,10 +247,7 @@ impl OpenCodeExecutor {
         stream: bool,
     ) -> Result<Value, APIError> {
         let mut body = serde_json::to_value(request).map_err(|error| {
-            APIError::new(
-                500,
-                format!("could not build the upstream request: {error}"),
-            )
+            APIError::new(500, constants::providers::could_not_build_request(&error))
         })?;
         body["model"] = Value::String(model.to_owned());
         body["stream"] = Value::Bool(stream);
@@ -270,12 +265,12 @@ impl OpenCodeExecutor {
                 if needs_harness {
                     if let Some(first) = messages.first_mut() {
                         if first.get("role").and_then(|r| r.as_str()) == Some("system") {
-                            if let Some(content) = first.get_mut("content") {
-                                if let Some(old_str) = content.as_str() {
-                                    *content = Value::String(format!(
-                                        "{OPENCODE_HARNESS_PREFIX}\n\n{old_str}"
-                                    ));
-                                }
+                            if let Some(content) = first.get_mut("content")
+                                && let Some(old_str) = content.as_str()
+                            {
+                                *content = Value::String(format!(
+                                    "{OPENCODE_HARNESS_PREFIX}\n\n{old_str}"
+                                ));
                             }
                         } else {
                             messages.insert(
@@ -303,7 +298,7 @@ impl OpenCodeExecutor {
                     .unwrap_or(false)
             {
                 let tools_val: Value = serde_json::from_str(OPENCODE_TOOLS_RAW).map_err(|e| {
-                    APIError::new(500, format!("could not parse default OpenCode tools: {e}"))
+                    APIError::new(500, constants::providers::could_not_parse_tools(&e))
                 })?;
                 body["tools"] = tools_val;
                 body["tool_choice"] = Value::String("none".to_string());

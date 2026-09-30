@@ -8,12 +8,8 @@ use axum::http::{HeaderValue, Method, StatusCode, header};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
 
+use crate::constants;
 use crate::state::AppState;
-
-const ALLOWED_METHODS: &str = "GET, POST, PUT, PATCH, DELETE, OPTIONS";
-const ALLOWED_HEADERS: &str = "Content-Type, Authorization, x-api-key, anthropic-version";
-const EXPOSE_HEADERS: &str = "Content-Length, X-Request-Id, X-Version";
-const MAX_AGE_SECONDS: &str = "86400";
 
 /// Checks if a parsed URL points to a loopback host (localhost, 127.0.0.1, [::1]).
 pub fn is_loopback_origin(url: &reqwest::Url) -> bool {
@@ -71,7 +67,7 @@ pub async fn cors(State(state): State<AppState>, request: Request, next: Next) -
 
         headers.insert(
             header::VARY,
-            HeaderValue::from_static("Origin, Access-Control-Request-Headers"),
+            HeaderValue::from_static(constants::headers::value::VARY_PREFLIGHT),
         );
 
         if let Some(allowed_origin) = allowed {
@@ -80,19 +76,19 @@ pub async fn cors(State(state): State<AppState>, request: Request, next: Next) -
             }
             headers.insert(
                 header::ACCESS_CONTROL_ALLOW_CREDENTIALS,
-                HeaderValue::from_static("true"),
+                HeaderValue::from_static(constants::headers::value::ALLOW_CREDENTIALS),
             );
             headers.insert(
                 header::ACCESS_CONTROL_ALLOW_METHODS,
-                HeaderValue::from_static(ALLOWED_METHODS),
+                HeaderValue::from_static(constants::headers::value::ALLOWED_METHODS),
             );
             headers.insert(
                 header::ACCESS_CONTROL_ALLOW_HEADERS,
-                HeaderValue::from_static(ALLOWED_HEADERS),
+                HeaderValue::from_static(constants::headers::value::ALLOWED_HEADERS),
             );
             headers.insert(
                 header::ACCESS_CONTROL_MAX_AGE,
-                HeaderValue::from_static(MAX_AGE_SECONDS),
+                HeaderValue::from_static(constants::headers::value::MAX_AGE_SECONDS),
             );
         }
 
@@ -115,9 +111,12 @@ pub async fn cors(State(state): State<AppState>, request: Request, next: Next) -
         );
         headers.insert(
             header::ACCESS_CONTROL_EXPOSE_HEADERS,
-            HeaderValue::from_static(EXPOSE_HEADERS),
+            HeaderValue::from_static(constants::headers::value::EXPOSE_HEADERS),
         );
-        headers.append(header::VARY, HeaderValue::from_static("Origin"));
+        headers.append(
+            header::VARY,
+            HeaderValue::from_static(constants::headers::value::VARY_ORIGIN),
+        );
     }
 
     response

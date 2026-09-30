@@ -305,14 +305,14 @@ pub fn anthropic_error_event_bytes(error_type: &str, message: &str) -> Bytes {
 // ============================================================================
 
 fn map_cache_control(val: Option<Value>) -> Option<CacheControl> {
-    val.and_then(|v| {
+    val.map(|v| {
         let t = v
             .get("type")
             .and_then(|s| s.as_str())
             .unwrap_or("ephemeral");
-        Some(CacheControl {
+        CacheControl {
             r#type: t.to_owned(),
-        })
+        }
     })
 }
 
@@ -608,13 +608,14 @@ pub fn openai_to_anthropic_response(
             .or_else(|| msg.get("thought"))
             .and_then(|v| v.as_str());
 
-        if let Some(r) = reasoning {
-            if allow_thinking && !r.is_empty() {
-                content_blocks.push(serde_json::json!({
-                    "type": "thinking",
-                    "thinking": r
-                }));
-            }
+        if let Some(r) = reasoning
+            && allow_thinking
+            && !r.is_empty()
+        {
+            content_blocks.push(serde_json::json!({
+                "type": "thinking",
+                "thinking": r
+            }));
         }
 
         if let Some(content) = msg.get("content") {
@@ -627,13 +628,13 @@ pub fn openai_to_anthropic_response(
                 }
             } else if let Some(arr) = content.as_array() {
                 for item in arr {
-                    if item.get("type").and_then(|t| t.as_str()) == Some("text") {
-                        if let Some(text) = item.get("text").and_then(|t| t.as_str()) {
-                            content_blocks.push(serde_json::json!({
-                                "type": "text",
-                                "text": text
-                            }));
-                        }
+                    if item.get("type").and_then(|t| t.as_str()) == Some("text")
+                        && let Some(text) = item.get("text").and_then(|t| t.as_str())
+                    {
+                        content_blocks.push(serde_json::json!({
+                            "type": "text",
+                            "text": text
+                        }));
                     }
                 }
             }
@@ -851,87 +852,88 @@ impl AnthropicStreamTranslator {
             .or_else(|| delta.get("thought"))
             .and_then(|v| v.as_str());
 
-        if let Some(r) = reasoning {
-            if self.allow_thinking && !r.is_empty() {
-                if self.current_block_type != BlockType::Thinking {
-                    if self.current_block_type != BlockType::None {
-                        events.push(Self::sse_event(
-                            "content_block_stop",
-                            &serde_json::json!({
-                                "type": "content_block_stop",
-                                "index": self.current_block_index
-                            }),
-                        ));
-                    }
-                    self.current_block_index += 1;
-                    self.current_block_type = BlockType::Thinking;
+        if let Some(r) = reasoning
+            && self.allow_thinking
+            && !r.is_empty()
+        {
+            if self.current_block_type != BlockType::Thinking {
+                if self.current_block_type != BlockType::None {
                     events.push(Self::sse_event(
-                        "content_block_start",
+                        "content_block_stop",
                         &serde_json::json!({
-                            "type": "content_block_start",
-                            "index": self.current_block_index,
-                            "content_block": {
-                                "type": "thinking",
-                                "thinking": ""
-                            }
+                            "type": "content_block_stop",
+                            "index": self.current_block_index
                         }),
                     ));
                 }
-                self.output_tokens_count += 1;
+                self.current_block_index += 1;
+                self.current_block_type = BlockType::Thinking;
                 events.push(Self::sse_event(
-                    "content_block_delta",
+                    "content_block_start",
                     &serde_json::json!({
-                        "type": "content_block_delta",
+                        "type": "content_block_start",
                         "index": self.current_block_index,
-                        "delta": {
-                            "type": "thinking_delta",
-                            "thinking": r
+                        "content_block": {
+                            "type": "thinking",
+                            "thinking": ""
                         }
                     }),
                 ));
             }
+            self.output_tokens_count += 1;
+            events.push(Self::sse_event(
+                "content_block_delta",
+                &serde_json::json!({
+                    "type": "content_block_delta",
+                    "index": self.current_block_index,
+                    "delta": {
+                        "type": "thinking_delta",
+                        "thinking": r
+                    }
+                }),
+            ));
         }
 
         // 2. Text delta
-        if let Some(content) = delta.get("content").and_then(|v| v.as_str()) {
-            if !content.is_empty() {
-                if self.current_block_type != BlockType::Text {
-                    if self.current_block_type != BlockType::None {
-                        events.push(Self::sse_event(
-                            "content_block_stop",
-                            &serde_json::json!({
-                                "type": "content_block_stop",
-                                "index": self.current_block_index
-                            }),
-                        ));
-                    }
-                    self.current_block_index += 1;
-                    self.current_block_type = BlockType::Text;
+        if let Some(content) = delta.get("content").and_then(|v| v.as_str())
+            && !content.is_empty()
+        {
+            if self.current_block_type != BlockType::Text {
+                if self.current_block_type != BlockType::None {
                     events.push(Self::sse_event(
-                        "content_block_start",
+                        "content_block_stop",
                         &serde_json::json!({
-                            "type": "content_block_start",
-                            "index": self.current_block_index,
-                            "content_block": {
-                                "type": "text",
-                                "text": ""
-                            }
+                            "type": "content_block_stop",
+                            "index": self.current_block_index
                         }),
                     ));
                 }
-                self.output_tokens_count += 1;
+                self.current_block_index += 1;
+                self.current_block_type = BlockType::Text;
                 events.push(Self::sse_event(
-                    "content_block_delta",
+                    "content_block_start",
                     &serde_json::json!({
-                        "type": "content_block_delta",
+                        "type": "content_block_start",
                         "index": self.current_block_index,
-                        "delta": {
-                            "type": "text_delta",
-                            "text": content
+                        "content_block": {
+                            "type": "text",
+                            "text": ""
                         }
                     }),
                 ));
             }
+            self.output_tokens_count += 1;
+            events.push(Self::sse_event(
+                "content_block_delta",
+                &serde_json::json!({
+                    "type": "content_block_delta",
+                    "index": self.current_block_index,
+                    "delta": {
+                        "type": "text_delta",
+                        "text": content
+                    }
+                }),
+            ));
         }
 
         // 3. Tool calls delta
@@ -993,21 +995,20 @@ impl AnthropicStreamTranslator {
                     .get("function")
                     .and_then(|f| f.get("arguments"))
                     .and_then(|v| v.as_str())
+                    && !args.is_empty()
                 {
-                    if !args.is_empty() {
-                        self.output_tokens_count += 1;
-                        events.push(Self::sse_event(
-                            "content_block_delta",
-                            &serde_json::json!({
-                                "type": "content_block_delta",
-                                "index": anthropic_idx,
-                                "delta": {
-                                    "type": "input_json_delta",
-                                    "partial_json": args
-                                }
-                            }),
-                        ));
-                    }
+                    self.output_tokens_count += 1;
+                    events.push(Self::sse_event(
+                        "content_block_delta",
+                        &serde_json::json!({
+                            "type": "content_block_delta",
+                            "index": anthropic_idx,
+                            "delta": {
+                                "type": "input_json_delta",
+                                "partial_json": args
+                            }
+                        }),
+                    ));
                 }
             }
         }
@@ -1094,11 +1095,11 @@ pub fn estimate_tokens(req: &AnthropicMessageRequest) -> usize {
     if let Some(system) = &req.system {
         match system {
             AnthropicSystem::Text(text) => {
-                count += (text.chars().count() + 3) / 4;
+                count += text.chars().count().div_ceil(4);
             }
             AnthropicSystem::Blocks(blocks) => {
                 for b in blocks {
-                    count += (b.text.chars().count() + 3) / 4;
+                    count += b.text.chars().count().div_ceil(4);
                 }
             }
         }
@@ -1108,13 +1109,13 @@ pub fn estimate_tokens(req: &AnthropicMessageRequest) -> usize {
         count += 4;
         match &msg.content {
             AnthropicMessageContent::Text(text) => {
-                count += (text.chars().count() + 3) / 4;
+                count += text.chars().count().div_ceil(4);
             }
             AnthropicMessageContent::Blocks(blocks) => {
                 for block in blocks {
                     match block {
                         AnthropicContentBlock::Text { text, .. } => {
-                            count += (text.chars().count() + 3) / 4;
+                            count += text.chars().count().div_ceil(4);
                         }
                         AnthropicContentBlock::Image { .. } => {
                             count += 1600;
@@ -1122,20 +1123,20 @@ pub fn estimate_tokens(req: &AnthropicMessageRequest) -> usize {
                         AnthropicContentBlock::ToolUse { name, input, .. } => {
                             let input_len =
                                 serde_json::to_string(input).map(|s| s.len()).unwrap_or(0);
-                            count += (name.len() + input_len + 3) / 4;
+                            count += (name.len() + input_len).div_ceil(4);
                         }
                         AnthropicContentBlock::ToolResult { content, .. } => {
                             let text_len = match content {
                                 Value::String(s) => s.len(),
                                 other => serde_json::to_string(other).map(|s| s.len()).unwrap_or(0),
                             };
-                            count += (text_len + 3) / 4;
+                            count += text_len.div_ceil(4);
                         }
                         AnthropicContentBlock::Thinking { thinking, .. } => {
-                            count += (thinking.chars().count() + 3) / 4;
+                            count += thinking.chars().count().div_ceil(4);
                         }
                         AnthropicContentBlock::RedactedThinking { data } => {
-                            count += (data.len() + 3) / 4;
+                            count += data.len().div_ceil(4);
                         }
                     }
                 }
@@ -1149,8 +1150,8 @@ pub fn estimate_tokens(req: &AnthropicMessageRequest) -> usize {
             let schema_len = serde_json::to_string(&t.input_schema)
                 .map(|s| s.len())
                 .unwrap_or(0);
-            count +=
-                (t.name.len() + t.description.as_deref().unwrap_or("").len() + schema_len + 3) / 4;
+            count += (t.name.len() + t.description.as_deref().unwrap_or("").len() + schema_len)
+                .div_ceil(4);
         }
     }
 

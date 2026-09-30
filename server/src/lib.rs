@@ -1,6 +1,7 @@
 pub mod app;
 pub mod clock;
 pub mod config;
+pub mod constants;
 pub mod error;
 pub mod features;
 pub mod http;

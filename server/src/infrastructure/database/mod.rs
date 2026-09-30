@@ -15,6 +15,7 @@ mod sqlite;
 use sqlx::{PgPool, SqlitePool};
 
 use crate::config::APIConfig;
+use crate::constants;
 use crate::error::APIError;
 
 /// The persistence backend selected by configuration.
@@ -35,13 +36,16 @@ impl AppDatabase {
                 .await
                 .map(Self::Postgres)
                 .map_err(|error| {
-                    APIError::new(500, format!("could not connect to PostgreSQL: {error}"))
+                    APIError::new(
+                        500,
+                        constants::database::could_not_connect_to_postgres(&error),
+                    )
                 }),
             None => {
                 let pool = sqlite::connect(&config.database_path)
                     .await
                     .map_err(|error| {
-                        APIError::new(500, format!("could not open the SQLite database: {error}"))
+                        APIError::new(500, constants::database::could_not_open_sqlite(&error))
                     })?;
                 migrations::run(&pool).await?;
                 Ok(Self::Sqlite(pool))

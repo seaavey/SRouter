@@ -17,6 +17,7 @@ use axum::{
 use futures_util::{Stream, StreamExt};
 use serde_json::Value;
 
+use crate::constants;
 use crate::features::api_keys::{APIPrincipal, ensure_model_allowed};
 use crate::features::gateway::anthropic::{
     AnthropicMessageRequest, AnthropicStreamTranslator, AnthropicThinking, anthropic_error,
@@ -69,23 +70,23 @@ pub async fn create_message(
 
     let body = match read_json_body(request).await {
         Ok(b) => b,
-        Err(err_response) => return err_response,
+        Err(err_response) => return *err_response,
     };
 
     if body.get("model").is_none() {
-        return anthropic_error(400, "Missing required parameter 'model'");
+        return anthropic_error(400, constants::gateway::MODEL_REQUIRED);
     }
     if body.get("messages").is_none() {
-        return anthropic_error(400, "Missing required parameter 'messages'");
+        return anthropic_error(400, constants::gateway::MESSAGES_REQUIRED);
     }
 
     let anthropic_req: AnthropicMessageRequest = match serde_json::from_value(body) {
         Ok(req) => req,
-        Err(err) => return anthropic_error(400, format!("Invalid request body: {err}")),
+        Err(err) => return anthropic_error(400, constants::gateway::invalid_request_body(&err)),
     };
 
     if anthropic_req.messages.is_empty() {
-        return anthropic_error(400, "messages: at least 1 message is required");
+        return anthropic_error(400, constants::gateway::MESSAGES_EMPTY);
     }
 
     // Enforce model allowlist for this API key.
@@ -119,7 +120,7 @@ pub async fn create_message(
         None => {
             return anthropic_error(
                 404,
-                format!("No provider is registered for model '{original_model}'"),
+                constants::gateway::model_not_registered(&original_model),
             );
         }
     };
@@ -139,7 +140,7 @@ pub async fn create_message(
             Ok(res) => res,
             Err(err) => {
                 if let Some(db) = &state.database {
-                    let latency_ms = (crate::clock::now_ms() - start_time) as i64;
+                    let latency_ms = crate::clock::now_ms() - start_time;
                     let _ = insert_request_log(
                         db,
                         RequestLogInput {
@@ -264,7 +265,7 @@ pub async fn create_message(
     let breakdown = normalize_response_usage(&mut final_response);
 
     if let Some(db) = &state.database {
-        let latency_ms = (crate::clock::now_ms() - start_time) as i64;
+        let latency_ms = crate::clock::now_ms() - start_time;
         let _ = insert_request_log(
             db,
             RequestLogInput {
@@ -305,19 +306,19 @@ pub async fn count_tokens(
 ) -> Response {
     let body = match read_json_body(request).await {
         Ok(b) => b,
-        Err(err_response) => return err_response,
+        Err(err_response) => return *err_response,
     };
 
     if body.get("model").is_none() {
-        return anthropic_error(400, "Missing required parameter 'model'");
+        return anthropic_error(400, constants::gateway::MODEL_REQUIRED);
     }
     if body.get("messages").is_none() {
-        return anthropic_error(400, "Missing required parameter 'messages'");
+        return anthropic_error(400, constants::gateway::MESSAGES_REQUIRED);
     }
 
     let anthropic_req: AnthropicMessageRequest = match serde_json::from_value(body) {
         Ok(req) => req,
-        Err(err) => return anthropic_error(400, format!("Invalid request body: {err}")),
+        Err(err) => return anthropic_error(400, constants::gateway::invalid_request_body(&err)),
     };
 
     let api_key = principal.as_ref().and_then(|ext| ext.0.api_key.as_ref());
@@ -336,42 +337,32 @@ pub async fn count_tokens(
         .into_response()
 }
 
-async fn read_json_body(request: Request) -> Result<Value, Response> {
+// A `Response` error is 128 bytes; boxing keeps the `Result` small while the
+// allocation only happens on the failure path.
+async fn read_json_body(request: Request) -> Result<Value, Box<Response>> {
     if let Some(length) = request
         .headers()
         .get(header::CONTENT_LENGTH)
         .and_then(|value| value.to_str().ok())
         .and_then(|value| value.trim().parse::<u64>().ok())
+        && length > MAX_BODY_BYTES as u64
     {
-        if length > MAX_BODY_BYTES as u64 {
-            return Err(anthropic_error(413, "Request body too large"));
-        }
+        return Err(Box::new(anthropic_error(413, constants::json::TOO_LARGE)));
     }
 
     let bytes = to_bytes(request.into_body(), MAX_BODY_BYTES)
         .await
-        .map_err(|_| anthropic_error(413, "Request body too large"))?;
+        .map_err(|_| Box::new(anthropic_error(413, constants::json::TOO_LARGE)))?;
 
-    let text = std::str::from_utf8(&bytes).map_err(|_| {
-        anthropic_error(
-            400,
-            "Malformed JSON in request body. Please verify JSON syntax.",
-        )
-    })?;
+    let text = std::str::from_utf8(&bytes)
+        .map_err(|_| Box::new(anthropic_error(400, constants::json::MALFORMED_VERIFY)))?;
 
     if text.trim().is_empty() {
-        return Err(anthropic_error(
-            400,
-            "Request body cannot be empty. Valid JSON is required.",
-        ));
+        return Err(Box::new(anthropic_error(400, constants::json::EMPTY_BODY)));
     }
 
-    serde_json::from_str(text).map_err(|_| {
-        anthropic_error(
-            400,
-            "Malformed JSON in request body. Please verify JSON syntax.",
-        )
-    })
+    serde_json::from_str(text)
+        .map_err(|_| Box::new(anthropic_error(400, constants::json::MALFORMED_VERIFY)))
 }
 
 struct ReceiverStream<T>(tokio::sync::mpsc::Receiver<T>);
@@ -408,7 +399,7 @@ async fn run_anthropic_streaming_interception_loop(
         let resolved = match state.providers.resolve(&chat_request.model) {
             Some(res) => res,
             None => {
-                let err_msg = format!("No provider is registered for model '{original_model}'");
+                let err_msg = constants::gateway::model_not_registered(&original_model);
                 let _ = tx
                     .send(Ok(anthropic_error_event_bytes("not_found_error", &err_msg)))
                     .await;
@@ -466,74 +457,67 @@ async fn run_anthropic_streaming_interception_loop(
 
                             buffered_chunks.push(json.clone());
 
-                            if let Some(choice) = json.get("choices").and_then(|c| c.get(0)) {
-                                if let Some(delta) = choice.get("delta") {
-                                    if let Some(tc_array) =
-                                        delta.get("tool_calls").and_then(|t| t.as_array())
-                                    {
-                                        if !tc_array.is_empty() {
-                                            is_tool_call_turn = true;
-                                            for item in tc_array {
-                                                let idx = item
-                                                    .get("index")
-                                                    .and_then(|v| v.as_u64())
-                                                    .unwrap_or(0)
-                                                    as usize;
-                                                let entry =
-                                                    assembled_tool_calls.entry(idx).or_default();
-                                                if let Some(id) =
-                                                    item.get("id").and_then(|v| v.as_str())
-                                                {
-                                                    entry.id = id.to_owned();
-                                                }
-                                                if let Some(fn_obj) = item.get("function") {
-                                                    if let Some(name) =
-                                                        fn_obj.get("name").and_then(|v| v.as_str())
-                                                    {
-                                                        entry.name = name.to_owned();
-                                                    }
-                                                    if let Some(args) = fn_obj
-                                                        .get("arguments")
-                                                        .and_then(|v| v.as_str())
-                                                    {
-                                                        entry.arguments.push_str(args);
-                                                    }
-                                                }
+                            if let Some(choice) = json.get("choices").and_then(|c| c.get(0))
+                                && let Some(delta) = choice.get("delta")
+                            {
+                                if let Some(tc_array) =
+                                    delta.get("tool_calls").and_then(|t| t.as_array())
+                                    && !tc_array.is_empty()
+                                {
+                                    is_tool_call_turn = true;
+                                    for item in tc_array {
+                                        let idx =
+                                            item.get("index").and_then(|v| v.as_u64()).unwrap_or(0)
+                                                as usize;
+                                        let entry = assembled_tool_calls.entry(idx).or_default();
+                                        if let Some(id) = item.get("id").and_then(|v| v.as_str()) {
+                                            entry.id = id.to_owned();
+                                        }
+                                        if let Some(fn_obj) = item.get("function") {
+                                            if let Some(name) =
+                                                fn_obj.get("name").and_then(|v| v.as_str())
+                                            {
+                                                entry.name = name.to_owned();
+                                            }
+                                            if let Some(args) =
+                                                fn_obj.get("arguments").and_then(|v| v.as_str())
+                                            {
+                                                entry.arguments.push_str(args);
                                             }
                                         }
                                     }
+                                }
 
-                                    let has_text_delta = delta
-                                        .get("content")
+                                let has_text_delta = delta
+                                    .get("content")
+                                    .and_then(|v| v.as_str())
+                                    .is_some_and(|s| !s.is_empty())
+                                    || delta
+                                        .get("reasoning_content")
                                         .and_then(|v| v.as_str())
                                         .is_some_and(|s| !s.is_empty())
-                                        || delta
-                                            .get("reasoning_content")
-                                            .and_then(|v| v.as_str())
-                                            .is_some_and(|s| !s.is_empty())
-                                        || delta
-                                            .get("reasoning")
-                                            .and_then(|v| v.as_str())
-                                            .is_some_and(|s| !s.is_empty())
-                                        || delta
-                                            .get("thought")
-                                            .and_then(|v| v.as_str())
-                                            .is_some_and(|s| !s.is_empty());
+                                    || delta
+                                        .get("reasoning")
+                                        .and_then(|v| v.as_str())
+                                        .is_some_and(|s| !s.is_empty())
+                                    || delta
+                                        .get("thought")
+                                        .and_then(|v| v.as_str())
+                                        .is_some_and(|s| !s.is_empty());
 
-                                    if let Some(content_chunk) =
-                                        delta.get("content").and_then(|v| v.as_str())
-                                    {
-                                        assistant_content.push_str(content_chunk);
-                                    }
+                                if let Some(content_chunk) =
+                                    delta.get("content").and_then(|v| v.as_str())
+                                {
+                                    assistant_content.push_str(content_chunk);
+                                }
 
-                                    if !is_tool_call_turn && has_text_delta {
-                                        streamed_directly = true;
-                                        for chunk in buffered_chunks.drain(..) {
-                                            let events = translator.feed_chunk(&chunk);
-                                            for ev in events {
-                                                if tx.send(Ok(ev)).await.is_err() {
-                                                    return;
-                                                }
+                                if !is_tool_call_turn && has_text_delta {
+                                    streamed_directly = true;
+                                    for chunk in buffered_chunks.drain(..) {
+                                        let events = translator.feed_chunk(&chunk);
+                                        for ev in events {
+                                            if tx.send(Ok(ev)).await.is_err() {
+                                                return;
                                             }
                                         }
                                     }
@@ -665,15 +649,24 @@ fn stream_anthropic_message(
 
     let mut builder = Response::builder()
         .status(StatusCode::OK)
-        .header(header::CONTENT_TYPE, "text/event-stream")
-        .header(header::CACHE_CONTROL, "no-cache, no-transform")
-        .header("x-accel-buffering", "no");
+        .header(
+            header::CONTENT_TYPE,
+            constants::headers::value::EVENT_STREAM,
+        )
+        .header(
+            header::CACHE_CONTROL,
+            constants::headers::value::SSE_CACHE_CONTROL,
+        )
+        .header(
+            constants::headers::name::X_ACCEL_BUFFERING,
+            constants::headers::value::ACCEL_BUFFERING_OFF,
+        );
 
     if version == Version::HTTP_10 || version == Version::HTTP_11 {
-        builder = builder.header(header::CONNECTION, "keep-alive");
+        builder = builder.header(header::CONNECTION, constants::headers::value::KEEP_ALIVE);
     }
 
     builder
         .body(Body::from_stream(events))
-        .unwrap_or_else(|_| anthropic_error(500, "Could not build the stream response"))
+        .unwrap_or_else(|_| anthropic_error(500, constants::gateway::COULD_NOT_BUILD_STREAM))
 }

@@ -224,11 +224,9 @@ async fn malformed_json_returns_400_with_invalid_json_code() {
     let json = json_body(response).await;
     assert_eq!(json["error"]["type"], "invalid_request_error");
     assert_eq!(json["error"]["code"], "invalid_json");
-    assert!(
-        json["error"]["message"]
-            .as_str()
-            .unwrap()
-            .contains("Malformed JSON")
+    assert_eq!(
+        json["error"]["message"].as_str().unwrap(),
+        "Malformed JSON in request body"
     );
 }
 

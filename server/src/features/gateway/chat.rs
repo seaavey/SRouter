@@ -11,7 +11,8 @@ use axum::{
 use futures_util::{Stream, StreamExt};
 use serde_json::Value;
 
-use crate::error::APIError;
+use crate::constants;
+use crate::error::{APIError, invalid_json};
 use crate::features::api_keys::{APIPrincipal, ensure_model_allowed};
 use crate::features::gateway::interceptor::{
     execute_intercepted_search, should_intercept_tool_call,
@@ -101,7 +102,7 @@ pub async fn create_completion(
             Ok(res) => res,
             Err(err) => {
                 if let Some(db) = &state.database {
-                    let latency_ms = (crate::clock::now_ms() - start_time) as i64;
+                    let latency_ms = crate::clock::now_ms() - start_time;
                     let _ = insert_request_log(
                         db,
                         RequestLogInput {
@@ -226,7 +227,7 @@ pub async fn create_completion(
     let breakdown = normalize_response_usage(&mut final_response);
 
     if let Some(db) = &state.database {
-        let latency_ms = (crate::clock::now_ms() - start_time) as i64;
+        let latency_ms = crate::clock::now_ms() - start_time;
         let _ = insert_request_log(
             db,
             RequestLogInput {
@@ -266,10 +267,9 @@ async fn read_json_body(request: Request) -> Result<Value, APIError> {
         .get(header::CONTENT_LENGTH)
         .and_then(|value| value.to_str().ok())
         .and_then(|value| value.trim().parse::<u64>().ok())
+        && length > MAX_BODY_BYTES as u64
     {
-        if length > MAX_BODY_BYTES as u64 {
-            return Err(body_too_large());
-        }
+        return Err(body_too_large());
     }
 
     // The limit also covers chunked bodies that lie about their length.
@@ -286,27 +286,15 @@ async fn read_json_body(request: Request) -> Result<Value, APIError> {
 }
 
 fn body_too_large() -> APIError {
-    APIError::new(413, "Request body too large").with_code("request_too_large")
-}
-
-fn invalid_json() -> APIError {
-    APIError::new(
-        400,
-        "Malformed JSON in request body. Please verify JSON syntax.",
-    )
-    .with_code("invalid_json")
+    APIError::new(413, constants::json::TOO_LARGE).with_code(constants::code::REQUEST_TOO_LARGE)
 }
 
 fn invalid_json_empty() -> APIError {
-    APIError::new(400, "Request body cannot be empty. Valid JSON is required.")
-        .with_code("invalid_json")
+    APIError::new(400, constants::json::EMPTY_BODY).with_code(constants::code::INVALID_JSON)
 }
 
 fn unregistered_model(model: &str) -> APIError {
-    APIError::new(
-        404,
-        format!("No provider is registered for model '{model}'"),
-    )
+    APIError::new(404, constants::gateway::model_not_registered(model))
 }
 
 struct ReceiverStream<T>(tokio::sync::mpsc::Receiver<T>);
@@ -395,74 +383,66 @@ async fn run_streaming_interception_loop(
                             continue;
                         }
 
-                        if let Ok(json) = serde_json::from_str::<Value>(data_str) {
-                            if let Some(choice) = json.get("choices").and_then(|c| c.get(0)) {
-                                if let Some(delta) = choice.get("delta") {
-                                    if let Some(tc_array) =
-                                        delta.get("tool_calls").and_then(|t| t.as_array())
-                                    {
-                                        if !tc_array.is_empty() {
-                                            is_tool_call_turn = true;
-                                            for item in tc_array {
-                                                let idx = item
-                                                    .get("index")
-                                                    .and_then(|v| v.as_u64())
-                                                    .unwrap_or(0)
-                                                    as usize;
-                                                let entry =
-                                                    assembled_tool_calls.entry(idx).or_default();
-                                                if let Some(id) =
-                                                    item.get("id").and_then(|v| v.as_str())
-                                                {
-                                                    entry.id = id.to_owned();
-                                                }
-                                                if let Some(fn_obj) = item.get("function") {
-                                                    if let Some(name) =
-                                                        fn_obj.get("name").and_then(|v| v.as_str())
-                                                    {
-                                                        entry.name = name.to_owned();
-                                                    }
-                                                    if let Some(args) = fn_obj
-                                                        .get("arguments")
-                                                        .and_then(|v| v.as_str())
-                                                    {
-                                                        entry.arguments.push_str(args);
-                                                    }
-                                                }
-                                            }
+                        if let Ok(json) = serde_json::from_str::<Value>(data_str)
+                            && let Some(choice) = json.get("choices").and_then(|c| c.get(0))
+                            && let Some(delta) = choice.get("delta")
+                        {
+                            if let Some(tc_array) =
+                                delta.get("tool_calls").and_then(|t| t.as_array())
+                                && !tc_array.is_empty()
+                            {
+                                is_tool_call_turn = true;
+                                for item in tc_array {
+                                    let idx =
+                                        item.get("index").and_then(|v| v.as_u64()).unwrap_or(0)
+                                            as usize;
+                                    let entry = assembled_tool_calls.entry(idx).or_default();
+                                    if let Some(id) = item.get("id").and_then(|v| v.as_str()) {
+                                        entry.id = id.to_owned();
+                                    }
+                                    if let Some(fn_obj) = item.get("function") {
+                                        if let Some(name) =
+                                            fn_obj.get("name").and_then(|v| v.as_str())
+                                        {
+                                            entry.name = name.to_owned();
+                                        }
+                                        if let Some(args) =
+                                            fn_obj.get("arguments").and_then(|v| v.as_str())
+                                        {
+                                            entry.arguments.push_str(args);
                                         }
                                     }
+                                }
+                            }
 
-                                    let has_text_delta = delta
-                                        .get("content")
-                                        .and_then(|v| v.as_str())
-                                        .is_some_and(|s| !s.is_empty())
-                                        || delta
-                                            .get("reasoning_content")
-                                            .and_then(|v| v.as_str())
-                                            .is_some_and(|s| !s.is_empty())
-                                        || delta
-                                            .get("reasoning")
-                                            .and_then(|v| v.as_str())
-                                            .is_some_and(|s| !s.is_empty())
-                                        || delta
-                                            .get("thought")
-                                            .and_then(|v| v.as_str())
-                                            .is_some_and(|s| !s.is_empty());
+                            let has_text_delta = delta
+                                .get("content")
+                                .and_then(|v| v.as_str())
+                                .is_some_and(|s| !s.is_empty())
+                                || delta
+                                    .get("reasoning_content")
+                                    .and_then(|v| v.as_str())
+                                    .is_some_and(|s| !s.is_empty())
+                                || delta
+                                    .get("reasoning")
+                                    .and_then(|v| v.as_str())
+                                    .is_some_and(|s| !s.is_empty())
+                                || delta
+                                    .get("thought")
+                                    .and_then(|v| v.as_str())
+                                    .is_some_and(|s| !s.is_empty());
 
-                                    if let Some(content_chunk) =
-                                        delta.get("content").and_then(|v| v.as_str())
-                                    {
-                                        assistant_content.push_str(content_chunk);
-                                    }
+                            if let Some(content_chunk) =
+                                delta.get("content").and_then(|v| v.as_str())
+                            {
+                                assistant_content.push_str(content_chunk);
+                            }
 
-                                    if !is_tool_call_turn && has_text_delta {
-                                        streamed_directly = true;
-                                        for b in buffered_bytes.drain(..) {
-                                            if tx.send(Ok(b)).await.is_err() {
-                                                return;
-                                            }
-                                        }
+                            if !is_tool_call_turn && has_text_delta {
+                                streamed_directly = true;
+                                for b in buffered_bytes.drain(..) {
+                                    if tx.send(Ok(b)).await.is_err() {
+                                        return;
                                     }
                                 }
                             }
@@ -579,16 +559,25 @@ where
 {
     let mut builder = Response::builder()
         .status(StatusCode::OK)
-        .header(header::CONTENT_TYPE, "text/event-stream")
-        .header(header::CACHE_CONTROL, "no-cache, no-transform")
-        .header("x-accel-buffering", "no");
+        .header(
+            header::CONTENT_TYPE,
+            constants::headers::value::EVENT_STREAM,
+        )
+        .header(
+            header::CACHE_CONTROL,
+            constants::headers::value::SSE_CACHE_CONTROL,
+        )
+        .header(
+            constants::headers::name::X_ACCEL_BUFFERING,
+            constants::headers::value::ACCEL_BUFFERING_OFF,
+        );
 
     // `Connection` is a HTTP/1.x hop-by-hop header; HTTP/2 forbids it.
     if version == Version::HTTP_10 || version == Version::HTTP_11 {
-        builder = builder.header(header::CONNECTION, "keep-alive");
+        builder = builder.header(header::CONNECTION, constants::headers::value::KEEP_ALIVE);
     }
 
-    builder.body(Body::from_stream(events)).map_err(|error| {
-        APIError::new(500, format!("could not build the stream response: {error}"))
-    })
+    builder
+        .body(Body::from_stream(events))
+        .map_err(|error| APIError::new(500, constants::gateway::could_not_build_stream(&error)))
 }

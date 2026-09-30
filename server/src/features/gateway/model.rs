@@ -7,6 +7,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::constants;
 use crate::error::APIError;
 
 /// Bounds frozen in `ChatCompletionRequestSchema`.
@@ -25,24 +26,24 @@ const MAX_REASONING_TEXT: usize = 64;
 pub fn parse_chat_completion_request(body: Value) -> Result<ChatCompletionRequest, APIError> {
     if body.get("model").is_none() {
         return Err(invalid_request(
-            "Missing required parameter 'model'",
+            constants::gateway::MODEL_REQUIRED,
             Some("model"),
-            "invalid_type",
+            constants::code::INVALID_TYPE,
         ));
     }
     if body.get("messages").is_none() {
         return Err(invalid_request(
-            "Missing required parameter 'messages'",
+            constants::gateway::MESSAGES_REQUIRED,
             Some("messages"),
-            "invalid_type",
+            constants::code::INVALID_TYPE,
         ));
     }
 
     let request: ChatCompletionRequest = serde_json::from_value(body).map_err(|error| {
         invalid_request(
-            format!("Invalid request body: {error}"),
+            constants::gateway::invalid_request_body(&error),
             None,
-            "invalid_type",
+            constants::code::INVALID_TYPE,
         )
     })?;
     request.validate()?;
@@ -96,7 +97,7 @@ impl<'de> Deserialize<'de> for ChatContent {
             type Value = ChatContent;
 
             fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                formatter.write_str("a string, an array of content parts, or null")
+                formatter.write_str(constants::gateway::schema::CONTENT_DESCRIPTION)
             }
 
             fn visit_str<E: serde::de::Error>(self, value: &str) -> Result<ChatContent, E> {
@@ -366,47 +367,47 @@ impl ChatCompletionRequest {
         let model_length = self.model.chars().count();
         if model_length < 1 {
             return Err(invalid_request(
-                "String must contain at least 1 character(s)",
+                constants::gateway::schema::STRING_MIN_1,
                 Some("model"),
-                "too_small",
+                constants::code::TOO_SMALL,
             ));
         }
         if model_length > MAX_MODEL_LENGTH {
             return Err(invalid_request(
-                "String must contain at most 300 character(s)",
+                constants::gateway::schema::STRING_MAX_300,
                 Some("model"),
-                "too_big",
+                constants::code::TOO_BIG,
             ));
         }
 
         if self.messages.is_empty() {
             return Err(invalid_request(
-                "Parameter 'messages' cannot be empty",
+                constants::gateway::schema::MESSAGES_NOT_EMPTY,
                 Some("messages"),
-                "too_small",
+                constants::code::TOO_SMALL,
             ));
         }
         if self.messages.len() > MAX_MESSAGES {
             return Err(invalid_request(
-                "Parameter 'messages' exceeds the maximum of 1000 entries",
+                constants::gateway::schema::MESSAGES_MAX_1000,
                 Some("messages"),
-                "too_big",
+                constants::code::TOO_BIG,
             ));
         }
 
         if let Some(max_tokens) = self.max_tokens {
             if max_tokens < 1 {
                 return Err(invalid_request(
-                    "Number must be greater than or equal to 1",
+                    constants::gateway::schema::NUMBER_MIN_1,
                     Some("max_tokens"),
-                    "too_small",
+                    constants::code::TOO_SMALL,
                 ));
             }
             if max_tokens > MAX_TOKENS_CAP {
                 return Err(invalid_request(
-                    "Parameter 'max_tokens' exceeds the gateway maximum",
+                    constants::gateway::schema::MAX_TOKENS_ABOVE_CAP,
                     Some("max_tokens"),
-                    "too_big",
+                    constants::code::TOO_BIG,
                 ));
             }
         }
@@ -414,16 +415,16 @@ impl ChatCompletionRequest {
         if let Some(n) = self.n {
             if n < 1 {
                 return Err(invalid_request(
-                    "Number must be greater than or equal to 1",
+                    constants::gateway::schema::NUMBER_MIN_1,
                     Some("n"),
-                    "too_small",
+                    constants::code::TOO_SMALL,
                 ));
             }
             if n > MAX_N {
                 return Err(invalid_request(
-                    "Number must be less than or equal to 8",
+                    constants::gateway::schema::NUMBER_MAX_8,
                     Some("n"),
-                    "too_big",
+                    constants::code::TOO_BIG,
                 ));
             }
         }
@@ -433,67 +434,67 @@ impl ChatCompletionRequest {
         check_range("presence_penalty", self.presence_penalty, -2.0, 2.0)?;
         check_range("frequency_penalty", self.frequency_penalty, -2.0, 2.0)?;
 
-        if let Some(user) = &self.user {
-            if user.chars().count() > MAX_USER_LENGTH {
-                return Err(invalid_request(
-                    "String must contain at most 300 character(s)",
-                    Some("user"),
-                    "too_big",
-                ));
-            }
+        if let Some(user) = &self.user
+            && user.chars().count() > MAX_USER_LENGTH
+        {
+            return Err(invalid_request(
+                constants::gateway::schema::STRING_MAX_300,
+                Some("user"),
+                constants::code::TOO_BIG,
+            ));
         }
 
         if let Some(tools) = &self.tools {
             if tools.len() > MAX_TOOLS {
                 return Err(invalid_request(
-                    "Array must contain at most 128 element(s)",
+                    constants::gateway::schema::ARRAY_MAX_128,
                     Some("tools"),
-                    "too_big",
+                    constants::code::TOO_BIG,
                 ));
             }
             for (index, tool) in tools.iter().enumerate() {
-                if let Some(parameters) = &tool.function.parameters {
-                    if !parameters.is_object() {
-                        return Err(invalid_request(
-                            "Invalid input: expected object",
-                            Some(&format!("tools.{index}.function.parameters")),
-                            "invalid_type",
-                        ));
-                    }
-                }
-            }
-        }
-
-        if let Some(stop) = &self.stop {
-            if let StopSequence::List(sequences) = stop {
-                if sequences.len() > MAX_STOP_SEQUENCES {
-                    return Err(invalid_request(
-                        "Array must contain at most 16 element(s)",
-                        Some("stop"),
-                        "too_big",
-                    ));
-                }
-                if sequences
-                    .iter()
-                    .any(|sequence| sequence.chars().count() > MAX_STOP_SEQUENCE_LENGTH)
+                if let Some(parameters) = &tool.function.parameters
+                    && !parameters.is_object()
                 {
                     return Err(invalid_request(
-                        "String must contain at most 1000 character(s)",
-                        Some("stop"),
-                        "too_big",
+                        constants::gateway::schema::EXPECTED_OBJECT,
+                        Some(&format!("tools.{index}.function.parameters")),
+                        constants::code::INVALID_TYPE,
                     ));
                 }
             }
         }
 
-        if let Some(reasoning_effort) = &self.reasoning_effort {
-            if reasoning_effort.chars().count() > MAX_REASONING_TEXT {
+        if let Some(stop) = &self.stop
+            && let StopSequence::List(sequences) = stop
+        {
+            if sequences.len() > MAX_STOP_SEQUENCES {
                 return Err(invalid_request(
-                    "String must contain at most 64 character(s)",
-                    Some("reasoning_effort"),
-                    "too_big",
+                    constants::gateway::schema::ARRAY_MAX_16,
+                    Some("stop"),
+                    constants::code::TOO_BIG,
                 ));
             }
+            if sequences
+                .iter()
+                .any(|sequence| sequence.chars().count() > MAX_STOP_SEQUENCE_LENGTH)
+            {
+                return Err(invalid_request(
+                    constants::gateway::schema::STRING_MAX_1000,
+                    Some("stop"),
+                    constants::code::TOO_BIG,
+                ));
+            }
+        }
+
+        if let Some(reasoning_effort) = &self.reasoning_effort
+            && reasoning_effort.chars().count() > MAX_REASONING_TEXT
+        {
+            return Err(invalid_request(
+                constants::gateway::schema::STRING_MAX_64,
+                Some("reasoning_effort"),
+                constants::code::TOO_BIG,
+            ));
         }
 
         if let Some(reasoning) = &self.reasoning {
@@ -501,14 +502,14 @@ impl ChatCompletionRequest {
                 ("effort", &reasoning.effort),
                 ("summary", &reasoning.summary),
             ] {
-                if let Some(value) = value {
-                    if value.chars().count() > MAX_REASONING_TEXT {
-                        return Err(invalid_request(
-                            "String must contain at most 64 character(s)",
-                            Some(&format!("reasoning.{field}")),
-                            "too_big",
-                        ));
-                    }
+                if let Some(value) = value
+                    && value.chars().count() > MAX_REASONING_TEXT
+                {
+                    return Err(invalid_request(
+                        constants::gateway::schema::STRING_MAX_64,
+                        Some(&format!("reasoning.{field}")),
+                        constants::code::TOO_BIG,
+                    ));
                 }
             }
         }
@@ -516,20 +517,20 @@ impl ChatCompletionRequest {
         if let Some(thinking_budget) = self.thinking_budget {
             check_positive_cap(thinking_budget, "thinking_budget")?;
         }
-        if let Some(Thinking::Config(config)) = &self.thinking {
-            if let Some(budget_tokens) = config.budget_tokens {
-                check_positive_cap(budget_tokens, "thinking.budget_tokens")?;
-            }
+        if let Some(Thinking::Config(config)) = &self.thinking
+            && let Some(budget_tokens) = config.budget_tokens
+        {
+            check_positive_cap(budget_tokens, "thinking.budget_tokens")?;
         }
 
-        if let Some(prompt_cache_key) = &self.prompt_cache_key {
-            if prompt_cache_key.chars().count() > MAX_MODEL_LENGTH {
-                return Err(invalid_request(
-                    "String must contain at most 300 character(s)",
-                    Some("prompt_cache_key"),
-                    "too_big",
-                ));
-            }
+        if let Some(prompt_cache_key) = &self.prompt_cache_key
+            && prompt_cache_key.chars().count() > MAX_MODEL_LENGTH
+        {
+            return Err(invalid_request(
+                constants::gateway::schema::STRING_MAX_300,
+                Some("prompt_cache_key"),
+                constants::code::TOO_BIG,
+            ));
         }
 
         Ok(())
@@ -542,16 +543,16 @@ fn check_range(param: &str, value: Option<f64>, min: f64, max: f64) -> Result<()
     };
     if value < min {
         return Err(invalid_request(
-            format!("Number must be greater than or equal to {min}"),
+            constants::gateway::schema::number_min(min),
             Some(param),
-            "too_small",
+            constants::code::TOO_SMALL,
         ));
     }
     if value > max {
         return Err(invalid_request(
-            format!("Number must be less than or equal to {max}"),
+            constants::gateway::schema::number_max(max),
             Some(param),
-            "too_big",
+            constants::code::TOO_BIG,
         ));
     }
     Ok(())
@@ -560,16 +561,16 @@ fn check_range(param: &str, value: Option<f64>, min: f64, max: f64) -> Result<()
 fn check_positive_cap(value: u32, param: &str) -> Result<(), APIError> {
     if value < 1 {
         return Err(invalid_request(
-            "Number must be greater than or equal to 1",
+            constants::gateway::schema::NUMBER_MIN_1,
             Some(param),
-            "too_small",
+            constants::code::TOO_SMALL,
         ));
     }
     if value > MAX_TOKENS_CAP {
         return Err(invalid_request(
-            "Number must be less than or equal to 1000000",
+            constants::gateway::schema::NUMBER_MAX_1000000,
             Some(param),
-            "too_big",
+            constants::code::TOO_BIG,
         ));
     }
     Ok(())

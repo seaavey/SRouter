@@ -7,12 +7,11 @@ use axum::{Json, Router};
 use serde::Serialize;
 use serde_json::Value;
 
+use crate::constants;
 use crate::error::APIError;
 use crate::infrastructure::database::AppDatabase;
 use crate::infrastructure::database::settings::{get_require_api_key, set_require_api_key};
 use crate::state::AppState;
-
-const INVALID_SETTINGS_PAYLOAD: &str = "Invalid settings payload";
 
 /// Read router for `/v1/settings`. Protected by API-key auth.
 pub fn create_settings_read_router() -> Router<AppState> {
@@ -66,32 +65,30 @@ async fn update_settings(
 }
 
 fn require_database(state: &AppState) -> Result<&AppDatabase, APIError> {
-    state.database.as_ref().ok_or_else(|| {
-        APIError::new(
-            500,
-            "no database is configured; settings cannot be persisted",
-        )
-    })
+    state
+        .database
+        .as_ref()
+        .ok_or_else(|| APIError::new(500, constants::settings::DATABASE_REQUIRED))
 }
 
 fn parse_update_settings_payload(body: &[u8]) -> Result<UpdateSettingsInput, APIError> {
     if body.is_empty() {
-        return Err(APIError::new(400, INVALID_SETTINGS_PAYLOAD));
+        return Err(APIError::new(400, constants::settings::INVALID_PAYLOAD));
     }
 
-    let value: Value =
-        serde_json::from_slice(body).map_err(|_| APIError::new(400, INVALID_SETTINGS_PAYLOAD))?;
+    let value: Value = serde_json::from_slice(body)
+        .map_err(|_| APIError::new(400, constants::settings::INVALID_PAYLOAD))?;
 
     let object = value
         .as_object()
-        .ok_or_else(|| APIError::new(400, INVALID_SETTINGS_PAYLOAD))?;
+        .ok_or_else(|| APIError::new(400, constants::settings::INVALID_PAYLOAD))?;
 
     let mut input = UpdateSettingsInput::default();
 
     if let Some(val) = object.get("require_api_key") {
         let b = val
             .as_bool()
-            .ok_or_else(|| APIError::new(400, INVALID_SETTINGS_PAYLOAD))?;
+            .ok_or_else(|| APIError::new(400, constants::settings::INVALID_PAYLOAD))?;
         input.require_api_key = Some(b);
     }
 

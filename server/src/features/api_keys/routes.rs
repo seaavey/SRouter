@@ -12,15 +12,12 @@ use axum::{Json, Router};
 use serde::Serialize;
 use serde_json::Value;
 
+use crate::constants;
 use crate::error::APIError;
 use crate::features::api_keys::model::{
     APIKey, CreateAPIKeyInput, CreatedAPIKey, UpdateAPIKeyInput,
 };
 use crate::state::AppState;
-
-const INVALID_KEY_PAYLOAD: &str = "Invalid API key payload";
-const INVALID_CREDIT_PAYLOAD: &str = "Invalid credit payload";
-const DELETE_MESSAGE: &str = "API Key revoked and deleted successfully";
 
 /// Mounts the key-management routes. The compatibility alias `/v1/v1` does not
 /// include them (only chat, messages, and models).
@@ -87,14 +84,14 @@ async fn delete_key(
     Path(id): Path<String>,
 ) -> Result<Response, APIError> {
     if state.security.key_repository.delete(&id).await? {
-        Ok(Json(serde_json::json!({ "message": DELETE_MESSAGE })).into_response())
+        Ok(Json(serde_json::json!({ "message": constants::keys::DELETED })).into_response())
     } else {
         Err(not_found(&id))
     }
 }
 
 fn not_found(id: &str) -> APIError {
-    APIError::new(404, format!("Key '{id}' not found"))
+    APIError::new(404, constants::keys::not_found(id))
 }
 
 #[derive(Serialize)]
@@ -156,18 +153,18 @@ impl From<&CreatedAPIKey> for CreatedAPIKeyResponse {
 }
 
 fn parse_create_input(body: &[u8]) -> Result<CreateAPIKeyInput, APIError> {
-    let value: Value = parse_json(body, INVALID_KEY_PAYLOAD)?;
+    let value: Value = parse_json(body, constants::keys::INVALID_PAYLOAD)?;
     let object = value
         .as_object()
-        .ok_or_else(|| APIError::new(400, INVALID_KEY_PAYLOAD))?;
+        .ok_or_else(|| APIError::new(400, constants::keys::INVALID_PAYLOAD))?;
 
     let name = match object.get("name") {
         Some(Value::String(raw)) if !raw.is_empty() => raw.trim().to_owned(),
         Some(Value::String(_)) => {
-            return Err(APIError::new(400, "Field 'name' cannot be empty"));
+            return Err(APIError::new(400, constants::keys::NAME_EMPTY));
         }
-        Some(_) => return Err(APIError::new(400, INVALID_KEY_PAYLOAD)),
-        None => return Err(APIError::new(400, "Field 'name' is required")),
+        Some(_) => return Err(APIError::new(400, constants::keys::INVALID_PAYLOAD)),
+        None => return Err(APIError::new(400, constants::keys::NAME_REQUIRED)),
     };
 
     Ok(CreateAPIKeyInput {
@@ -181,21 +178,21 @@ fn parse_create_input(body: &[u8]) -> Result<CreateAPIKeyInput, APIError> {
 }
 
 fn parse_update_input(body: &[u8]) -> Result<UpdateAPIKeyInput, APIError> {
-    let value: Value = parse_json(body, INVALID_KEY_PAYLOAD)?;
+    let value: Value = parse_json(body, constants::keys::INVALID_PAYLOAD)?;
     let object = value
         .as_object()
-        .ok_or_else(|| APIError::new(400, INVALID_KEY_PAYLOAD))?;
+        .ok_or_else(|| APIError::new(400, constants::keys::INVALID_PAYLOAD))?;
 
     let name = match object.get("name") {
         None => None,
         Some(Value::String(name)) => {
             if name.is_empty() {
-                return Err(APIError::new(400, "Field 'name' cannot be empty"));
+                return Err(APIError::new(400, constants::keys::NAME_EMPTY));
             }
 
             Some(name.trim().to_owned())
         }
-        Some(_) => return Err(APIError::new(400, INVALID_KEY_PAYLOAD)),
+        Some(_) => return Err(APIError::new(400, constants::keys::INVALID_PAYLOAD)),
     };
 
     Ok(UpdateAPIKeyInput {
@@ -209,14 +206,14 @@ fn parse_update_input(body: &[u8]) -> Result<UpdateAPIKeyInput, APIError> {
 }
 
 fn parse_credit_amount(body: &[u8]) -> Result<f64, APIError> {
-    let value: Value = parse_json(body, INVALID_CREDIT_PAYLOAD)?;
+    let value: Value = parse_json(body, constants::keys::INVALID_CREDIT_PAYLOAD)?;
     let amount = value
         .get("amount")
         .and_then(Value::as_f64)
-        .ok_or_else(|| APIError::new(400, "Field 'amount' is required"))?;
+        .ok_or_else(|| APIError::new(400, constants::keys::AMOUNT_REQUIRED))?;
 
     if amount <= 0.0 {
-        return Err(APIError::new(400, "Amount must be greater than 0"));
+        return Err(APIError::new(400, constants::keys::AMOUNT_POSITIVE));
     }
 
     Ok(amount)
@@ -233,7 +230,7 @@ fn optional_bool(
     match object.get(field) {
         None => Ok(None),
         Some(Value::Bool(value)) => Ok(Some(*value)),
-        Some(_) => Err(APIError::new(400, INVALID_KEY_PAYLOAD)),
+        Some(_) => Err(APIError::new(400, constants::keys::INVALID_PAYLOAD)),
     }
 }
 
@@ -249,11 +246,11 @@ fn optional_count(
     let number = raw
         .as_f64()
         .filter(|number| number.is_finite() && *number >= 0.0 && number.fract() == 0.0)
-        .ok_or_else(|| APIError::new(400, INVALID_KEY_PAYLOAD))?;
+        .ok_or_else(|| APIError::new(400, constants::keys::INVALID_PAYLOAD))?;
 
     u32::try_from(number as i64)
         .map(Some)
-        .map_err(|_| APIError::new(400, INVALID_KEY_PAYLOAD))
+        .map_err(|_| APIError::new(400, constants::keys::INVALID_PAYLOAD))
 }
 
 fn optional_credit(
@@ -266,7 +263,7 @@ fn optional_credit(
             .as_f64()
             .filter(|number| number.is_finite() && *number >= 0.0)
             .map(Some)
-            .ok_or_else(|| APIError::new(400, INVALID_KEY_PAYLOAD)),
+            .ok_or_else(|| APIError::new(400, constants::keys::INVALID_PAYLOAD)),
     }
 }
 
@@ -284,13 +281,13 @@ fn parse_allowlist(raw: Option<&Value>) -> Result<Option<Option<Vec<String>>>, A
                 .iter()
                 .map(|item| match item {
                     Value::String(model) if !model.is_empty() => Ok(model.clone()),
-                    _ => Err(APIError::new(400, INVALID_KEY_PAYLOAD)),
+                    _ => Err(APIError::new(400, constants::keys::INVALID_PAYLOAD)),
                 })
                 .collect::<Result<Vec<String>, APIError>>()?;
 
             Ok(Some(Some(models)))
         }
-        _ => Err(APIError::new(400, INVALID_KEY_PAYLOAD)),
+        _ => Err(APIError::new(400, constants::keys::INVALID_PAYLOAD)),
     }
 }
 

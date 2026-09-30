@@ -8,6 +8,7 @@ use axum::http::StatusCode;
 use futures_util::{Stream, StreamExt};
 use serde_json::Value;
 
+use crate::constants;
 use crate::error::APIError;
 use crate::features::gateway::model::ChatCompletionRequest;
 use crate::features::gateway::sse;
@@ -162,10 +163,7 @@ impl OpenAIAdapter {
         }
 
         response.json::<Value>().await.map_err(|error| {
-            APIError::new(
-                500,
-                format!("could not decode the upstream response: {error}"),
-            )
+            APIError::new(500, constants::providers::could_not_decode_response(&error))
         })
     }
 
@@ -202,10 +200,7 @@ impl OpenAIAdapter {
         stream: bool,
     ) -> Result<Value, APIError> {
         let mut body = serde_json::to_value(request).map_err(|error| {
-            APIError::new(
-                500,
-                format!("could not build the upstream request: {error}"),
-            )
+            APIError::new(500, constants::providers::could_not_build_request(&error))
         })?;
         body["model"] = Value::String(model.to_owned());
         body["stream"] = Value::Bool(stream);
@@ -228,17 +223,15 @@ where
         match tokio::time::timeout(STREAM_IDLE_TIMEOUT, upstream.next()).await {
             Ok(Some(Ok(bytes))) => Some((bytes, Some(upstream))),
             Ok(Some(Err(error))) => {
-                let failure = APIError::new(500, format!("Provider Stream Error: {error}"));
+                let failure =
+                    APIError::new(500, constants::providers::upstream_stream_failed(&error));
                 Some((sse::error_event_bytes(&failure), None))
             }
             Ok(None) => None,
             Err(_) => {
                 let failure = APIError::new(
                     500,
-                    format!(
-                        "Provider Stream Error: upstream stalled for {}s",
-                        STREAM_IDLE_TIMEOUT.as_secs()
-                    ),
+                    constants::providers::upstream_stalled(STREAM_IDLE_TIMEOUT.as_secs()),
                 );
                 Some((sse::error_event_bytes(&failure), None))
             }
@@ -252,9 +245,9 @@ where
 /// message shape; the frozen contract maps unhandled errors to `500`.
 pub(crate) fn upstream_error(error: reqwest::Error) -> APIError {
     let message = if error.is_timeout() {
-        format!("upstream request timed out: {error}")
+        constants::providers::request_timed_out(&error)
     } else {
-        format!("upstream request failed: {error}")
+        constants::providers::request_failed(&error)
     };
 
     APIError::new(500, message)
@@ -263,16 +256,13 @@ pub(crate) fn upstream_error(error: reqwest::Error) -> APIError {
 pub(crate) fn upstream_status_error(status: StatusCode, detail: &str) -> APIError {
     APIError::new(
         500,
-        format!("OpenAI Provider Error ({}): {detail}", status.as_u16()),
+        constants::providers::upstream_error(status.as_u16(), detail),
     )
 }
 
 pub(crate) fn upstream_stream_status_error(status: StatusCode, detail: &str) -> APIError {
     APIError::new(
         500,
-        format!(
-            "OpenAI Provider Stream Error ({}): {detail}",
-            status.as_u16()
-        ),
+        constants::providers::upstream_stream_error(status.as_u16(), detail),
     )
 }

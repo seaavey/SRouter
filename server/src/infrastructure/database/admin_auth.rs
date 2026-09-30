@@ -4,6 +4,7 @@
 
 use futures_util::future::BoxFuture;
 
+use crate::constants;
 use crate::error::APIError;
 use crate::features::admin_auth::{AdminAuthRepository, AdminSessionStore};
 use crate::infrastructure::database::AppDatabase;
@@ -29,7 +30,7 @@ impl AdminAuthRepository for SQLxAdminAuthStore {
                 sqlx::query_scalar("SELECT COUNT(*) FROM admin_accounts WHERE id = 1")
                     .fetch_one(pool)
                     .await
-                    .map_err(sql_error("read the admin account"))?;
+                    .map_err(sql_error(constants::database::context::READ_ADMIN_ACCOUNT))?;
 
             Ok(exists > 0)
         })
@@ -55,7 +56,9 @@ impl AdminAuthRepository for SQLxAdminAuthStore {
             .bind(now_ms)
             .execute(pool)
             .await
-            .map_err(sql_error("create the admin account"))?;
+            .map_err(sql_error(
+                constants::database::context::CREATE_ADMIN_ACCOUNT,
+            ))?;
 
             Ok(result.rows_affected() > 0)
         })
@@ -68,7 +71,9 @@ impl AdminAuthRepository for SQLxAdminAuthStore {
             sqlx::query_scalar::<_, String>("SELECT password_hash FROM admin_accounts WHERE id = 1")
                 .fetch_optional(pool)
                 .await
-                .map_err(sql_error("read the admin password hash"))
+                .map_err(sql_error(
+                    constants::database::context::READ_ADMIN_PASSWORD_HASH,
+                ))
         })
     }
 
@@ -88,7 +93,9 @@ impl AdminAuthRepository for SQLxAdminAuthStore {
             .bind(now_ms)
             .execute(pool)
             .await
-            .map_err(sql_error("update the admin password hash"))?;
+            .map_err(sql_error(
+                constants::database::context::UPDATE_ADMIN_PASSWORD_HASH,
+            ))?;
 
             Ok(result.rows_affected() > 0)
         })
@@ -113,7 +120,9 @@ impl AdminAuthRepository for SQLxAdminAuthStore {
             .bind(expires_at)
             .execute(pool)
             .await
-            .map_err(sql_error("create an admin session"))?;
+            .map_err(sql_error(
+                constants::database::context::CREATE_ADMIN_SESSION,
+            ))?;
 
             Ok(())
         })
@@ -128,7 +137,9 @@ impl AdminAuthRepository for SQLxAdminAuthStore {
                 .bind(token_hash)
                 .execute(pool)
                 .await
-                .map_err(sql_error("delete an admin session"))?;
+                .map_err(sql_error(
+                    constants::database::context::DELETE_ADMIN_SESSION,
+                ))?;
 
             Ok(result.rows_affected() > 0)
         })
@@ -150,7 +161,7 @@ impl AdminSessionStore for SQLxAdminAuthStore {
             .bind(now_ms)
             .fetch_one(pool)
             .await
-            .map_err(sql_error("read an admin session"))?;
+            .map_err(sql_error(constants::database::context::READ_ADMIN_SESSION))?;
 
             Ok(count > 0)
         })
@@ -159,15 +170,12 @@ impl AdminSessionStore for SQLxAdminAuthStore {
 
 impl SQLxAdminAuthStore {
     fn pool(&self) -> Result<&sqlx::SqlitePool, APIError> {
-        self.database.sqlite_pool().ok_or_else(|| {
-            APIError::new(
-                500,
-                "the PostgreSQL backend has no admin stores yet; schema v2 is SQLite-only",
-            )
-        })
+        self.database
+            .sqlite_pool()
+            .ok_or_else(|| APIError::new(500, constants::database::ADMIN_UNSUPPORTED))
     }
 }
 
 fn sql_error(context: &'static str) -> impl FnOnce(sqlx::Error) -> APIError {
-    move |error| APIError::new(500, format!("{context}: {error}"))
+    move |error| APIError::new(500, constants::database::with_context(context, &error))
 }

@@ -14,6 +14,7 @@ use sha2::{Digest, Sha256};
 use sqlx::sqlite::{SqlitePool, SqliteRow};
 use sqlx::{Row, Transaction};
 
+use crate::constants;
 use crate::error::APIError;
 
 /// The schema version this build writes. A database reporting a higher
@@ -30,7 +31,7 @@ pub async fn run(pool: &SqlitePool) -> Result<(), APIError> {
     let version: i64 = sqlx::query_scalar("PRAGMA user_version")
         .fetch_one(pool)
         .await
-        .map_err(sql_error("read the schema version"))?;
+        .map_err(sql_error(constants::database::context::READ_SCHEMA_VERSION))?;
 
     if version == SCHEMA_VERSION {
         return Ok(());
@@ -45,10 +46,9 @@ pub async fn run(pool: &SqlitePool) -> Result<(), APIError> {
         ));
     }
 
-    let mut transaction = pool
-        .begin()
-        .await
-        .map_err(sql_error("start the schema migration"))?;
+    let mut transaction = pool.begin().await.map_err(sql_error(
+        constants::database::context::START_SCHEMA_MIGRATION,
+    ))?;
 
     let tables = table_names(&mut transaction).await?;
     let legacy = if tables.is_empty() {
@@ -60,29 +60,34 @@ pub async fn run(pool: &SqlitePool) -> Result<(), APIError> {
     sqlx::raw_sql(SCHEMA_SQL)
         .execute(&mut *transaction)
         .await
-        .map_err(sql_error("apply the current schema"))?;
+        .map_err(sql_error(
+            constants::database::context::APPLY_CURRENT_SCHEMA,
+        ))?;
 
     legacy.restore(&mut transaction).await?;
 
     sqlx::raw_sql(REQUEST_LOGS_V3_SQL)
         .execute(&mut *transaction)
         .await
-        .map_err(sql_error("apply request-log v3 migration"))?;
+        .map_err(sql_error(
+            constants::database::context::APPLY_REQUEST_LOG_V3,
+        ))?;
     upgrade_legacy_request_logs(&mut transaction).await?;
 
     sqlx::query("PRAGMA user_version = 3")
         .execute(&mut *transaction)
         .await
-        .map_err(sql_error("record the schema version"))?;
+        .map_err(sql_error(
+            constants::database::context::RECORD_SCHEMA_VERSION,
+        ))?;
 
-    transaction
-        .commit()
-        .await
-        .map_err(sql_error("commit the schema migration"))
+    transaction.commit().await.map_err(sql_error(
+        constants::database::context::COMMIT_SCHEMA_MIGRATION,
+    ))
 }
 
 fn sql_error(context: &'static str) -> impl FnOnce(sqlx::Error) -> APIError {
-    move |error| APIError::new(500, format!("{context}: {error}"))
+    move |error| APIError::new(500, constants::database::with_context(context, &error))
 }
 
 async fn table_names(
@@ -91,7 +96,7 @@ async fn table_names(
     let rows = sqlx::query("SELECT name FROM sqlite_master WHERE type = 'table'")
         .fetch_all(&mut **transaction)
         .await
-        .map_err(sql_error("list the existing tables"))?;
+        .map_err(sql_error(constants::database::context::LIST_TABLES))?;
 
     Ok(table_name_set(rows))
 }
@@ -105,7 +110,9 @@ async fn table_columns(
     let rows = sqlx::raw_sql(sqlx::AssertSqlSafe(statement))
         .fetch_all(&mut **transaction)
         .await
-        .map_err(sql_error("inspect a table's columns"))?;
+        .map_err(sql_error(
+            constants::database::context::INSPECT_TABLE_COLUMNS,
+        ))?;
 
     Ok(table_name_set(rows))
 }
@@ -145,7 +152,7 @@ async fn capture_legacy(
         } else if !columns.contains("key_hash") {
             return Err(APIError::new(
                 500,
-                "the api_keys table has neither a 'key' nor a 'key_hash' column",
+                constants::database::API_KEYS_MISSING_COLUMNS,
             ));
         }
     }
@@ -158,7 +165,7 @@ async fn capture_legacy(
         } else if !columns.contains("credentials") {
             return Err(APIError::new(
                 500,
-                "the providers table has neither an 'api_key' nor a 'credentials' column",
+                constants::database::PROVIDERS_MISSING_COLUMNS,
             ));
         }
     }
@@ -224,7 +231,7 @@ async fn drop_table(
     sqlx::raw_sql(sqlx::AssertSqlSafe(statement))
         .execute(&mut **transaction)
         .await
-        .map_err(sql_error("drop a legacy table"))?;
+        .map_err(sql_error(constants::database::context::DROP_LEGACY_TABLE))?;
     Ok(())
 }
 
@@ -238,7 +245,7 @@ async fn rename_table(
     sqlx::raw_sql(sqlx::AssertSqlSafe(statement))
         .execute(&mut **transaction)
         .await
-        .map_err(sql_error("rename a legacy table"))?;
+        .map_err(sql_error(constants::database::context::RENAME_LEGACY_TABLE))?;
     Ok(())
 }
 
@@ -261,7 +268,7 @@ async fn ensure_columns(
         sqlx::raw_sql(sqlx::AssertSqlSafe(statement))
             .execute(&mut **transaction)
             .await
-            .map_err(sql_error("add a column older databases are missing"))?;
+            .map_err(sql_error(constants::database::context::ADD_MISSING_COLUMN))?;
     }
     Ok(())
 }
@@ -277,7 +284,9 @@ async fn upgrade_legacy_request_logs(
     )
     .fetch_all(&mut **transaction)
     .await
-    .map_err(sql_error("read legacy request logs"))?;
+    .map_err(sql_error(
+        constants::database::context::READ_LEGACY_REQUEST_LOGS,
+    ))?;
 
     for row in &rows {
         let old_id = required_text(row, "id")?;
@@ -326,7 +335,9 @@ async fn upgrade_legacy_request_logs(
         .bind(old_id)
         .execute(&mut **transaction)
         .await
-        .map_err(sql_error("upgrade a legacy request log"))?;
+        .map_err(sql_error(
+            constants::database::context::UPGRADE_LEGACY_REQUEST_LOG,
+        ))?;
     }
 
     Ok(())
@@ -338,7 +349,9 @@ async fn read_api_keys(
     let rows = sqlx::query("SELECT * FROM api_keys")
         .fetch_all(&mut **transaction)
         .await
-        .map_err(sql_error("read the legacy api_keys table"))?;
+        .map_err(sql_error(
+            constants::database::context::READ_LEGACY_API_KEYS,
+        ))?;
 
     rows.iter()
         .map(|row| {
@@ -367,7 +380,9 @@ async fn read_providers(
     let rows = sqlx::query("SELECT * FROM providers")
         .fetch_all(&mut **transaction)
         .await
-        .map_err(sql_error("read the legacy providers table"))?;
+        .map_err(sql_error(
+            constants::database::context::READ_LEGACY_PROVIDERS,
+        ))?;
 
     rows.iter()
         .map(|row| {
@@ -435,7 +450,9 @@ async fn read_overrides(
         let rows = sqlx::raw_sql(sqlx::AssertSqlSafe(statement))
             .fetch_all(&mut **transaction)
             .await
-            .map_err(sql_error("read the legacy model override tables"))?;
+            .map_err(sql_error(
+                constants::database::context::READ_LEGACY_MODEL_OVERRIDES,
+            ))?;
 
         for row in &rows {
             let key = (
@@ -477,7 +494,9 @@ async fn read_fallback_rules(
     let rows = sqlx::query("SELECT * FROM fallback_rules")
         .fetch_all(&mut **transaction)
         .await
-        .map_err(sql_error("read the legacy fallback_rules table"))?;
+        .map_err(sql_error(
+            constants::database::context::READ_LEGACY_FALLBACK_RULES,
+        ))?;
 
     rows.iter()
         .map(|row| {
@@ -513,12 +532,8 @@ fn column_real(row: &SqliteRow, column: &str) -> Option<f64> {
 }
 
 fn required_text(row: &SqliteRow, column: &str) -> Result<String, APIError> {
-    column_text(row, column).ok_or_else(|| {
-        APIError::new(
-            500,
-            format!("a legacy row has no usable value in column '{column}'"),
-        )
-    })
+    column_text(row, column)
+        .ok_or_else(|| APIError::new(500, constants::database::legacy_value_missing(column)))
 }
 
 fn sha256_hex(secret: &str) -> String {
@@ -602,7 +617,7 @@ impl LegacyData {
             .bind(key.created_at)
             .execute(&mut **transaction)
             .await
-            .map_err(sql_error("restore an API key row"))?;
+            .map_err(sql_error(constants::database::context::RESTORE_API_KEY))?;
         }
 
         for provider in &self.providers {
@@ -624,7 +639,7 @@ impl LegacyData {
             .bind(provider.created_at)
             .execute(&mut **transaction)
             .await
-            .map_err(sql_error("restore a provider row"))?;
+            .map_err(sql_error(constants::database::context::RESTORE_PROVIDER))?;
         }
 
         for override_row in &self.overrides {
@@ -639,7 +654,9 @@ impl LegacyData {
             .bind(override_row.created_at)
             .execute(&mut **transaction)
             .await
-            .map_err(sql_error("restore a model override row"))?;
+            .map_err(sql_error(
+                constants::database::context::RESTORE_MODEL_OVERRIDE,
+            ))?;
         }
 
         for rule in &self.fallback_rules {
@@ -657,7 +674,9 @@ impl LegacyData {
             .bind(rule.created_at)
             .execute(&mut **transaction)
             .await
-            .map_err(sql_error("restore a fallback rule row"))?;
+            .map_err(sql_error(
+                constants::database::context::RESTORE_FALLBACK_RULE,
+            ))?;
         }
 
         Ok(())

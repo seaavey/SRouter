@@ -8,6 +8,7 @@ use sqlx::sqlite::SqliteRow;
 use sqlx::{Row, SqlitePool};
 
 use crate::clock::now_ms;
+use crate::constants;
 use crate::error::APIError;
 use crate::features::api_keys::model::{
     APIKey, APIKeyRecord, CreateAPIKeyInput, CreatedAPIKey, UpdateAPIKeyInput, generate_key_id,
@@ -51,7 +52,7 @@ impl APIKeyStore for SQLxAPIKeyStore {
             .bind(hash_api_key(key))
             .fetch_optional(pool)
             .await
-            .map_err(sql_error("look up an API key"))?;
+            .map_err(sql_error(constants::database::context::LOOK_UP_API_KEY))?;
 
             Ok(row.as_ref().map(auth_record_from_row))
         })
@@ -65,7 +66,9 @@ impl APIKeyStore for SQLxAPIKeyStore {
             )
             .fetch_optional(pool)
             .await
-            .map_err(sql_error("read the require_api_key setting"))?;
+            .map_err(sql_error(
+                constants::database::context::READ_REQUIRE_API_KEY,
+            ))?;
 
             Ok(matches!(value.as_deref(), Some("true") | Some("1")))
         })
@@ -81,7 +84,7 @@ impl APIKeyRepository for SQLxAPIKeyStore {
             let rows = sqlx::raw_sql(sqlx::AssertSqlSafe(statement))
                 .fetch_all(pool)
                 .await
-                .map_err(sql_error("list API keys"))?;
+                .map_err(sql_error(constants::database::context::LIST_API_KEYS))?;
 
             rows.iter().map(api_key_from_row).collect()
         })
@@ -116,7 +119,7 @@ impl APIKeyRepository for SQLxAPIKeyStore {
             .bind(created_at)
             .execute(pool)
             .await
-            .map_err(sql_error("create an API key"))?;
+            .map_err(sql_error(constants::database::context::CREATE_API_KEY))?;
 
             Ok(CreatedAPIKey {
                 key: APIKey {
@@ -149,7 +152,7 @@ impl APIKeyRepository for SQLxAPIKeyStore {
             let mut transaction = pool
                 .begin()
                 .await
-                .map_err(sql_error("start a key update"))?;
+                .map_err(sql_error(constants::database::context::START_KEY_UPDATE))?;
 
             let Some(mut key) = read_key(&mut transaction, &id).await? else {
                 return Ok(None);
@@ -189,12 +192,12 @@ impl APIKeyRepository for SQLxAPIKeyStore {
             .bind(key.id.as_str())
             .execute(&mut *transaction)
             .await
-            .map_err(sql_error("update an API key"))?;
+            .map_err(sql_error(constants::database::context::UPDATE_API_KEY))?;
 
             transaction
                 .commit()
                 .await
-                .map_err(sql_error("commit a key update"))?;
+                .map_err(sql_error(constants::database::context::COMMIT_KEY_UPDATE))?;
 
             Ok(Some(key))
         })
@@ -208,7 +211,7 @@ impl APIKeyRepository for SQLxAPIKeyStore {
             let mut transaction = pool
                 .begin()
                 .await
-                .map_err(sql_error("start a credit update"))?;
+                .map_err(sql_error(constants::database::context::START_CREDIT_UPDATE))?;
 
             let Some(mut key) = read_key(&mut transaction, &id).await? else {
                 return Ok(None);
@@ -221,12 +224,11 @@ impl APIKeyRepository for SQLxAPIKeyStore {
                 .bind(key.id.as_str())
                 .execute(&mut *transaction)
                 .await
-                .map_err(sql_error("add credit to an API key"))?;
+                .map_err(sql_error(constants::database::context::ADD_CREDIT))?;
 
-            transaction
-                .commit()
-                .await
-                .map_err(sql_error("commit a credit update"))?;
+            transaction.commit().await.map_err(sql_error(
+                constants::database::context::COMMIT_CREDIT_UPDATE,
+            ))?;
 
             Ok(Some(key))
         })
@@ -241,7 +243,7 @@ impl APIKeyRepository for SQLxAPIKeyStore {
                 .bind(id)
                 .execute(pool)
                 .await
-                .map_err(sql_error("delete an API key"))?;
+                .map_err(sql_error(constants::database::context::DELETE_API_KEY))?;
 
             Ok(result.rows_affected() > 0)
         })
@@ -257,7 +259,7 @@ async fn read_key(
         .bind(id)
         .fetch_optional(&mut **transaction)
         .await
-        .map_err(sql_error("read an API key"))?;
+        .map_err(sql_error(constants::database::context::READ_API_KEY))?;
 
     row.as_ref().map(api_key_from_row).transpose()
 }
@@ -301,7 +303,7 @@ fn auth_record_from_row(row: &SqliteRow) -> APIKeyRecord {
 
 fn text(row: &SqliteRow, column: &str) -> Result<String, APIError> {
     row.try_get::<String, _>(column)
-        .map_err(|error| APIError::new(500, format!("column '{column}' is unreadable: {error}")))
+        .map_err(|error| APIError::new(500, constants::database::column_unreadable(column, &error)))
 }
 
 fn u32_from(row: &SqliteRow, column: &str) -> u32 {
@@ -309,12 +311,9 @@ fn u32_from(row: &SqliteRow, column: &str) -> u32 {
 }
 
 fn postgres_unsupported() -> APIError {
-    APIError::new(
-        500,
-        "the PostgreSQL backend has no API-key stores yet; schema v2 is SQLite-only",
-    )
+    APIError::new(500, constants::database::API_KEYS_UNSUPPORTED)
 }
 
 fn sql_error(context: &'static str) -> impl FnOnce(sqlx::Error) -> APIError {
-    move |error| APIError::new(500, format!("{context}: {error}"))
+    move |error| APIError::new(500, constants::database::with_context(context, &error))
 }

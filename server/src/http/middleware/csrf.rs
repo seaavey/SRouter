@@ -10,6 +10,7 @@ use axum::http::{Method, header};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
 
+use crate::constants;
 use crate::error::APIError;
 use crate::features::admin_auth::ADMIN_SESSION_COOKIE;
 use crate::http::middleware::cookies::cookie_value;
@@ -75,8 +76,8 @@ pub async fn csrf_origin_guard(
     };
 
     let Ok(origin_url) = reqwest::Url::parse(source) else {
-        return APIError::new(403, "Cross-origin admin mutation is not allowed")
-            .with_code("csrf_origin_rejected")
+        return APIError::new(403, constants::middleware::CSRF_REJECTED)
+            .with_code(constants::code::CSRF_ORIGIN_REJECTED)
             .into_response();
     };
 
@@ -88,10 +89,10 @@ pub async fn csrf_origin_guard(
         .map(str::trim)
         .or_else(|| request.uri().authority().map(|a| a.as_str()));
 
-    if let Some(req_host) = request_host {
-        if hosts_match(&origin_url, req_host) {
-            return next.run(request).await;
-        }
+    if let Some(req_host) = request_host
+        && hosts_match(&origin_url, req_host)
+    {
+        return next.run(request).await;
     }
 
     // Check if the origin is in the CORS allowlist (or loopback).
@@ -100,8 +101,8 @@ pub async fn csrf_origin_guard(
         return next.run(request).await;
     }
 
-    APIError::new(403, "Cross-origin admin mutation is not allowed")
-        .with_code("csrf_origin_rejected")
+    APIError::new(403, constants::middleware::CSRF_REJECTED)
+        .with_code(constants::code::CSRF_ORIGIN_REJECTED)
         .into_response()
 }
 

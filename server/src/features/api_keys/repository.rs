@@ -5,6 +5,7 @@
 
 use futures_util::future::BoxFuture;
 
+use crate::constants;
 use crate::error::APIError;
 use crate::features::api_keys::model::{
     APIKey, CreateAPIKeyInput, CreatedAPIKey, UpdateAPIKeyInput,
@@ -69,5 +70,5 @@ impl APIKeyRepository for EmptyAPIKeyRepository {
 }
 
 fn unconfigured() -> APIError {
-    APIError::new(500, "API-key persistence is not configured")
+    APIError::new(500, constants::keys::PERSISTENCE_NOT_CONFIGURED)
 }

@@ -52,24 +52,26 @@ Status legend: `[x]` done and covered by a Rust test, `[ ]` missing, `[~]` parti
 ### 1.2 Global body limit
 
 - [x] Only the gateway handlers capped body size (`features/gateway/chat.rs:289`,
-  `features/gateway/messages.rs:347`). Node applies a global middleware on `/v1/*` that rejects
-  `Content-Length > 25 MiB` with `413` + `code=request_too_large` before buffering the body
-  (`apps/api/src/middleware/BodyLimit.ts`, `apps/api/tests/request-limits.test.ts`).
+      `features/gateway/messages.rs:347`). Node applies a global middleware on `/v1/*` that rejects
+      `Content-Length > 25 MiB` with `413` + `code=request_too_large` before buffering the body
+      (`apps/api/src/middleware/BodyLimit.ts`, `apps/api/tests/request-limits.test.ts`).
 - [x] Add `http/middleware/body_limit.rs`, layer it on `/v1` and `/v1/v1`, and cover it with
-  `server/tests/http_runtime.rs` cases for oversized `Content-Length` (413) returning
-  `invalid_request_error` envelope.
+      `server/tests/http_runtime.rs` cases for oversized `Content-Length` (413) returning
+      `invalid_request_error` envelope.
 
 ### 1.3 Error envelope completion
 
-- [ ] Unhandled `SyntaxError`-equivalent JSON parse failures must produce `400` with
+- [x] Unhandled `SyntaxError`-equivalent JSON parse failures produce `400` with
       `code=invalid_json` and message `Malformed JSON in request body`
-      (`apps/api/src/index.ts:88-99`, `apps/api/tests/malformed-json.test.ts`).
-      Today `error.rs` only guarantees the generic `{error:{message,type}}` shape.
-- [ ] Verify status→type mapping matches the contract exactly: `invalid_request_error` for
+      (`apps/api/src/index.ts:88-99`, `apps/api/tests/malformed-json.test.ts`). `error.rs` owns the
+      canonical `invalid_json()` and its text lives in `constants::json` (`server/src/constants.rs`
+      is the single catalog for every client-facing message); the gateway body reader uses it, and
+      the envelope is pinned by `server/src/error.rs` and `server/tests/chat_completions.rs`.
+- [x] Status→type mapping matches the contract exactly: `invalid_request_error` for
       `400/404/409/422`, `authentication_error` for `401`, `permission_error` for `403`,
       `rate_limit_error` for `429`, `api_error` otherwise; handlers may override `type` and attach
-      `code`/`param` (`docs/api-v1-contract.md`, "Error envelopes").
-      Accept: table-driven Rust test over the mapping.
+      `code`/`param` (`docs/api-v1-contract.md`, "Error envelopes"). Covered by the table-driven
+      `server/src/error.rs` mapping test, which also asserts the HTTP status per row.
 
 ### 1.4 OAuth listener (port 1455)
 
@@ -310,10 +312,14 @@ stale-while-revalidate=86400`, `refresh`/`force`/`no-cache` forcing a refresh.
 
 ## 12. CI, Docker, cutover plumbing
 
-- [ ] `.github/workflows/ci.yml`: add stable Rust setup, `cargo fmt --check`,
-      `cargo clippy --all-targets --all-features -- -D warnings`, `cargo test --locked`,
-      OpenAPI export drift check, and a PostgreSQL service job; keep the existing Node/pnpm jobs for
-      web, CLI, and packages. (Today the workflow only runs `pnpm build` + `pnpm test`.)
+- [x] `.github/workflows/ci.yml`: added a `rust-lint` job with the stable Rust toolchain,
+      `cargo fmt --check`, and `cargo clippy --all-targets --all-features --locked -- -D warnings`,
+      as an addition to the existing Node/pnpm job (which still runs `pnpm build` + `pnpm test`).
+      The crate is clippy-clean: no `allow` attributes were needed, and the long-standing warnings
+      (`collapsible_if`, `manual_div_ceil`, `unnecessary_cast`, `new_without_default`,
+      `assertions_on_constants`, `large_enum_variant`, `result_large_err`) are fixed at the source.
+- [ ] `.github/workflows/ci.yml`: still missing `cargo test --locked`, the OpenAPI export drift
+      check, and the PostgreSQL service job.
 - [ ] `Dockerfile`: add a Rust builder stage and a Rust runtime target (binary, web dist, CA
       certificates, tzdata, non-Node health check), keeping the Node target selectable for rollback.
       Root `Dockerfile:21` still copies `apps/api/package.json` and `pnpm build` builds the Node API.

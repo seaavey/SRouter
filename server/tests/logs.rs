@@ -219,7 +219,7 @@ async fn logs_events_send_connected_then_saved_request_and_headers() {
             .unwrap()
             .unwrap()
             .unwrap();
-        pending.push_str(&String::from_utf8(chunk.to_vec()).unwrap());
+        pending.push_str(core::str::from_utf8(&chunk).unwrap());
         while let Some((record, rest)) = pending.split_once("\n\n") {
             let record = record.to_owned();
             pending = rest.to_owned();

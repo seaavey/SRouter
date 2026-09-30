@@ -6,6 +6,7 @@ use serde::Serialize;
 use sqlx::{Row, SqlitePool};
 use uuid::Uuid;
 
+use crate::constants;
 use crate::error::APIError;
 use crate::features::gateway::usage::UsageBreakdown;
 use crate::infrastructure::database::AppDatabase;
@@ -83,12 +84,22 @@ pub async fn list_request_logs(
             "SELECT COUNT(*) FROM request_logs",
             "SELECT * FROM request_logs ORDER BY created_at DESC LIMIT ? OFFSET ?",
         ),
-        Some(_) => return Err(APIError::new(400, "Invalid status parameter")),
+        Some(_) => {
+            return Err(APIError::new(
+                400,
+                constants::database::INVALID_STATUS_PARAMETER,
+            ));
+        }
     };
     let total: i64 = sqlx::query_scalar(count_query)
         .fetch_one(pool)
         .await
-        .map_err(|error| APIError::new(500, format!("could not count request logs: {error}")))?;
+        .map_err(|error| {
+            APIError::new(
+                500,
+                constants::database::could_not_count_request_logs(&error),
+            )
+        })?;
     let page_number = page.unwrap_or(1);
     let offset = page.map_or(0, |page| (page - 1).saturating_mul(limit));
     let rows = sqlx::query(logs_query)
@@ -96,7 +107,12 @@ pub async fn list_request_logs(
         .bind(offset)
         .fetch_all(pool)
         .await
-        .map_err(|error| APIError::new(500, format!("could not list request logs: {error}")))?;
+        .map_err(|error| {
+            APIError::new(
+                500,
+                constants::database::could_not_list_request_logs(&error),
+            )
+        })?;
     let data = rows
         .iter()
         .map(map_request_log)
@@ -117,7 +133,9 @@ pub async fn get_request_log(
         .bind(id.to_string())
         .fetch_optional(sqlite_pool(database)?)
         .await
-        .map_err(|error| APIError::new(500, format!("could not read request log: {error}")))?;
+        .map_err(|error| {
+            APIError::new(500, constants::database::could_not_read_request_log(&error))
+        })?;
     row.as_ref().map(map_request_log).transpose()
 }
 
@@ -135,7 +153,7 @@ pub async fn usage_stats(database: &AppDatabase) -> Result<serde_json::Value, AP
     )
     .fetch_one(sqlite_pool(database)?)
     .await
-    .map_err(|error| APIError::new(500, format!("could not aggregate request logs: {error}")))?;
+    .map_err(|error| APIError::new(500, constants::database::could_not_aggregate_request_logs(&error)))?;
     let total_requests: i64 = row.try_get("total_requests").map_err(log_row_error)?;
     let successes: i64 = row.try_get("successes").map_err(log_row_error)?;
     let total_tokens: i64 = row.try_get("total_tokens").map_err(log_row_error)?;
@@ -158,7 +176,7 @@ pub async fn usage_stats(database: &AppDatabase) -> Result<serde_json::Value, AP
     .map_err(|error| {
         APIError::new(
             500,
-            format!("could not aggregate request logs by model: {error}"),
+            constants::database::could_not_aggregate_request_logs_by_model(&error),
         )
     })?;
     let by_model = model_rows
@@ -194,12 +212,9 @@ pub async fn usage_stats(database: &AppDatabase) -> Result<serde_json::Value, AP
 }
 
 fn sqlite_pool(database: &AppDatabase) -> Result<&SqlitePool, APIError> {
-    database.sqlite_pool().ok_or_else(|| {
-        APIError::new(
-            500,
-            "request log repository is not supported for PostgreSQL",
-        )
-    })
+    database
+        .sqlite_pool()
+        .ok_or_else(|| APIError::new(500, constants::database::REQUEST_LOGS_UNSUPPORTED))
 }
 
 fn map_request_log(row: &sqlx::sqlite::SqliteRow) -> Result<RequestLog, APIError> {
@@ -214,8 +229,9 @@ fn map_request_log(row: &sqlx::sqlite::SqliteRow) -> Result<RequestLog, APIError
         api_key_id: optional_uuid(row, "api_key_id")?,
         method: row.try_get("method").map_err(log_row_error)?,
         path: row.try_get("path").map_err(log_row_error)?,
-        status_code: i16::try_from(status_code)
-            .map_err(|error| APIError::new(500, format!("invalid log status code: {error}")))?,
+        status_code: i16::try_from(status_code).map_err(|error| {
+            APIError::new(500, constants::database::log_status_code_invalid(error))
+        })?,
         ip_address: row.try_get("ip_address").map_err(log_row_error)?,
         user_agent: row.try_get("user_agent").map_err(log_row_error)?,
         provider: provider_id,
@@ -237,7 +253,7 @@ fn optional_uuid(row: &sqlx::sqlite::SqliteRow, field: &str) -> Result<Option<Uu
 }
 
 fn log_row_error(error: impl std::fmt::Display) -> APIError {
-    APIError::new(500, format!("could not map request log: {error}"))
+    APIError::new(500, constants::database::could_not_map_request_log(&error))
 }
 
 pub struct RequestLogInput<'a> {
@@ -265,7 +281,7 @@ pub struct RequestLogInput<'a> {
 pub fn generate_log_id() -> Result<String, APIError> {
     let mut bytes = [0_u8; 16];
     getrandom::fill(&mut bytes).map_err(|error| {
-        APIError::new(500, format!("could not generate request log UUID: {error}"))
+        APIError::new(500, constants::database::could_not_generate_log_uuid(error))
     })?;
     bytes[6] = (bytes[6] & 0x0f) | 0x40;
     bytes[8] = (bytes[8] & 0x3f) | 0x80;
@@ -279,18 +295,14 @@ pub async fn insert_request_log(
     let Some(pool) = database.sqlite_pool() else {
         return Err(APIError::new(
             500,
-            "request log repository is not supported for PostgreSQL",
+            constants::database::REQUEST_LOGS_UNSUPPORTED,
         ));
     };
     let log_id = generate_log_id()?;
-    let log_uuid = Uuid::parse_str(&log_id).map_err(|error| {
-        APIError::new(
-            500,
-            format!("generated request log UUID is invalid: {error}"),
-        )
-    })?;
+    let log_uuid = Uuid::parse_str(&log_id)
+        .map_err(|error| APIError::new(500, constants::database::log_uuid_invalid(&error)))?;
     let request_id = Uuid::parse_str(input.request_id)
-        .map_err(|error| APIError::new(500, format!("request ID is invalid: {error}")))?
+        .map_err(|error| APIError::new(500, constants::database::request_id_invalid(&error)))?
         .to_string();
     sqlx::query(
         "INSERT INTO request_logs (
@@ -334,11 +346,17 @@ pub async fn insert_request_log(
     .bind(input.created_at)
     .execute(pool)
     .await
-    .map_err(|error| APIError::new(500, format!("could not insert request log: {error}")))?;
+    .map_err(|error| {
+        APIError::new(
+            500,
+            constants::database::could_not_insert_request_log(&error),
+        )
+    })?;
 
-    if let Some(key_id) = input.api_key_id {
-        if input.usage.total_tokens > 0 || input.estimated_cost > 0.0 {
-            let _ = sqlx::query(
+    if let Some(key_id) = input.api_key_id
+        && (input.usage.total_tokens > 0 || input.estimated_cost > 0.0)
+    {
+        let _ = sqlx::query(
                 "UPDATE api_keys SET usage_tokens = usage_tokens + ?, usage_cost = usage_cost + ? WHERE id = ?",
             )
             .bind(input.usage.total_tokens)
@@ -346,7 +364,6 @@ pub async fn insert_request_log(
             .bind(key_id)
             .execute(pool)
             .await;
-        }
     }
     publish_request_log(log_uuid);
     Ok(log_id)

@@ -7,6 +7,7 @@ use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
 
 use crate::clock::now_ms;
+use crate::constants;
 use crate::error::APIError;
 use crate::features::admin_auth::{ADMIN_SESSION_COOKIE, hash_session_token};
 use crate::features::api_keys::{APIKeyRecord, APIPrincipal, AuthSource};
@@ -91,31 +92,25 @@ async fn authorize(
 fn record_rejection(record: &APIKeyRecord) -> Option<APIError> {
     if !record.enabled {
         return Some(
-            APIError::new(401, "The provided SRouter API Key is disabled")
-                .with_error_type("invalid_request_error")
-                .with_code("api_key_disabled"),
+            APIError::new(401, constants::api_key::DISABLED)
+                .with_error_type(constants::error_type::INVALID_REQUEST)
+                .with_code(constants::code::API_KEY_DISABLED),
         );
     }
 
     if record.credit_limit > 0.0 && record.usage_cost >= record.credit_limit {
         return Some(
-            APIError::new(
-                402,
-                "Insufficient credit balance. Your credit limit has been reached.",
-            )
-            .with_error_type("insufficient_quota")
-            .with_code("insufficient_credit"),
+            APIError::new(402, constants::api_key::CREDIT_EXCEEDED)
+                .with_error_type(constants::error_type::INSUFFICIENT_QUOTA)
+                .with_code(constants::code::INSUFFICIENT_CREDIT),
         );
     }
 
     if record.quota_limit > 0.0 && record.usage_tokens >= record.quota_limit {
         return Some(
-            APIError::new(
-                429,
-                "Token quota exceeded. Your lifetime token limit has been reached.",
-            )
-            .with_error_type("insufficient_quota")
-            .with_code("quota_exceeded"),
+            APIError::new(429, constants::api_key::QUOTA_EXCEEDED)
+                .with_error_type(constants::error_type::INSUFFICIENT_QUOTA)
+                .with_code(constants::code::QUOTA_EXCEEDED),
         );
     }
 
@@ -123,21 +118,21 @@ fn record_rejection(record: &APIKeyRecord) -> Option<APIError> {
 }
 
 fn invalid_api_key() -> APIError {
-    APIError::new(401, "Invalid SRouter API Key")
-        .with_error_type("invalid_request_error")
-        .with_code("invalid_api_key")
+    APIError::new(401, constants::api_key::INVALID)
+        .with_error_type(constants::error_type::INVALID_REQUEST)
+        .with_code(constants::code::INVALID_API_KEY)
 }
 
 fn missing_api_key(is_loopback: bool) -> APIError {
     let message = if is_loopback {
-        "Missing SRouter API Key. Please provide a valid key via 'Authorization: Bearer ***' header or disable 'Require API Key' in Settings."
+        constants::api_key::MISSING_LOCAL
     } else {
-        "Remote/public requests require a valid SRouter API Key. Please provide your key via 'Authorization: Bearer ***' or 'x-api-key'."
+        constants::api_key::MISSING_REMOTE
     };
 
     APIError::new(401, message)
-        .with_error_type("invalid_request_error")
-        .with_code("missing_api_key")
+        .with_error_type(constants::error_type::INVALID_REQUEST)
+        .with_code(constants::code::MISSING_API_KEY)
 }
 
 /// `x-api-key` wins over `Authorization`; a present-but-blank `x-api-key`

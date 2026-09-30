@@ -5,6 +5,7 @@ use serde_json::Value;
 use sqlx::{Row, Sqlite, SqlitePool, Transaction, sqlite::SqliteRow};
 
 use crate::clock::now_ms;
+use crate::constants;
 use crate::error::APIError;
 use crate::infrastructure::database::AppDatabase;
 
@@ -65,7 +66,7 @@ pub async fn list_connections(database: &AppDatabase) -> Result<Vec<ProviderConn
     .map_err(|error| {
         APIError::new(
             500,
-            format!("could not read provider connections: {error}"),
+            constants::database::could_not_read_provider_connections(&error),
         )
     })?;
 
@@ -104,7 +105,10 @@ pub async fn provider_exists(database: &AppDatabase, base_id: &str) -> Result<bo
         .fetch_all(pool)
         .await
         .map_err(|error| {
-            APIError::new(500, format!("could not read provider connections: {error}"))
+            APIError::new(
+                500,
+                constants::database::could_not_read_provider_connections(&error),
+            )
         })?;
 
     for row in &rows {
@@ -135,7 +139,10 @@ pub async fn provider_enabled(database: &AppDatabase, base_id: &str) -> Result<b
         .fetch_optional(pool)
         .await
         .map_err(|error| {
-            APIError::new(500, format!("could not read the provider flag: {error}"))
+            APIError::new(
+                500,
+                constants::database::could_not_read_provider_flag(&error),
+            )
         })?;
 
     Ok(value.as_deref() != Some("false"))
@@ -175,7 +182,10 @@ pub async fn apply_provider_patch(
 ) -> Result<(), APIError> {
     let pool = write_pool(database)?;
     let mut transaction = pool.begin().await.map_err(|error| {
-        APIError::new(500, format!("could not start the provider update: {error}"))
+        APIError::new(
+            500,
+            constants::database::could_not_start_provider_update(&error),
+        )
     })?;
 
     if let Some(enabled) = patch.enabled {
@@ -197,7 +207,7 @@ pub async fn apply_provider_patch(
     transaction.commit().await.map_err(|error| {
         APIError::new(
             500,
-            format!("could not commit the provider update: {error}"),
+            constants::database::could_not_commit_provider_update(&error),
         )
     })
 }
@@ -216,7 +226,12 @@ async fn set_enabled_flag(
     .bind(if enabled { "true" } else { "false" })
     .execute(&mut **transaction)
     .await
-    .map_err(|error| APIError::new(500, format!("could not store the provider flag: {error}")))?;
+    .map_err(|error| {
+        APIError::new(
+            500,
+            constants::database::could_not_store_provider_flag(&error),
+        )
+    })?;
 
     Ok(())
 }
@@ -241,7 +256,7 @@ async fn hide_model(
     .bind(&model_id)
     .execute(&mut **transaction)
     .await
-    .map_err(|error| APIError::new(500, format!("could not hide the model: {error}")))?
+    .map_err(|error| APIError::new(500, constants::database::could_not_hide_model(&error)))?
     .rows_affected();
 
     if flagged > 0 {
@@ -257,7 +272,7 @@ async fn hide_model(
     .bind(now_ms())
     .execute(&mut **transaction)
     .await
-    .map_err(|error| APIError::new(500, format!("could not hide the model: {error}")))?;
+    .map_err(|error| APIError::new(500, constants::database::could_not_hide_model(&error)))?;
 
     Ok(())
 }
@@ -281,7 +296,7 @@ async fn restore_model(
     .bind(&model_id)
     .execute(&mut **transaction)
     .await
-    .map_err(|error| APIError::new(500, format!("could not restore the model: {error}")))?;
+    .map_err(|error| APIError::new(500, constants::database::could_not_restore_model(&error)))?;
 
     sqlx::query(
         "DELETE FROM provider_model_overrides \
@@ -291,7 +306,12 @@ async fn restore_model(
     .bind(&model_id)
     .execute(&mut **transaction)
     .await
-    .map_err(|error| APIError::new(500, format!("could not drop the restored row: {error}")))?;
+    .map_err(|error| {
+        APIError::new(
+            500,
+            constants::database::could_not_drop_restored_row(&error),
+        )
+    })?;
 
     Ok(())
 }
@@ -313,7 +333,7 @@ async fn favorite_model(
     .bind(&model_id)
     .execute(&mut **transaction)
     .await
-    .map_err(|error| APIError::new(500, format!("could not favorite the model: {error}")))?;
+    .map_err(|error| APIError::new(500, constants::database::could_not_favorite_model(&error)))?;
 
     Ok(())
 }
@@ -329,7 +349,9 @@ async fn unfavorite_model(
         .bind(&model_id)
         .execute(&mut **transaction)
         .await
-        .map_err(|error| APIError::new(500, format!("could not unfavorite the model: {error}")))?;
+        .map_err(|error| {
+            APIError::new(500, constants::database::could_not_unfavorite_model(&error))
+        })?;
 
     Ok(())
 }
@@ -348,10 +370,7 @@ fn write_pool(database: &AppDatabase) -> Result<&SqlitePool, APIError> {
 }
 
 fn postgres_unsupported() -> APIError {
-    APIError::new(
-        500,
-        "the PostgreSQL backend has no provider stores yet; schema v2 is SQLite-only",
-    )
+    APIError::new(500, constants::database::PROVIDERS_UNSUPPORTED)
 }
 
 /// Node tags seed rows with `meta.provider_specific_data.__seed__ = "true"`.
@@ -371,15 +390,15 @@ fn is_seed_row(meta: Option<&str>) -> bool {
 
 fn text(row: &SqliteRow, column: &str) -> Result<String, APIError> {
     row.try_get::<String, _>(column)
-        .map_err(|error| APIError::new(500, format!("column '{column}' is unreadable: {error}")))
+        .map_err(|error| APIError::new(500, constants::database::column_unreadable(column, &error)))
 }
 
 fn optional_text(row: &SqliteRow, column: &str) -> Result<Option<String>, APIError> {
     row.try_get::<Option<String>, _>(column)
-        .map_err(|error| APIError::new(500, format!("column '{column}' is unreadable: {error}")))
+        .map_err(|error| APIError::new(500, constants::database::column_unreadable(column, &error)))
 }
 
 fn integer(row: &SqliteRow, column: &str) -> Result<i64, APIError> {
     row.try_get::<i64, _>(column)
-        .map_err(|error| APIError::new(500, format!("column '{column}' is unreadable: {error}")))
+        .map_err(|error| APIError::new(500, constants::database::column_unreadable(column, &error)))
 }

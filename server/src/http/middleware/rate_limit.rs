@@ -10,6 +10,7 @@ use axum::http::{HeaderValue, header};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
 
+use crate::constants;
 use crate::error::APIError;
 use crate::features::api_keys::APIPrincipal;
 use crate::state::AppState;
@@ -32,6 +33,12 @@ struct Window {
 pub struct RateLimiter {
     windows: Mutex<HashMap<String, Window>>,
     max_tracked: usize,
+}
+
+impl Default for RateLimiter {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl RateLimiter {
@@ -125,7 +132,7 @@ pub async fn rate_limit(State(state): State<AppState>, request: Request, next: N
 
 fn rate_limit_error(limit: u32, retry_after_seconds: u64) -> Response {
     let mut error = APIError::new(429, rate_limit_message(limit))
-        .with_code("rate_limit_exceeded")
+        .with_code(constants::code::RATE_LIMIT_EXCEEDED)
         .into_response();
 
     if let Ok(value) = HeaderValue::from_str(&retry_after_seconds.to_string()) {
@@ -136,10 +143,7 @@ fn rate_limit_error(limit: u32, retry_after_seconds: u64) -> Response {
 }
 
 fn rate_limit_message(limit: u32) -> String {
-    format!(
-        "Rate limit exceeded: this API key allows {limit} request{} per minute.",
-        if limit == 1 { "" } else { "s" }
-    )
+    constants::middleware::rate_limit_exceeded(limit)
 }
 
 fn now_ms() -> i64 {

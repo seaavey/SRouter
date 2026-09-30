@@ -4,6 +4,7 @@ use std::collections::HashSet;
 
 use sqlx::Row;
 
+use crate::constants;
 use crate::error::APIError;
 use crate::infrastructure::database::AppDatabase;
 use crate::infrastructure::database::providers::PROVIDER_ENABLED_PREFIX;
@@ -20,12 +21,17 @@ pub async fn favorite_model_ids(database: &AppDatabase) -> Result<HashSet<String
     let rows = sqlx::query("SELECT model_id FROM favorite_models")
         .fetch_all(pool)
         .await
-        .map_err(|error| APIError::new(500, format!("could not read favorite models: {error}")))?;
+        .map_err(|error| {
+            APIError::new(
+                500,
+                constants::database::could_not_read_favorite_models(&error),
+            )
+        })?;
 
     let mut favorites = HashSet::with_capacity(rows.len());
     for row in &rows {
         let model_id = row.try_get::<String, _>("model_id").map_err(|error| {
-            APIError::new(500, format!("could not read a favorite id: {error}"))
+            APIError::new(500, constants::database::could_not_read_favorite_id(&error))
         })?;
 
         favorites.insert(model_id.to_lowercase());
@@ -46,12 +52,20 @@ pub async fn disabled_provider_ids(database: &AppDatabase) -> Result<HashSet<Str
     )
     .fetch_all(pool)
     .await
-    .map_err(|error| APIError::new(500, format!("could not read provider flags: {error}")))?;
+    .map_err(|error| {
+        APIError::new(
+            500,
+            constants::database::could_not_read_provider_flags(&error),
+        )
+    })?;
 
     let mut disabled = HashSet::with_capacity(rows.len());
     for row in &rows {
         let key = row.try_get::<String, _>("key").map_err(|error| {
-            APIError::new(500, format!("could not read a provider flag key: {error}"))
+            APIError::new(
+                500,
+                constants::database::could_not_read_provider_flag_key(&error),
+            )
         })?;
 
         if let Some(provider_id) = key.strip_prefix(PROVIDER_ENABLED_PREFIX) {
@@ -74,12 +88,20 @@ pub async fn hidden_model_ids(database: &AppDatabase) -> Result<HashSet<String>,
     let rows = sqlx::query("SELECT model_id FROM provider_model_overrides WHERE hidden = 1")
         .fetch_all(pool)
         .await
-        .map_err(|error| APIError::new(500, format!("could not read hidden models: {error}")))?;
+        .map_err(|error| {
+            APIError::new(
+                500,
+                constants::database::could_not_read_hidden_models(&error),
+            )
+        })?;
 
     let mut hidden = HashSet::with_capacity(rows.len());
     for row in &rows {
         let model_id = row.try_get::<String, _>("model_id").map_err(|error| {
-            APIError::new(500, format!("could not read a hidden model id: {error}"))
+            APIError::new(
+                500,
+                constants::database::could_not_read_hidden_model_id(&error),
+            )
         })?;
 
         hidden.insert(model_id.to_lowercase());

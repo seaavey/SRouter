@@ -2,6 +2,7 @@ use axum::body::Bytes;
 use axum::response::sse::Event;
 use serde::{Deserialize, Serialize};
 
+use crate::constants;
 use crate::error::APIError;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -33,26 +34,24 @@ impl ReasoningStreamParser {
     ) -> Vec<ReasoningEvent> {
         let mut events = Vec::new();
 
-        if let Some(delta) = reasoning_delta {
-            if !delta.is_empty() {
-                if self.active_id.as_deref() != Some(id) {
-                    if let Some(prev) = self.active_id.take() {
-                        events.push(ReasoningEvent::ReasoningEnd { id: prev });
-                    }
-                    self.active_id = Some(id.to_string());
-                    events.push(ReasoningEvent::ReasoningStart { id: id.to_string() });
+        if let Some(delta) = reasoning_delta
+            && !delta.is_empty()
+        {
+            if self.active_id.as_deref() != Some(id) {
+                if let Some(prev) = self.active_id.take() {
+                    events.push(ReasoningEvent::ReasoningEnd { id: prev });
                 }
-                events.push(ReasoningEvent::ReasoningDelta {
-                    id: id.to_string(),
-                    text: delta.to_string(),
-                });
+                self.active_id = Some(id.to_string());
+                events.push(ReasoningEvent::ReasoningStart { id: id.to_string() });
             }
+            events.push(ReasoningEvent::ReasoningDelta {
+                id: id.to_string(),
+                text: delta.to_string(),
+            });
         }
 
-        if has_other_content {
-            if let Some(active) = self.active_id.take() {
-                events.push(ReasoningEvent::ReasoningEnd { id: active });
-            }
+        if has_other_content && let Some(active) = self.active_id.take() {
+            events.push(ReasoningEvent::ReasoningEnd { id: active });
         }
 
         events
@@ -81,7 +80,13 @@ pub fn to_sse_event(event: &ReasoningEvent) -> Result<Event, serde_json::Error> 
 /// `text/event-stream` response instead of switching to a JSON body.
 pub fn error_event_bytes(error: &APIError) -> Bytes {
     let payload = serde_json::to_string(&error.to_envelope()).unwrap_or_else(|_| {
-        "{\"error\":{\"message\":\"Internal server error\",\"type\":\"api_error\"}}".to_owned()
+        serde_json::json!({
+            "error": {
+                "message": constants::common::INTERNAL_SERVER_ERROR,
+                "type": "api_error"
+            }
+        })
+        .to_string()
     });
 
     Bytes::from(format!("data: {payload}\n\n"))

@@ -1,5 +1,6 @@
 //! Settings persistence backed by SQLite.
 
+use crate::constants;
 use crate::error::APIError;
 use crate::infrastructure::database::AppDatabase;
 
@@ -16,7 +17,7 @@ pub async fn get_require_api_key(database: &AppDatabase) -> Result<bool, APIErro
             .map_err(|error| {
                 APIError::new(
                     500,
-                    format!("could not read require_api_key setting: {error}"),
+                    constants::database::could_not_read_require_api_key(&error),
                 )
             })?;
 
@@ -28,7 +29,7 @@ pub async fn set_require_api_key(database: &AppDatabase, required: bool) -> Resu
     let Some(pool) = database.sqlite_pool() else {
         return Err(APIError::new(
             500,
-            "no database is configured; settings cannot be persisted",
+            constants::database::SETTINGS_DATABASE_REQUIRED,
         ));
     };
 
@@ -40,7 +41,12 @@ pub async fn set_require_api_key(database: &AppDatabase, required: bool) -> Resu
     .bind(val)
     .execute(pool)
     .await
-    .map_err(|error| APIError::new(500, format!("could not update require_api_key: {error}")))?;
+    .map_err(|error| {
+        APIError::new(
+            500,
+            constants::database::could_not_update_require_api_key(&error),
+        )
+    })?;
 
     Ok(())
 }

@@ -5,6 +5,7 @@
 use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 
+use crate::constants;
 use crate::error::APIError;
 
 const ALGORITHM: &str = "scrypt";
@@ -19,11 +20,11 @@ const SCRYPT_P: u32 = 1;
 /// the message to report, or `None` when acceptable.
 pub fn validate_admin_password(password: &str) -> Option<&'static str> {
     if password.is_empty() {
-        return Some("Password is required");
+        return Some(constants::admin::PASSWORD_REQUIRED);
     }
     // Node compares `String.length`, i.e. UTF-16 code units.
     if password.encode_utf16().count() > 128 {
-        return Some("Password must be at most 128 characters");
+        return Some(constants::admin::PASSWORD_TOO_LONG);
     }
 
     None
@@ -33,7 +34,7 @@ pub fn validate_admin_password(password: &str) -> Option<&'static str> {
 pub fn hash_admin_password(password: &str) -> Result<String, APIError> {
     let mut salt = [0u8; SALT_LENGTH];
     getrandom::fill(&mut salt)
-        .map_err(|error| APIError::new(500, format!("could not salt the password: {error}")))?;
+        .map_err(|error| APIError::new(500, constants::admin::could_not_salt_password(error)))?;
 
     let derived = derive(
         password,
@@ -98,10 +99,10 @@ fn derive(
     length: usize,
 ) -> Result<Vec<u8>, APIError> {
     let params = scrypt::Params::new(log_n, r, p)
-        .map_err(|error| APIError::new(500, format!("invalid scrypt parameters: {error}")))?;
+        .map_err(|error| APIError::new(500, constants::admin::invalid_scrypt_parameters(error)))?;
     let mut output = vec![0u8; length];
     scrypt::scrypt(password.as_bytes(), salt, &params, &mut output)
-        .map_err(|error| APIError::new(500, format!("scrypt failed: {error}")))?;
+        .map_err(|error| APIError::new(500, constants::admin::scrypt_failed(error)))?;
 
     Ok(output)
 }

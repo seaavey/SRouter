@@ -1,6 +1,7 @@
 //! API-key model allowlist matching, ported from the Node middleware
 //! `apps/api/src/middleware/ModelAccess.ts`.
 
+use crate::constants;
 use crate::error::APIError;
 use crate::features::api_keys::model::APIKeyRecord;
 
@@ -55,11 +56,10 @@ pub fn ensure_model_allowed(api_key: Option<&APIKeyRecord>, model: &str) -> Resu
         return Ok(());
     }
 
-    Err(APIError::new(
-        403,
-        format!("Model '{model}' is not allowed for this API key"),
+    Err(
+        APIError::new(403, constants::api_key::model_not_allowed(model))
+            .with_code(constants::code::MODEL_NOT_ALLOWED),
     )
-    .with_code("model_not_allowed"))
 }
 
 #[cfg(test)]

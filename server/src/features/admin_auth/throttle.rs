@@ -21,6 +21,12 @@ pub struct LoginThrottle {
     block_ms: i64,
 }
 
+impl Default for LoginThrottle {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl LoginThrottle {
     pub fn new() -> Self {
         Self::with_policy(MAX_FAILURES, BLOCK_MS)

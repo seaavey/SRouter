@@ -67,6 +67,15 @@ impl APIError {
     }
 }
 
+/// Canonical `400` for a malformed JSON body. Every body reader calls this so
+/// the `invalid_json` code and message stay uniform across routes instead of
+/// each handler inventing its own wording. The text lives in
+/// [`crate::constants::json`].
+pub fn invalid_json() -> APIError {
+    APIError::new(400, crate::constants::json::MALFORMED)
+        .with_code(crate::constants::code::INVALID_JSON)
+}
+
 impl fmt::Display for APIError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(formatter, "{}: {}", self.status, self.message)
@@ -100,8 +109,17 @@ pub struct ErrorBody {
 
 #[cfg(test)]
 mod tests {
-    use super::APIError;
+    use axum::http::StatusCode;
+    use axum::response::IntoResponse;
 
+    use crate::constants;
+
+    use super::{APIError, invalid_json};
+
+    /// The frozen status→type mapping from `docs/api-v1-contract.md`
+    /// ("Error envelopes"): `invalid_request_error` for `400/404/409/422`,
+    /// `authentication_error` for `401`, `permission_error` for `403`,
+    /// `rate_limit_error` for `429`, `api_error` otherwise.
     #[test]
     fn status_codes_map_to_the_frozen_standard_error_types() {
         for (status, expected_type) in [
@@ -113,13 +131,34 @@ mod tests {
             (403, "permission_error"),
             (429, "rate_limit_error"),
             (500, "api_error"),
+            (502, "api_error"),
+            (503, "api_error"),
         ] {
             let api_error = APIError::new(status, "request failed");
             assert_eq!(api_error.status(), status);
             let envelope = serde_json::to_value(api_error.to_envelope()).unwrap();
-
             assert_eq!(envelope["error"]["type"], expected_type);
+
+            // The response status and the envelope type travel together.
+            let response = api_error.into_response();
+            assert_eq!(response.status(), StatusCode::from_u16(status).unwrap());
         }
+    }
+
+    #[test]
+    fn unhandled_malformed_json_maps_to_the_canonical_invalid_json_envelope() {
+        let envelope = serde_json::to_value(invalid_json().to_envelope()).unwrap();
+
+        assert_eq!(
+            envelope,
+            serde_json::json!({
+                "error": {
+                    "message": constants::json::MALFORMED,
+                    "type": "invalid_request_error",
+                    "code": "invalid_json"
+                }
+            })
+        );
     }
 
     #[test]

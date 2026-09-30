@@ -15,6 +15,7 @@ use serde::Deserialize;
 use serde::Serialize;
 use uuid::Uuid;
 
+use crate::constants;
 use crate::error::APIError;
 use crate::infrastructure::database::request_logs::{
     ObjectKind, RequestLog, get_request_log, list_request_logs, subscribe_request_logs, usage_stats,
@@ -61,7 +62,7 @@ async fn list_logs(
     let database = state
         .database
         .as_ref()
-        .ok_or_else(|| APIError::new(500, "request log database is not configured"))?;
+        .ok_or_else(|| APIError::new(500, constants::logs::DATABASE_REQUIRED))?;
     let page = query
         .page
         .as_deref()
@@ -104,15 +105,15 @@ async fn get_log(
     Path(raw_id): Path<String>,
 ) -> Result<Json<RequestLog>, APIError> {
     let id = Uuid::parse_str(&raw_id)
-        .map_err(|_| APIError::new(404, format!("Log '{raw_id}' not found")))?;
+        .map_err(|_| APIError::new(404, constants::logs::not_found(&raw_id)))?;
     let database = state
         .database
         .as_ref()
-        .ok_or_else(|| APIError::new(500, "request log database is not configured"))?;
+        .ok_or_else(|| APIError::new(500, constants::logs::DATABASE_REQUIRED))?;
     get_request_log(database, id)
         .await?
         .map(Json)
-        .ok_or_else(|| APIError::new(404, format!("Log '{raw_id}' not found")))
+        .ok_or_else(|| APIError::new(404, constants::logs::not_found(&raw_id)))
 }
 
 struct EventStreamSlot;
@@ -124,7 +125,7 @@ impl EventStreamSlot {
                 (active < MAX_EVENT_STREAMS).then_some(active + 1)
             })
             .map(|_| Self)
-            .map_err(|_| APIError::new(429, "Too many usage event streams"))
+            .map_err(|_| APIError::new(429, constants::logs::TOO_MANY_STREAMS))
     }
 }
 
@@ -138,7 +139,7 @@ async fn log_events(State(state): State<AppState>, request: Request) -> Result<R
     let database = state
         .database
         .clone()
-        .ok_or_else(|| APIError::new(500, "request log database is not configured"))?;
+        .ok_or_else(|| APIError::new(500, constants::logs::DATABASE_REQUIRED))?;
     let slot = EventStreamSlot::acquire()?;
     let receiver = subscribe_request_logs();
     let mut heartbeat = tokio::time::interval(Duration::from_secs(25));
@@ -171,20 +172,22 @@ async fn log_events(State(state): State<AppState>, request: Request) -> Result<R
     let mut response = Body::from_stream(stream).into_response();
     response.headers_mut().insert(
         header::CONTENT_TYPE,
-        HeaderValue::from_static("text/event-stream"),
+        HeaderValue::from_static(constants::headers::value::EVENT_STREAM),
     );
     response.headers_mut().insert(
         header::CACHE_CONTROL,
-        HeaderValue::from_static("no-cache, no-transform"),
+        HeaderValue::from_static(constants::headers::value::SSE_CACHE_CONTROL),
     );
     if matches!(request.version(), Version::HTTP_10 | Version::HTTP_11) {
-        response
-            .headers_mut()
-            .insert(header::CONNECTION, HeaderValue::from_static("keep-alive"));
+        response.headers_mut().insert(
+            header::CONNECTION,
+            HeaderValue::from_static(constants::headers::value::KEEP_ALIVE),
+        );
     }
-    response
-        .headers_mut()
-        .insert("x-accel-buffering", HeaderValue::from_static("no"));
+    response.headers_mut().insert(
+        constants::headers::name::X_ACCEL_BUFFERING,
+        HeaderValue::from_static(constants::headers::value::ACCEL_BUFFERING_OFF),
+    );
     Ok(response)
 }
 
@@ -196,7 +199,7 @@ enum LiveEvent {
     #[serde(rename = "usage.updated")]
     UsageUpdated { stats: serde_json::Value },
     #[serde(rename = "request.logged")]
-    RequestLogged { log: RequestLog },
+    RequestLogged { log: Box<RequestLog> },
 }
 
 fn sse_event(event: &LiveEvent) -> String {
@@ -227,7 +230,7 @@ async fn live_events(
         }
         let mut event = sse_event(&LiveEvent::UsageUpdated { stats });
         if let Some(log) = log {
-            event.push_str(&sse_event(&LiveEvent::RequestLogged { log }));
+            event.push_str(&sse_event(&LiveEvent::RequestLogged { log: Box::new(log) }));
         }
         Ok::<_, APIError>(Some(Bytes::from(event)))
     }

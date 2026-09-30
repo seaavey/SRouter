@@ -4,6 +4,7 @@
 
 use futures_util::future::BoxFuture;
 
+use crate::constants;
 use crate::error::APIError;
 
 pub trait AdminAuthRepository: Send + Sync {
@@ -86,5 +87,5 @@ impl AdminAuthRepository for EmptyAdminAuthRepository {
 }
 
 fn unconfigured() -> APIError {
-    APIError::new(500, "admin persistence is not configured")
+    APIError::new(500, constants::admin::PERSISTENCE_NOT_CONFIGURED)
 }
