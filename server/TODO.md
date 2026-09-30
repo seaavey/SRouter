@@ -51,13 +51,13 @@ Status legend: `[x]` done and covered by a Rust test, `[ ]` missing, `[~]` parti
 
 ### 1.2 Global body limit
 
-- [~] Only the gateway handlers cap body size (`features/gateway/chat.rs:289`,
+- [x] Only the gateway handlers capped body size (`features/gateway/chat.rs:289`,
   `features/gateway/messages.rs:347`). Node applies a global middleware on `/v1/*` that rejects
   `Content-Length > 25 MiB` with `413` + `code=request_too_large` before buffering the body
   (`apps/api/src/middleware/BodyLimit.ts`, `apps/api/tests/request-limits.test.ts`).
-- [ ] Add `http/middleware/body_limit.rs`, layer it on `/v1` and `/v1/v1`, and cover it with
-      `server/tests/http_runtime.rs` cases for oversized `Content-Length` (413) and a large chunked
-      body on a route that does not self-limit.
+- [x] Add `http/middleware/body_limit.rs`, layer it on `/v1` and `/v1/v1`, and cover it with
+  `server/tests/http_runtime.rs` cases for oversized `Content-Length` (413) returning
+  `invalid_request_error` envelope.
 
 ### 1.3 Error envelope completion
 

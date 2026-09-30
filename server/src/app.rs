@@ -12,6 +12,7 @@ use crate::features::providers::management::{
 use crate::features::settings::{create_settings_management_router, create_settings_read_router};
 use crate::http::middleware::admin_session::require_admin_session;
 use crate::http::middleware::api_key_auth::api_key_auth;
+use crate::http::middleware::body_limit::body_limit;
 use crate::http::middleware::cors::cors;
 use crate::http::middleware::csrf::csrf_origin_guard;
 use crate::http::middleware::rate_limit::rate_limit;
@@ -81,9 +82,11 @@ pub fn create_router(state: AppState) -> Router {
         .merge(logs_routes)
         .merge(settings_read_routes)
         .merge(settings_mgmt_routes)
-        .layer(from_fn_with_state(state.clone(), csrf_origin_guard));
-    let v1_compat_routes =
-        gateway_routes.layer(from_fn_with_state(state.clone(), csrf_origin_guard));
+        .layer(from_fn_with_state(state.clone(), csrf_origin_guard))
+        .layer(from_fn(body_limit));
+    let v1_compat_routes = gateway_routes
+        .layer(from_fn_with_state(state.clone(), csrf_origin_guard))
+        .layer(from_fn(body_limit));
 
     Router::new()
         .route("/", get(api_info))

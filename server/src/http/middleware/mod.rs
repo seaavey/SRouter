@@ -1,5 +1,6 @@
 pub mod admin_session;
 pub mod api_key_auth;
+pub mod body_limit;
 pub mod client_address;
 pub mod cookies;
 pub mod cors;

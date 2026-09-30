@@ -87,3 +87,56 @@ async fn unmatched_path_still_receives_the_frozen_headers() {
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
     assert_frozen_headers(&response);
 }
+
+#[tokio::test]
+async fn body_limit_rejects_oversized_content_length_on_v1() {
+    let response = test_app()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/chat/completions")
+                .header(header::CONTENT_TYPE, "application/json")
+                .header(header::CONTENT_LENGTH, (25 * 1024 * 1024 + 1).to_string())
+                .body(Body::from("{}"))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::PAYLOAD_TOO_LARGE);
+    assert_eq!(response.headers()[header::CONTENT_TYPE], "application/json");
+
+    let body = to_bytes(response.into_body(), 1024).await.unwrap();
+    let json = serde_json::from_slice::<serde_json::Value>(&body).unwrap();
+    assert_eq!(
+        json,
+        serde_json::json!({
+            "error": {
+                "message": "Request body too large",
+                "type": "invalid_request_error",
+                "code": "request_too_large"
+            }
+        })
+    );
+}
+
+#[tokio::test]
+async fn body_limit_rejects_oversized_content_length_on_v1_v1_compat() {
+    let response = test_app()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/v1/chat/completions")
+                .header(header::CONTENT_TYPE, "application/json")
+                .header(header::CONTENT_LENGTH, (25 * 1024 * 1024 + 1).to_string())
+                .body(Body::from("{}"))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::PAYLOAD_TOO_LARGE);
+    let body = to_bytes(response.into_body(), 1024).await.unwrap();
+    let json = serde_json::from_slice::<serde_json::Value>(&body).unwrap();
+    assert_eq!(json["error"]["code"], "request_too_large");
+}
