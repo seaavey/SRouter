@@ -52,8 +52,16 @@ pub const QODER_MODELS: &[ModelDefinition] = &[
         name: "Qwen 3.7 Plus (Qoder)",
     },
     ModelDefinition {
+        id: "qmodel_38max",
+        name: "Qwen 3.8 Max (Qoder)",
+    },
+    ModelDefinition {
         id: "qmodel_latest",
         name: "Qwen 3.7 Max (Qoder)",
+    },
+    ModelDefinition {
+        id: "qfmodel",
+        name: "Qwen 3.8 Flash (Qoder)",
     },
     ModelDefinition {
         id: "dmodel",
@@ -79,6 +87,8 @@ pub const QODER_MODELS: &[ModelDefinition] = &[
 
 /// Friendly model names the gateway accepts in place of a raw model key.
 pub const QODER_MODEL_ALIASES: &[(&str, &str)] = &[
+    ("qwen3.8-flash", "qfmodel"),
+    ("qwen3.8-max", "qmodel_38max"),
     ("qwen3.7-max", "qmodel_latest"),
     ("qwen3.7-plus", "qmodel"),
     ("deepseek-v4-pro", "dmodel"),

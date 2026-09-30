@@ -136,7 +136,15 @@ impl QoderCatalog {
 
 /// Seed rows the upstream has not confirmed yet: a key the static list marks as
 /// reasoning gets the flag so a fresh install never sends the wrong config.
-const SEED_REASONING: &[&str] = &["ultimate", "performance", "dmodel", "dfmodel", "gm51model"];
+const SEED_REASONING: &[&str] = &[
+    "ultimate",
+    "performance",
+    "dmodel",
+    "dfmodel",
+    "gm51model",
+    "qfmodel",
+    "qmodel_38max",
+];
 
 #[cfg(test)]
 mod tests {
