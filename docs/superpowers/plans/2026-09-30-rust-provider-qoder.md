@@ -301,10 +301,11 @@ Optional live smoke (network, ignored by default, needs a real connected account
 1. `ProviderAdapter::models()` returns `Vec<String>` (ids), not `Vec<ModelDefinition>`. Nothing in the Rust build reads `ModelDefinition.name`, and a live catalog cannot produce `&'static str` without leaking; names would have been dead data.
 2. Unit tests live inline in each module (`#[cfg(test)] mod tests` in `types.rs`, `cosy.rs`, `catalog.rs`, `executor.rs`, `provider_auth/qoder.rs`) instead of one `qoder/tests.rs`, so they can reach private helpers.
 3. `model/list` entries do not fill `is_vl` or the context window: no response field carries them.
-4. The seed catalog now holds two drivers (`opencode_zen`, `qoder`) behind a `SEED_PROVIDERS` slice. `/v1/providers`, `/v1/providers/catalog`, the detail route, and `PATCH /providers/{id}` all iterate it, because the Providers page cannot reach a connect button for a driver the catalog does not serve. Count assertions moved with it: `server/tests/providers.rs` 1 -> 2 seeded entries, `server/tests/models.rs` 6 -> 18 models and 7 -> 19 after re-enabling.
-5. `login` and `poll` carry `require_admin_session` at mount time and `callback` is public, which is contract rows 59-60.
-6. `machine_id_for(&AppDatabase)` is shared by the executor and the login route, so the browser challenge and the signed requests present the same machine.
-7. New dependencies: `md-5`, `aes`, `cbc` (feature `alloc`), `rsa` (feature `pem`), and `url` (already in `Cargo.lock` through reqwest).
+4. The seed catalog now holds two drivers (`opencode_zen`, `qoder`) behind a `SEED_PROVIDERS` slice. `/v1/providers`, `/v1/providers/catalog`, the detail route, and `PATCH /providers/{id}` all iterate it, because the Providers page cannot reach a connect button for a driver the catalog does not serve. Count assertions moved with it: `server/tests/providers.rs` 1 -> 2 seeded entries, `server/tests/models.rs` 6 -> 18 models and 7 -> 19 after re-enabling. The Qwen 3.8 seed rows raised both again: 14 qoder models, so 20 hidden-filtered and 21 after re-enabling.
+5. Live verification against the real Qoder upstream (device flow + inference, 2026-09-30): `qd/auto`, `qd/qwen3.8-flash`, `qd/qfmodel`, `qd/qmodel_38max`, `qd/qwen3.7-max`, and `/v1/messages` all answered; streaming ended with `data: [DONE]`; tool calls came back as `finish_reason: "tool_calls"`; the live catalog replaced the 14-model seed with 15 upstream keys. Hermes Agent v0.21.5 then ran two tool-calling turns through the gateway on `qd/qwen3.8-flash` and `qd/qfmodel`.
+6. `login` and `poll` carry `require_admin_session` at mount time and `callback` is public, which is contract rows 59-60.
+7. `machine_id_for(&AppDatabase)` is shared by the executor and the login route, so the browser challenge and the signed requests present the same machine.
+8. New dependencies: `md-5`, `aes`, `cbc` (feature `alloc`), `rsa` (feature `pem`), and `url` (already in `Cargo.lock` through reqwest).
 
 ## Follow-up (do not start without being asked)
 

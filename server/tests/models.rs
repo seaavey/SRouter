@@ -254,8 +254,8 @@ async fn hidden_models_are_absent_from_the_catalog() {
     assert!(!ids.contains(&"zen/big-pickle"), "ids: {ids:?}");
     assert_eq!(
         ids.len(),
-        18,
-        "seven opencode models minus the hidden one, plus twelve qoder models"
+        20,
+        "seven opencode models minus the hidden one, plus fourteen qoder models"
     );
 
     let single = app
@@ -327,7 +327,7 @@ async fn disabling_a_provider_hides_its_alias_prefixed_models() {
         .collect();
     assert_eq!(
         ids.len(),
-        12,
+        14,
         "only the disabled provider's models disappear: {ids:?}"
     );
     assert!(
@@ -352,7 +352,7 @@ async fn disabling_a_provider_hides_its_alias_prefixed_models() {
         .await
         .unwrap();
     let body = json_body(reenabled).await;
-    assert_eq!(body["data"].as_array().unwrap().len(), 19);
+    assert_eq!(body["data"].as_array().unwrap().len(), 21);
 }
 
 #[tokio::test]
