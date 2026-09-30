@@ -18,7 +18,8 @@ use uuid::Uuid;
 use crate::constants;
 use crate::error::APIError;
 use crate::infrastructure::database::request_logs::{
-    ObjectKind, RequestLog, get_request_log, list_request_logs, subscribe_request_logs, usage_stats,
+    AnalyticsReport, ObjectKind, RequestLog, analytics_report, get_request_log, list_request_logs,
+    parse_analytics_window, subscribe_request_logs, usage_stats,
 };
 use crate::state::AppState;
 
@@ -28,6 +29,8 @@ static ACTIVE_EVENT_STREAMS: AtomicUsize = AtomicUsize::new(0);
 pub fn create_logs_router() -> Router<AppState> {
     Router::new()
         .route("/logs", get(list_logs))
+        .route("/logs/stats", get(log_stats))
+        .route("/logs/analytics", get(log_analytics))
         .route("/logs/events", get(log_events))
         .route("/logs/{id}", get(get_log))
 }
@@ -98,6 +101,39 @@ async fn list_logs(
         data: page.data,
         pagination,
     }))
+}
+
+/// Usage totals over every recorded request, shaped like the `usage.updated`
+/// payload the event stream sends. `GET /v1/logs/stats`.
+async fn log_stats(State(state): State<AppState>) -> Result<Json<serde_json::Value>, APIError> {
+    let database = state
+        .database
+        .as_ref()
+        .ok_or_else(|| APIError::new(500, constants::logs::DATABASE_REQUIRED))?;
+    Ok(Json(usage_stats(database).await?))
+}
+
+#[derive(Deserialize)]
+struct AnalyticsQuery {
+    window: Option<String>,
+}
+
+/// `GET /v1/logs/analytics` — traffic aggregated over the requested window
+/// (default `24h`). An unknown `window` is a `400`.
+async fn log_analytics(
+    State(state): State<AppState>,
+    Query(query): Query<AnalyticsQuery>,
+) -> Result<Json<AnalyticsReport>, APIError> {
+    let window =
+        parse_analytics_window(query.window.as_deref().unwrap_or("24h")).ok_or_else(|| {
+            APIError::new(400, constants::logs::INVALID_WINDOW)
+                .with_code(constants::code::INVALID_REQUEST)
+        })?;
+    let database = state
+        .database
+        .as_ref()
+        .ok_or_else(|| APIError::new(500, constants::logs::DATABASE_REQUIRED))?;
+    Ok(Json(analytics_report(database, window).await?))
 }
 
 async fn get_log(

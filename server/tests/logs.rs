@@ -56,6 +56,49 @@ async fn seed_log(database: &srouter_server::AppDatabase, id: &str, created_at: 
     .unwrap();
 }
 
+struct AnalyticsSeed<'a> {
+    id: &'a str,
+    created_at: i64,
+    status: i64,
+    provider_id: &'a str,
+    model: &'a str,
+    prompt_tokens: i64,
+    completion_tokens: i64,
+    latency_ms: i64,
+}
+
+async fn seed_analytics_log(database: &srouter_server::AppDatabase, row: AnalyticsSeed<'_>) {
+    let pool = database.sqlite_pool().unwrap();
+    sqlx::query(
+        "INSERT INTO request_logs (
+            id, request_id, method, path, api_key_id, provider_id, model,
+            prompt_tokens, completion_tokens, total_tokens, status_code, latency_ms,
+            created_at
+        ) VALUES (?, ?, 'POST', '/v1/chat/completions', NULL, ?, ?,
+            ?, ?, ?, ?, ?, ?)",
+    )
+    .bind(row.id)
+    .bind(row.id)
+    .bind(row.provider_id)
+    .bind(row.model)
+    .bind(row.prompt_tokens)
+    .bind(row.completion_tokens)
+    .bind(row.prompt_tokens + row.completion_tokens)
+    .bind(row.status)
+    .bind(row.latency_ms)
+    .bind(row.created_at)
+    .execute(pool)
+    .await
+    .unwrap();
+}
+
+fn current_ms() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as i64
+}
+
 async fn logs_state(database: &TestDatabase) -> srouter_server::AppState {
     let security = security_state(
         true,
@@ -127,6 +170,161 @@ async fn log_detail_returns_snake_case_uuid_record_and_404_for_missing_id() {
         .await
         .unwrap();
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn logs_stats_aggregate_usage_and_by_model() {
+    let test_database = TestDatabase::new().unwrap();
+    let state = logs_state(&test_database).await;
+    let database = state.database.as_ref().unwrap();
+    seed_log(database, "00000000-0000-4000-8000-00000000000a", 100, 200).await;
+    seed_log(database, "00000000-0000-4000-8000-00000000000b", 200, 500).await;
+    let app = app(state);
+
+    let response = app.oneshot(get("/v1/logs/stats")).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = json(response).await;
+    assert_eq!(body["object"], "usage");
+    assert_eq!(body["total_requests"], 2);
+    assert_eq!(body["total_success_requests"], 1);
+    assert_eq!(body["total_tokens"], 10);
+    assert_eq!(body["total_prompt_tokens"], 4);
+    assert_eq!(body["total_completion_tokens"], 6);
+    assert_eq!(body["total_input_tokens"], 4);
+    assert_eq!(body["total_output_tokens"], 6);
+    assert_eq!(body["estimated"], true);
+    assert!(body["cost_label"].is_string());
+    assert_eq!(body["by_model"][0]["model"], "test-model");
+    assert_eq!(body["by_model"][0]["total_requests"], 2);
+    assert_eq!(body["by_model"][0]["total_input_tokens"], 4);
+    assert_eq!(body["by_model"][0]["total_output_tokens"], 6);
+    assert_eq!(body["by_model"][0]["total_cached_tokens"], 0);
+}
+
+#[tokio::test]
+async fn logs_analytics_report_has_the_frozen_shape_and_defaults_to_24h() {
+    let test_database = TestDatabase::new().unwrap();
+    let state = logs_state(&test_database).await;
+    let app = app(state);
+
+    let response = app
+        .clone()
+        .oneshot(get("/v1/logs/analytics?window=1h"))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = json(response).await;
+    assert_eq!(body["object"], "analytics");
+    assert_eq!(body["window"], "1h");
+    assert_eq!(body["bucket_size_ms"], 60_000);
+    // Node fills buckets up to (exclusive) `Date.now()`, so the partial current
+    // bucket is included whenever now is off a bucket boundary: 60 or 61.
+    let hour_buckets = body["buckets"].as_array().unwrap().len();
+    assert!(
+        (60..=61).contains(&hour_buckets),
+        "unexpected 1h bucket count: {hour_buckets}"
+    );
+    assert!(body["generated_at"].is_number());
+    assert!(body["requests_per_second"].is_number());
+    assert!(body["total_requests"].is_number());
+    assert!(body["error_rate"].is_number());
+    assert!(body["p95_latency_ms"].is_number());
+    assert!(body["top_models"].is_array());
+    assert!(body["providers"].is_array());
+
+    let response = app.oneshot(get("/v1/logs/analytics")).await.unwrap();
+    let body = json(response).await;
+    assert_eq!(body["window"], "24h");
+    assert_eq!(body["bucket_size_ms"], 3_600_000);
+    let day_buckets = body["buckets"].as_array().unwrap().len();
+    assert!(
+        (24..=25).contains(&day_buckets),
+        "unexpected 24h bucket count: {day_buckets}"
+    );
+}
+
+#[tokio::test]
+async fn logs_analytics_rejects_an_unknown_window() {
+    let test_database = TestDatabase::new().unwrap();
+    let state = logs_state(&test_database).await;
+    let response = app(state)
+        .oneshot(get("/v1/logs/analytics?window=bad"))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let body = json(response).await;
+    assert_eq!(body["error"]["message"], "Invalid window parameter");
+    assert_eq!(body["error"]["code"], "invalid_request");
+}
+
+#[tokio::test]
+async fn logs_analytics_bucket_aggregates_and_orders_top_models() {
+    let test_database = TestDatabase::new().unwrap();
+    let state = logs_state(&test_database).await;
+    let database = state.database.as_ref().unwrap();
+    // An aligned, two-minutes-ago bucket stays inside the 1h window and out of
+    // the current minute, so "now" drifting mid-test cannot move it.
+    let bucket_start = (current_ms() / 60_000) * 60_000 - 120_000;
+    for (index, (provider, model, status, latency)) in [
+        ("openai", "analytics-test-model-a", 200, 100),
+        ("openai", "analytics-test-model-a", 200, 150),
+        ("anthropic", "analytics-test-model-b", 500, 2_000),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        seed_analytics_log(
+            database,
+            AnalyticsSeed {
+                id: &format!("00000000-0000-4000-8000-00000000001{index}"),
+                created_at: bucket_start + 1_000,
+                status,
+                provider_id: provider,
+                model,
+                prompt_tokens: 10,
+                completion_tokens: 20,
+                latency_ms: latency,
+            },
+        )
+        .await;
+    }
+    let app = app(state);
+
+    let response = app
+        .oneshot(get("/v1/logs/analytics?window=1h"))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = json(response).await;
+
+    assert!(body["total_requests"].as_i64().unwrap() >= 3);
+    assert!(body["error_rate"].as_f64().unwrap() > 0.0);
+
+    let buckets = body["buckets"].as_array().unwrap();
+    let seeded = buckets
+        .iter()
+        .find(|bucket| bucket["bucket_start"].as_i64() == Some(bucket_start))
+        .expect("seeded bucket should be present in the report");
+    assert_eq!(seeded["total_requests"], 3);
+    assert_eq!(seeded["success_requests"], 2);
+    assert_eq!(seeded["error_requests"], 1);
+    assert_eq!(seeded["prompt_tokens"], 30);
+    assert_eq!(seeded["completion_tokens"], 60);
+    assert_eq!(seeded["cached_tokens"], 0);
+
+    let top_models = body["top_models"].as_array().unwrap();
+    let first = &top_models[0];
+    assert_eq!(first["model"], "analytics-test-model-a");
+    assert_eq!(first["total_requests"], 2);
+
+    let providers: Vec<&str> = body["providers"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|slice| slice["provider_id"].as_str().unwrap())
+        .collect();
+    assert!(providers.contains(&"openai"));
+    assert!(providers.contains(&"anthropic"));
 }
 
 #[tokio::test]

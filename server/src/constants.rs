@@ -15,6 +15,9 @@
 /// `error.code` values on the error envelope. Stable identifiers clients switch
 /// on, unlike the human-readable [`super::json`]/[`super::common`] messages.
 pub mod code {
+    /// Generic `400` code the Node error handler attaches to every
+    /// `HTTPException` at status 400 (`apps/api/src/index.ts:75-84`).
+    pub const INVALID_REQUEST: &str = "invalid_request";
     /// Request-body validation codes from the frozen `ChatCompletionRequestSchema`.
     pub const INVALID_TYPE: &str = "invalid_type";
     pub const TOO_BIG: &str = "too_big";
@@ -337,6 +340,7 @@ pub mod settings {
 pub mod logs {
     pub const TOO_MANY_STREAMS: &str = "Too many usage event streams";
     pub const DATABASE_REQUIRED: &str = "request log database is not configured";
+    pub const INVALID_WINDOW: &str = "Invalid window parameter";
 
     pub fn not_found(raw_id: impl std::fmt::Display) -> String {
         format!("Log '{raw_id}' not found")

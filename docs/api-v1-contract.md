@@ -119,6 +119,16 @@ The Rust catalog serves a single driver (`opencode_zen`). Where the rows above d
 - **Field naming.** Connection status reports snake_case `connected_count` instead of Node's `connectedCount`.
 - **Scope.** Besides the write route, the build serves `GET /v1/providers`, `GET /v1/providers/catalog`, and `GET /v1/providers/{provider_id}`. `POST /v1/providers`, `DELETE /v1/providers/:id`, `POST /v1/providers/verify`, `POST /v1/providers/connections/verify`, and the custom-model routes remain Node-only, and the catalog holds the single seeded driver. The provider routes are not mounted under the `/v1/v1` alias either.
 
+### Logs in the Rust build
+
+The Rust logs surface follows the route rows above for routes, auth, and status
+codes, with these differences.
+
+- **Analytics field casing.** `GET /v1/logs/analytics` serializes snake_case (`bucket_size_ms`, `total_requests`, `top_models`, `p95_latency_ms`, `requests_per_second`, `error_rate`, `bucket_start`, `avg_latency_ms`, `est_cost`, `provider_id`, `raw_user_agent`) where Node emits camelCase (`bucketSizeMs`, `totalRequests`, ...). The report shape and values are otherwise the same.
+- **Stats field casing.** `GET /v1/logs/stats`, and therefore the `usage.updated` payload on the event stream, serialize snake_case (`total_requests`, `total_success_requests`, `total_tokens`, `total_prompt_tokens`, `total_completion_tokens`, `total_cached_tokens`, `total_cache_creation_tokens`, `total_reasoning_tokens`, `total_estimated_cost`, `total_input_tokens`, `total_output_tokens`, `cost_label`, `estimated`, `by_model`) where Node emits camelCase (`totalRequests`, `byModel`, `costLabel`, ...). The values are otherwise the same.
+- **Log record casing.** Log records returned by `GET /v1/logs` and `GET /v1/logs/:id` serialize snake_case (`status_code`, `request_id`, `api_key_id`, ...) rather than Node's camelCase.
+- **Bucket fill.** Analytics zero-fills buckets from the window start up to (exclusive) the report time, so the partial in-progress bucket is included whenever that time is not a bucket boundary, matching Node.
+
 ## Compatibility aliases and retired routes
 
 The main listener mounts these compatibility paths under `/v1/v1`: `/chat/completions`, `/chat/completion`, `/messages`, `/models`, and `/models/:model`. They use the same route handlers and feature middleware as their `/v1` counterparts. The OAuth listener exposes only its `/v1` mounts, not `/v1/v1`.
