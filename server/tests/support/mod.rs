@@ -7,20 +7,21 @@
 use std::collections::{HashMap, HashSet};
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Mutex as StdMutex};
 
 use axum::{
     Json, Router,
-    body::Body,
-    extract::ConnectInfo,
-    http::{Request, StatusCode, header},
+    body::{Body, Bytes},
+    extract::{ConnectInfo, State},
+    http::{HeaderMap, Request, StatusCode, header},
     response::{IntoResponse, Response},
-    routing::post,
+    routing::{get, post},
 };
 use futures_util::future::BoxFuture;
 use srouter_server::features::admin_auth::AdminSessionStore;
 use srouter_server::features::api_keys::{APIKeyRecord, APIKeyStore};
+use srouter_server::features::providers::qoder::{self, QoderEndpoints};
 use srouter_server::features::providers::{ProviderRegistry, opencode};
 use srouter_server::infrastructure::database::AppDatabase;
 use srouter_server::infrastructure::database::admin_auth::SQLxAdminAuthStore;
@@ -134,6 +135,281 @@ pub async fn app_state_with_fake_upstream_and_security(
         upstream,
         AppState::with_security(test_config(), providers, security),
     )
+}
+
+/// What the fake Qoder upstream remembers about the calls it served.
+#[derive(Debug)]
+pub struct FakeQoderState {
+    /// Whether the device flow answers with a token instead of "still waiting".
+    pub approve_device: bool,
+    /// Whether the chat stream is written in many small pieces, so the
+    /// translation has to reassemble a frame split across reads.
+    pub fragment_chat: bool,
+    pub chat_requests: usize,
+    pub model_list_requests: usize,
+    pub poll_requests: usize,
+    pub last_encoded_body: String,
+    pub last_model_key: String,
+    pub last_sig_path: String,
+    pub last_model_list_body_length: String,
+    pub last_model_list_sig_path: String,
+    pub model_catalog: serde_json::Value,
+}
+
+impl Default for FakeQoderState {
+    fn default() -> Self {
+        Self {
+            approve_device: false,
+            fragment_chat: false,
+            chat_requests: 0,
+            model_list_requests: 0,
+            poll_requests: 0,
+            last_encoded_body: String::new(),
+            last_model_key: String::new(),
+            last_sig_path: String::new(),
+            last_model_list_body_length: String::new(),
+            last_model_list_sig_path: String::new(),
+            model_catalog: serde_json::json!({ "chat": [] }),
+        }
+    }
+}
+
+type SharedQoderState = Arc<StdMutex<FakeQoderState>>;
+
+/// A local stand-in for the Qoder gateway and its device-flow endpoints, served
+/// on a random loopback port and aborted when dropped.
+pub struct FakeQoderUpstream {
+    base_url: String,
+    state: SharedQoderState,
+    task: JoinHandle<()>,
+}
+
+impl FakeQoderUpstream {
+    pub async fn start() -> Self {
+        let state: SharedQoderState = Arc::new(StdMutex::new(FakeQoderState::default()));
+        let router = Router::new()
+            .route(
+                "/algo/api/v2/service/pro/sse/agent_chat_generation",
+                post(qoder_chat),
+            )
+            .route("/algo/api/v2/model/list", get(qoder_model_list))
+            .route("/api/v1/deviceToken/poll", get(qoder_device_poll))
+            .route("/api/v1/userinfo", get(qoder_userinfo))
+            .with_state(state.clone());
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind the fake qoder upstream");
+        let address = listener.local_addr().expect("fake qoder upstream address");
+
+        let task = tokio::spawn(async move {
+            let _ = axum::serve(listener, router).await;
+        });
+
+        Self {
+            base_url: format!("http://{address}"),
+            state,
+            task,
+        }
+    }
+
+    /// The gateway root the provider adapter should be built against.
+    pub fn base_url(&self) -> &str {
+        &self.base_url
+    }
+
+    /// Endpoints pointing every Qoder URL at this fake.
+    pub fn endpoints(&self) -> QoderEndpoints {
+        QoderEndpoints {
+            base_url: self.base_url.clone(),
+            login_url: "https://qoder.com/device/selectAccounts".to_owned(),
+            device_token_url: format!("{}/api/v1/deviceToken/poll", self.base_url),
+            userinfo_url: format!("{}/api/v1/userinfo", self.base_url),
+        }
+    }
+
+    /// Runs an edit against the recorded state.
+    pub fn with<F, R>(&self, edit: F) -> R
+    where
+        F: FnOnce(&mut FakeQoderState) -> R,
+    {
+        let mut state = self.state.lock().expect("fake qoder state");
+
+        edit(&mut state)
+    }
+
+    /// Recorded chat requests.
+    pub fn chat_requests(&self) -> usize {
+        self.with(|state| state.chat_requests)
+    }
+
+    /// Recorded model-list requests.
+    pub fn model_list_requests(&self) -> usize {
+        self.with(|state| state.model_list_requests)
+    }
+
+    /// The encoded body of the most recent chat request.
+    pub fn last_encoded_body(&self) -> String {
+        self.with(|state| state.last_encoded_body.clone())
+    }
+
+    /// The `X-Model-Key` header of the most recent chat request.
+    pub fn last_model_key(&self) -> String {
+        self.with(|state| state.last_model_key.clone())
+    }
+
+    /// The `Cosy-Sigpath` header of the most recent chat request.
+    pub fn last_sig_path(&self) -> String {
+        self.with(|state| state.last_sig_path.clone())
+    }
+
+    /// The `Cosy-Bodylength` header of the most recent model-list request.
+    pub fn model_list_body_length(&self) -> String {
+        self.with(|state| state.last_model_list_body_length.clone())
+    }
+
+    /// The `Cosy-Sigpath` header of the most recent model-list request.
+    pub fn model_list_sig_path(&self) -> String {
+        self.with(|state| state.last_model_list_sig_path.clone())
+    }
+}
+
+impl Drop for FakeQoderUpstream {
+    fn drop(&mut self) {
+        self.task.abort();
+    }
+}
+
+/// Wraps one OpenAI chunk the way the real gateway sends it: an envelope whose
+/// `body` is a stringified chunk.
+fn qoder_envelope(chunk: &serde_json::Value) -> String {
+    serde_json::json!({
+        "headers": {},
+        "body": chunk.to_string(),
+        "statusCodeValue": 200
+    })
+    .to_string()
+}
+
+async fn qoder_chat(
+    State(state): State<SharedQoderState>,
+    headers: HeaderMap,
+    body: String,
+) -> Response {
+    {
+        let mut guard = state.lock().expect("fake qoder state");
+        guard.chat_requests += 1;
+        guard.last_encoded_body = body;
+        guard.last_model_key = header_text(&headers, "x-model-key");
+        guard.last_sig_path = header_text(&headers, "cosy-sigpath");
+    }
+
+    let chunks = [
+        serde_json::json!({"choices": [{"index": 0, "delta": {"content": "Hello"}, "finish_reason": null}]}),
+        serde_json::json!({"choices": [{"index": 0, "delta": {"content": " world"}, "finish_reason": null}]}),
+        serde_json::json!({"choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}], "usage": {"prompt_tokens": 5, "completion_tokens": 7, "total_tokens": 12}}),
+    ];
+    let mut sse = String::new();
+    for chunk in &chunks {
+        sse.push_str("data: ");
+        sse.push_str(&qoder_envelope(chunk));
+        sse.push_str("\n\n");
+    }
+    sse.push_str("event: finish\n\n");
+
+    let fragment = state.lock().expect("fake qoder state").fragment_chat;
+    let body = if fragment {
+        // One write per piece, so a frame really does span two reads.
+        let pieces: Vec<Result<Bytes, std::io::Error>> = sse
+            .as_bytes()
+            .chunks(24)
+            .map(|piece| Ok(Bytes::copy_from_slice(piece)))
+            .collect();
+
+        Body::from_stream(futures_util::stream::iter(pieces))
+    } else {
+        Body::from(sse)
+    };
+
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, "text/event-stream")
+        .body(body)
+        .expect("fake qoder stream")
+}
+
+async fn qoder_model_list(State(state): State<SharedQoderState>, headers: HeaderMap) -> Response {
+    let catalog = {
+        let mut guard = state.lock().expect("fake qoder state");
+        guard.model_list_requests += 1;
+        guard.last_model_list_body_length = header_text(&headers, "cosy-bodylength");
+        guard.last_model_list_sig_path = header_text(&headers, "cosy-sigpath");
+        guard.model_catalog.clone()
+    };
+
+    Json(catalog).into_response()
+}
+
+async fn qoder_device_poll(State(state): State<SharedQoderState>) -> Response {
+    let approved = {
+        let mut guard = state.lock().expect("fake qoder state");
+        guard.poll_requests += 1;
+        guard.approve_device
+    };
+
+    if !approved {
+        return StatusCode::ACCEPTED.into_response();
+    }
+
+    Json(serde_json::json!({
+        "token": "dt-fixture-token",
+        "refresh_token": "rt-fixture-token",
+        "user_id": "user-fixture",
+        "expires_in": 86_400
+    }))
+    .into_response()
+}
+
+async fn qoder_userinfo() -> Response {
+    Json(serde_json::json!({
+        "id": "user-fixture",
+        "name": "Seaavey Dev",
+        "email": "seaavey@example.com",
+        "organization_id": "org-fixture"
+    }))
+    .into_response()
+}
+
+fn header_text(headers: &HeaderMap, name: &str) -> String {
+    headers
+        .get(name)
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or_default()
+        .to_owned()
+}
+
+/// A registry whose `qoder` adapter points at the fake upstream and can read
+/// credentials from the given database.
+pub fn qoder_registry(database: Option<AppDatabase>, fake: &FakeQoderUpstream) -> ProviderRegistry {
+    // Both built-in drivers, exactly like `ProviderRegistry::with_database`.
+    let mut providers = ProviderRegistry::new();
+    providers.register(opencode::adapter().expect("opencode_zen adapter"));
+    providers.register(
+        qoder::adapter_with_endpoints(fake.endpoints(), database).expect("qoder adapter"),
+    );
+
+    providers
+}
+
+/// Application state whose `qoder` adapter points at the fake upstream, backed
+/// by the given database so the device flow can store a connection.
+pub fn qoder_state(
+    database: AppDatabase,
+    security: SecurityState,
+    fake: &FakeQoderUpstream,
+) -> AppState {
+    let providers = qoder_registry(Some(database.clone()), fake);
+
+    AppState::with_security(test_config(), providers, security).with_database(database)
 }
 
 /// Configuration pointing at the default temporary home used by state helpers.

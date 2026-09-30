@@ -178,7 +178,7 @@ async fn providers_list_serves_the_seed_without_a_database() {
 }
 
 #[tokio::test]
-async fn catalog_groups_the_seeded_entry_by_category() {
+async fn catalog_groups_the_seeded_entries_by_category() {
     let database = TestDatabase::new().unwrap();
     let response = app(&database)
         .await
@@ -188,13 +188,18 @@ async fn catalog_groups_the_seeded_entry_by_category() {
 
     assert_eq!(response.status(), StatusCode::OK);
     let body = json_body(response).await;
-    assert_eq!(body["total"], 1);
+    assert_eq!(body["total"], 2);
     assert_eq!(body["categories"]["free_tier"][0]["id"], "opencode_zen");
     assert_eq!(
         body["categories"]["free_tier"][0]["enabled"],
         serde_json::json!(true)
     );
-    for category in ["oauth", "api_key", "custom_provider"] {
+    assert_eq!(body["categories"]["oauth"][0]["id"], "qoder");
+    assert_eq!(
+        body["categories"]["oauth"][0]["enabled"],
+        serde_json::json!(true)
+    );
+    for category in ["api_key", "custom_provider"] {
         assert_eq!(
             body["categories"][category],
             serde_json::json!([]),
@@ -218,11 +223,12 @@ async fn catalog_serves_the_seed_without_a_database() {
 
     assert_eq!(response.status(), StatusCode::OK);
     let body = json_body(response).await;
-    assert_eq!(body["total"], 1);
+    assert_eq!(body["total"], 2);
     assert_eq!(
         body["categories"]["free_tier"][0]["enabled"],
         serde_json::json!(true)
     );
+    assert_eq!(body["categories"]["oauth"][0]["id"], "qoder");
 }
 
 #[tokio::test]

@@ -252,7 +252,11 @@ async fn hidden_models_are_absent_from_the_catalog() {
         .map(|entry| entry["id"].as_str().unwrap())
         .collect();
     assert!(!ids.contains(&"zen/big-pickle"), "ids: {ids:?}");
-    assert_eq!(ids.len(), 6);
+    assert_eq!(
+        ids.len(),
+        18,
+        "seven opencode models minus the hidden one, plus twelve qoder models"
+    );
 
     let single = app
         .oneshot(get_request("/v1/models/zen%2Fbig-pickle"))
@@ -314,7 +318,22 @@ async fn disabling_a_provider_hides_its_alias_prefixed_models() {
         .await
         .unwrap();
     assert_eq!(response.status(), StatusCode::OK);
-    assert_eq!(json_body(response).await["data"], serde_json::json!([]));
+    let data = json_body(response).await;
+    let ids: Vec<&str> = data["data"]
+        .as_array()
+        .expect("model list")
+        .iter()
+        .filter_map(|entry| entry["id"].as_str())
+        .collect();
+    assert_eq!(
+        ids.len(),
+        12,
+        "only the disabled provider's models disappear: {ids:?}"
+    );
+    assert!(
+        ids.iter().all(|id| id.starts_with("qd/")),
+        "remaining models belong to the other provider: {ids:?}"
+    );
 
     // The single route drops it too, rather than serving a disabled model.
     let single = app
@@ -333,7 +352,7 @@ async fn disabling_a_provider_hides_its_alias_prefixed_models() {
         .await
         .unwrap();
     let body = json_body(reenabled).await;
-    assert_eq!(body["data"].as_array().unwrap().len(), 7);
+    assert_eq!(body["data"].as_array().unwrap().len(), 19);
 }
 
 #[tokio::test]

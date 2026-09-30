@@ -18,7 +18,7 @@ use crate::error::APIError;
 use crate::features::providers::management::model::{
     CatalogResponse, GroupedCatalog, ProviderConnectionView, ProviderEntry, ProviderModel,
 };
-use crate::features::providers::{OPENCODE_ZEN_PROVIDER, ProviderMetadata};
+use crate::features::providers::{ProviderMetadata, SEED_PROVIDERS};
 use crate::infrastructure::database::AppDatabase;
 use crate::infrastructure::database::catalog_flags::{favorite_model_ids, hidden_model_ids};
 use crate::infrastructure::database::providers::{
@@ -56,16 +56,22 @@ struct ProviderListResponse {
 async fn list_providers(
     State(state): State<AppState>,
 ) -> Result<Json<ProviderListResponse>, APIError> {
-    let entry = provider_entry(&state, OPENCODE_ZEN_PROVIDER).await?;
+    let mut data = Vec::with_capacity(SEED_PROVIDERS.len());
+    for metadata in SEED_PROVIDERS {
+        data.push(provider_entry(&state, *metadata).await?);
+    }
 
     Ok(Json(ProviderListResponse {
         object: "list",
-        data: vec![entry],
+        data,
     }))
 }
 
 async fn get_catalog(State(state): State<AppState>) -> Result<Json<CatalogResponse>, APIError> {
-    let providers = vec![provider_entry(&state, OPENCODE_ZEN_PROVIDER).await?];
+    let mut providers = Vec::with_capacity(SEED_PROVIDERS.len());
+    for metadata in SEED_PROVIDERS {
+        providers.push(provider_entry(&state, *metadata).await?);
+    }
     let total = providers.len();
 
     let mut categories = GroupedCatalog::default();
@@ -101,7 +107,8 @@ async fn patch_provider(
     let normalized = provider_id.to_lowercase();
     let base_id = base_id_of(&normalized);
 
-    if base_id != OPENCODE_ZEN_PROVIDER.id && !provider_exists(database, base_id).await? {
+    let is_seed = SEED_PROVIDERS.iter().any(|metadata| metadata.id == base_id);
+    if !is_seed && !provider_exists(database, base_id).await? {
         return Err(APIError::new(
             400,
             constants::providers::not_found(&provider_id),
@@ -171,13 +178,13 @@ fn invalid_patch_payload() -> APIError {
 /// Collapses a connection id onto its driver: the base id itself, or a
 /// `<base>_`/`<base>-` namespaced variant of it.
 fn base_id_of(provider_id: &str) -> &str {
-    let base_id = OPENCODE_ZEN_PROVIDER.id;
-
-    if matches_base_id(provider_id, base_id) {
-        base_id
-    } else {
-        provider_id
+    for metadata in SEED_PROVIDERS {
+        if matches_base_id(provider_id, metadata.id) {
+            return metadata.id;
+        }
     }
+
+    provider_id
 }
 
 /// Writes need a database to persist into; reporting success without one would
@@ -214,8 +221,11 @@ async fn detail_entry(state: &AppState, provider_id: &str) -> Result<ProviderEnt
 /// Resolves the path param against the static seed, case-insensitively. Aliases
 /// are deliberately not accepted: the catalog holds base ids only.
 fn provider_metadata(provider_id: &str) -> Result<ProviderMetadata, APIError> {
-    if provider_id.eq_ignore_ascii_case(OPENCODE_ZEN_PROVIDER.id) {
-        return Ok(OPENCODE_ZEN_PROVIDER);
+    if let Some(metadata) = SEED_PROVIDERS
+        .iter()
+        .find(|metadata| metadata.id.eq_ignore_ascii_case(provider_id))
+    {
+        return Ok(*metadata);
     }
 
     Err(APIError::new(

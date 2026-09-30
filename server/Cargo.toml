@@ -21,6 +21,11 @@ sha2 = "0.10"
 sqlx = { version = "0.9", default-features = false, features = ["runtime-tokio", "tls-rustls", "sqlite", "postgres"] }
 tokio = { version = "1.53.1", features = ["macros", "net", "rt-multi-thread", "signal", "time"] }
 uuid = { version = "1", features = ["serde", "v4"] }
+url = "2"
+md-5 = "0.11.0"
+aes = "0.9.3"
+cbc = { version = "0.2.1", features = ["alloc"] }
+rsa = { version = "0.9.10", features = ["pem"] }
 
 [dev-dependencies]
 tower = { version = "0.5.3", features = ["util"] }

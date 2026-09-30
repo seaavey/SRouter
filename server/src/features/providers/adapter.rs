@@ -14,6 +14,7 @@ use crate::features::gateway::model::ChatCompletionRequest;
 use crate::features::gateway::sse;
 use crate::features::providers::model::ModelDefinition;
 use crate::features::providers::opencode::OpenCodeExecutor;
+use crate::features::providers::qoder::QoderExecutor;
 use crate::infrastructure::upstream::{STREAM_IDLE_TIMEOUT, UpstreamClient};
 
 /// A provider stream of raw SSE bytes. Upstream failures are already encoded
@@ -26,6 +27,7 @@ pub type ProviderStream = Pin<Box<dyn Stream<Item = Bytes> + Send>>;
 pub enum ProviderAdapter {
     OpenAI(OpenAIAdapter),
     OpenCode(OpenCodeExecutor),
+    Qoder(QoderExecutor),
 }
 
 pub type ProviderExecutor = ProviderAdapter;
@@ -36,6 +38,7 @@ impl ProviderAdapter {
         match self {
             Self::OpenAI(adapter) => adapter.id(),
             Self::OpenCode(adapter) => adapter.id(),
+            Self::Qoder(adapter) => adapter.id(),
         }
     }
 
@@ -44,6 +47,7 @@ impl ProviderAdapter {
         match self {
             Self::OpenAI(adapter) => adapter.keys(),
             Self::OpenCode(adapter) => adapter.keys(),
+            Self::Qoder(adapter) => adapter.keys(),
         }
     }
 
@@ -52,14 +56,26 @@ impl ProviderAdapter {
         match self {
             Self::OpenAI(adapter) => adapter.alias(),
             Self::OpenCode(adapter) => adapter.alias(),
+            Self::Qoder(adapter) => adapter.alias(),
         }
     }
 
-    /// The models this adapter advertises.
-    pub fn models(&self) -> &'static [ModelDefinition] {
+    /// The model ids this adapter advertises. Ids rather than the static
+    /// `ModelDefinition` because a catalog can change at runtime (Qoder reads
+    /// its list from upstream).
+    pub fn models(&self) -> Vec<String> {
         match self {
             Self::OpenAI(adapter) => adapter.models(),
             Self::OpenCode(adapter) => adapter.models(),
+            Self::Qoder(adapter) => adapter.models(),
+        }
+    }
+
+    /// Asks the adapter to refresh a time-varying catalog. Adapters with a
+    /// fixed list do nothing.
+    pub fn maybe_refresh(&self, force: bool) {
+        if let Self::Qoder(adapter) = self {
+            adapter.maybe_refresh(force);
         }
     }
 
@@ -73,6 +89,7 @@ impl ProviderAdapter {
         match self {
             Self::OpenAI(adapter) => adapter.chat_completion(model, request).await,
             Self::OpenCode(adapter) => adapter.chat_completion(model, request).await,
+            Self::Qoder(adapter) => adapter.chat_completion(model, request).await,
         }
     }
 
@@ -87,6 +104,7 @@ impl ProviderAdapter {
         match self {
             Self::OpenAI(adapter) => adapter.chat_completion_stream(model, request).await,
             Self::OpenCode(adapter) => adapter.chat_completion_stream(model, request).await,
+            Self::Qoder(adapter) => adapter.chat_completion_stream(model, request).await,
         }
     }
 }
@@ -132,8 +150,11 @@ impl OpenAIAdapter {
         self.id
     }
 
-    pub fn models(&self) -> &'static [ModelDefinition] {
+    pub fn models(&self) -> Vec<String> {
         self.models
+            .iter()
+            .map(|model| model.id.to_owned())
+            .collect()
     }
 
     /// The upstream chat completions endpoint, normalized to a single slash.

@@ -22,8 +22,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let security =
         SecurityState::with_repository(api_key_store.clone(), admin_store.clone(), api_key_store)
             .with_admin_auth(admin_store);
-    let state = AppState::with_security(config, ProviderRegistry::with_defaults()?, security)
-        .with_database(database);
+    let registry = ProviderRegistry::with_database(Some(database.clone()))?;
+    // Ask the live catalog to fill itself in the background; the seed answers
+    // requests until it lands.
+    registry.maybe_refresh_catalogs(false);
+    let state = AppState::with_security(config, registry, security).with_database(database);
 
     listeners::serve_main(create_router(state), address).await?;
 

@@ -72,8 +72,11 @@ impl OpenCodeExecutor {
         OPENCODE_ZEN_PROVIDER.alias
     }
 
-    pub fn models(&self) -> &'static [ModelDefinition] {
+    pub fn models(&self) -> Vec<String> {
         self.models
+            .iter()
+            .map(|model| model.id.to_owned())
+            .collect()
     }
 
     pub fn chat_completions_url(&self) -> String {

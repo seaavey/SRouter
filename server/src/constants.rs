@@ -328,6 +328,44 @@ pub mod providers {
     pub fn could_not_parse_tools(error: impl std::fmt::Display) -> String {
         format!("could not parse default OpenCode tools: {error}")
     }
+
+    /// Messages of the `qoder` provider: the device flow, the credential load,
+    /// and the COSY signer. Every string a client can see lives here.
+    pub mod qoder {
+        pub const MISSING_UID: &str =
+            "the Qoder connection has no user id; reconnect the Qoder account";
+        pub const MISSING_TOKEN: &str =
+            "the Qoder connection has no access token; reconnect the Qoder account";
+        pub const MISSING_STATE: &str = "Missing state parameter";
+        pub const SESSION_EXPIRED: &str = "Session expired or not found";
+        pub const EMPTY_TOKEN: &str = "Qoder device token poll returned empty token";
+        pub const CALLBACK_MISSING_PARAMS: &str =
+            "Missing required 'code' or 'state' parameters in OAuth callback";
+        pub const NOT_CONNECTED: &str =
+            "No active Qoder connection found. Connect the Qoder account in the Providers tab.";
+        pub const TOKEN_EXPIRED: &str =
+            "The Qoder device token has expired; reconnect the Qoder account.";
+
+        pub fn key_unreadable(error: impl std::fmt::Display) -> String {
+            format!("could not read the Qoder signing key: {error}")
+        }
+
+        pub fn key_wrapping_failed(error: impl std::fmt::Display) -> String {
+            format!("could not wrap the Qoder request key: {error}")
+        }
+
+        pub fn poll_failed(status: u16, detail: &str) -> String {
+            format!("Qoder device token poll failed ({status}): {detail}")
+        }
+
+        pub fn userinfo_failed(status: u16) -> String {
+            format!("Qoder userinfo request failed ({status})")
+        }
+
+        pub fn poll_transport_failed(error: impl std::fmt::Display) -> String {
+            format!("Qoder device token poll failed: {error}")
+        }
+    }
 }
 
 /// `/v1/settings`.
@@ -365,6 +403,10 @@ pub mod database {
     pub const INVALID_STATUS_PARAMETER: &str = "Invalid status parameter";
     pub const SETTINGS_DATABASE_REQUIRED: &str =
         "no database is configured; settings cannot be persisted";
+    pub const OAUTH_SESSIONS_DATABASE_REQUIRED: &str =
+        "no database is configured; the OAuth session cannot be persisted";
+    pub const OAUTH_SESSIONS_UNSUPPORTED: &str =
+        "the PostgreSQL backend has no OAuth session store yet; schema v3 is SQLite-only";
 
     /// Prefixes a diagnostic action to a driver error: `read an API key: ...`.
     pub fn with_context(context: impl std::fmt::Display, error: impl std::fmt::Display) -> String {

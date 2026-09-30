@@ -6,6 +6,7 @@ pub mod admin_auth;
 pub mod api_keys;
 pub mod catalog_flags;
 mod migrations;
+pub mod oauth_sessions;
 mod postgres;
 pub mod providers;
 pub mod request_logs;

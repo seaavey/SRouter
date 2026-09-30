@@ -113,10 +113,11 @@ pub async fn list_models(
     Query(query): Query<ModelsQuery>,
     headers: HeaderMap,
 ) -> Result<Response, APIError> {
-    let _ = (
-        is_refresh_requested(&query),
-        revalidation_requested(&headers),
-    );
+    // `refresh`/`force` and a cache revalidation both mean "answer from a
+    // freshly fetched catalog", so they only shorten the TTL check.
+    state
+        .providers
+        .maybe_refresh_catalogs(is_refresh_requested(&query) || revalidation_requested(&headers));
 
     let allowed = principal
         .as_ref()
@@ -155,7 +156,9 @@ pub async fn get_model(
     Path(model): Path<String>,
     Query(query): Query<ModelsQuery>,
 ) -> Result<Response, APIError> {
-    let _ = is_refresh_requested(&query);
+    state
+        .providers
+        .maybe_refresh_catalogs(is_refresh_requested(&query));
 
     if model.trim().is_empty() {
         return Err(APIError::new(400, constants::gateway::MODEL_ID_REQUIRED));

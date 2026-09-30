@@ -7,6 +7,9 @@ use crate::error::APIError;
 use crate::features::providers::adapter::ProviderAdapter;
 use crate::features::providers::model::ModelObject;
 use crate::features::providers::opencode;
+use crate::features::providers::qoder;
+use crate::features::providers::qoder::types::QoderEndpoints;
+use crate::infrastructure::database::AppDatabase;
 
 /// A resolved request target: the adapter to call and the bare model id the
 /// provider expects upstream.
@@ -49,12 +52,41 @@ impl ProviderRegistry {
         keys
     }
 
-    /// Builds the registry with the built-in providers registered.
+    /// Builds the registry with the built-in providers registered and no
+    /// database handle, which is the shape a test or a database-less boot uses.
     pub fn with_defaults() -> Result<Self, APIError> {
+        Self::with_database(None)
+    }
+
+    /// Builds the registry with the built-in providers registered. The Qoder
+    /// adapter keeps the database so it can read its own credentials per request.
+    pub fn with_database(database: Option<AppDatabase>) -> Result<Self, APIError> {
         let mut registry = Self::new();
         registry.register(opencode::adapter()?);
+        registry.register(qoder::adapter(database)?);
 
         Ok(registry)
+    }
+
+    /// The Qoder endpoints in use, so the device-flow routes can talk to the
+    /// same base the executor does.
+    pub fn qoder_endpoints(&self) -> Option<QoderEndpoints> {
+        self.adapters.values().find_map(|adapter| match adapter {
+            ProviderAdapter::Qoder(executor) => Some(executor.endpoints().clone()),
+            _ => None,
+        })
+    }
+
+    /// Asks every adapter with a time-varying catalog to refresh when stale, or
+    /// unconditionally when the caller asked for a forced refresh.
+    pub fn maybe_refresh_catalogs(&self, force: bool) {
+        let mut seen = HashSet::new();
+
+        for adapter in self.adapters.values() {
+            if seen.insert(adapter.id()) {
+                adapter.maybe_refresh(force);
+            }
+        }
     }
 
     /// Registers an adapter under each of its lookup keys.
@@ -83,7 +115,7 @@ impl ProviderRegistry {
 
         self.adapters
             .values()
-            .find(|adapter| adapter.models().iter().any(|entry| entry.id == model))
+            .find(|adapter| adapter.models().iter().any(|id| id.as_str() == model))
             .map(|adapter| ResolvedModel {
                 adapter: adapter.clone(),
                 model: model.to_owned(),
@@ -108,8 +140,8 @@ impl ProviderRegistry {
                 continue;
             }
             let alias = adapter.alias();
-            for entry in adapter.models() {
-                let id = format!("{alias}/{}", entry.id);
+            for model_id in adapter.models() {
+                let id = format!("{alias}/{model_id}");
                 if seen.insert(id.clone()) {
                     models.push(ModelObject::new(id, alias.to_owned()));
                 }
@@ -125,7 +157,7 @@ mod tests {
     use std::collections::HashSet;
 
     use super::ProviderRegistry;
-    use crate::features::providers::opencode;
+    use crate::features::providers::{opencode, qoder};
 
     fn registry_with_opencode() -> ProviderRegistry {
         let mut registry = ProviderRegistry::new();
@@ -198,6 +230,45 @@ mod tests {
             models
                 .iter()
                 .any(|entry| entry.id == "zen/space-bunny-free")
+        );
+    }
+
+    #[test]
+    fn resolves_both_qoder_prefixes_and_a_bare_qoder_model() {
+        let registry = ProviderRegistry::with_defaults().expect("default registry");
+
+        for prefix in ["qoder", "qd"] {
+            let resolved = registry
+                .resolve(&format!("{prefix}/auto"))
+                .expect("prefix must resolve");
+
+            assert_eq!(resolved.model, "auto");
+            assert_eq!(resolved.adapter.id(), "qoder");
+        }
+
+        let bare = registry.resolve("auto").expect("bare advertised model");
+        assert_eq!(bare.adapter.id(), "qoder");
+    }
+
+    #[test]
+    fn disabled_keys_reports_both_qoder_keys() {
+        let registry = ProviderRegistry::with_defaults().expect("default registry");
+
+        let keys = registry.disabled_keys(&HashSet::from([String::from("qoder")]));
+
+        assert!(keys.contains("qoder"));
+        assert!(keys.contains("qd"));
+    }
+
+    #[test]
+    fn list_models_prefixes_every_qoder_model_with_qd() {
+        let registry = ProviderRegistry::with_defaults().expect("default registry");
+        let models = registry.list_models();
+
+        assert!(models.iter().any(|entry| entry.id == "qd/auto"));
+        assert_eq!(
+            models.iter().filter(|entry| entry.owned_by == "qd").count(),
+            qoder::QODER_MODELS.len()
         );
     }
 }
