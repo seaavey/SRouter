@@ -11,9 +11,10 @@ use axum::{
     response::Response,
 };
 use srouter_server::app::create_router;
+use srouter_server::{AppState, ProviderRegistry};
 use support::{
     TestDatabase, empty_registry_state, json_request, json_request_with_headers,
-    sqlx_admin_security_state, with_loopback_client, with_remote_client,
+    sqlx_admin_security_state, test_secure_config, with_loopback_client, with_remote_client,
 };
 use tower::ServiceExt;
 
@@ -30,6 +31,17 @@ async fn admin_app(database: &TestDatabase) -> Router {
     create_router(empty_registry_state(security))
 }
 
+/// The same state, but with `SROUTER_SECURE_COOKIES=true`.
+async fn secure_admin_app(database: &TestDatabase) -> Router {
+    let security = sqlx_admin_security_state(database).await;
+
+    create_router(AppState::with_security(
+        test_secure_config(),
+        ProviderRegistry::new(),
+        security,
+    ))
+}
+
 fn loopback(request: Request<Body>) -> Request<Body> {
     with_loopback_client(request)
 }
@@ -40,14 +52,18 @@ fn with_session(method: &str, uri: &str, body: serde_json::Value, cookie: &str) 
 
 /// The `srouter_admin_session=...` pair from a response's `Set-Cookie`.
 fn session_cookie(response: &Response) -> String {
-    let value = response
+    full_cookie(response).split(';').next().unwrap().to_owned()
+}
+
+/// The whole `Set-Cookie` header value, attributes included.
+fn full_cookie(response: &Response) -> String {
+    response
         .headers()
         .get(header::SET_COOKIE)
         .expect("a Set-Cookie header")
         .to_str()
-        .unwrap();
-
-    value.split(';').next().unwrap().to_owned()
+        .unwrap()
+        .to_owned()
 }
 
 async fn json_body(response: Response) -> serde_json::Value {
@@ -110,6 +126,77 @@ async fn setup_creates_the_admin_and_a_session() {
     let body = json_body(status).await;
     assert_eq!(body["setup_required"], false);
     assert_eq!(body["authenticated"], true);
+}
+
+#[tokio::test]
+async fn session_cookie_carries_the_frozen_flags() {
+    let database = TestDatabase::new().unwrap();
+    let app = admin_app(&database).await;
+
+    let cookie = full_cookie(&set_up(&app, "correct horse").await);
+    assert!(cookie.starts_with("srouter_admin_session="));
+    assert!(cookie.contains("Path=/"));
+    assert!(cookie.contains("HttpOnly"));
+    assert!(cookie.contains("SameSite=Lax"));
+    assert!(cookie.contains("Max-Age=604800"));
+    assert!(!cookie.contains("Secure"));
+
+    let login = app
+        .oneshot(loopback(json_request(
+            "POST",
+            LOGIN,
+            serde_json::json!({ "password": "correct horse" }),
+        )))
+        .await
+        .unwrap();
+    let cookie = full_cookie(&login);
+    assert!(cookie.contains("Max-Age=604800"));
+    assert!(!cookie.contains("Secure"));
+}
+
+#[tokio::test]
+async fn secure_cookies_flag_adds_secure_to_session_and_cleared_cookies() {
+    let database = TestDatabase::new().unwrap();
+    let app = secure_admin_app(&database).await;
+
+    let session = set_up(&app, "correct horse").await;
+    assert_eq!(session.status(), StatusCode::CREATED);
+    let cookie = full_cookie(&session);
+    assert!(cookie.contains("HttpOnly"));
+    assert!(cookie.contains("SameSite=Lax"));
+    assert!(cookie.ends_with("; Secure"));
+
+    let cleared = app
+        .oneshot(loopback(json_request(
+            "POST",
+            LOGOUT,
+            serde_json::json!(null),
+        )))
+        .await
+        .unwrap();
+    assert!(full_cookie(&cleared).ends_with("; Secure"));
+}
+
+#[tokio::test]
+async fn cleared_cookie_carries_the_frozen_flags() {
+    let database = TestDatabase::new().unwrap();
+    let app = admin_app(&database).await;
+
+    let response = app
+        .oneshot(loopback(json_request(
+            "POST",
+            LOGOUT,
+            serde_json::json!(null),
+        )))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    let cookie = full_cookie(&response);
+    assert!(cookie.contains("Max-Age=0"));
+    assert!(cookie.contains("Path=/"));
+    assert!(cookie.contains("HttpOnly"));
+    assert!(cookie.contains("SameSite=Lax"));
+    assert!(!cookie.contains("Secure"));
 }
 
 #[tokio::test]

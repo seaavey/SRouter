@@ -118,9 +118,12 @@ Status legend: `[x]` done and covered by a Rust test, `[ ]` missing, `[~]` parti
       (`apps/api/src/services/adminAuth.ts`, invoked from `boot()`); `APIConfig.admin_password` is
       parsed but never consumed.
       Accept: `server/tests/startup.rs` case that boots with the env var and logs in with it.
-- [ ] Cookie flags parity: `HttpOnly`, `Path=/`, `SameSite=Lax`, `Secure` only when
-      `SROUTER_SECURE_COOKIES=true`, max age seven days (`docs/api-v1-contract.md`). Verify the
-      Rust cookie builder sets all five; add a test if any flag is missing.
+- [x] Cookie flags parity: `HttpOnly`, `Path=/`, `SameSite=Lax`, `Secure` only when
+      `SROUTER_SECURE_COOKIES=true`, max age seven days (`docs/api-v1-contract.md`).
+      `session_cookie()`/`cleared_cookie()` already set all five; three `server/tests/admin_auth.rs`
+      cases now pin them (`session_cookie_carries_the_frozen_flags`,
+      `secure_cookies_flag_adds_secure_to_session_and_cleared_cookies`,
+      `cleared_cookie_carries_the_frozen_flags`), backed by `support::test_secure_config`.
 - [ ] Startup ordering: Node awaits PostgreSQL schema init, then admin bootstrap, then provider
       registry, then serves; model warmup runs after the listener is up, and the token-refresh
       sweeper starts last (`docs/api-v1-contract.md`, "Legacy baseline"). Rust `main.rs` currently

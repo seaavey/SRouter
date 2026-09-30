@@ -142,6 +142,16 @@ pub fn test_config() -> APIConfig {
     APIConfig::from_env_map(&environment).expect("test configuration")
 }
 
+/// `test_config` with `SROUTER_SECURE_COOKIES=true`, so responses should tag
+/// the admin session cookie `Secure`.
+pub fn test_secure_config() -> APIConfig {
+    let environment = HashMap::from([
+        ("HOME".to_owned(), "/tmp/srouter-test-home".to_owned()),
+        ("SROUTER_SECURE_COOKIES".to_owned(), "true".to_owned()),
+    ]);
+    APIConfig::from_env_map(&environment).expect("test configuration")
+}
+
 /// State with an empty provider registry: every gateway request stops at model
 /// resolution with `404`, so tests observe auth outcomes without any network.
 pub fn empty_registry_state(security: SecurityState) -> AppState {
