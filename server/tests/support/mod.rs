@@ -335,7 +335,92 @@ async fn fake_chat_completion(Json(payload): Json<serde_json::Value>) -> Respons
             .expect("fake upstream failure response");
     }
 
+    // Mirrors the real upstream's free-tier gate: a non-space-bunny model
+    // whose tool set lacks the harness `read` and `shell` tools is rejected
+    // with 403 FreeTierError, exactly like opencode.ai/zen/v1.
+    if !model.starts_with("space-bunny") {
+        let tools = payload.get("tools").and_then(|value| value.as_array());
+        let has_tool = |name: &str| {
+            tools.is_some_and(|tools| {
+                tools
+                    .iter()
+                    .any(|tool| tool["function"]["name"].as_str() == Some(name))
+            })
+        };
+        if !(has_tool("read") && has_tool("shell")) {
+            return Response::builder()
+                .status(StatusCode::FORBIDDEN)
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    r#"{"type":"error","error":{"type":"FreeTierError","message":"Error from provider (Console): OpenCode's free tier can only be used from within OpenCode"}}"#,
+                ))
+                .expect("fake upstream gate response");
+        }
+    }
+
     if streaming {
+        // Streams a tool call whose arguments arrive split across writes, the
+        // way the real upstream fragments SSE chunks.
+        if model == "tool-call-stream" {
+            let chunks = [
+                r#"{"id":"chatcmpl-toolcall","object":"chat.completion.chunk","created":1,"model":"tool-call-stream","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"call_lookup_1","type":"function","function":{"name":"lookup","arguments":""}}]}}]}"#,
+                r#"{"id":"chatcmpl-toolcall","object":"chat.completion.chunk","created":1,"model":"tool-call-stream","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"{\"query\":"}}]}}]}"#,
+                r#"{"id":"chatcmpl-toolcall","object":"chat.completion.chunk","created":1,"model":"tool-call-stream","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":" \"weather\"}"}}]}}]}"#,
+                r#"{"id":"chatcmpl-toolcall","object":"chat.completion.chunk","created":1,"model":"tool-call-stream","choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":5,"completion_tokens":6,"total_tokens":11}}"#,
+            ];
+            let mut sse = String::new();
+            for chunk in chunks {
+                sse.push_str("data: ");
+                sse.push_str(chunk);
+                sse.push_str("\n\n");
+            }
+            sse.push_str("data: [DONE]\n\n");
+
+            let fragments: Vec<Vec<u8>> = sse.into_bytes().chunks(37).map(<[u8]>::to_vec).collect();
+            let stream =
+                futures_util::stream::unfold(fragments.into_iter(), |mut fragments| async move {
+                    let fragment = fragments.next()?;
+                    tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+                    Some((Ok::<_, std::convert::Infallible>(fragment), fragments))
+                });
+
+            return Response::builder()
+                .status(StatusCode::OK)
+                .header(header::CONTENT_TYPE, "text/event-stream")
+                .body(Body::from_stream(stream))
+                .expect("fake tool-call SSE response");
+        }
+
+        // Simulates upstream TCP fragmentation: the first `data:` line is
+        // split across writes, so a per-chunk parser drops the event.
+        if model == "fragmented-stream" {
+            let fragments = vec![
+                String::from("data: {\"id\":\"chatcmpl-frag"),
+                String::from(
+                    "mented\",\"object\":\"chat.completion.chunk\",\"created\":1,\"model\":\"fragmented-stream\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"fragmented reply\"}}]}\n\n",
+                ),
+                String::from(
+                    "data: {\"id\":\"chatcmpl-fragmented\",\"object\":\"chat.completion.chunk\",\"created\":1,\"model\":\"fragmented-stream\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":11,\"completion_tokens\":22,\"total_tokens\":33}}\n\n",
+                ),
+                String::from("data: [DONE]\n\n"),
+            ];
+            let stream =
+                futures_util::stream::unfold(fragments.into_iter(), |mut fragments| async move {
+                    let fragment = fragments.next()?;
+                    tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+                    Some((
+                        Ok::<_, std::convert::Infallible>(fragment.into_bytes()),
+                        fragments,
+                    ))
+                });
+
+            return Response::builder()
+                .status(StatusCode::OK)
+                .header(header::CONTENT_TYPE, "text/event-stream")
+                .body(Body::from_stream(stream))
+                .expect("fragmented fake SSE response");
+        }
+
         if model.contains("search") {
             let messages = payload.get("messages").and_then(|m| m.as_array());
             let has_tool_response = messages.is_some_and(|msgs| {

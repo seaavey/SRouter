@@ -148,6 +148,98 @@ async fn post_v1_chat_completions_streams_the_upstream_body() {
 }
 
 #[tokio::test]
+async fn post_v1_chat_completions_aggregates_fragmented_upstream_sse() {
+    let (_upstream, app) = test_app().await;
+    // Models other than space-bunny are aggregated from an upstream SSE
+    // response; the fake splits `data:` lines across writes.
+    let body = serde_json::json!({
+        "model": "zen/fragmented-stream",
+        "messages": [ { "role": "user", "content": "Hello fragmentation" } ],
+        "stream": false
+    });
+
+    let response = app
+        .oneshot(chat_request("/v1/chat/completions", body))
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let json = json_body(response).await;
+    assert_eq!(json["choices"][0]["message"]["content"], "fragmented reply");
+    assert_eq!(json["id"], "chatcmpl-fragmented");
+    assert_eq!(json["usage"]["completion_tokens"], 22);
+}
+
+#[tokio::test]
+async fn post_v1_chat_completions_forwards_client_tools_through_the_upstream_gate() {
+    let (_upstream, app) = test_app().await;
+    // The executor pads client tool sets with the gate tools the upstream
+    // requires; without that padding the fake (like the real upstream)
+    // answers 403 FreeTierError.
+    let body = serde_json::json!({
+        "model": "zen/mimo-v2.6-flash-free",
+        "messages": [ { "role": "user", "content": "Hello tools" } ],
+        "stream": false,
+        "tools": [ {
+            "type": "function",
+            "function": {
+                "name": "web_search",
+                "description": "Search the web",
+                "parameters": { "type": "object", "properties": { "query": { "type": "string" } } }
+            }
+        } ],
+        "tool_choice": "auto"
+    });
+
+    let response = app
+        .oneshot(chat_request("/v1/chat/completions", body))
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let json = json_body(response).await;
+    // The request passed the upstream gate, so the fake's SSE turn was
+    // aggregated into a completion instead of a 403 FreeTierError.
+    assert_eq!(json["choices"][0]["message"]["content"], "fake stream");
+}
+
+#[tokio::test]
+async fn post_v1_chat_completions_returns_aggregated_tool_calls() {
+    let (_upstream, app) = test_app().await;
+    // The non-stream path calls upstream with stream=true and reassembles the
+    // SSE deltas; tool calls split across chunks must survive aggregation.
+    let body = serde_json::json!({
+        "model": "zen/tool-call-stream",
+        "messages": [ { "role": "user", "content": "Weather?" } ],
+        "stream": false,
+        "tools": [ {
+            "type": "function",
+            "function": {
+                "name": "lookup",
+                "description": "Look up something",
+                "parameters": { "type": "object", "properties": { "query": { "type": "string" } } }
+            }
+        } ],
+        "tool_choice": "auto"
+    });
+
+    let response = app
+        .oneshot(chat_request("/v1/chat/completions", body))
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let json = json_body(response).await;
+    let choice = &json["choices"][0];
+    assert_eq!(choice["finish_reason"], "tool_calls");
+    let call = &choice["message"]["tool_calls"][0];
+    assert_eq!(call["id"], "call_lookup_1");
+    assert_eq!(call["type"], "function");
+    assert_eq!(call["function"]["name"], "lookup");
+    assert_eq!(call["function"]["arguments"], r#"{"query": "weather"}"#);
+}
+
+#[tokio::test]
 async fn post_v1_chat_completions_rejects_an_unregistered_model() {
     let (_upstream, app) = test_app().await;
     let body = serde_json::json!({

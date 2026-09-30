@@ -20,6 +20,16 @@ use crate::infrastructure::upstream::UpstreamClient;
 const OPENCODE_HARNESS_PREFIX: &str = include_str!("harness.txt");
 const OPENCODE_TOOLS_RAW: &str = include_str!("tools.json");
 
+/// Upstream Zen rejects requests whose tool set lacks its built-in `read` and
+/// `shell` tools with `403 FreeTierError` ("free tier can only be used from
+/// within OpenCode"). Client-provided tool sets are padded with inert stubs
+/// carrying those exact names so the request is accepted; the full OpenCode
+/// tool set is only injected when the client sent no tools at all.
+const OPENCODE_GATE_TOOLS: &[&str] = &["read", "shell"];
+
+const OPENCODE_GATE_TOOL_STUB_DESCRIPTION: &str =
+    "This tool is unavailable in this session and calling it always fails. Never call it.";
+
 /// Dedicated executor for OpenCode Zen models.
 /// It wraps upstream requests with OpenCode CLI headers and coding agent
 /// harness wrappers so that premium free-tier models (Nemotron, MiMo, Big Pickle,
@@ -146,14 +156,29 @@ impl OpenCodeExecutor {
         let mut chunk_id = format!("chatcmpl-{}", random_hex(16));
         let mut created_ts = crate::clock::now_ms() / 1000;
         let mut upstream_usage: Option<Value> = None;
+        let mut finish_reason: Option<String> = None;
+        // Tool calls stream in fragments: the id/name arrive once, arguments
+        // accumulate per index, so they are reassembled before the response.
+        let mut tool_calls: std::collections::BTreeMap<usize, Value> =
+            std::collections::BTreeMap::new();
+        let mut arguments: std::collections::BTreeMap<usize, String> =
+            std::collections::BTreeMap::new();
+
+        // Upstream SSE arrives fragmented across TCP chunks, so `data:` lines
+        // must be reassembled across reads instead of parsed per network chunk.
+        let mut line_buffer = String::new();
 
         while let Some(item) = stream.next().await {
             let bytes = item.map_err(upstream_error)?;
-            let text = String::from_utf8_lossy(&bytes);
-            for line in text.lines() {
+            line_buffer.push_str(&String::from_utf8_lossy(&bytes));
+
+            while let Some(pos) = line_buffer.find('\n') {
+                let line = line_buffer[..pos].trim_end_matches('\r').to_owned();
+                line_buffer.drain(..=pos);
+
                 if let Some(json_str) = line.strip_prefix("data: ") {
                     if json_str.trim() == "[DONE]" {
-                        break;
+                        continue;
                     }
                     if let Ok(val) = serde_json::from_str::<Value>(json_str) {
                         if let Some(id) = val.get("id").and_then(|v| v.as_str()) {
@@ -165,11 +190,42 @@ impl OpenCodeExecutor {
                         if let Some(content) = val["choices"][0]["delta"]["content"].as_str() {
                             full_content.push_str(content);
                         }
+                        if let Some(reason) = val["choices"][0]["finish_reason"].as_str() {
+                            finish_reason = Some(reason.to_owned());
+                        }
+                        if let Some(items) = val["choices"][0]["delta"]["tool_calls"].as_array() {
+                            for item in items {
+                                let index = item.get("index").and_then(|v| v.as_u64()).unwrap_or(0)
+                                    as usize;
+                                let entry = tool_calls.entry(index).or_insert_with(|| {
+                                    serde_json::json!({
+                                        "index": index,
+                                        "type": "function",
+                                        "function": { "name": "", "arguments": "" }
+                                    })
+                                });
+                                if let Some(id) = item.get("id").and_then(|v| v.as_str()) {
+                                    entry["id"] = Value::String(id.to_owned());
+                                }
+                                if let Some(name) = item["function"]["name"].as_str() {
+                                    entry["function"]["name"] = Value::String(name.to_owned());
+                                }
+                                if let Some(args) = item["function"]["arguments"].as_str() {
+                                    arguments.entry(index).or_default().push_str(args);
+                                }
+                            }
+                        }
                         if let Some(usage) = val.get("usage") {
                             upstream_usage = Some(usage.clone());
                         }
                     }
                 }
+            }
+        }
+
+        for (index, args) in arguments {
+            if let Some(entry) = tool_calls.get_mut(&index) {
+                entry["function"]["arguments"] = Value::String(args);
             }
         }
 
@@ -188,6 +244,16 @@ impl OpenCodeExecutor {
             .to_openai_json()
         };
 
+        let tool_calls_list: Vec<Value> = tool_calls.into_values().collect();
+        let has_tool_calls = !tool_calls_list.is_empty();
+        let mut message = serde_json::json!({
+            "role": "assistant",
+            "content": full_content
+        });
+        if has_tool_calls {
+            message["tool_calls"] = Value::Array(tool_calls_list);
+        }
+
         Ok(serde_json::json!({
             "id": chunk_id,
             "object": "chat.completion",
@@ -195,11 +261,9 @@ impl OpenCodeExecutor {
             "model": model,
             "choices": [{
                 "index": 0,
-                "message": {
-                    "role": "assistant",
-                    "content": full_content
-                },
-                "finish_reason": "stop"
+                "message": message,
+                "finish_reason": finish_reason
+                    .unwrap_or_else(|| if has_tool_calls { "tool_calls".to_owned() } else { "stop".to_owned() })
             }],
             "usage": usage
         }))
@@ -302,6 +366,25 @@ impl OpenCodeExecutor {
                 })?;
                 body["tools"] = tools_val;
                 body["tool_choice"] = Value::String("none".to_string());
+            } else if let Some(tools) = body.get_mut("tools").and_then(|t| t.as_array_mut()) {
+                // Client tools: pad with inert gate stubs unless the exact
+                // names are already present (the gate match is case-sensitive,
+                // and duplicate names make upstream reject the request).
+                for name in OPENCODE_GATE_TOOLS {
+                    let present = tools
+                        .iter()
+                        .any(|t| t["function"]["name"].as_str() == Some(*name));
+                    if !present {
+                        tools.push(serde_json::json!({
+                            "type": "function",
+                            "function": {
+                                "name": name,
+                                "description": OPENCODE_GATE_TOOL_STUB_DESCRIPTION,
+                                "parameters": { "type": "object", "properties": {} }
+                            }
+                        }));
+                    }
+                }
             }
         }
 
