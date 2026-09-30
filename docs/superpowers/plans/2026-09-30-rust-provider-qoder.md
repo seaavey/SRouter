@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add a new built-in provider `qoder` to the Rust gateway (`server/`) — device-flow OAuth connect plus inference through Qoder's COSY-signed SSE endpoint — so `qd/<model>` resolves, streams, and returns OpenAI-compatible responses.
+**Goal:** Add a new built-in provider `qoder` to the Rust gateway (`server/`): device-flow OAuth connect plus inference through Qoder's COSY-signed SSE endpoint, so `qd/<model>` resolves, streams, and returns OpenAI-compatible responses.
 
 **Architecture:** One new provider module (`features/providers/qoder/`) owning protocol constants, the COSY signer/codec, and the executor, wired into the existing `ProviderAdapter` enum exactly like `opencode`. One new route module (`features/provider_auth/`) serving the three contract routes `/v1/auth/qoder/{login,poll,callback}`. Credentials are read by the executor straight from the `providers` row at request time (the registry is static and is built before `AppState`, so adapters cannot take part in handler dependency injection), while a TTL-refreshed model snapshot fetched from `model/list` lives inside the qoder adapter so the advertised list stays current without rebuilding the registry (Task 7). No new table: `oauth_sessions` and `providers.credentials` already exist (`server/migrations/0002_v2_schema.sql`; current `user_version` is 3).
 
@@ -16,11 +16,11 @@
 
 Everything below was derived from Qoder's own public surface, not from `packages/*`. Sources, recorded here for `server/TODO.md` §4 "Catalog provenance":
 
-1. `apps/api/tests/qoder-provider.test.ts` — pins the authorize URL, the poll/userinfo paths, and the stored provider row shape (allowed oracle: `apps/api` tests).
-2. `apps/api/src/logic/auth.logic.ts`, `apps/api/src/controllers/auth.controller.ts` — flow order, response bodies, session lifecycle.
-3. `docs/api-v1-contract.md` rows 57–65 — frozen route inventory.
+1. `apps/api/tests/qoder-provider.test.ts`: pins the authorize URL, the poll/userinfo paths, and the stored provider row shape (allowed oracle: `apps/api` tests).
+2. `apps/api/src/logic/auth.logic.ts`, `apps/api/src/controllers/auth.controller.ts`: flow order, response bodies, session lifecycle.
+3. `docs/api-v1-contract.md` rows 57–65: frozen route inventory.
 4. Independent protocol documentation: the MIT `pi-qoder-provider` npm package (`cosy.ts`, `stream.ts`, `qoder-encoding.ts`, `models.ts`, `README.md`), the `fengyinxia/qoder2api` and `City-Zero/qodercli2api` reverse-engineering READMEs (OpenAPI + `Cosy-*` header tables, request/response envelope), and `docs.qoder.com`.
-5. `apps/docs/src/pages/docs/concepts/providers-routing.md` — public model prefix table (`qoder/*`).
+5. `apps/docs/src/pages/docs/concepts/providers-routing.md`: public model prefix table (`qoder/*`).
 
 Cross-check note: the COSY RSA public key, the header set, the body encoding, and the endpoint hosts are byte-identical between sources 4 and the Node constants, so the independent analysis and the existing Node implementation agree.
 
@@ -114,7 +114,7 @@ Static seed for phase 1 (provenance: independent sources above, cross-checked fo
 | `kmodel`        | Kimi K2.7 (Qoder)         | frontier                 |
 | `mmodel`        | MiniMax M3 (Qoder)        | frontier                 |
 
-Friendly-name aliases resolve to keys: `qwen3.7-max→qmodel_latest`, `qwen3.7-plus→qmodel`, `deepseek-v4-pro→dmodel`, `deepseek-v4-flash→dfmodel`, `glm-5.2→gm51model`, `kimi-k2.7→kmodel`, `minimax-m3→mmodel`. The live catalog (`model/list`, Task 7) is authoritative: a COSY-signed GET with an **empty body** (`Cosy-Bodylength: "0"`, `Cosy-Bodyhash = md5("")`, `Cosy-Sigpath: /api/v2/model/list`) returning plain JSON `{chat:[…]}` — not an SSE envelope — with the entry shape in the endpoint table above.
+Friendly-name aliases resolve to keys: `qwen3.7-max→qmodel_latest`, `qwen3.7-plus→qmodel`, `deepseek-v4-pro→dmodel`, `deepseek-v4-flash→dfmodel`, `glm-5.2→gm51model`, `kimi-k2.7→kmodel`, `minimax-m3→mmodel`. The live catalog (`model/list`, Task 7) is authoritative: a COSY-signed GET with an **empty body** (`Cosy-Bodylength: "0"`, `Cosy-Bodyhash = md5("")`, `Cosy-Sigpath: /api/v2/model/list`) returning plain JSON `{chat:[…]}`, not an SSE envelope, with the entry shape in the endpoint table above.
 
 ### Failure modes to handle
 
@@ -134,7 +134,7 @@ Friendly-name aliases resolve to keys: `qwen3.7-max→qmodel_latest`, `qwen3.7-p
 
 Relevant gateway contracts the executor must satisfy:
 
-- `chat.rs:345` calls `adapter.chat_completion_stream(...)` and then either forwards the bytes verbatim (once it sees a text delta) or parses `data:` OpenAI chunks for tool interception — either way the provider stream must be OpenAI SSE, terminated by `data: [DONE]`.
+- `chat.rs:345` calls `adapter.chat_completion_stream(...)` and then either forwards the bytes verbatim (once it sees a text delta) or parses `data:` OpenAI chunks for tool interception; either way the provider stream must be OpenAI SSE, terminated by `data: [DONE]`.
 - `messages.rs:433-460` parses `data:` OpenAI chunks to build Anthropic events.
 - Non-streaming goes through `adapter.chat_completion(...)`, which must return a full `chat.completion` JSON.
 - `ProviderAdapter` is built before `AppState` exists (`main.rs:25`), so per-request credential lookup happens inside the executor, not in a handler.
@@ -142,76 +142,78 @@ Relevant gateway contracts the executor must satisfy:
 ## Global Constraints
 
 - **Only `server/` changes.** `apps/api`, `apps/web`, `apps/docs`, `packages/*` are untouched; `apps/api` stays byte-identical (oracle).
-- No data or code may be read, imported, or copied from `packages/*` — provenance for every constant is recorded in the analysis above and must be re-recorded as a module doc comment in `qoder/types.rs`.
-- No new table and no migration edit: `oauth_sessions` and `providers.credentials` are already owned by `server/migrations/0002_v2_schema.sql`, and the schema is at `user_version` 3. `server/tests/schema.rs` asserts `V3_TABLES.len() == 10`; if that count changes, the migration itself must be re-decided — do not bump it silently.
+- No data or code may be read, imported, or copied from `packages/*`. Provenance for every constant is recorded in the analysis above and must be re-recorded as a module doc comment in `qoder/types.rs`.
+- No new table and no migration edit: `oauth_sessions` and `providers.credentials` are already owned by `server/migrations/0002_v2_schema.sql`, and the schema is at `user_version` 3. `server/tests/schema.rs` asserts `V3_TABLES.len() == 10`; if that count changes, the migration itself must be re-decided; do not bump it silently.
 - New `server/Cargo.toml` dependencies are allowed in this slice (crypto has no std equivalent); keep the set to `md-5`, `aes`, `cbc`, `rsa`.
-- OAuth only: `/v1/auth/qoder/login`, `/callback`, `/poll`. The `/v1/auth/qoder/token` import route, PAT handling, and bulk-PAT import are **out of scope** (documented deviation — see Follow-up).
+- OAuth only: `/v1/auth/qoder/login`, `/callback`, `/poll`. The `/v1/auth/qoder/token` import route, PAT handling, and bulk-PAT import are **out of scope** (documented deviation, see Follow-up).
 - `credentials` never enters a handler response or a log line; it is read only inside the executor and written only by the auth routes.
 - SQL uses `?` placeholders with `.bind()`; row mapping uses `try_get` with `map_err`; no `unwrap()`/`expect()` in production code (tests may `expect`).
 - Tests use `support::TestDatabase` only; never `~/.srouter/srouter.db`, never a real Qoder credential, never the live upstream (a `#[ignore]`d live test is optional and must be off by default).
 - Focused verification only: one `cargo test --test <file>` at a time, `cargo fmt --check`, `cargo clippy --all-targets --all-features -- -D warnings`. Never root `pnpm test`/`pnpm build`.
 - Code, comments, identifiers, commit messages English; comments explain _why_. Conventional Commits (`feat(server): …`).
+- Comments follow the loaded `antislop-code` checklist: one line, two at most, and only where the code cannot show the reason (protocol rule, upstream quirk, silent failure). No banner separators, no ALL CAPS labels, no line-by-line narration, no empty labels (`// Main logic`, `// Entry point`), no vague `TODO`, no decorative emoji, no comment that restates the signature or the next line.
+- Text written in this slice carries no em dash (core rule R-02): use a comma, a colon, or parentheses.
 
 ## Decisions
 
-- **D1 — Credential plumbing.** `ProviderRegistry::with_defaults()` becomes `with_defaults() == with_database(None)`, and `main.rs` builds the registry with `Some(database.clone())`. The `QoderExecutor` stores `Option<AppDatabase>` and loads its row per request (one `SELECT`, WAL-local; a cache would hide reconnects). No `OnceLock`, no new trait, no DI layer.
-- **D2 — Credential JSON shape.** The `credentials` column layout is not covered by `docs/api-database-contract.md` ("provider record layout is unknown") and its only writer lives in `packages/*`, which this plan may not read. Rust therefore defines its own layout — `{"access_token", "refresh_token", "token_expires_at", "last_refreshed_at", "provider_specific_data":{...}}` — and its reader accepts the camelCase aliases (`accessToken`, `refreshToken`, `expiresAt`) as a compatibility fallback. Reading rows written by a Node build beyond those two spellings is **not** claimed; it needs an explicit decision (see Review Focus).
-- **D3 — Registry shape.** Register the adapter statically at boot with keys `["qoder", "qd"]` and user-facing alias `qd` (so `/v1/models` lists `qd/<key>`), matching the alias the Node registry resolves `qd/ultimate` against. Consequence: `qd/*` models are advertised even with no connection, and a request without one fails with a clear `authentication_error` instead of `404`. Dynamic registration on connect is a follow-up (TODO §4 "Registry lifecycle on write").
-- **D4 — Model catalog.** The static seed from the analysis table is the initial value and the permanent fallback. Task 7 refreshes a live snapshot from `model/list` on a 5-minute TTL (boot, successful connect, `/v1/models`, pre-request), and `refresh=true`/`force=true` only zero that TTL check — the static registry itself still treats those params as accepted-but-ignored (`registry.rs:94`).
-- **D5 — Auth URLs are testable.** The auth module takes an endpoint struct with `Default` (`login_url`, `device_token_url`, `userinfo_url`) so the fake upstream can be injected; production defaults are the Global hosts.
-- **D6 — Scope of the OAuth listener.** Callbacks are mounted on the main listener under `/v1` only. The `:1455` listener (TODO §1.4) is a separate slice; `SROUTER_PUBLIC_URL` handling is not re-implemented here.
+- **D1: Credential plumbing.** `ProviderRegistry::with_defaults()` becomes `with_defaults() == with_database(None)`, and `main.rs` builds the registry with `Some(database.clone())`. The `QoderExecutor` stores `Option<AppDatabase>` and loads its row per request (one `SELECT`, WAL-local; a cache would hide reconnects). No `OnceLock`, no new trait, no DI layer.
+- **D2: Credential JSON shape.** The `credentials` column layout is not covered by `docs/api-database-contract.md` ("provider record layout is unknown") and its only writer lives in `packages/*`, which this plan may not read. Rust therefore defines its own layout, `{"access_token", "refresh_token", "token_expires_at", "last_refreshed_at", "provider_specific_data":{...}}`, and its reader accepts the camelCase aliases (`accessToken`, `refreshToken`, `expiresAt`) as a compatibility fallback. Reading rows written by a Node build beyond those two spellings is **not** claimed; it needs an explicit decision (see Review Focus).
+- **D3: Registry shape.** Register the adapter statically at boot with keys `["qoder", "qd"]` and user-facing alias `qd` (so `/v1/models` lists `qd/<key>`), matching the alias the Node registry resolves `qd/ultimate` against. Consequence: `qd/*` models are advertised even with no connection, and a request without one fails with a clear `authentication_error` instead of `404`. Dynamic registration on connect is a follow-up (TODO §4 "Registry lifecycle on write").
+- **D4: Model catalog.** The static seed from the analysis table is the initial value and the permanent fallback. Task 7 refreshes a live snapshot from `model/list` on a 5-minute TTL (boot, successful connect, `/v1/models`, pre-request), and `refresh=true`/`force=true` only zero that TTL check; the static registry itself still treats those params as accepted-but-ignored (`registry.rs:94`).
+- **D5: Auth URLs are testable.** The auth module takes an endpoint struct with `Default` (`login_url`, `device_token_url`, `userinfo_url`) so the fake upstream can be injected; production defaults are the Global hosts.
+- **D6: Scope of the OAuth listener.** Callbacks are mounted on the main listener under `/v1` only. The `:1455` listener (TODO §1.4) is a separate slice; `SROUTER_PUBLIC_URL` handling is not re-implemented here.
 
 ## File Structure
 
-| File                                                   | Responsibility                                                                                                                                                           |
-| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `server/Cargo.toml`                                    | modify — add `md-5`, `aes`, `cbc`, `rsa`                                                                                                                                 |
-| `server/src/features/providers/qoder/mod.rs`           | new — module wiring + `adapter()`, `adapter_with_base_url_and_db()` constructors                                                                                         |
-| `server/src/features/providers/qoder/types.rs`         | new — endpoints, client constants, RSA key, model catalog + aliases, `QODER_PROVIDER` metadata, provenance doc comment                                                   |
-| `server/src/features/providers/qoder/cosy.rs`          | new — body encode/decode primitives, AES/RSA/MD5 header signer (pure functions)                                                                                          |
-| `server/src/features/providers/qoder/executor.rs`      | new — request build, signed POST/GET, envelope→OpenAI translation, non-stream aggregation                                                                                |
-| `server/src/features/providers/qoder/catalog.rs`       | new — `QoderCatalog` snapshot, `ModelConfig`, `parse_chat_list`, seed fallback, TTL refresh helpers                                                                      |
-| `server/src/features/providers/qoder/tests.rs`         | new — unit tests for codec, signer inputs, request body, envelope translation                                                                                            |
-| `server/src/features/providers/mod.rs`                 | modify — `pub mod qoder;` + re-exports                                                                                                                                   |
-| `server/src/features/providers/adapter.rs`             | modify — `ProviderAdapter::Qoder` variant + delegating `id/keys/alias/models/chat_completion/chat_completion_stream`; `models()` returns `Vec<ModelDefinition>` (Task 7) |
-| `server/src/features/providers/registry.rs`            | modify — register qoder in `with_defaults()`; `with_database(...)` constructor                                                                                           |
-| `server/src/features/provider_auth/mod.rs`             | new — router export (`create_qoder_auth_router`)                                                                                                                         |
-| `server/src/features/provider_auth/qoder.rs`           | new — login / poll / callback handlers + session lifecycle                                                                                                               |
-| `server/src/infrastructure/database/oauth_sessions.rs` | new — save / claim / release / delete / cleanup-expired                                                                                                                  |
-| `server/src/infrastructure/database/providers.rs`      | modify — `upsert_qoder_connection`, `load_qoder_credentials`                                                                                                             |
-| `server/src/infrastructure/database/mod.rs`            | modify — register `pub mod oauth_sessions;`                                                                                                                              |
-| `server/src/constants.rs`                              | modify — `providers::qoder::*` message catalog                                                                                                                           |
-| `server/src/app.rs`                                    | modify — mount `create_qoder_auth_router()` (admin-session layered except `callback`)                                                                                    |
-| `server/src/main.rs`                                   | modify — build the registry with the live database                                                                                                                       |
-| `server/tests/support/mod.rs`                          | modify — `FakeQoderUpstream` (chat + model list + device poll + userinfo, fragmented SSE mode) and a registry helper                                                     |
-| `server/tests/provider_auth.rs`                        | new — login / poll / callback HTTP tests                                                                                                                                 |
-| `server/tests/qoder_provider.rs`                       | new — signed request shape, stream translation, non-stream aggregation, no-connection error                                                                              |
-| `server/tests/models.rs`                               | modify — dynamic catalog refresh (`model/list`) assertions, TTL no-op, seed fallback                                                                                     |
-| `server/TODO.md`                                       | modify — tick the Qoder rows of §5, add §4 provenance note                                                                                                               |
+| File                                                   | Responsibility                                                                                                                                                          |
+| ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `server/Cargo.toml`                                    | modify: add `md-5`, `aes`, `cbc`, `rsa`                                                                                                                                 |
+| `server/src/features/providers/qoder/mod.rs`           | new: module wiring + `adapter()`, `adapter_with_base_url_and_db()` constructors                                                                                         |
+| `server/src/features/providers/qoder/types.rs`         | new: endpoints, client constants, RSA key, model catalog + aliases, `QODER_PROVIDER` metadata, provenance doc comment                                                   |
+| `server/src/features/providers/qoder/cosy.rs`          | new: body encode/decode primitives, AES/RSA/MD5 header signer (pure functions)                                                                                          |
+| `server/src/features/providers/qoder/executor.rs`      | new: request build, signed POST/GET, envelope→OpenAI translation, non-stream aggregation                                                                                |
+| `server/src/features/providers/qoder/catalog.rs`       | new: `QoderCatalog` snapshot, `ModelConfig`, `parse_chat_list`, seed fallback, TTL refresh helpers                                                                      |
+| `server/src/features/providers/qoder/tests.rs`         | new: unit tests for codec, signer inputs, request body, envelope translation                                                                                            |
+| `server/src/features/providers/mod.rs`                 | modify: `pub mod qoder;` + re-exports                                                                                                                                   |
+| `server/src/features/providers/adapter.rs`             | modify: `ProviderAdapter::Qoder` variant + delegating `id/keys/alias/models/chat_completion/chat_completion_stream`; `models()` returns `Vec<ModelDefinition>` (Task 7) |
+| `server/src/features/providers/registry.rs`            | modify: register qoder in `with_defaults()`; `with_database(...)` constructor                                                                                           |
+| `server/src/features/provider_auth/mod.rs`             | new: router export (`create_qoder_auth_router`)                                                                                                                         |
+| `server/src/features/provider_auth/qoder.rs`           | new: login / poll / callback handlers + session lifecycle                                                                                                               |
+| `server/src/infrastructure/database/oauth_sessions.rs` | new: save / claim / release / delete / cleanup-expired                                                                                                                  |
+| `server/src/infrastructure/database/providers.rs`      | modify: `upsert_qoder_connection`, `load_qoder_credentials`                                                                                                             |
+| `server/src/infrastructure/database/mod.rs`            | modify: register `pub mod oauth_sessions;`                                                                                                                              |
+| `server/src/constants.rs`                              | modify: `providers::qoder::*` message catalog                                                                                                                           |
+| `server/src/app.rs`                                    | modify: mount `create_qoder_auth_router()` (admin-session layered except `callback`)                                                                                    |
+| `server/src/main.rs`                                   | modify: build the registry with the live database                                                                                                                       |
+| `server/tests/support/mod.rs`                          | modify: `FakeQoderUpstream` (chat + model list + device poll + userinfo, fragmented SSE mode) and a registry helper                                                     |
+| `server/tests/provider_auth.rs`                        | new: login / poll / callback HTTP tests                                                                                                                                 |
+| `server/tests/qoder_provider.rs`                       | new: signed request shape, stream translation, non-stream aggregation, no-connection error                                                                              |
+| `server/tests/models.rs`                               | modify: dynamic catalog refresh (`model/list`) assertions, TTL no-op, seed fallback                                                                                     |
+| `server/TODO.md`                                       | modify: tick the Qoder rows of §5, add §4 provenance note                                                                                                               |
 
 ---
 
 ### Task 1: module skeleton, catalog, and registry wiring
 
-- [ ] `server/src/features/providers/qoder/types.rs`: endpoints, static client constants, RSA PEM, `QODER_MODELS: &[ModelDefinition]`, alias map, `QODER_PROVIDER: ProviderMetadata { id: "qoder", name: "Qoder", category: "oauth", protocol: "openai", base_url, web_url: "https://qoder.com", requires_api_key: false, requires_oauth: true, supports_custom_url: false, status_message }`, plus a module doc comment listing the five provenance sources from the analysis.
+- [ ] `server/src/features/providers/qoder/types.rs`: endpoints, static client constants, RSA PEM, `QODER_MODELS: &[ModelDefinition]`, alias map, `QODER_PROVIDER: ProviderMetadata { id: "qoder", name: "Qoder", category: "oauth", protocol: "openai", base_url, web_url: "https://qoder.com", requires_api_key: false, requires_oauth: true, supports_custom_url: false, status_message }`, plus a module doc comment of one plain line per provenance source (the five sources above, no narrative, no history).
 - [ ] `mod.rs` exporting `QODER_*` constants and placeholder `adapter()`/`adapter_with_base_url_and_db()` constructors (executor body lands in Task 5).
 - [ ] Add `ProviderAdapter::Qoder(QoderExecutor)` and its seven delegating methods in `adapter.rs`.
 - [ ] `registry.rs`: `with_defaults()` → `with_database(None)`; register `qoder::adapter()?` next to `opencode::adapter()?`.
 - [ ] `main.rs`: build with `ProviderRegistry::with_database(Some(database.clone()))?`.
-- [ ] Tests: extend `registry.rs` unit tests — `resolve("qd/auto")`, `resolve("qoder/auto")`, `resolve("auto")` (bare advertised id), `disabled_keys` reports both keys, `list_models` emits `qd/<key>` with `owned_by == "qd"`.
+- [ ] Tests: extend `registry.rs` unit tests: `resolve("qd/auto")`, `resolve("qoder/auto")`, `resolve("auto")` (bare advertised id), `disabled_keys` reports both keys, `list_models` emits `qd/<key>` with `owned_by == "qd"`.
 
 ### Task 2: COSY codec and signer (pure functions)
 
 - [ ] `cosy.rs::encode_body(&[u8]) -> String` implementing the rotate + custom-alphabet transform, and `decode_body(&str) -> Result<Vec<u8>, …>` used only by tests/diagnostics (documented as such).
 - [ ] `cosy.rs::sign(body, url, identity, machine_id, timestamp, request_id) -> CosyHeaders` producing the full header map: AES-128-CBC `info`, RSA `Cosy-Key`, `payload_b64`, MD5 signature, body hash/length, `sigPath` (strip a leading `/algo`).
-- [ ] `CosyIdentity { uid, auth_token, name, email }` — `uid` empty is a hard error (`constants::providers::qoder::MISSING_UID`), never a placeholder.
+- [ ] `CosyIdentity { uid, auth_token, name, email }`: `uid` empty is a hard error (`constants::providers::qoder::MISSING_UID`), never a placeholder.
 - [ ] Unit tests (`tests.rs`): encode↔decode round-trip including `=` padding, alphabet mapping and rotation for `n % 3 == 0/1/2`; signature input string built exactly as specified (assert against a fixed fixture); `sigPath` strips `/algo` and leaves other paths; header map contains every required key; RSA output decodes as base64 of 128 bytes (1024-bit key).
 - [ ] Verify: `cargo test --manifest-path server/Cargo.toml --lib qoder`, `cargo fmt --check`.
 
 ### Task 3: OAuth session and credential stores
 
 - [ ] `infrastructure/database/oauth_sessions.rs`: `save(state, code_verifier, client_id, redirect_uri)` (`client_id`/`redirect_uri` stored as `""` for the device flow), `claim(state) -> Option<OAuthSession>` (marks `claimed_at`, refuses a second concurrent claim, refuses rows older than 15 minutes), `release(state)` (clears `claimed_at`), `delete(state)`, `cleanup_expired(older_than_ms)`. Semantics are documented as a deviation to re-verify at parity review, because the Node implementations live in `packages/db` (out of bounds).
-- [ ] `infrastructure/database/providers.rs`: `upsert_qoder_connection(...)` writing `id`, `provider_id="qoder"`, `name`, `category="oauth"`, `protocol="openai"`, `enabled=1`, `credentials` (D2 shape), `meta` (no `__seed__` marker), `created_at` — upsert on `id`; and `load_qoder_credentials(database) -> Option<QoderCredentials>` returning the newest non-seed `qoder` row's access/refresh/expiry/identity, accepting camelCase aliases.
+- [ ] `infrastructure/database/providers.rs`: `upsert_qoder_connection(...)` writing `id`, `provider_id="qoder"`, `name`, `category="oauth"`, `protocol="openai"`, `enabled=1`, `credentials` (D2 shape), `meta` (no `__seed__` marker), `created_at`; upsert keyed on `id`; and `load_qoder_credentials(database) -> Option<QoderCredentials>` returning the newest non-seed `qoder` row's access/refresh/expiry/identity, accepting camelCase aliases.
 - [ ] Both fail loudly when `database.sqlite_pool()` is `None` or the backend is Postgres, reusing `postgres_unsupported()`.
 - [ ] Unit/integration tests inside `server/tests/provider_auth.rs`: save→claim→release→claim→delete lifecycle, expired-row rejection, camelCase credential fallback, no-rows → `None`.
 - [ ] Verify: `cargo test --manifest-path server/Cargo.toml --test provider_auth`.
@@ -221,12 +223,12 @@ Relevant gateway contracts the executor must satisfy:
 - [ ] `features/provider_auth/mod.rs` + `qoder.rs`: `login` (admin session) reading optional `client_id`, `redirect_uri`, `prompt`, `format=json`; builds the authorize URL with `challenge=<S256(code_verifier)>`, `challenge_method=S256`, `machine_id`, `nonce=<state>`; returns `{authorizeUrl, state, codeVerifier, redirectUri}` or `302`.
 - [ ] `poll` (admin session, `GET`+`POST`) reading `state` from query or JSON body: missing → `400`; unknown/expired session → `{status:"pending", error:"Session expired or not found"}`; upstream `202`/`404` → `{status:"pending"}` (release the claim first); upstream error → release + `{status:"pending", error}`; success → delete session, `/userinfo`, upsert connection, generate/persist the machine id (`settings.qoder_machine_id`), return `{status:"ok", provider:{…}}`.
 - [ ] `callback` (public, `GET`+`POST`) reading `code`/`state` from query, JSON, or `callback_url`; missing → `400 invalid_request_error` with `constants::providers::qoder::CALLBACK_MISSING_PARAMS`; success → `{success:true, message:"Login Qoder Berhasil!", provider}`.
-- [ ] `constants.rs`: add `providers::qoder` messages (missing state, session expired, upstream poll failure, empty token, missing uid, token expired, not connected) — every client-facing string lives there, matching `constants::providers` style.
+- [ ] `constants.rs`: add `providers::qoder` messages (missing state, session expired, upstream poll failure, empty token, missing uid, token expired, not connected). Every client-facing string lives there, matching `constants::providers` style.
 - [ ] `app.rs`: mount the router; `login`/`poll` behind `require_admin_session`, `callback` unauthenticated; all under the existing CSRF/body-limit layers. No `/v1/v1` alias (TODO §6).
 - [ ] Tests (`server/tests/provider_auth.rs`) against `FakeQoderUpstream`: login JSON shape + authorize URL query params; poll pending→ok; poll with missing state → 400; callback without `code`/`state` → 400; callback success body; unauthorized login/poll → 401; provider row + credentials persisted (assert keys only, never values in assertion messages).
 - [ ] Verify: `cargo test --manifest-path server/Cargo.toml --test provider_auth`.
 
-### Task 5: executor — request build and signed upstream call
+### Task 5: request build and signed upstream call
 
 - [ ] `executor.rs`: `QoderExecutor { id, keys, base_url, models, db: Option<AppDatabase>, client: UpstreamClient }`.
 - [ ] `build_request(model, request) -> Value`: strip system prompt, normalize messages (`user`/`assistant`/`tool` + `tool_call_id`, images as `image_url` data URLs), pass tools through, derive `session_id`/`request_set_id`/`chat_record_id`, resolve `model_config` from the catalog (`key`, `is_reasoning`, `max_output_tokens`), clamp `parameters.max_tokens` to the model's cap (default 32768).
@@ -251,8 +253,8 @@ Depends on Task 2 (signer) and Task 5 (executor + credentials); independent of T
 - [ ] New `qoder/catalog.rs`: `QoderCatalog { fetched_at_ms, models: Vec<ModelDefinition>, configs: BTreeMap<String, ModelConfig> }` plus `ModelConfig { key, is_reasoning, max_output_tokens, source, is_vl }` and `QoderCatalog::seed()` built from `QODER_MODELS`.
 - [ ] `parse_chat_list(&Value) -> QoderCatalog`: skip entries with an empty `key` or `enable != true`; `name = display_name` (fallback `key`); context = `max_input_tokens`, else the largest `context_config.*.token_count`, else `180000`; max output = `max_output_tokens` (default `32768`); `is_reasoning = is_reasoning || thinking_config.is_some()`; `source = "system"` unless the entry carries another; sort by `key` so repeated fetches compare equal.
 - [ ] Hold the snapshot in `QoderExecutor` as `Arc<RwLock<QoderCatalog>>` seeded from `QoderCatalog::seed()`; `models()` is `snapshot.models.clone()`, so the advertised list is the seed until the first successful fetch.
-- [ ] `refresh_catalog()`: COSY-signed `GET {base}/algo/api/v2/model/list` with an **empty body** (`Cosy-Bodylength: "0"`, `Cosy-Bodyhash = md5("")`, `Cosy-Sigpath: /api/v2/model/list`, `Accept: application/json`, `Accept-Encoding: identity`), parse `chat[]`, write the snapshot. On any failure — transport, non-2xx, malformed JSON, missing `chat` — keep the previous snapshot and return `Err`; **a catalog is never emptied**.
-- [ ] `maybe_refresh(ttl)`: no-op when `fetched_at_ms` is fresher than the TTL (5 minutes) or no credentials exist; otherwise `tokio::spawn` the refresh and return immediately (fire-and-forget — no request ever waits on the network).
+- [ ] `refresh_catalog()`: COSY-signed `GET {base}/algo/api/v2/model/list` with an **empty body** (`Cosy-Bodylength: "0"`, `Cosy-Bodyhash = md5("")`, `Cosy-Sigpath: /api/v2/model/list`, `Accept: application/json`, `Accept-Encoding: identity`), parse `chat[]`, write the snapshot. On any failure (transport error, non-2xx, malformed JSON, missing `chat`), keep the previous snapshot and return `Err`; **a catalog is never emptied**.
+- [ ] `maybe_refresh(ttl)`: no-op when `fetched_at_ms` is fresher than the TTL (5 minutes) or no credentials exist; otherwise `tokio::spawn` the refresh and return immediately (fire-and-forget, no request ever waits on the network).
 - [ ] Trigger points: `main.rs` right after the registry is built (spawn, drop the handle), `provider_auth/qoder.rs` immediately after a successful poll (the first fetch after connect), `gateway/models.rs::list_models` before reading the registry (this is where `refresh=true`/`force=true` zeroes the TTL check), and `executor.rs` before an upstream call.
 - [ ] `build_request` prefers the snapshot's `ModelConfig` when filling `model_config` (`key`, `is_reasoning`, `max_output_tokens`, `source`) and falls back to the static table for a key the catalog does not know (alias resolution happens first, so `qd/qwen3.7-max` → `qmodel`).
 - [ ] Tests (`server/tests/models.rs` and `qoder_provider.rs` against the fake upstream's `model/list` route): a refresh replaces the seed with the fetched keys under the `qd/` prefix; `enable: false` and keyless entries are dropped; a failing or `chat`-less response leaves the seed intact; the GET carries `Cosy-Bodylength: "0"` and `Cosy-Sigpath: /api/v2/model/list`; `build_request` picks up `is_reasoning` from the snapshot; a second read inside the TTL issues no second upstream GET.
@@ -261,7 +263,7 @@ Depends on Task 2 (signer) and Task 5 (executor + credentials); independent of T
 ### Task 8: contract notes, backlog sync, quality gates
 
 - [ ] `server/TODO.md` §5: tick the `qoder` login/callback rows and the "PKCE + state lifecycle" row (Qoder scope), annotate that `/v1/auth/qoder/token` and PAT flows are deliberately deferred; §4: add the provenance note pointing at `qoder/types.rs`.
-- [ ] Document deviations where the repo expects them: `docs/api-v1-contract.md` "Scope" is _not_ edited in this slice (server-only constraint); instead the deviations are recorded in `server/TODO.md` next to the ticked rows — if a contract edit is wanted, it is a follow-up decision.
+- [ ] Document deviations where the repo expects them: `docs/api-v1-contract.md` "Scope" is _not_ edited in this slice (server-only constraint); instead the deviations are recorded in `server/TODO.md` next to the ticked rows. If a contract edit is wanted, it is a follow-up decision.
 - [ ] Run: `cargo fmt --manifest-path server/Cargo.toml -- --check`, `cargo clippy --manifest-path server/Cargo.toml --all-targets --all-features -- -D warnings`, and the focused test files one at a time: `--lib qoder`, `--test provider_auth`, `--test qoder_provider`, `--test models`.
 - [ ] `git diff --check`; commit as `feat(server): add Qoder provider with device-flow OAuth`.
 
@@ -269,12 +271,12 @@ Depends on Task 2 (signer) and Task 5 (executor + credentials); independent of T
 
 1. **Provenance.** No line of Rust may derive from `packages/*`; every constant traces to `qoder/types.rs`'s module doc.
 2. **Credential safety.** Tokens never appear in responses, logs, `request_logs`, or assertion messages; `credentials` is read only in the executor.
-3. **Fragmented SSE.** The translation must buffer across reads — this is the exact bug class already fixed once in `opencode/executor.rs:167-170`.
+3. **Fragmented SSE.** The translation must buffer across reads; this is the exact bug class already fixed once in `opencode/executor.rs:167-170`.
 4. **`[DONE]` termination.** The gateway does not append it; if the executor forgets it, clients hang after the last chunk.
 5. **Schema freeze.** `V3_TABLES.len() == 10` must still hold; no migration touched.
 6. **D2 blast radius.** If a real Node-written credential row must be readable, stop and request a decision instead of guessing more key spellings.
 7. **Static advertisement.** Confirm `qd/*` models showing up before any connection is acceptable (D3), or move to registry lifecycle work first.
-8. **Catalog safety.** A failed or malformed `model/list` response must never empty the advertised list — the adapter keeps its previous snapshot, and a fetch-less build still serves the seed (Task 7).
+8. **Catalog safety.** A failed or malformed `model/list` response must never empty the advertised list: the adapter keeps its previous snapshot, and a fetch-less build still serves the seed (Task 7).
 
 ## Verification
 
