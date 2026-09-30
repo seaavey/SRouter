@@ -27,6 +27,7 @@ srouter.db
 # Local overrides (never commit)
 *.local
 .local/
+.qoder/
 
 # Logs & Debug
 /logs/
