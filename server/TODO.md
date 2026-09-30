@@ -172,8 +172,10 @@ Everything below is still Node-only.
 - [x] Second driver registered: `qoder` (`features/providers/qoder/`), COSY-signed chat with the
       envelope-to-OpenAI translation, and a model list that exists only after `model/list` has
       answered, on a 5-minute TTL. Nothing is seeded: a build without a Qoder connection advertises
-      no `qd` model. Independent provenance for every constant is recorded in the `qoder/types.rs`
-      module doc; protocol analysis and decisions live in
+      no `qd` model. A confirmed key is advertised twice, as itself and as the `display_name`
+      upstream gave it (`qd/qfmodel` plus `qd/qwen3.8-flash`), and the two ids are one model to
+      the hidden list, favorites and `allowed_models`. Independent provenance for every constant
+      is recorded in the `qoder/types.rs` module doc; protocol analysis and decisions live in
       `docs/superpowers/plans/2026-09-30-rust-provider-qoder.md`.
 - [ ] Round-robin/selection policy in the registry itself, if the driver set grows past one.
 - [ ] `GET /v1/providers/{providerId}/hidden-models` — Node returns `{models:[...]}`. Rust folded
@@ -185,8 +187,9 @@ Everything below is still Node-only.
 - [ ] Catalog provenance: record an allowed independent source for every built-in provider entry
       and model list before the driver set is extended (`docs/api-v1-contract.md` "Scope").
       The `qoder` entry is recorded, and its models are no longer a list to record: they are read
-      from upstream, and `features/providers/qoder/types.rs` keeps only the alias table;
-      `opencode_zen` still needs its own record.
+      from upstream, and `features/providers/qoder/types.rs` keeps only the alias table, which now
+      serves a request that arrives before the first fetch or under a name upstream has retired,
+      not the advertised name; `opencode_zen` still needs its own record.
 - [ ] Model-registry warmup after the main listener starts (`warmModelRegistry` in Node). The live
       `qoder` catalog is already warmed at boot (`server/src/main.rs`); a DB-driven provider is not.
 - [ ] Registry lifecycle on write: Node refreshes the live registry after connection
@@ -262,7 +265,14 @@ codebuddy-cn, qoder`) → validated token import, `201`.
 
 - [~] `GET /v1/models` with `Cache-Control: public, max-age=60, stale-while-revalidate=300`,
   `refresh`/`force` params, `no-cache`/`no-store` revalidation, allowlist filtering, hidden and
-  disabled-provider filtering, favorite flag (`features/gateway/models.rs`).
+  disabled-provider filtering, favorite flag (`features/gateway/models.rs`). A filter applies to the
+  model, so a Qoder name pair shares one verdict: `model_id_variants` expands a request or a stored
+  hidden/favorite id into every id that reaches the same upstream key, and `names_of` expands the
+  sets read from the database.
+- [ ] `/v1/models` response shape: `ModelObject` carries `{id, object, owned_by}` only, so upstream
+      metadata that `model/list` does return (`display_name`, `is_vl`, `format`, `max_input_tokens`,
+      `price_factor`, `is_free`) is parsed away today. Adding it is a contract change and needs a
+      consumer first.
 - [ ] `GET /v1/pricing/models` — `Cache-Control: public, max-age=3600,
 stale-while-revalidate=86400`, `refresh`/`force`/`no-cache` forcing a refresh.
       Legacy evidence: `apps/api/tests/pricing-route.test.ts`.

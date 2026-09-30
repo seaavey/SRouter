@@ -71,6 +71,16 @@ impl ProviderAdapter {
         }
     }
 
+    /// Every bare id this adapter advertises for the model `model` names. Only a
+    /// catalog read from upstream carries several names for one model; every
+    /// fixed list answers with the id it was asked about.
+    pub fn model_id_variants(&self, model: &str) -> Vec<String> {
+        match self {
+            Self::Qoder(adapter) => adapter.model_id_variants(model),
+            _ => vec![model.trim().to_lowercase()],
+        }
+    }
+
     /// Asks the adapter to refresh a time-varying catalog. Adapters with a
     /// fixed list do nothing. A Qoder caller whose catalog is still empty waits
     /// for the fetch, because there is nothing else to serve.

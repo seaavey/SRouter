@@ -10,7 +10,7 @@ use srouter_server::app::create_router;
 use srouter_server::features::providers::{OPENCODE_ZEN_MODELS, ProviderRegistry};
 use srouter_server::infrastructure::database::catalog_flags::favorite_model_ids;
 use support::{
-    FAKE_QODER_KEYS, FakeQoderUpstream, api_key_record, connect_qoder, qoder_catalog_body,
+    FAKE_QODER_ADVERTISED, FakeQoderUpstream, api_key_record, connect_qoder, qoder_catalog_body,
     qoder_registry, security_state, with_loopback_client, with_remote_client,
 };
 use tower::ServiceExt;
@@ -357,7 +357,7 @@ async fn disabling_a_provider_hides_its_alias_prefixed_models() {
     let ids = catalog_ids(&app).await;
     assert_eq!(
         ids.len(),
-        FAKE_QODER_KEYS.len(),
+        FAKE_QODER_ADVERTISED.len(),
         "only the disabled provider's models disappear: {ids:?}"
     );
     assert!(
@@ -406,7 +406,7 @@ async fn disabling_a_provider_hides_its_alias_prefixed_models() {
     let ids = catalog_ids(&app).await;
     assert_eq!(
         ids.len(),
-        OPENCODE_ZEN_MODELS.len() + FAKE_QODER_KEYS.len(),
+        OPENCODE_ZEN_MODELS.len() + FAKE_QODER_ADVERTISED.len(),
         "re-enabling both providers brings both lists back: {ids:?}"
     );
 }
@@ -443,4 +443,168 @@ async fn get_single_model_reports_favorite() {
     let json = json_body(plain).await;
     assert_eq!(json["id"], "zen/big-pickle");
     assert_eq!(json["favorite"], serde_json::json!(false));
+}
+
+/// An app whose qoder adapter fills its catalog from the fake upstream, with one
+/// request already served so the snapshot is in place.
+async fn live_qoder_app(test_database: &support::TestDatabase, fake: &FakeQoderUpstream) -> Router {
+    let app = app_with_live_qoder(
+        test_database.connect().await.expect("temporary database"),
+        fake,
+    );
+    let ids = catalog_ids(&app).await;
+
+    assert_eq!(
+        ids.len(),
+        OPENCODE_ZEN_MODELS.len() + FAKE_QODER_ADVERTISED.len(),
+        "the catalog filled and advertised every name it may: {ids:?}"
+    );
+
+    app
+}
+
+#[tokio::test]
+async fn the_single_model_route_answers_for_a_qoder_friendly_id() {
+    let database = support::TestDatabase::new().unwrap();
+    connect_qoder(&database).await;
+    let fake = FakeQoderUpstream::start().await;
+    fake.with(|state| state.model_catalog = qoder_catalog_body());
+    let app = live_qoder_app(&database, &fake).await;
+
+    for id in FAKE_QODER_ADVERTISED {
+        let prefixed = format!("qd/{id}");
+        let response = app
+            .clone()
+            .oneshot(get_request(&format!("/v1/models/qd%2F{id}")))
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK, "{prefixed}");
+        let json = json_body(response).await;
+        assert_eq!(json["id"], prefixed);
+        assert_eq!(json["owned_by"], "qd");
+    }
+
+    // A name the upstream row never produced is not advertised, so neither route
+    // serves it: the static alias table names models, not the catalog.
+    for refused in ["qd%2Fqwen3.7-plus", "qd%2Fhidden-model", "qd%2Fturned-off"] {
+        let response = app
+            .clone()
+            .oneshot(get_request(&format!("/v1/models/{refused}")))
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::NOT_FOUND, "{refused}");
+        assert_eq!(
+            json_body(response).await["error"]["code"],
+            "model_not_found"
+        );
+    }
+}
+
+#[tokio::test]
+async fn hiding_one_qoder_name_hides_the_model_under_both() {
+    let database = support::TestDatabase::new().unwrap();
+    let app_database = database.connect().await.unwrap();
+    connect_qoder(&database).await;
+    let fake = FakeQoderUpstream::start().await;
+    fake.with(|state| state.model_catalog = qoder_catalog_body());
+
+    sqlx::query(
+        "INSERT INTO provider_model_overrides (provider_id, model_id, custom, hidden, created_at) \
+         VALUES (?, ?, 0, 1, ?)",
+    )
+    .bind("qoder")
+    .bind("qd/qmodel")
+    .bind(1_700_000_000_i64)
+    .execute(app_database.sqlite_pool().unwrap())
+    .await
+    .unwrap();
+
+    let app = app_with_live_qoder(app_database.clone(), &fake);
+    let ids = catalog_ids(&app).await;
+
+    assert!(
+        !ids.contains(&String::from("qd/qmodel")) && !ids.contains(&String::from("qd/qwen-plus")),
+        "the sibling name disappears with it: {ids:?}"
+    );
+    assert_eq!(
+        ids.len(),
+        OPENCODE_ZEN_MODELS.len() + FAKE_QODER_ADVERTISED.len() - 2,
+        "{ids:?}"
+    );
+    for route in ["qd%2Fqmodel", "qd%2Fqwen-plus"] {
+        assert_eq!(
+            app.clone()
+                .oneshot(get_request(&format!("/v1/models/{route}")))
+                .await
+                .unwrap()
+                .status(),
+            StatusCode::NOT_FOUND,
+            "{route}"
+        );
+    }
+    assert!(
+        ids.contains(&String::from("qd/qmodel_latest")),
+        "the next model keeps both of its names: {ids:?}"
+    );
+
+    sqlx::query("DELETE FROM provider_model_overrides WHERE model_id = 'qd/qmodel'")
+        .execute(app_database.sqlite_pool().unwrap())
+        .await
+        .unwrap();
+
+    let restored = catalog_ids(&app).await;
+    assert_eq!(
+        restored.len(),
+        OPENCODE_ZEN_MODELS.len() + FAKE_QODER_ADVERTISED.len(),
+        "unhiding restores both names: {restored:?}"
+    );
+}
+
+#[tokio::test]
+async fn a_qoder_favorite_shows_on_every_name_of_the_model() {
+    let database = support::TestDatabase::new().unwrap();
+    let app_database = database.connect().await.unwrap();
+    connect_qoder(&database).await;
+    let fake = FakeQoderUpstream::start().await;
+    fake.with(|state| state.model_catalog = qoder_catalog_body());
+
+    sqlx::query("INSERT INTO favorite_models (model_id, created_at) VALUES (?, ?)")
+        .bind("qd/qwen3.7-max")
+        .bind(1_700_000_000_i64)
+        .execute(app_database.sqlite_pool().unwrap())
+        .await
+        .unwrap();
+
+    let app = app_with_live_qoder(app_database, &fake);
+    let response = app
+        .clone()
+        .oneshot(get_request("/v1/models"))
+        .await
+        .unwrap();
+    let json = json_body(response).await;
+    let entry = |id: &str| {
+        json["data"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|entry| entry["id"] == id)
+            .unwrap_or_else(|| panic!("missing catalog entry {id}"))
+            .clone()
+    };
+
+    assert_eq!(entry("qd/qwen3.7-max")["favorite"], serde_json::json!(true));
+    assert_eq!(
+        entry("qd/qmodel_latest")["favorite"],
+        serde_json::json!(true),
+        "favoriting one name favorites the model"
+    );
+    assert_eq!(entry("qd/auto")["favorite"], serde_json::json!(false));
+
+    let single = app
+        .oneshot(get_request("/v1/models/qd%2Fqmodel_latest"))
+        .await
+        .unwrap();
+    assert_eq!(json_body(single).await["favorite"], serde_json::json!(true));
 }

@@ -97,10 +97,31 @@ impl QoderExecutor {
         QODER_PROVIDER.alias
     }
 
-    /// Advertised model ids: the live snapshot, empty until the first fetch
-    /// lands. Nothing upstream has not confirmed is ever advertised.
+    /// Advertised model ids: the keys of the live snapshot plus the friendly
+    /// names it accepted, empty until the first fetch lands. Nothing upstream has
+    /// not confirmed is ever advertised.
     pub fn models(&self) -> Vec<String> {
         read_catalog(&self.catalog).models.clone()
+    }
+
+    /// Every id the snapshot advertises for the model `model` names, the id as
+    /// asked first. A name the snapshot does not hold stands alone, so no sibling
+    /// is invented here.
+    pub fn model_id_variants(&self, model: &str) -> Vec<String> {
+        let model = model.trim().to_lowercase();
+        let catalog = read_catalog(&self.catalog);
+        let key = catalog.key_for_id(&model).unwrap_or(model.as_str());
+        let mut variants = vec![model.clone()];
+
+        variants.extend(
+            catalog
+                .ids_for_key(key)
+                .into_iter()
+                .map(|id| id.to_lowercase())
+                .filter(|id| id != &model),
+        );
+
+        variants
     }
 
     pub fn endpoints(&self) -> &QoderEndpoints {
@@ -283,7 +304,7 @@ impl QoderExecutor {
         model: &str,
         request: &ChatCompletionRequest,
     ) -> Result<PreparedRequest, APIError> {
-        let model_key = resolve_model_key(model);
+        let model_key = requested_key(&read_catalog(&self.catalog), model);
         let config = {
             let catalog = read_catalog(&self.catalog);
             catalog
@@ -388,6 +409,18 @@ fn default_config(key: &str) -> ModelConfig {
         max_output_tokens: QODER_DEFAULT_MAX_OUTPUT,
         source: "system".to_owned(),
     }
+}
+
+/// The key a requested model id asks upstream for. The live catalog answers
+/// first, because its friendly ids are the names upstream gave its own keys; the
+/// static table then serves a request that arrives before the first fetch, and an
+/// id neither knows passes through untouched.
+fn requested_key(catalog: &QoderCatalog, model: &str) -> String {
+    let model = model.trim();
+
+    catalog
+        .key_for_id(model)
+        .map_or_else(|| resolve_model_key(model), |key| key.to_owned())
 }
 
 fn apply_headers(
@@ -1045,9 +1078,9 @@ pub fn adapter_with_endpoints(
 mod tests {
     use serde_json::json;
 
-    use super::{Aggregator, EnvelopeTranslator, build_body, data_payload, resolve_model_key};
+    use super::{Aggregator, EnvelopeTranslator, build_body, data_payload, requested_key};
     use crate::features::gateway::model::ChatCompletionRequest;
-    use crate::features::providers::qoder::catalog::ModelConfig;
+    use crate::features::providers::qoder::catalog::{ModelConfig, QoderCatalog};
     use crate::infrastructure::database::providers::QoderCredentials;
 
     fn credentials() -> QoderCredentials {
@@ -1143,9 +1176,38 @@ mod tests {
     }
 
     #[test]
-    fn aliases_resolve_before_the_catalog_lookup() {
-        assert_eq!(resolve_model_key("qwen3.7-max"), "qmodel_latest");
-        assert_eq!(resolve_model_key("qmodel_latest"), "qmodel_latest");
+    fn the_live_catalog_answers_a_friendly_id_before_the_static_table() {
+        let catalog = QoderCatalog::parse_chat_list(&json!({
+            "chat": [
+                {"key": "qfmodel", "enable": true, "display_name": "Qwen3.8-Flash"},
+                {"key": "dfmodel", "enable": true, "display_name": "DeepSeek-Flash"}
+            ]
+        }))
+        .expect("catalog parses");
+
+        assert_eq!(requested_key(&catalog, "qwen3.8-flash"), "qfmodel");
+        assert_eq!(requested_key(&catalog, "qfmodel"), "qfmodel");
+        assert_eq!(
+            requested_key(&catalog, "deepseek-flash"),
+            "dfmodel",
+            "the name upstream gave wins over the static row for the same key"
+        );
+        assert_eq!(
+            requested_key(&catalog, "kimi-k2.7"),
+            "kmodel",
+            "a static alias the catalog never advertised still resolves"
+        );
+        assert_eq!(requested_key(&catalog, "brand-new-key"), "brand-new-key");
+    }
+
+    #[test]
+    fn the_static_table_resolves_until_the_catalog_lands() {
+        let empty = QoderCatalog::empty();
+
+        assert_eq!(requested_key(&empty, "qwen3.7-max"), "qmodel_latest");
+        assert_eq!(requested_key(&empty, "qmodel_latest"), "qmodel_latest");
+        assert_eq!(requested_key(&empty, " GLM-5.2 "), "gm51model");
+        assert_eq!(requested_key(&empty, "unknown"), "unknown");
     }
 
     #[test]

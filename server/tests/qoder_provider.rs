@@ -17,8 +17,9 @@ use srouter_server::features::providers::ProviderAdapter;
 use srouter_server::features::providers::qoder::{self};
 use srouter_server::infrastructure::database::AppDatabase;
 use support::{
-    FAKE_QODER_KEYS, FakeQoderUpstream, TestDatabase, connect_qoder, json_request,
-    qoder_catalog_body, qoder_registry, qoder_state, with_loopback_client,
+    FAKE_QODER_ADVERTISED, FakeQoderUpstream, TestDatabase, api_key_record, connect_qoder,
+    json_request, json_request_with_headers, qoder_catalog_body, qoder_registry, qoder_state,
+    security_state, with_loopback_client, with_remote_client,
 };
 use tower::ServiceExt;
 
@@ -223,9 +224,9 @@ async fn the_catalog_advertises_only_what_upstream_returned() {
 
     assert_eq!(response.status(), StatusCode::OK);
     let ids = catalog_ids(response).await;
-    let expected: Vec<String> = FAKE_QODER_KEYS
+    let expected: Vec<String> = FAKE_QODER_ADVERTISED
         .iter()
-        .map(|key| format!("qd/{key}"))
+        .map(|id| format!("qd/{id}"))
         .collect();
     let qd: Vec<&String> = ids.iter().filter(|id| id.starts_with("qd/")).collect();
 
@@ -235,6 +236,96 @@ async fn the_catalog_advertises_only_what_upstream_returned() {
         fake.model_list_requests(),
         1,
         "the request that had nothing to serve waited for its own fetch"
+    );
+}
+
+#[tokio::test]
+async fn a_friendly_id_asks_upstream_for_the_key_it_names() {
+    let database = TestDatabase::new().unwrap();
+    connect_qoder(&database).await;
+    let fake = FakeQoderUpstream::start().await;
+    fake.with(|state| state.model_catalog = qoder_catalog_body());
+    let app = app(&database, &fake).await;
+
+    // A catalog name, a raw key and a static alias all reach the same upstream
+    // models, each signed for the key the id names.
+    for (model, key, reasoning) in [
+        ("qd/qwen3.7-max", "qmodel_latest", true),
+        ("qd/qmodel_latest", "qmodel_latest", true),
+        ("qd/qwen-plus", "qmodel", false),
+        ("qd/qmodel", "qmodel", false),
+        ("qd/qwen3.7-plus", "qmodel", false),
+    ] {
+        let response = app
+            .clone()
+            .oneshot(chat_request(serde_json::json!({
+                "model": model,
+                "messages": [{"role": "user", "content": "hi"}]
+            })))
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK, "{model}");
+        assert_eq!(fake.last_model_key(), key, "{model}");
+        assert_eq!(
+            sent_body(&fake)["model_config"]["key"],
+            serde_json::json!(key),
+            "{model}"
+        );
+        assert_eq!(
+            sent_body(&fake)["model_config"]["is_reasoning"],
+            serde_json::json!(reasoning),
+            "{model} asks with the settings of its own key"
+        );
+    }
+}
+
+#[tokio::test]
+async fn an_allowlist_entry_under_one_name_serves_every_name() {
+    const KEY: &str = "sr-fixture-key";
+
+    let database = TestDatabase::new().unwrap();
+    connect_qoder(&database).await;
+    let fake = FakeQoderUpstream::start().await;
+    fake.with(|state| state.model_catalog = qoder_catalog_body());
+
+    let mut record = api_key_record("key_1");
+    record.allowed_models = Some(vec![String::from("qd/qwen3.7-max")]);
+    let app = create_router(qoder_state(
+        database.connect().await.expect("temporary database"),
+        security_state(false, vec![(String::from(KEY), record)], vec![]),
+        &fake,
+    ));
+
+    for (model, expected) in [
+        ("qd/qwen3.7-max", StatusCode::OK),
+        ("qd/qmodel_latest", StatusCode::OK),
+        ("qd/auto", StatusCode::FORBIDDEN),
+    ] {
+        let response = app
+            .clone()
+            .oneshot(with_remote_client(
+                json_request_with_headers(
+                    "POST",
+                    "/v1/chat/completions",
+                    serde_json::json!({
+                        "model": model,
+                        "messages": [{"role": "user", "content": "hi"}]
+                    }),
+                    &[("x-api-key", KEY)],
+                ),
+                "203.0.113.7",
+            ))
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), expected, "{model}");
+    }
+
+    assert_eq!(
+        fake.chat_requests(),
+        2,
+        "only the two names of the allowed model reached the upstream"
     );
 }
 
@@ -292,7 +383,8 @@ async fn the_live_catalog_replaces_the_empty_snapshot_and_stops_refreshing_withi
     fake.with(|state| {
         state.model_catalog = serde_json::json!({
             "chat": [
-                {"key": "brand-new-model", "enable": true, "is_reasoning": false, "max_output_tokens": 4096},
+                {"key": "brand-new-model", "enable": true, "display_name": "Nova Max",
+                 "is_reasoning": false, "max_output_tokens": 4096},
                 {"key": "turned-off", "enable": false}
             ]
         })
@@ -319,7 +411,11 @@ async fn the_live_catalog_replaces_the_empty_snapshot_and_stops_refreshing_withi
         "a signed GET carries an empty body"
     );
     assert_eq!(fake.model_list_sig_path(), "/api/v2/model/list");
-    assert_eq!(executor.models(), vec!["brand-new-model".to_owned()]);
+    assert_eq!(
+        executor.models(),
+        vec!["brand-new-model", "nova-max"],
+        "the key is advertised beside the name upstream gave it"
+    );
     assert!(
         !executor.models().contains(&"turned-off".to_owned()),
         "disabled entries are dropped"
@@ -333,13 +429,24 @@ async fn the_live_catalog_replaces_the_empty_snapshot_and_stops_refreshing_withi
         "a fresh catalog is not fetched again inside the ttl"
     );
 
-    // Forced on a filled snapshot still runs off the request path.
+    // Forced on a filled snapshot still runs off the request path, and the
+    // replace re-derives the names from the rows that came in.
+    fake.with(|state| {
+        state.model_catalog = serde_json::json!({
+            "chat": [{"key": "brand-new-model", "enable": true, "display_name": "Nova Plus"}]
+        })
+    });
     executor.maybe_refresh(true).await;
     tokio::time::sleep(std::time::Duration::from_millis(100)).await;
     assert_eq!(
         fake.model_list_requests(),
         2,
         "a forced refresh goes through"
+    );
+    assert_eq!(
+        executor.models(),
+        vec!["brand-new-model", "nova-plus"],
+        "a replaced snapshot drops the name the upstream stopped using"
     );
 }
 
@@ -359,7 +466,7 @@ async fn a_failed_fetch_keeps_the_last_good_snapshot() {
 
     executor.refresh_catalog().await.expect("first fetch lands");
     let previous = executor.models();
-    assert_eq!(previous.len(), FAKE_QODER_KEYS.len());
+    assert_eq!(previous.len(), FAKE_QODER_ADVERTISED.len());
 
     fake.with(|state| state.model_catalog = serde_json::json!({"error": "no catalog"}));
     executor.refresh_catalog().await.expect("nothing to parse");
@@ -418,7 +525,7 @@ async fn thundering_herd_shares_one_fetch() {
     for ids in &bodies {
         assert_eq!(
             ids.iter().filter(|id| id.starts_with("qd/")).count(),
-            FAKE_QODER_KEYS.len(),
+            FAKE_QODER_ADVERTISED.len(),
             "every concurrent request must end up with the filled catalog: {ids:?}"
         );
     }

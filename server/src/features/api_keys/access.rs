@@ -43,21 +43,31 @@ pub fn is_model_allowed(allowed_models: Option<&[String]>, model: &str) -> bool 
     })
 }
 
-/// Enforces the allowlist for a request carrying `api_key`; principals without
-/// a key record (admin sessions, anonymous loopback) are unrestricted.
-pub fn ensure_model_allowed(api_key: Option<&APIKeyRecord>, model: &str) -> Result<(), APIError> {
+/// Enforces the allowlist for a request carrying `api_key` against every name the
+/// requested model answers to. `models` holds the requested id first, so a
+/// refusal still quotes what the client sent; principals without a key record
+/// (admin sessions, anonymous loopback) are unrestricted.
+pub fn ensure_model_allowed_any(
+    api_key: Option<&APIKeyRecord>,
+    models: &[String],
+) -> Result<(), APIError> {
     let Some(record) = api_key else {
         return Ok(());
     };
-    if model.is_empty() {
+    let Some(requested) = models.first() else {
+        return Ok(());
+    };
+    if requested.is_empty() {
         return Ok(());
     }
-    if is_model_allowed(record.allowed_models.as_deref(), model) {
+
+    let allowed = record.allowed_models.as_deref();
+    if models.iter().any(|model| is_model_allowed(allowed, model)) {
         return Ok(());
     }
 
     Err(
-        APIError::new(403, constants::api_key::model_not_allowed(model))
+        APIError::new(403, constants::api_key::model_not_allowed(requested))
             .with_code(constants::code::MODEL_NOT_ALLOWED),
     )
 }
@@ -66,7 +76,20 @@ pub fn ensure_model_allowed(api_key: Option<&APIKeyRecord>, model: &str) -> Resu
 mod tests {
     use crate::features::api_keys::model::APIKeyRecord;
 
-    use super::{ensure_model_allowed, is_model_allowed, normalize_model_id};
+    use super::{ensure_model_allowed_any, is_model_allowed, normalize_model_id};
+
+    fn record(models: &[&str]) -> APIKeyRecord {
+        APIKeyRecord {
+            id: String::from("key_1"),
+            enabled: true,
+            rate_limit: 0,
+            quota_limit: 0.0,
+            usage_tokens: 0.0,
+            credit_limit: 0.0,
+            usage_cost: 0.0,
+            allowed_models: Some(models.iter().map(|model| (*model).to_owned()).collect()),
+        }
+    }
 
     #[test]
     fn normalization_strips_srouter_and_lowercases() {
@@ -143,34 +166,17 @@ mod tests {
 
     #[test]
     fn an_empty_requested_model_skips_the_check() {
-        let record = APIKeyRecord {
-            id: String::from("key_1"),
-            enabled: true,
-            rate_limit: 0,
-            quota_limit: 0.0,
-            usage_tokens: 0.0,
-            credit_limit: 0.0,
-            usage_cost: 0.0,
-            allowed_models: Some(vec![String::from("gpt-4o")]),
-        };
-
-        assert!(ensure_model_allowed(Some(&record), "").is_ok());
+        assert!(ensure_model_allowed_any(Some(&record(&["gpt-4o"])), &[]).is_ok());
+        assert!(ensure_model_allowed_any(Some(&record(&["gpt-4o"])), &["".to_owned()]).is_ok());
     }
 
     #[test]
     fn a_disallowed_model_is_rejected_with_the_frozen_envelope() {
-        let record = APIKeyRecord {
-            id: String::from("key_1"),
-            enabled: true,
-            rate_limit: 0,
-            quota_limit: 0.0,
-            usage_tokens: 0.0,
-            credit_limit: 0.0,
-            usage_cost: 0.0,
-            allowed_models: Some(vec![String::from("gpt-4o")]),
-        };
-
-        let error = ensure_model_allowed(Some(&record), "claude-3-5-sonnet").unwrap_err();
+        let error = ensure_model_allowed_any(
+            Some(&record(&["gpt-4o"])),
+            &[String::from("claude-3-5-sonnet")],
+        )
+        .unwrap_err();
 
         assert_eq!(error.status(), 403);
         let json = serde_json::to_value(error.to_envelope()).unwrap();
@@ -180,5 +186,20 @@ mod tests {
             json["error"]["message"],
             "Model 'claude-3-5-sonnet' is not allowed for this API key"
         );
+    }
+
+    #[test]
+    fn any_name_of_a_model_satisfies_the_allowlist_entry() {
+        let key = record(&["qd/qwen3.8-flash"]);
+        let names = [String::from("qd/qfmodel"), String::from("qd/qwen3.8-flash")];
+
+        assert!(ensure_model_allowed_any(Some(&key), &names).is_ok());
+        assert!(
+            !is_model_allowed(Some(&names[..1]), "qd/qwen3.8-flash"),
+            "one name alone does not carry the grant; checking both does"
+        );
+
+        let other = record(&["qd/qmodel"]);
+        assert!(ensure_model_allowed_any(Some(&other), &names).is_err());
     }
 }

@@ -248,14 +248,19 @@ async fn provider_models(state: &AppState) -> Result<Vec<ProviderModel>, APIErro
 }
 
 /// Reads the catalog flags, or empty sets when no database backs the process.
+/// Both are expanded to every name the catalog advertises for the model an entry
+/// names, so the admin view never shows one id of a model hidden or favorited
+/// under another.
 async fn catalog_flags(state: &AppState) -> Result<(HashSet<String>, HashSet<String>), APIError> {
     let Some(database) = state.database.as_ref() else {
         return Ok((HashSet::new(), HashSet::new()));
     };
 
     Ok((
-        hidden_model_ids(database).await?,
-        favorite_model_ids(database).await?,
+        state.providers.names_of(&hidden_model_ids(database).await?),
+        state
+            .providers
+            .names_of(&favorite_model_ids(database).await?),
     ))
 }
 

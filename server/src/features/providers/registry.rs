@@ -124,6 +124,36 @@ impl ProviderRegistry {
             })
     }
 
+    /// Every id that names the same model as `requested`, each prefixed the way
+    /// the catalog advertises it, lowercased, and with the requested id first.
+    /// Qoder serves one model under its raw key and the name upstream gave it;
+    /// every other provider has one name per model.
+    pub fn model_id_variants(&self, requested: &str) -> Vec<String> {
+        let requested = requested.trim();
+
+        let Some(resolved) = self.resolve(requested) else {
+            return vec![requested.to_lowercase()];
+        };
+
+        let alias = resolved.adapter.alias();
+
+        resolved
+            .adapter
+            .model_id_variants(&resolved.model)
+            .into_iter()
+            .map(|bare| format!("{alias}/{bare}").to_lowercase())
+            .collect()
+    }
+
+    /// Every advertised name of the models these ids point at. A hide or favorite
+    /// entry is written under one name but governs the model, which the catalog
+    /// may advertise under two.
+    pub fn names_of(&self, ids: &HashSet<String>) -> HashSet<String> {
+        ids.iter()
+            .flat_map(|id| self.model_id_variants(id))
+            .collect()
+    }
+
     /// Lists every advertised model as `<alias>/<bare>` entries, mirroring
     /// Node's `buildModelList`. A provider whose catalog is read from upstream
     /// contributes only what that catalog holds right now, so the list can grow
@@ -269,6 +299,44 @@ mod tests {
         assert!(
             !models.iter().any(|entry| entry.owned_by == "qd"),
             "the qoder catalog is filled only by a live fetch"
+        );
+    }
+
+    #[test]
+    fn an_adapter_with_one_name_per_model_answers_with_the_id_it_was_given() {
+        let registry = registry_with_opencode();
+
+        assert_eq!(
+            registry.model_id_variants("zen/big-pickle"),
+            vec![String::from("zen/big-pickle")]
+        );
+        assert_eq!(
+            registry.model_id_variants(" Zen/Big-Pickle "),
+            vec![String::from("zen/big-pickle")],
+            "the name is lowered the way the catalog matches it"
+        );
+        assert_eq!(
+            registry.model_id_variants("anthropic/claude-sonnet-4"),
+            vec![String::from("anthropic/claude-sonnet-4")],
+            "an unregistered prefix is no reason to invent a sibling"
+        );
+
+        let stored = ["zen/big-pickle", "zen/space-bunny-free"]
+            .iter()
+            .map(|id| (*id).to_owned())
+            .collect::<HashSet<String>>();
+        assert_eq!(registry.names_of(&stored), stored);
+        assert!(registry.names_of(&HashSet::new()).is_empty());
+    }
+
+    #[test]
+    fn an_unfilled_qoder_catalog_offers_no_sibling_for_its_keys() {
+        let registry = ProviderRegistry::with_defaults().expect("default registry");
+
+        assert_eq!(
+            registry.model_id_variants("qd/qfmodel"),
+            vec![String::from("qd/qfmodel")],
+            "a name upstream has not confirmed cannot be paired with one"
         );
     }
 }

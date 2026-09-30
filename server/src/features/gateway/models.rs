@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::constants;
 use crate::error::APIError;
-use crate::features::api_keys::{APIPrincipal, ensure_model_allowed, is_model_allowed};
+use crate::features::api_keys::{APIPrincipal, ensure_model_allowed_any, is_model_allowed};
 use crate::features::providers::ModelObject;
 use crate::infrastructure::database::catalog_flags::{
     disabled_provider_ids, favorite_model_ids, hidden_model_ids,
@@ -56,9 +56,13 @@ impl CatalogModel {
 }
 
 /// Reads the favorite list, or an empty set when no database backs this process.
+/// An entry names a model, not one of its ids, so it is expanded to every name
+/// the catalog advertises for it.
 async fn favorites(state: &AppState) -> Result<HashSet<String>, APIError> {
     match state.database.as_ref() {
-        Some(database) => favorite_model_ids(database).await,
+        Some(database) => Ok(state
+            .providers
+            .names_of(&favorite_model_ids(database).await?)),
         None => Ok(HashSet::new()),
     }
 }
@@ -93,7 +97,9 @@ async fn catalog_exclusions(state: &AppState) -> Result<CatalogExclusions, APIEr
     };
 
     Ok(CatalogExclusions {
-        hidden: hidden_model_ids(database).await?,
+        // Like a favorite, a hidden entry governs the model under every name it
+        // is advertised by, so hiding one id hides them all.
+        hidden: state.providers.names_of(&hidden_model_ids(database).await?),
         disabled: state
             .providers
             .disabled_keys(&disabled_provider_ids(database).await?),
@@ -135,7 +141,15 @@ pub async fn list_models(
         // Drop hidden and disabled models before the allowlist runs, so the
         // allowlist never sees a model this deployment refuses to serve.
         .filter(|model| !exclusions.excludes(model))
-        .filter(|model| allowed.is_none_or(|list| is_model_allowed(Some(list), &model.id)))
+        .filter(|model| {
+            allowed.is_none_or(|list| {
+                state
+                    .providers
+                    .model_id_variants(&model.id)
+                    .iter()
+                    .any(|name| is_model_allowed(Some(list), name))
+            })
+        })
         .map(|model| CatalogModel::from_model(&model, &favorites))
         .collect();
 
@@ -181,9 +195,9 @@ pub async fn get_model(
         );
     }
 
-    ensure_model_allowed(
+    ensure_model_allowed_any(
         principal.as_ref().and_then(|ext| ext.0.api_key.as_ref()),
-        &model,
+        &state.providers.model_id_variants(&model),
     )?;
 
     match found {

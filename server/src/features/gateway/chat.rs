@@ -13,7 +13,7 @@ use serde_json::Value;
 
 use crate::constants;
 use crate::error::{APIError, invalid_json};
-use crate::features::api_keys::{APIPrincipal, ensure_model_allowed};
+use crate::features::api_keys::{APIPrincipal, ensure_model_allowed_any};
 use crate::features::gateway::interceptor::{
     execute_intercepted_search, should_intercept_tool_call,
 };
@@ -65,10 +65,12 @@ pub async fn create_completion(
     let mut chat_request = parse_chat_completion_request(body)?;
 
     // Node checks the allowlist after validation and before the controller, so
-    // this runs before provider resolution and before the stream opens.
-    ensure_model_allowed(
+    // this runs before provider resolution and before the stream opens. The
+    // check spans every name of the requested model, which a live catalog may
+    // advertise under both a raw key and a friendly name.
+    ensure_model_allowed_any(
         principal.as_ref().and_then(|ext| ext.0.api_key.as_ref()),
-        &chat_request.model,
+        &state.providers.model_id_variants(&chat_request.model),
     )?;
 
     // Normalize `developer` messages to `system` to match the frozen API v1 contract.

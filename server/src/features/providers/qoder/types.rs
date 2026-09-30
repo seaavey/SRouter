@@ -26,7 +26,11 @@ pub const QODER_USERINFO_PATH: &str = "/api/v1/userinfo";
 /// `ProviderMetadata::alias` and the model list prefix use.
 pub const QODER_KEYS: &[&str] = &["qoder", "qd"];
 
-/// Friendly model names the gateway accepts in place of a raw model key.
+/// Friendly model names the gateway accepts in place of a raw model key while
+/// the live catalog has not answered. Once `model/list` has landed, that
+/// snapshot decides both what is advertised and how a name resolves, so a row
+/// here is only ever reached before the first fetch or for a name upstream never
+/// used.
 pub const QODER_MODEL_ALIASES: &[(&str, &str)] = &[
     ("qwen3.8-flash", "qfmodel"),
     ("qwen3.8-max", "qmodel_38max"),

@@ -3,7 +3,8 @@
 //! The registry is static, so the snapshot lives inside the provider adapter and
 //! is replaced in place. Nothing is advertised that upstream has not confirmed:
 //! the snapshot starts empty, and a failed fetch never empties one that already
-//! landed.
+//! landed. A confirmed key is also advertised under its `display_name`, so
+//! `qd/qfmodel` and `qd/qwen3.8-flash` name one model.
 
 use std::collections::BTreeMap;
 use std::sync::{Arc, RwLock};
@@ -39,8 +40,12 @@ pub struct QoderCatalog {
     /// When the last fetch was started, whether or not it succeeded. Only an
     /// unfilled snapshot obeys it; a filled one is governed by `CATALOG_TTL_MS`.
     pub attempted_at_ms: i64,
+    /// Every id this snapshot advertises, raw keys and friendly names together.
     pub models: Vec<String>,
     pub configs: BTreeMap<String, ModelConfig>,
+    /// Advertised id -> the raw key a request must carry. Every key maps to
+    /// itself, so one lookup serves both kinds of id.
+    pub names: BTreeMap<String, String>,
 }
 
 /// The catalog handle the executor and the registry share.
@@ -55,6 +60,7 @@ impl QoderCatalog {
             attempted_at_ms: 0,
             models: Vec::new(),
             configs: BTreeMap::new(),
+            names: BTreeMap::new(),
         }
     }
 
@@ -63,6 +69,7 @@ impl QoderCatalog {
     pub fn parse_chat_list(value: &Value) -> Option<Self> {
         let entries = value.get("chat")?.as_array()?;
         let mut configs = BTreeMap::new();
+        let mut display_names = BTreeMap::new();
 
         for entry in entries {
             let object = entry.as_object()?;
@@ -98,18 +105,52 @@ impl QoderCatalog {
                         .to_owned(),
                 },
             );
+
+            if let Some(id) = object
+                .get("display_name")
+                .and_then(Value::as_str)
+                .and_then(|name| advertised_id(name, key))
+            {
+                display_names.insert(key.to_owned(), id);
+            }
         }
 
         if configs.is_empty() {
             return None;
         }
 
+        let names = advertised_names(&configs, display_names);
+
         Some(Self {
             fetched_at_ms: now_ms(),
             attempted_at_ms: now_ms(),
-            models: configs.keys().cloned().collect(),
+            // A `BTreeMap` iterates in key order, so the list is sorted without
+            // another pass and a refresh cannot reshuffle it.
+            models: names.keys().cloned().collect(),
             configs,
+            names,
         })
+    }
+
+    /// The raw key an advertised id asks for. An id the snapshot does not hold
+    /// is `None`, which sends the caller to the static alias table.
+    pub fn key_for_id(&self, id: &str) -> Option<&str> {
+        if let Some(key) = self.names.get(id) {
+            return Some(key);
+        }
+
+        // Ids are advertised lowercase while a client may send any case.
+        self.names.get(&id.to_lowercase()).map(String::as_str)
+    }
+
+    /// Every id that reaches this key: the raw key itself plus each name it was
+    /// allowed to advertise. A key the snapshot does not hold yields nothing.
+    pub fn ids_for_key(&self, key: &str) -> Vec<String> {
+        self.names
+            .iter()
+            .filter(|(_, mapped)| *mapped == key)
+            .map(|(id, _)| id.clone())
+            .collect()
     }
 
     /// The request settings of one model key, if the catalog knows it.
@@ -141,6 +182,61 @@ impl QoderCatalog {
     pub fn shared_empty() -> SharedCatalog {
         Arc::new(RwLock::new(Self::empty()))
     }
+}
+
+/// How long an advertised id may be. Upstream names are short; the cap keeps a
+/// runaway display name out of a route path.
+const MAX_ADVERTISED_ID_LEN: usize = 64;
+
+/// Transcribes an upstream `display_name` into an id this gateway may advertise.
+///
+/// Returns `None` rather than repairing a name it cannot carry: an id upstream
+/// never used must not appear in the list, so a character outside the model-id
+/// set, an over-long name, or one that says no more than the key already says
+/// ends the search instead of a transliteration.
+fn advertised_id(display_name: &str, key: &str) -> Option<String> {
+    // One split on whitespace and dashes both joins and cleans: runs collapse
+    // and either end is stripped, so ` Qwen -- 3.8 ` still yields `qwen-3.8`.
+    let lowered = display_name.to_lowercase();
+    let id = lowered
+        .split(|c: char| c.is_whitespace() || c == '-')
+        .filter(|part| !part.is_empty())
+        .collect::<Vec<_>>()
+        .join("-");
+
+    let id_ok = !id.is_empty()
+        && id.len() <= MAX_ADVERTISED_ID_LEN
+        && id.chars().any(|c| c.is_ascii_alphanumeric())
+        && id
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || matches!(c, '.' | '_' | '-'));
+
+    if !id_ok || id.eq_ignore_ascii_case(key) {
+        return None;
+    }
+
+    Some(id)
+}
+
+/// Every id the snapshot advertises, mapped to the key a request must carry.
+///
+/// Each live key maps to itself; a display name is accepted only when no key and
+/// no earlier name already holds it. Names are weighed in raw-key order, so two
+/// models sharing one name cannot reshuffle the list between refreshes.
+fn advertised_names(
+    configs: &BTreeMap<String, ModelConfig>,
+    display_names: BTreeMap<String, String>,
+) -> BTreeMap<String, String> {
+    let mut names: BTreeMap<String, String> = configs
+        .keys()
+        .map(|key| (key.clone(), key.clone()))
+        .collect();
+
+    for (key, id) in display_names {
+        names.entry(id).or_insert(key);
+    }
+
+    names
 }
 
 #[cfg(test)]
@@ -225,6 +321,101 @@ mod tests {
         assert!(
             QoderCatalog::parse_chat_list(&json!({"chat": [{"key": "x"}]})).is_none(),
             "an entry without enable must not become a model"
+        );
+    }
+
+    #[test]
+    fn advertises_each_key_under_a_usable_display_name_as_well() {
+        let parsed = QoderCatalog::parse_chat_list(&json!({
+            "chat": [
+                {"key": "qfmodel", "enable": true, "display_name": "Qwen3.8-Flash"},
+                {"key": "dmodel", "enable": true, "display_name": "Deep Seek  V4  Pro"},
+                {"key": "auto", "enable": true, "display_name": "Auto"}
+            ]
+        }))
+        .expect("catalog parses");
+
+        assert_eq!(
+            parsed.models,
+            vec![
+                "auto",
+                "deep-seek-v4-pro",
+                "dmodel",
+                "qfmodel",
+                "qwen3.8-flash"
+            ]
+        );
+        assert_eq!(parsed.key_for_id("qwen3.8-flash"), Some("qfmodel"));
+        assert_eq!(parsed.key_for_id("qfmodel"), Some("qfmodel"));
+        assert_eq!(parsed.key_for_id("QWEN3.8-FLASH"), Some("qfmodel"));
+        assert_eq!(parsed.key_for_id("auto"), Some("auto"));
+        assert!(parsed.key_for_id("anything-else").is_none());
+        assert_eq!(
+            parsed.ids_for_key("qfmodel"),
+            vec!["qfmodel", "qwen3.8-flash"]
+        );
+        assert_eq!(parsed.ids_for_key("auto"), vec!["auto"]);
+        assert!(parsed.ids_for_key("never-served").is_empty());
+        assert!(
+            parsed.config_for("qwen3.8-flash").is_none(),
+            "a friendly id must not pass for the request settings of its key"
+        );
+    }
+
+    #[test]
+    fn a_display_name_that_cannot_be_an_id_advertises_only_the_key() {
+        let long = format!("qwen-{}", "x".repeat(70));
+
+        for (key, name) in [
+            ("qfmodel", "Qwen3.8-Flash!"),
+            ("qmodel", "Qwen 3.7 Édition"),
+            ("kmodel", "--"),
+            ("dmodel", long.as_str()),
+            ("mmodel", "   "),
+        ] {
+            let parsed = QoderCatalog::parse_chat_list(&json!({
+                "chat": [{"key": key, "enable": true, "display_name": name}]
+            }))
+            .expect("catalog parses");
+
+            assert_eq!(
+                parsed.models,
+                vec![key],
+                "{name:?} must not become an id for {key}"
+            );
+        }
+    }
+
+    #[test]
+    fn one_friendly_name_serves_one_key_and_never_overrides_a_live_key() {
+        let shared = QoderCatalog::parse_chat_list(&json!({
+            "chat": [
+                {"key": "kmodel_latest", "enable": true, "display_name": "Kimi K2"},
+                {"key": "kmodel", "enable": true, "display_name": "Kimi-K2"}
+            ]
+        }))
+        .expect("catalog parses");
+
+        assert_eq!(
+            shared.models,
+            vec!["kimi-k2", "kmodel", "kmodel_latest"],
+            "the first key in catalog order keeps the name"
+        );
+        assert_eq!(shared.key_for_id("kimi-k2"), Some("kmodel"));
+        assert_eq!(shared.ids_for_key("kmodel_latest"), vec!["kmodel_latest"]);
+
+        let clashing = QoderCatalog::parse_chat_list(&json!({
+            "chat": [
+                {"key": "qfmodel", "enable": true, "display_name": "gfmodel"},
+                {"key": "gfmodel", "enable": true}
+            ]
+        }))
+        .expect("catalog parses");
+
+        assert_eq!(
+            clashing.ids_for_key("gfmodel"),
+            vec!["gfmodel"],
+            "a name that is another model's key must not be advertised twice"
         );
     }
 }

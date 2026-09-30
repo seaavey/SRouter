@@ -18,7 +18,7 @@ use futures_util::{Stream, StreamExt};
 use serde_json::Value;
 
 use crate::constants;
-use crate::features::api_keys::{APIPrincipal, ensure_model_allowed};
+use crate::features::api_keys::{APIPrincipal, ensure_model_allowed_any};
 use crate::features::gateway::anthropic::{
     AnthropicMessageRequest, AnthropicStreamTranslator, AnthropicThinking, anthropic_error,
     anthropic_error_event_bytes, anthropic_to_openai_request, estimate_tokens,
@@ -89,9 +89,13 @@ pub async fn create_message(
         return anthropic_error(400, constants::gateway::MESSAGES_EMPTY);
     }
 
-    // Enforce model allowlist for this API key.
+    // Enforce model allowlist for this API key, against every name the requested
+    // model answers to.
     let api_key = principal.as_ref().and_then(|ext| ext.0.api_key.as_ref());
-    if let Err(err) = ensure_model_allowed(api_key, &anthropic_req.model) {
+    if let Err(err) = ensure_model_allowed_any(
+        api_key,
+        &state.providers.model_id_variants(&anthropic_req.model),
+    ) {
         return anthropic_error(403, err.message());
     }
 
@@ -300,7 +304,7 @@ pub async fn create_message(
 
 /// Handles `POST /v1/messages/count_tokens`.
 pub async fn count_tokens(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     principal: Option<Extension<APIPrincipal>>,
     request: Request,
 ) -> Response {
@@ -322,7 +326,10 @@ pub async fn count_tokens(
     };
 
     let api_key = principal.as_ref().and_then(|ext| ext.0.api_key.as_ref());
-    if let Err(err) = ensure_model_allowed(api_key, &anthropic_req.model) {
+    if let Err(err) = ensure_model_allowed_any(
+        api_key,
+        &state.providers.model_id_variants(&anthropic_req.model),
+    ) {
         return anthropic_error(403, err.message());
     }
 

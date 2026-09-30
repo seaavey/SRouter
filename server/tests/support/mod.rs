@@ -400,18 +400,35 @@ fn header_text(headers: &HeaderMap, name: &str) -> String {
 
 /// Keys the fake `model/list` serves, in the order the catalog sorts them. One
 /// of them is an alias target, so the friendly-name path stays exercised.
-pub const FAKE_QODER_KEYS: &[&str] = &["auto", "qmodel", "qmodel_latest"];
+pub const FAKE_QODER_KEYS: &[&str] = &["auto", "gfmodel", "qmodel", "qmodel_latest"];
+
+/// Every id the fake catalog advertises, written by hand: the served keys plus
+/// the display names that survive transcription. A test that counts rows against
+/// this list cannot be satisfied by a catalog that invents or drops a name.
+pub const FAKE_QODER_ADVERTISED: &[&str] = &[
+    "auto",
+    "gfmodel",
+    "qmodel",
+    "qmodel_latest",
+    "qwen-plus",
+    "qwen3.7-max",
+];
 
 /// A `model/list` body whose settings differ from the executor's defaults, so a
-/// test can tell the upstream row from a fallback.
+/// test can tell the upstream row from a fallback. The display names cover each
+/// transcription rule: one equal to its key, one usable, one that differs from
+/// the static alias table, and one carrying a character no model id may hold.
 pub fn qoder_catalog_body() -> serde_json::Value {
     serde_json::json!({
         "chat": [
-            {"key": "auto", "enable": true, "is_reasoning": false, "max_output_tokens": 8192},
-            {"key": "qmodel_latest", "enable": true, "max_output_tokens": 4096,
+            {"key": "auto", "enable": true, "display_name": "Auto",
+             "is_reasoning": false, "max_output_tokens": 8192},
+            {"key": "qmodel_latest", "enable": true, "display_name": "Qwen3.7-Max",
+             "max_output_tokens": 4096,
              "thinking_config": {"enabled": {"efforts": ["low"]}}},
-            {"key": "qmodel", "enable": true},
-            {"key": "turned-off", "enable": false}
+            {"key": "qmodel", "enable": true, "display_name": "Qwen Plus"},
+            {"key": "gfmodel", "enable": true, "display_name": "Goliath Fast & Free"},
+            {"key": "turned-off", "enable": false, "display_name": "Hidden Model"}
         ]
     })
 }
