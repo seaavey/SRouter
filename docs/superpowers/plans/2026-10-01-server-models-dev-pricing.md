@@ -12,7 +12,9 @@ Load the snapshot once in a `features/catalog/pricing.rs` module. Give that modu
 
 A maintainer-run updater fetches and validates the official JSON, normalizes the required fields, and atomically writes the snapshot. Review and deploy its diff like code. Runtime requests never call Models.dev or require its availability.
 
-`refresh=true`, `force=true`, and `Cache-Control: no-cache|no-store` operate on the snapshot in the running binary; they do not fetch new source data. Updating prices requires running the updater and deploying a new binary.
+Provide a read-only `check` mode to compare the current Models.dev source against the checked-in local snapshot. Store a manifest beside the snapshot with the source URL, fetch time, source SHA-256, normalized-data SHA-256, schema version, and record count. Hash the exact downloaded bytes for source drift, then normalize and serialize relevant records deterministically before hashing for meaningful catalog drift. Verify the local snapshot against its recorded normalized hash too. Report separately: source bytes changed but normalized pricing data did not; normalized pricing data changed; local snapshot does not match its manifest; or fetch/validation failed. Source-only changes produce a notice, not a failing exit status; semantic drift, local integrity failure, and fetch/validation errors return distinct nonzero statuses. The check mode never writes files. A separate explicit update mode regenerates snapshot and manifest after validation.
+
+Run the read-only check once daily at 06:00 UTC in a scheduled GitHub Actions workflow so semantic drift is visible without silently changing the repo or deploying new rates. The workflow only reports status and summary; it must not write files, commit, create PRs, or deploy. Keep this independent from normal server requests. `refresh=true`, `force=true`, and `Cache-Control: no-cache|no-store` still operate on the deployed snapshot; updating prices requires reviewing the snapshot change and deploying a new binary.
 
 ## Source and provenance
 
@@ -49,19 +51,21 @@ For request-cost estimation:
 
 ## Proposed files
 
-| File                                                       | Purpose                                                                                                                                             |
-| ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `server/src/features/catalog/mod.rs`                       | Catalog feature module exports.                                                                                                                     |
-| `server/src/features/catalog/pricing.rs`                   | Parse the snapshot, serve the list, select exact provider/model rates, calculate request-cost breakdowns.                                           |
-| `server/src/features/catalog/data/models-dev-pricing.json` | Compact generated, versioned data snapshot embedded in the Rust binary.                                                                             |
-| `server/scripts/update_models_dev_pricing.py`              | Explicit updater: download, validate, normalize, and atomically replace the snapshot. Prefer the standard library.                                  |
-| `server/src/features/gateway/chat.rs`                      | Estimate cost for successful OpenAI chat completions, including streaming and tool-interception turns.                                              |
-| `server/src/features/gateway/messages.rs`                  | Apply the same estimate to successful Anthropic Messages requests.                                                                                  |
-| `server/src/infrastructure/database/request_logs.rs`       | Persist known estimated spend to request logs and API-key usage, preserve token accounting when price is unknown.                                   |
-| `server/src/features/logs.rs`                              | Expose known estimate and input/output/cache breakdown in log list/detail and live events, matching the Node contract.                              |
-| `server/src/app.rs`                                        | Mount `/v1/pricing/models` under `/v1` with API-key auth. Do not add `/v1/v1/pricing/models` unless the frozen contract or oracle proves it exists. |
-| `server/tests/pricing.rs`                                  | Pricing route, calculator, logs/credit integration, and static-snapshot tests using local fixtures.                                                 |
-| `server/TODO.md`                                           | Close the pricing provenance blocker and track endpoint, cost calculation, and updater.                                                             |
+| File                                                                | Purpose                                                                                                                                             |
+| ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `server/src/features/catalog/mod.rs`                                | Catalog feature module exports.                                                                                                                     |
+| `server/src/features/catalog/pricing.rs`                            | Parse the snapshot, serve the list, select exact provider/model rates, calculate request-cost breakdowns.                                           |
+| `server/src/features/catalog/data/models-dev-pricing.json`          | Compact generated, versioned data snapshot embedded in the Rust binary.                                                                             |
+| `server/src/features/catalog/data/models-dev-pricing.manifest.json` | Source and normalized SHA-256 hashes, source URL, fetch time, schema version, and record count.                                                     |
+| `server/scripts/update_models_dev_pricing.py`                       | Read-only `check` plus explicit update mode; validate and atomically replace snapshot and manifest. Prefer the standard library.                    |
+| `.github/workflows/models-dev-pricing-drift.yml`                    | Scheduled read-only check that reports upstream/local drift without committing or deploying changes.                                                |
+| `server/src/features/gateway/chat.rs`                               | Estimate cost for successful OpenAI chat completions, including streaming and tool-interception turns.                                              |
+| `server/src/features/gateway/messages.rs`                           | Apply the same estimate to successful Anthropic Messages requests.                                                                                  |
+| `server/src/infrastructure/database/request_logs.rs`                | Persist known estimated spend to request logs and API-key usage, preserve token accounting when price is unknown.                                   |
+| `server/src/features/logs.rs`                                       | Expose known estimate and input/output/cache breakdown in log list/detail and live events, matching the Node contract.                              |
+| `server/src/app.rs`                                                 | Mount `/v1/pricing/models` under `/v1` with API-key auth. Do not add `/v1/v1/pricing/models` unless the frozen contract or oracle proves it exists. |
+| `server/tests/pricing.rs`                                           | Pricing route, calculator, logs/credit integration, and static-snapshot tests using local fixtures.                                                 |
+| `server/TODO.md`                                                    | Close the pricing provenance blocker and track endpoint, cost calculation, and updater.                                                             |
 
 No database schema or migration is needed.
 
@@ -117,13 +121,16 @@ Completion: fixture-driven calculator tests cover regular input/output, cache re
 
 Completion: log tests distinguish confirmed free prices from unknown rates, cover cache fields and stable totals, and pin the approved response contract with a black-box comparison.
 
-### 6. Document refresh and maintenance
+### 6. Add hash drift detection and maintenance
 
-- Document the updater command and review expectations near the script or in `server/TODO.md`.
-- Record the source URL, retrieval timestamp, attribution, and how to update the snapshot.
-- Update the §7 pricing backlog row from blocked on provenance to track both catalog endpoint and request-cost integration only after source/license and test gates pass.
+- Implement updater subcommands for read-only `check` and explicit snapshot update. Check mode recomputes local normalized data hash, fetches source bytes, computes the raw source hash, normalizes using the same parser, and computes the canonical normalized hash.
+- Define deterministic normalization and hash inputs: stable provider/model ordering, stable JSON key ordering, UTF-8 encoding, compact JSON serialization, and exclusion of volatile fields such as fetch time from the normalized-data hash.
+- Report source-only byte changes as notice; return distinct nonzero exit statuses for semantic drift, local integrity failure, and fetch/validation failure.
+- Tests cover identical source, harmless raw-byte change with same normalized data, meaningful normalized-data drift, tampered local snapshot, malformed/empty source, and check mode leaving snapshot and manifest unchanged.
+- Add a daily 06:00 UTC GitHub Actions schedule to run check mode. It reports status and a summary only, and never updates files, commits, opens a PR, or deploys. Document how to inspect drift, run explicit update, review the generated diff, and deploy.
+- Record source URL, retrieval timestamp, attribution, and updater command. Update the §7 backlog only after source/license and test gates pass.
 
-Completion: a maintainer can refresh the snapshot with one documented command, inspect its diff, and deploy the catalog plus calculator through the Rust release process.
+Completion: the scheduled check flags source or semantic drift without writing repo files; the explicit update command produces a deterministic reviewed snapshot and matching manifest.
 
 ## Verification
 
@@ -149,7 +156,7 @@ The updater's standard-library tests use captured fixtures. Cargo tests must not
 3. Should Rust logs add `costBreakdown` to match the current web log detail consumer, despite the Rust log MVP spec explicitly omitting it? If approved, should the breakdown be recomputed from the current snapshot or persisted historically?
 4. How should a known free rate be distinguished in log responses from the existing `estimated_cost = 0` storage sentinel for unknown pricing, without changing the database contract?
 5. Are Models.dev catalog data and pricing fields explicitly reusable under the published terms, and what attribution is required?
-6. Should snapshot updates remain maintainer-triggered, or should future automation propose update PRs? Runtime fetching is not recommended.
+6. Which owner or channel will monitor failed scheduled drift runs and act on semantic changes? The proposed initial schedule is daily at 06:00 UTC; workflow must stay read-only.
 
 ## Out of scope
 
