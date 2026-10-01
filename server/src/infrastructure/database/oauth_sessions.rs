@@ -23,6 +23,9 @@ pub const SESSION_TTL_MS: i64 = 15 * 60 * 1000;
 pub struct OAuthSession {
     pub state: String,
     pub code_verifier: String,
+    /// The upstream device code a device-flow poll needs. A redirect flow
+    /// leaves it unset; the Cline flow stores it at login time.
+    pub device_code: Option<String>,
     pub client_id: String,
     pub redirect_uri: String,
     pub created_at: i64,
@@ -54,6 +57,36 @@ pub async fn save_session(
         APIError::new(
             500,
             constants::database::with_context("store the OAuth session", error),
+        )
+    })?;
+
+    Ok(())
+}
+
+/// Stores a device-flow session, whose poll reads the upstream device code
+/// instead of a PKCE verifier.
+pub async fn save_device_session(
+    database: &AppDatabase,
+    state: &str,
+    device_code: &str,
+    client_id: &str,
+) -> Result<(), APIError> {
+    let pool = write_pool(database)?;
+
+    sqlx::query(
+        "INSERT INTO oauth_sessions (state, code_verifier, device_code, client_id, redirect_uri, created_at, claimed_at) \
+         VALUES (?, '', ?, ?, '', ?, NULL)",
+    )
+    .bind(state)
+    .bind(device_code)
+    .bind(client_id)
+    .bind(now_ms())
+    .execute(pool)
+    .await
+    .map_err(|error| {
+        APIError::new(
+            500,
+            constants::database::with_context("store the OAuth device session", error),
         )
     })?;
 
@@ -92,7 +125,7 @@ pub async fn claim_session(
     }
 
     let row = sqlx::query(
-        "SELECT state, code_verifier, client_id, redirect_uri, created_at, claimed_at \
+        "SELECT state, code_verifier, device_code, client_id, redirect_uri, created_at, claimed_at \
          FROM oauth_sessions WHERE state = ?",
     )
     .bind(state)
@@ -175,6 +208,14 @@ fn session_from_row(row: &SqliteRow) -> Result<OAuthSession, APIError> {
     Ok(OAuthSession {
         state: read("state")?,
         code_verifier: read("code_verifier")?,
+        device_code: row
+            .try_get::<Option<String>, _>("device_code")
+            .map_err(|error| {
+                APIError::new(
+                    500,
+                    constants::database::column_unreadable("device_code", &error),
+                )
+            })?,
         client_id: read("client_id")?,
         redirect_uri: read("redirect_uri")?,
         created_at: row.try_get::<i64, _>("created_at").map_err(|error| {

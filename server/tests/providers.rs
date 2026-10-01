@@ -188,7 +188,7 @@ async fn catalog_groups_the_seeded_entries_by_category() {
 
     assert_eq!(response.status(), StatusCode::OK);
     let body = json_body(response).await;
-    assert_eq!(body["total"], 2);
+    assert_eq!(body["total"], 3);
     assert_eq!(body["categories"]["free_tier"][0]["id"], "opencode_zen");
     assert_eq!(
         body["categories"]["free_tier"][0]["enabled"],
@@ -223,7 +223,7 @@ async fn catalog_serves_the_seed_without_a_database() {
 
     assert_eq!(response.status(), StatusCode::OK);
     let body = json_body(response).await;
-    assert_eq!(body["total"], 2);
+    assert_eq!(body["total"], 3);
     assert_eq!(
         body["categories"]["free_tier"][0]["enabled"],
         serde_json::json!(true)

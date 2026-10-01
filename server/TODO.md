@@ -185,13 +185,19 @@ Everything below is still Node-only.
       (`apps/api/src/controllers/favorites.controller.ts`, web calls both — `favorites.ts`,
       `favorites` mutations today only work through the provider PATCH).
 - [ ] Catalog provenance: record an allowed independent source for every built-in provider entry
-      and model list before the driver set is extended (`docs/api-v1-contract.md` "Scope").
-      The `qoder` entry is recorded, and its models are no longer a list to record: they are read
-      from upstream, and `features/providers/qoder/types.rs` keeps only the alias table, which now
-      serves a request that arrives before the first fetch or under a name upstream has retired,
-      not the advertised name; `opencode_zen` still needs its own record.
+      and model list (`docs/api-v1-contract.md` "Scope"). The `qoder` entry is recorded, and its
+      models are read from upstream; `features/providers/qoder/types.rs` keeps only the alias table
+      for requests before the first fetch or under a retired name. `opencode_zen` still needs its
+      own record.
+- [x] Cline provider registered: WorkOS device-flow auth, lazy token refresh, OpenAI-compatible
+      chat, and a connection-gated live `/api/v1/models` catalog. No Cline model is seeded.
+- [x] Cline provenance: protocol details are sourced from the official Cline binary, official
+      documentation, credential-free live probes, `apps/api` oracle, web flow, and frozen API
+      contract. `features/providers/cline/types.rs` records the sources. The official client uses
+      `recommended-models` instead, a recorded catalog deviation in the Cline plan.
 - [ ] Model-registry warmup after the main listener starts (`warmModelRegistry` in Node). The live
-      `qoder` catalog is already warmed at boot (`server/src/main.rs`); a DB-driven provider is not.
+      `qoder` and Cline catalogs are already warmed at boot (`server/src/main.rs`); DB-backed catalogs
+      stay empty until their connection exists.
 - [ ] Registry lifecycle on write: Node refreshes the live registry after connection
       create/delete; Rust writes rows but never rebuilds `ProviderRegistry`. `qoder` needs no
       rebuild: the device-flow connection force-refreshes the catalog in place.
@@ -200,15 +206,17 @@ Everything below is still Node-only.
 
 ## 5. Provider auth (OAuth, device flows, token import) — `features/provider_auth/`
 
-Nothing exists in Rust. Source of truth for the route list: `docs/api-v1-contract.md`
+Qoder and Cline routes exist in Rust. Source of truth for the route list: `docs/api-v1-contract.md`
 "Retained route inventory" (rows 57-65) and `apps/api/src/routes/v1/auth.ts` (34 routes).
 
-- [ ] Privileged routes (admin session): `/v1/auth/cline/device` (GET), `/v1/auth/cline/poll`
-      (GET, POST), `/v1/auth/{openai,antigravity,claude}/login` (GET, supports
+- [x] Cline device flow: `/v1/auth/cline/device` (GET) and `/v1/auth/cline/poll` (GET, POST),
+      guarded by the admin session. `/v1/auth/cline/token` (contract row 58) remains deliberately
+      deferred; the OAuth-only scope is recorded in the Cline plan.
+- [ ] Remaining privileged routes: `/v1/auth/{openai,antigravity,claude}/login` (GET, supports
       `client_id`, `redirect_uri`, `prompt`, `format=json`), `/v1/auth/{codebuddy,codebuddy-cn}/login`
-      (GET) and `/poll` (GET, POST), and every `/token` route
-      (`cline, openai, antigravity, commandcode, anthropic, atria, claude, tokenrouter, codebuddy,
-codebuddy-cn, qoder`) → validated token import, `201`.
+      (GET) and `/poll` (GET, POST), and every other `/token` route
+      (`openai, antigravity, commandcode, anthropic, atria, claude, tokenrouter, codebuddy,
+      codebuddy-cn, qoder`) → validated token import, `201`.
 - [x] `qoder` privileged routes: `GET /v1/auth/qoder/login` (supports `client_id`, `redirect_uri`,
       `format=json`, otherwise redirects to the device URL) and `/v1/auth/qoder/poll` (GET, POST,
       `state` from query or JSON body) in `features/provider_auth/qoder.rs`, mounted behind
@@ -223,10 +231,11 @@ codebuddy-cn, qoder`) → validated token import, `201`.
       `/v1/auth/.../callback`; local mode uses the OAuth listener; user-supplied non-local callback
       URLs pass through unchanged (`apps/api/src/utils/callbackUrl.ts`).
 - [~] PKCE + state lifecycle: state creation, replay/expiry rejection, device-poll state read from
-  query or JSON body. Done for `qoder` (`infrastructure/database/oauth_sessions.rs`: save,
-  claim, release, delete, 15-minute sweep); the other providers still need it.
+  query or JSON body. Done for `qoder` and Cline (`infrastructure/database/oauth_sessions.rs`:
+  PKCE/device-code save, claim, release, delete, 15-minute sweep); other providers still need it.
 - [ ] Token refresh sweeper and scheduling (`apps/api/src/services/tokenRefresh.ts`), started only
-      after database/provider state is ready, stopped on shutdown.
+      after database/provider state is ready, stopped on shutdown. Cline's lazy per-request refresh
+      path landed in `features/providers/cline/executor.rs`; the sweeper remains open.
 - [ ] Env override `CLAUDE_OAUTH_CLIENT_ID`.
 - [ ] Fake-upstream tests only (`server/tests/provider_auth.rs`); never real provider credentials.
       Legacy evidence to read as oracle: `auth-providers.test.ts`, `token-refresh.test.ts`,

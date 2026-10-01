@@ -12,6 +12,7 @@ use crate::constants;
 use crate::error::APIError;
 use crate::features::gateway::model::ChatCompletionRequest;
 use crate::features::gateway::sse;
+use crate::features::providers::cline::ClineExecutor;
 use crate::features::providers::model::ModelDefinition;
 use crate::features::providers::opencode::OpenCodeExecutor;
 use crate::features::providers::qoder::QoderExecutor;
@@ -28,6 +29,7 @@ pub enum ProviderAdapter {
     OpenAI(OpenAIAdapter),
     OpenCode(OpenCodeExecutor),
     Qoder(QoderExecutor),
+    Cline(ClineExecutor),
 }
 
 pub type ProviderExecutor = ProviderAdapter;
@@ -39,6 +41,7 @@ impl ProviderAdapter {
             Self::OpenAI(adapter) => adapter.id(),
             Self::OpenCode(adapter) => adapter.id(),
             Self::Qoder(adapter) => adapter.id(),
+            Self::Cline(adapter) => adapter.id(),
         }
     }
 
@@ -48,6 +51,7 @@ impl ProviderAdapter {
             Self::OpenAI(adapter) => adapter.keys(),
             Self::OpenCode(adapter) => adapter.keys(),
             Self::Qoder(adapter) => adapter.keys(),
+            Self::Cline(adapter) => adapter.keys(),
         }
     }
 
@@ -57,6 +61,7 @@ impl ProviderAdapter {
             Self::OpenAI(adapter) => adapter.alias(),
             Self::OpenCode(adapter) => adapter.alias(),
             Self::Qoder(adapter) => adapter.alias(),
+            Self::Cline(adapter) => adapter.alias(),
         }
     }
 
@@ -68,6 +73,7 @@ impl ProviderAdapter {
             Self::OpenAI(adapter) => adapter.models(),
             Self::OpenCode(adapter) => adapter.models(),
             Self::Qoder(adapter) => adapter.models(),
+            Self::Cline(adapter) => adapter.models(),
         }
     }
 
@@ -77,16 +83,19 @@ impl ProviderAdapter {
     pub fn model_id_variants(&self, model: &str) -> Vec<String> {
         match self {
             Self::Qoder(adapter) => adapter.model_id_variants(model),
+            Self::Cline(adapter) => adapter.model_id_variants(model),
             _ => vec![model.trim().to_lowercase()],
         }
     }
 
     /// Asks the adapter to refresh a time-varying catalog. Adapters with a
-    /// fixed list do nothing. A Qoder caller whose catalog is still empty waits
-    /// for the fetch, because there is nothing else to serve.
+    /// fixed list do nothing. A caller whose catalog is still empty waits for
+    /// the fetch, because there is nothing else to serve.
     pub async fn maybe_refresh(&self, force: bool) {
-        if let Self::Qoder(adapter) = self {
-            adapter.maybe_refresh(force).await;
+        match self {
+            Self::Qoder(adapter) => adapter.maybe_refresh(force).await,
+            Self::Cline(adapter) => adapter.maybe_refresh(force).await,
+            _ => {}
         }
     }
 
@@ -101,6 +110,7 @@ impl ProviderAdapter {
             Self::OpenAI(adapter) => adapter.chat_completion(model, request).await,
             Self::OpenCode(adapter) => adapter.chat_completion(model, request).await,
             Self::Qoder(adapter) => adapter.chat_completion(model, request).await,
+            Self::Cline(adapter) => adapter.chat_completion(model, request).await,
         }
     }
 
@@ -116,6 +126,7 @@ impl ProviderAdapter {
             Self::OpenAI(adapter) => adapter.chat_completion_stream(model, request).await,
             Self::OpenCode(adapter) => adapter.chat_completion_stream(model, request).await,
             Self::Qoder(adapter) => adapter.chat_completion_stream(model, request).await,
+            Self::Cline(adapter) => adapter.chat_completion_stream(model, request).await,
         }
     }
 }

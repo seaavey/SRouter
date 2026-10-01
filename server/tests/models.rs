@@ -10,8 +10,9 @@ use srouter_server::app::create_router;
 use srouter_server::features::providers::{OPENCODE_ZEN_MODELS, ProviderRegistry};
 use srouter_server::infrastructure::database::catalog_flags::favorite_model_ids;
 use support::{
-    FAKE_QODER_ADVERTISED, FakeQoderUpstream, api_key_record, connect_qoder, qoder_catalog_body,
-    qoder_registry, security_state, with_loopback_client, with_remote_client,
+    FAKE_QODER_ADVERTISED, FakeClineUpstream, FakeQoderUpstream, api_key_record, connect_cline,
+    connect_qoder, qoder_catalog_body, qoder_registry, security_state, with_loopback_client,
+    with_remote_client,
 };
 use tower::ServiceExt;
 
@@ -32,6 +33,17 @@ fn app_with_database(database: srouter_server::AppDatabase) -> Router {
     )
     .with_database(database);
 
+    create_router(state)
+}
+
+/// App whose Cline adapter reads its catalog through the fake upstream.
+fn app_with_live_cline(database: srouter_server::AppDatabase, fake: &FakeClineUpstream) -> Router {
+    let state = srouter_server::AppState::with_security(
+        support::test_config(),
+        support::cline_registry(Some(database.clone()), fake),
+        SecurityState::unconfigured(),
+    )
+    .with_database(database);
     create_router(state)
 }
 
@@ -335,6 +347,40 @@ async fn hidden_flags_match_however_the_row_was_spelled() {
         "a row spelled in another case still hides exactly one model: {ids:?}"
     );
     assert!(ids.iter().all(|id| *id != "zen/big-pickle"), "{ids:?}");
+}
+
+#[tokio::test]
+async fn cline_models_are_live_only_and_keep_the_last_catalog_on_fetch_failure() {
+    let database = support::TestDatabase::new().unwrap();
+    let app_database = database.connect().await.unwrap();
+    let fake = FakeClineUpstream::start().await;
+    let app = app_with_live_cline(app_database, &fake);
+
+    let unconnected = catalog_ids(&app).await;
+    assert!(unconnected.iter().all(|id| !id.starts_with("cline/")));
+    assert_eq!(fake.model_list_requests(), 0);
+
+    connect_cline(&database).await;
+    let connected = catalog_ids(&app).await;
+    assert!(connected.contains(&"cline/anthropic/claude-sonnet-5.5".to_owned()));
+    assert!(connected.contains(&"cline/openai/gpt-5.2".to_owned()));
+    assert_eq!(fake.model_list_requests(), 1);
+
+    fake.with(|state| state.model_list_failure = true);
+    let response = app
+        .clone()
+        .oneshot(get_request("/v1/models?force=true"))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let after_failure = json_body(response).await["data"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|entry| entry["id"].as_str().unwrap().to_owned())
+        .collect::<Vec<_>>();
+    assert!(after_failure.contains(&"cline/anthropic/claude-sonnet-5.5".to_owned()));
+    assert_eq!(fake.model_list_requests(), 2);
 }
 
 #[tokio::test]

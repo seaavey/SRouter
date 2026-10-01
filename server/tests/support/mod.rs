@@ -21,13 +21,14 @@ use axum::{
 use futures_util::future::BoxFuture;
 use srouter_server::features::admin_auth::AdminSessionStore;
 use srouter_server::features::api_keys::{APIKeyRecord, APIKeyStore};
+use srouter_server::features::providers::cline::{self, ClineEndpoints};
 use srouter_server::features::providers::qoder::{self, QoderEndpoints};
 use srouter_server::features::providers::{ProviderRegistry, opencode};
 use srouter_server::infrastructure::database::AppDatabase;
 use srouter_server::infrastructure::database::admin_auth::SQLxAdminAuthStore;
 use srouter_server::infrastructure::database::api_keys::SQLxAPIKeyStore;
 use srouter_server::infrastructure::database::providers::{
-    QoderConnectionWrite, upsert_qoder_connection,
+    ClineConnectionWrite, QoderConnectionWrite, upsert_cline_connection, upsert_qoder_connection,
 };
 use srouter_server::{APIConfig, APIError, AppState, SecurityState};
 use tokio::net::TcpListener;
@@ -286,6 +287,396 @@ impl Drop for FakeQoderUpstream {
     }
 }
 
+/// State recorded by the Cline and WorkOS fake endpoints.
+#[derive(Debug)]
+pub struct FakeClineState {
+    pub authenticate_mode: String,
+    pub device_failure: bool,
+    pub register_failure: bool,
+    pub refresh_failure: bool,
+    pub chat_mode: String,
+    pub model_list_failure: bool,
+    pub device_requests: usize,
+    pub authenticate_requests: usize,
+    pub register_requests: usize,
+    pub refresh_requests: usize,
+    pub chat_requests: usize,
+    pub model_list_requests: usize,
+    pub recommended_requests: usize,
+    pub last_authorization: String,
+    pub last_client_type: String,
+    pub last_chat_body: serde_json::Value,
+    pub last_device_form: String,
+    pub last_authenticate_form: String,
+    pub model_catalog: serde_json::Value,
+    pub register_user_id: String,
+    pub register_email: String,
+    pub register_name: String,
+    pub device_base_url: String,
+}
+
+impl Default for FakeClineState {
+    fn default() -> Self {
+        Self {
+            authenticate_mode: "pending".to_owned(),
+            device_failure: false,
+            register_failure: false,
+            refresh_failure: false,
+            chat_mode: "default".to_owned(),
+            model_list_failure: false,
+            device_requests: 0,
+            authenticate_requests: 0,
+            register_requests: 0,
+            refresh_requests: 0,
+            chat_requests: 0,
+            model_list_requests: 0,
+            recommended_requests: 0,
+            last_authorization: String::new(),
+            last_client_type: String::new(),
+            last_chat_body: serde_json::Value::Null,
+            last_device_form: String::new(),
+            last_authenticate_form: String::new(),
+            model_catalog: serde_json::json!({
+                "object": "list",
+                "data": [
+                    { "id": "anthropic/claude-sonnet-5.5" },
+                    { "id": "openai/gpt-5.2" }
+                ]
+            }),
+            register_user_id: "user-1".to_owned(),
+            register_email: "dev@example.com".to_owned(),
+            register_name: "Dev".to_owned(),
+            device_base_url: String::new(),
+        }
+    }
+}
+
+type SharedClineState = Arc<StdMutex<FakeClineState>>;
+
+/// A local Cline API and WorkOS device-flow stand-in, aborted when dropped.
+pub struct FakeClineUpstream {
+    base_url: String,
+    state: SharedClineState,
+    task: JoinHandle<()>,
+}
+
+impl FakeClineUpstream {
+    pub async fn start() -> Self {
+        let state: SharedClineState = Arc::new(StdMutex::new(FakeClineState::default()));
+        let router = Router::new()
+            .route("/user_management/authorize/device", post(cline_device))
+            .route("/user_management/authenticate", post(cline_authenticate))
+            .route("/api/v1/auth/register", post(cline_register))
+            .route("/api/v1/auth/refresh", post(cline_refresh))
+            .route("/api/v1/chat/completions", post(cline_chat))
+            .route("/api/v1/models", get(cline_models))
+            .route(
+                "/api/v1/ai/cline/recommended-models",
+                get(cline_recommended_models),
+            )
+            .with_state(state.clone());
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind the fake Cline upstream");
+        let address = listener.local_addr().expect("fake Cline upstream address");
+        let base_url = format!("http://{address}");
+        state.lock().expect("fake Cline state").device_base_url = base_url.clone();
+        let task = tokio::spawn(async move {
+            let _ = axum::serve(listener, router).await;
+        });
+
+        Self {
+            base_url,
+            state,
+            task,
+        }
+    }
+
+    pub fn base_url(&self) -> &str {
+        &self.base_url
+    }
+
+    pub fn endpoints(&self) -> ClineEndpoints {
+        ClineEndpoints {
+            workos_device_url: format!("{}/user_management/authorize/device", self.base_url),
+            workos_authenticate_url: format!("{}/user_management/authenticate", self.base_url),
+            api_base_url: format!("{}/api/v1", self.base_url),
+        }
+    }
+
+    pub fn with<F, R>(&self, edit: F) -> R
+    where
+        F: FnOnce(&mut FakeClineState) -> R,
+    {
+        let mut state = self.state.lock().expect("fake Cline state");
+        edit(&mut state)
+    }
+
+    pub fn chat_requests(&self) -> usize {
+        self.with(|state| state.chat_requests)
+    }
+
+    pub fn model_list_requests(&self) -> usize {
+        self.with(|state| state.model_list_requests)
+    }
+}
+
+impl Drop for FakeClineUpstream {
+    fn drop(&mut self) {
+        self.task.abort();
+    }
+}
+
+async fn cline_device(State(state): State<SharedClineState>, body: String) -> Response {
+    let fail = {
+        let mut state = state.lock().expect("fake Cline state");
+        state.device_requests += 1;
+        state.last_device_form = body;
+        state.device_failure
+    };
+    if fail {
+        return (StatusCode::INTERNAL_SERVER_ERROR, "device unavailable").into_response();
+    }
+    let base_url = state
+        .lock()
+        .expect("fake Cline state")
+        .device_base_url
+        .clone();
+    Json(serde_json::json!({
+        "device_code": "dev-1",
+        "user_code": "ABCD-EFGH",
+        "verification_uri": format!("{base_url}/device"),
+        "verification_uri_complete": format!("{base_url}/device?user_code=ABCD-EFGH"),
+        "expires_in": 300,
+        "interval": 5
+    }))
+    .into_response()
+}
+
+async fn cline_authenticate(State(state): State<SharedClineState>, body: String) -> Response {
+    let mode = {
+        let mut state = state.lock().expect("fake Cline state");
+        state.authenticate_requests += 1;
+        state.last_authenticate_form = body;
+        state.authenticate_mode.clone()
+    };
+    match mode.as_str() {
+        "approved" => Json(serde_json::json!({
+            "access_token": "workos-access",
+            "refresh_token": "workos-refresh",
+            "token_type": "Bearer"
+        }))
+        .into_response(),
+        "denied" => (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "error": "access_denied",
+                "error_description": "access_denied"
+            })),
+        )
+            .into_response(),
+        _ => (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({ "error": "authorization_pending" })),
+        )
+            .into_response(),
+    }
+}
+
+async fn cline_register(
+    State(state): State<SharedClineState>,
+    Json(_payload): Json<serde_json::Value>,
+) -> Response {
+    let (fail, user_id, email, name) = {
+        let mut state = state.lock().expect("fake Cline state");
+        state.register_requests += 1;
+        (
+            state.register_failure,
+            state.register_user_id.clone(),
+            state.register_email.clone(),
+            state.register_name.clone(),
+        )
+    };
+    if fail {
+        return (StatusCode::INTERNAL_SERVER_ERROR, "register unavailable").into_response();
+    }
+    let mut envelope = cline_token_envelope();
+    envelope["data"]["userInfo"]["clineUserId"] = serde_json::Value::String(user_id);
+    envelope["data"]["userInfo"]["email"] = serde_json::Value::String(email);
+    envelope["data"]["userInfo"]["name"] = serde_json::Value::String(name);
+    Json(envelope).into_response()
+}
+
+async fn cline_refresh(
+    State(state): State<SharedClineState>,
+    Json(_payload): Json<serde_json::Value>,
+) -> Response {
+    let fail = {
+        let mut state = state.lock().expect("fake Cline state");
+        state.refresh_requests += 1;
+        state.refresh_failure
+    };
+    if fail {
+        return (StatusCode::INTERNAL_SERVER_ERROR, "refresh unavailable").into_response();
+    }
+    Json(cline_token_envelope()).into_response()
+}
+
+fn cline_token_envelope() -> serde_json::Value {
+    serde_json::json!({
+        "success": true,
+        "data": {
+            "accessToken": "cline-access",
+            "refreshToken": "cline-refresh",
+            "tokenType": "Bearer",
+            "expiresAt": "2026-12-31T00:00:00Z",
+            "userInfo": {
+                "clineUserId": "user-1",
+                "email": "dev@example.com",
+                "name": "Dev"
+            }
+        }
+    })
+}
+
+async fn cline_models(State(state): State<SharedClineState>) -> Response {
+    let (catalog, fail) = {
+        let mut state = state.lock().expect("fake Cline state");
+        state.model_list_requests += 1;
+        (state.model_catalog.clone(), state.model_list_failure)
+    };
+    if fail {
+        return (StatusCode::INTERNAL_SERVER_ERROR, "catalog unavailable").into_response();
+    }
+    Json(catalog).into_response()
+}
+
+async fn cline_recommended_models(State(state): State<SharedClineState>) -> Response {
+    state.lock().expect("fake Cline state").recommended_requests += 1;
+    Json(serde_json::json!({
+        "free": [
+            { "id": "cline-free/deepseek-v4.1-flash" },
+            { "id": "cline-free/mimo-v2.6-flash" }
+        ]
+    }))
+    .into_response()
+}
+
+async fn cline_chat(
+    State(state): State<SharedClineState>,
+    headers: HeaderMap,
+    Json(payload): Json<serde_json::Value>,
+) -> Response {
+    let mode = {
+        let mut state = state.lock().expect("fake Cline state");
+        state.chat_requests += 1;
+        state.last_authorization = header_text(&headers, "authorization");
+        state.last_client_type = header_text(&headers, "x-client-type");
+        state.last_chat_body = payload;
+        state.chat_mode.clone()
+    };
+
+    let chunks = match mode.as_str() {
+        "root_error" => vec![serde_json::json!({ "error": { "message": "boom" } })],
+        "failure_envelope" => vec![serde_json::json!({
+            "success": false,
+            "error": "denied"
+        })],
+        "choice_error" => vec![serde_json::json!({
+            "choices": [{
+                "index": 0,
+                "delta": {},
+                "finish_reason": "error",
+                "error": { "message": "boom" }
+            }]
+        })],
+        "aggregate" => vec![
+            serde_json::json!({
+                "id": "chatcmpl-cline",
+                "object": "chat.completion.chunk",
+                "created": 1,
+                "model": "anthropic/claude-sonnet-5.5",
+                "choices": [{ "index": 0, "delta": { "reasoning": "think " } }]
+            }),
+            serde_json::json!({
+                "id": "chatcmpl-cline",
+                "object": "chat.completion.chunk",
+                "created": 1,
+                "model": "anthropic/claude-sonnet-5.5",
+                "choices": [{
+                    "index": 0,
+                    "delta": { "content": "answer", "tool_calls": [{
+                        "index": 0,
+                        "id": "call-1",
+                        "type": "function",
+                        "function": { "name": "lookup", "arguments": "{\"q\":" }
+                    }] }
+                }]
+            }),
+            serde_json::json!({
+                "id": "chatcmpl-cline",
+                "object": "chat.completion.chunk",
+                "created": 1,
+                "model": "anthropic/claude-sonnet-5.5",
+                "choices": [{ "index": 0, "delta": { "tool_calls": [{
+                    "index": 0,
+                    "function": { "arguments": "\"weather\"}" }
+                }] } }],
+                "usage": { "prompt_tokens": 8, "completion_tokens": 9, "total_tokens": 17, "cost": 0.25 }
+            }),
+            serde_json::json!({
+                "choices": [{ "index": 0, "delta": {}, "finish_reason": "tool_calls" }]
+            }),
+        ],
+        _ => vec![
+            serde_json::json!({
+                "id": "chatcmpl-cline",
+                "object": "chat.completion.chunk",
+                "created": 1,
+                "model": "anthropic/claude-sonnet-5.5",
+                "choices": [{ "index": 0, "delta": { "content": "Hello" } }]
+            }),
+            serde_json::json!({
+                "id": "chatcmpl-cline",
+                "object": "chat.completion.chunk",
+                "created": 1,
+                "model": "anthropic/claude-sonnet-5.5",
+                "choices": [{ "index": 0, "delta": { "content": " world" } }]
+            }),
+            serde_json::json!({
+                "id": "chatcmpl-cline",
+                "object": "chat.completion.chunk",
+                "created": 1,
+                "model": "anthropic/claude-sonnet-5.5",
+                "choices": [{ "index": 0, "delta": {}, "finish_reason": "stop" }],
+                "usage": { "prompt_tokens": 5, "completion_tokens": 7, "total_tokens": 12 }
+            }),
+        ],
+    };
+    let mut sse = String::new();
+    for chunk in chunks {
+        sse.push_str("data: ");
+        sse.push_str(&chunk.to_string());
+        sse.push_str("\n\n");
+    }
+    sse.push_str("data: [DONE]\n\n");
+    let body = if mode == "fragmented" {
+        let pieces: Vec<Result<Bytes, std::io::Error>> = sse
+            .as_bytes()
+            .chunks(19)
+            .map(|piece| Ok(Bytes::copy_from_slice(piece)))
+            .collect();
+        Body::from_stream(futures_util::stream::iter(pieces))
+    } else {
+        Body::from(sse)
+    };
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, "text/event-stream")
+        .body(body)
+        .expect("fake Cline stream")
+}
+
 /// Wraps one OpenAI chunk the way the real gateway sends it: an envelope whose
 /// `body` is a stringified chunk.
 fn qoder_envelope(chunk: &serde_json::Value) -> String {
@@ -478,6 +869,44 @@ pub fn qoder_state(
 ) -> AppState {
     let providers = qoder_registry(Some(database.clone()), fake);
 
+    AppState::with_security(test_config(), providers, security).with_database(database)
+}
+
+/// Stores the fake Cline connection used by catalog and inference fixtures.
+pub async fn connect_cline(database: &TestDatabase) {
+    let app_database = database.connect().await.expect("temporary database");
+    upsert_cline_connection(
+        &app_database,
+        &ClineConnectionWrite {
+            id: "user-1".to_owned(),
+            name: "Dev".to_owned(),
+            access_token: "workos:cline-access".to_owned(),
+            refresh_token: Some("cline-refresh".to_owned()),
+            token_expires_at: Some(srouter_server::clock::now_ms() + 86_400_000),
+            email: "dev@example.com".to_owned(),
+        },
+    )
+    .await
+    .expect("Cline connection stored");
+}
+
+/// A registry whose Cline adapter and WorkOS device flow share fake endpoints.
+pub fn cline_registry(database: Option<AppDatabase>, fake: &FakeClineUpstream) -> ProviderRegistry {
+    let mut providers = ProviderRegistry::new();
+    providers.register(opencode::adapter().expect("opencode_zen adapter"));
+    providers.register(
+        cline::adapter_with_endpoints(fake.endpoints(), database).expect("cline adapter"),
+    );
+    providers
+}
+
+/// Application state wired to the fake Cline API and the given database.
+pub fn cline_state(
+    database: AppDatabase,
+    security: SecurityState,
+    fake: &FakeClineUpstream,
+) -> AppState {
+    let providers = cline_registry(Some(database.clone()), fake);
     AppState::with_security(test_config(), providers, security).with_database(database)
 }
 

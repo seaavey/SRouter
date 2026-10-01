@@ -5,6 +5,8 @@ use std::collections::{HashMap, HashSet};
 
 use crate::error::APIError;
 use crate::features::providers::adapter::ProviderAdapter;
+use crate::features::providers::cline;
+use crate::features::providers::cline::types::ClineEndpoints;
 use crate::features::providers::model::ModelObject;
 use crate::features::providers::opencode;
 use crate::features::providers::qoder;
@@ -54,18 +56,19 @@ impl ProviderRegistry {
 
     /// Builds the registry with the built-in providers registered and no
     /// database handle, which is the shape a test or a database-less boot uses.
-    /// A Qoder adapter without a database can never read credentials, so it
-    /// advertises no model at all.
+    /// A Qoder or Cline adapter without a database can never read credentials,
+    /// so it advertises no model at all.
     pub fn with_defaults() -> Result<Self, APIError> {
         Self::with_database(None)
     }
 
     /// Builds the registry with the built-in providers registered. The Qoder
-    /// adapter keeps the database so it can read its own credentials per request.
+    /// and Cline adapters keep the database to read their own credentials.
     pub fn with_database(database: Option<AppDatabase>) -> Result<Self, APIError> {
         let mut registry = Self::new();
         registry.register(opencode::adapter()?);
-        registry.register(qoder::adapter(database)?);
+        registry.register(qoder::adapter(database.clone())?);
+        registry.register(cline::adapter(database)?);
 
         Ok(registry)
     }
@@ -75,6 +78,15 @@ impl ProviderRegistry {
     pub fn qoder_endpoints(&self) -> Option<QoderEndpoints> {
         self.adapters.values().find_map(|adapter| match adapter {
             ProviderAdapter::Qoder(executor) => Some(executor.endpoints().clone()),
+            _ => None,
+        })
+    }
+
+    /// The Cline endpoints in use, so the device-flow routes can talk to the
+    /// same base the executor does.
+    pub fn cline_endpoints(&self) -> Option<ClineEndpoints> {
+        self.adapters.values().find_map(|adapter| match adapter {
+            ProviderAdapter::Cline(executor) => Some(executor.endpoints().clone()),
             _ => None,
         })
     }
@@ -190,6 +202,9 @@ mod tests {
     use std::collections::HashSet;
 
     use super::ProviderRegistry;
+    use crate::features::providers::adapter::ProviderAdapter;
+    use crate::features::providers::cline;
+    use crate::features::providers::cline::catalog::write_catalog;
     use crate::features::providers::opencode;
 
     fn registry_with_opencode() -> ProviderRegistry {
@@ -338,5 +353,47 @@ mod tests {
             vec![String::from("qd/qfmodel")],
             "a name upstream has not confirmed cannot be paired with one"
         );
+    }
+
+    #[test]
+    fn resolves_a_cline_model_id_with_its_inner_slash() {
+        let registry = ProviderRegistry::with_defaults().expect("default registry");
+
+        let resolved = registry
+            .resolve("cline/anthropic/claude-sonnet-5.5")
+            .expect("cline prefix must resolve");
+
+        assert_eq!(resolved.model, "anthropic/claude-sonnet-5.5");
+        assert_eq!(resolved.adapter.id(), "cline");
+    }
+
+    #[test]
+    fn an_unprefixed_model_id_does_not_reach_the_cline_prefix_path() {
+        let registry = ProviderRegistry::with_defaults().expect("default registry");
+
+        assert!(
+            registry.resolve("anthropic/claude-sonnet-5.5").is_none(),
+            "the cline route only exists behind the cline prefix"
+        );
+    }
+
+    #[test]
+    fn list_models_emits_cline_ids_under_the_cline_prefix() {
+        let adapter = cline::adapter(None).expect("cline adapter builds");
+        let executor = match adapter {
+            ProviderAdapter::Cline(executor) => executor,
+            other => panic!("expected the cline executor, got {}", other.id()),
+        };
+        write_catalog(&executor.catalog)
+            .models
+            .push(String::from("anthropic/claude-sonnet-5.5"));
+
+        let mut registry = ProviderRegistry::new();
+        registry.register(ProviderAdapter::Cline(executor));
+        let models = registry.list_models();
+
+        assert_eq!(models.len(), 1);
+        assert_eq!(models[0].id, "cline/anthropic/claude-sonnet-5.5");
+        assert_eq!(models[0].owned_by, "cline");
     }
 }

@@ -366,6 +366,54 @@ pub mod providers {
             format!("Qoder device token poll failed: {error}")
         }
     }
+
+    /// Messages of the `cline` provider: the WorkOS device flow, the credential
+    /// load, and the lazy refresh. Every string a client can see lives here.
+    pub mod cline {
+        pub const MISSING_STATE: &str = "Missing state parameter";
+        pub const SESSION_EXPIRED: &str = "Session expired or not found";
+        pub const EMPTY_TOKEN: &str = "Cline token registration returned an empty access token";
+        pub const INVALID_WORKOS_TOKEN_RESPONSE: &str = "Invalid WorkOS token response";
+        pub const NOT_CONNECTED: &str =
+            "No active Cline connection found. Connect the Cline account in the Providers tab.";
+        pub const TOKEN_EXPIRED: &str = "The Cline token has expired; reconnect the Cline account.";
+        pub const OUT_OF_CREDITS: &str =
+            "The Cline account is out of credits; top it up at app.cline.bot.";
+        pub const DATABASE_REQUIRED: &str =
+            "no database is configured; the Cline connection cannot be read";
+
+        pub fn device_auth_failed(status: u16) -> String {
+            format!("Cline device authorization failed ({status})")
+        }
+
+        pub fn device_auth_transport_failed(error: impl std::fmt::Display) -> String {
+            format!("Cline device authorization failed: {error}")
+        }
+
+        pub fn poll_failed(status: u16) -> String {
+            format!("Cline device token poll failed ({status})")
+        }
+
+        pub fn poll_transport_failed(error: impl std::fmt::Display) -> String {
+            format!("Cline device token poll failed: {error}")
+        }
+
+        pub fn register_failed(status: u16) -> String {
+            format!("Cline token registration failed ({status})")
+        }
+
+        pub fn register_transport_failed(error: impl std::fmt::Display) -> String {
+            format!("Cline token registration failed: {error}")
+        }
+
+        pub fn refresh_failed(status: u16) -> String {
+            format!("Cline token refresh failed ({status})")
+        }
+
+        pub fn refresh_transport_failed(error: impl std::fmt::Display) -> String {
+            format!("Cline token refresh failed: {error}")
+        }
+    }
 }
 
 /// `/v1/settings`.

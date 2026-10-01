@@ -15,14 +15,22 @@ use srouter_server::features::admin_auth::hash_session_token;
 use srouter_server::infrastructure::database::oauth_sessions::{
     SESSION_TTL_MS, claim_session, delete_session, release_session, save_session,
 };
-use srouter_server::infrastructure::database::providers::load_qoder_credentials;
+use srouter_server::infrastructure::database::providers::{
+    load_cline_credentials, load_qoder_credentials,
+};
 use support::{
-    FakeQoderUpstream, TestDatabase, json_request_with_headers, qoder_state, sqlx_security_state,
-    with_loopback_client,
+    FakeClineUpstream, FakeQoderUpstream, TestDatabase, cline_state, json_request_with_headers,
+    qoder_state, sqlx_security_state, with_loopback_client,
 };
 use tower::ServiceExt;
 
 const SESSION_TOKEN: &str = "test-session-token";
+
+async fn cline_app(database: &TestDatabase, fake: &FakeClineUpstream) -> Router {
+    let security = sqlx_security_state(database, vec![hash_session_token(SESSION_TOKEN)]).await;
+    let app_database = database.connect().await.expect("temporary database");
+    create_router(cline_state(app_database, security, fake))
+}
 
 async fn app(database: &TestDatabase, fake: &FakeQoderUpstream) -> Router {
     let security = sqlx_security_state(database, vec![hash_session_token(SESSION_TOKEN)]).await;
@@ -379,4 +387,204 @@ async fn the_callback_rejects_a_body_without_code_or_state() {
         json_body(response).await["error"]["message"],
         "Missing required 'code' or 'state' parameters in OAuth callback"
     );
+}
+
+#[tokio::test]
+async fn cline_device_and_poll_connect_a_workos_device_account() {
+    let database = TestDatabase::new().unwrap();
+    let fake = FakeClineUpstream::start().await;
+    fake.with(|state| state.authenticate_mode = "approved".to_owned());
+    let app = cline_app(&database, &fake).await;
+    let device_response = app
+        .clone()
+        .oneshot(admin_get("/v1/auth/cline/device"))
+        .await
+        .unwrap();
+    assert_eq!(device_response.status(), StatusCode::OK);
+    let device = json_body(device_response).await;
+    assert_eq!(
+        device["authorizeUrl"],
+        format!("{}/device?user_code=ABCD-EFGH", fake.base_url())
+    );
+    assert_eq!(device["userCode"], "ABCD-EFGH");
+    assert_eq!(device["expiresIn"], 300);
+    assert_eq!(device["interval"], 5);
+    let state = device["state"].as_str().expect("device state").to_owned();
+    assert_eq!(
+        fake.with(|fake| fake.last_device_form.clone()),
+        "client_id=client_01K3A541FN8TA3EPPHTD2325AR"
+    );
+
+    let poll_response = app
+        .clone()
+        .oneshot(admin_get(&format!("/v1/auth/cline/poll?state={state}")))
+        .await
+        .unwrap();
+    assert_eq!(poll_response.status(), StatusCode::OK);
+    let connected = json_body(poll_response).await;
+    assert_eq!(connected["status"], "ok");
+    assert_eq!(connected["provider"]["id"], "user-1");
+    assert_eq!(connected["provider"]["provider_id"], "cline");
+    assert_eq!(connected["provider"]["name"], "Dev");
+    assert_eq!(connected["provider"]["category"], "oauth");
+    assert_eq!(connected["provider"]["protocol"], "openai");
+    assert_eq!(
+        fake.with(|fake| fake.last_authenticate_form.clone()),
+        "grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Adevice_code&device_code=dev-1&client_id=client_01K3A541FN8TA3EPPHTD2325AR"
+    );
+    let db = database.connect().await.expect("temporary database");
+    let credentials = load_cline_credentials(&db)
+        .await
+        .expect("credentials read")
+        .expect("Cline connection stored");
+    assert_eq!(credentials.access_token, "workos:cline-access");
+    assert_eq!(credentials.refresh_token.as_deref(), Some("cline-refresh"));
+    let raw = sqlx::query_scalar::<_, String>("SELECT credentials FROM providers WHERE id = ?")
+        .bind("user-1")
+        .fetch_one(db.sqlite_pool().expect("sqlite pool"))
+        .await
+        .expect("credentials JSON");
+    let value: serde_json::Value = serde_json::from_str(&raw).expect("credentials JSON parses");
+    assert_eq!(
+        value["provider_specific_data"]["authMethod"],
+        "workos-device"
+    );
+}
+
+#[tokio::test]
+async fn cline_poll_handles_pending_denied_unknown_and_missing_state() {
+    let database = TestDatabase::new().unwrap();
+    let fake = FakeClineUpstream::start().await;
+    let app = cline_app(&database, &fake).await;
+
+    let device = json_body(
+        app.clone()
+            .oneshot(admin_get("/v1/auth/cline/device"))
+            .await
+            .unwrap(),
+    )
+    .await;
+    let state = device["state"].as_str().expect("device state");
+    let pending = json_body(
+        app.clone()
+            .oneshot(admin_get(&format!("/v1/auth/cline/poll?state={state}")))
+            .await
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(pending["status"], "pending");
+    assert!(pending.get("error").is_none());
+
+    let post = with_loopback_client(
+        Request::builder()
+            .method("POST")
+            .uri("/v1/auth/cline/poll")
+            .header("cookie", format!("srouter_admin_session={SESSION_TOKEN}"))
+            .header("content-type", "application/json")
+            .body(Body::from(
+                serde_json::json!({ "state": state }).to_string(),
+            ))
+            .unwrap(),
+    );
+    let post_pending = json_body(app.clone().oneshot(post).await.unwrap()).await;
+    assert_eq!(post_pending["status"], "pending");
+
+    fake.with(|fake| fake.authenticate_mode = "denied".to_owned());
+
+    let fallback_database = TestDatabase::new().unwrap();
+    let fallback_fake = FakeClineUpstream::start().await;
+    fallback_fake.with(|fake| {
+        fake.authenticate_mode = "approved".to_owned();
+        fake.register_user_id.clear();
+        fake.register_name.clear();
+        fake.register_email.clear();
+    });
+    let fallback_app = cline_app(&fallback_database, &fallback_fake).await;
+    let fallback_device = json_body(
+        fallback_app
+            .clone()
+            .oneshot(admin_get("/v1/auth/cline/device"))
+            .await
+            .unwrap(),
+    )
+    .await;
+    let fallback_state = fallback_device["state"].as_str().expect("device state");
+    let fallback_connected = json_body(
+        fallback_app
+            .oneshot(admin_get(&format!(
+                "/v1/auth/cline/poll?state={fallback_state}"
+            )))
+            .await
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(fallback_connected["status"], "ok");
+    assert!(
+        fallback_connected["provider"]["id"]
+            .as_str()
+            .unwrap()
+            .starts_with("cline_")
+    );
+    assert!(
+        fallback_connected["provider"]["name"]
+            .as_str()
+            .unwrap()
+            .starts_with("Cline (Account #")
+    );
+
+    fake.with(|fake| fake.authenticate_mode = "denied".to_owned());
+    let denied = json_body(
+        app.clone()
+            .oneshot(admin_get(&format!("/v1/auth/cline/poll?state={state}")))
+            .await
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(denied["status"], "pending");
+    assert_eq!(denied["error"], "access_denied");
+
+    let unknown = json_body(
+        app.clone()
+            .oneshot(admin_get("/v1/auth/cline/poll?state=unknown"))
+            .await
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(unknown["status"], "pending");
+    assert_eq!(unknown["error"], "Session expired or not found");
+
+    let missing = app
+        .clone()
+        .oneshot(admin_get("/v1/auth/cline/poll"))
+        .await
+        .unwrap();
+    assert_eq!(missing.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(
+        json_body(missing).await["error"]["message"],
+        "Missing state parameter"
+    );
+}
+
+#[tokio::test]
+async fn cline_device_and_poll_require_an_admin_session() {
+    let database = TestDatabase::new().unwrap();
+    let fake = FakeClineUpstream::start().await;
+    let app = cline_app(&database, &fake).await;
+    for uri in [
+        "/v1/auth/cline/device",
+        "/v1/auth/cline/poll?state=anything",
+    ] {
+        let response = app
+            .clone()
+            .oneshot(with_loopback_client(
+                Request::builder()
+                    .method("GET")
+                    .uri(uri)
+                    .body(Body::empty())
+                    .unwrap(),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED, "{uri}");
+    }
 }
