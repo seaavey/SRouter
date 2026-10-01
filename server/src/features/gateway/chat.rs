@@ -1,5 +1,4 @@
 use std::convert::Infallible;
-use std::pin::Pin;
 
 use axum::{
     Json,
@@ -23,6 +22,7 @@ use crate::features::gateway::model::{
 };
 use crate::features::gateway::sse;
 use crate::features::gateway::usage::{UsageBreakdown, normalize_response_usage};
+use crate::features::gateway::{AssembledToolCall, ReceiverStream};
 use crate::http::middleware::client_address::client_address;
 use crate::infrastructure::database::request_logs::{
     RequestLogInput, generate_log_id, insert_request_log,
@@ -297,26 +297,6 @@ fn invalid_json_empty() -> APIError {
 
 fn unregistered_model(model: &str) -> APIError {
     APIError::new(404, constants::gateway::model_not_registered(model))
-}
-
-struct ReceiverStream<T>(tokio::sync::mpsc::Receiver<T>);
-
-impl<T> Stream for ReceiverStream<T> {
-    type Item = T;
-
-    fn poll_next(
-        mut self: Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Option<Self::Item>> {
-        self.0.poll_recv(cx)
-    }
-}
-
-#[derive(Clone, Debug, Default)]
-struct AssembledToolCall {
-    id: String,
-    name: String,
-    arguments: String,
 }
 
 /// Runs the streaming completion with server-side tool interception support.

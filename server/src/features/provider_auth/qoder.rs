@@ -18,7 +18,9 @@ use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use serde::Serialize;
 use serde_json::Value;
 
-use super::{query_params, state_from_body, text_field};
+use super::{
+    ConnectedProvider, PollFailure, PollResponse, query_params, state_from_body, text_field,
+};
 use crate::clock::now_ms;
 use crate::constants;
 use crate::error::APIError;
@@ -61,50 +63,11 @@ struct LoginResponse {
     redirect_uri: String,
 }
 
-/// The connected provider, echoed back so the client can show what was stored.
-#[derive(Serialize)]
-struct ConnectedProvider {
-    id: String,
-    provider_id: String,
-    name: String,
-    category: String,
-    protocol: String,
-    enabled: bool,
-    created_at: i64,
-}
-
-#[derive(Serialize)]
-struct PollResponse {
-    status: &'static str,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    error: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    provider: Option<ConnectedProvider>,
-}
-
 #[derive(Serialize)]
 struct CallbackResponse {
     success: bool,
     message: &'static str,
     provider: ConnectedProvider,
-}
-
-impl PollResponse {
-    fn pending(error: Option<String>) -> Self {
-        Self {
-            status: "pending",
-            error,
-            provider: None,
-        }
-    }
-
-    fn ok(provider: ConnectedProvider) -> Self {
-        Self {
-            status: "ok",
-            error: None,
-            provider: Some(provider),
-        }
-    }
 }
 
 /// Starts a login: a session row plus the URL the browser opens.
@@ -225,16 +188,6 @@ async fn callback(
         message: "Login Qoder Berhasil!",
         provider,
     }))
-}
-
-/// Why one exchange attempt did not produce a connection.
-enum PollFailure {
-    /// The browser has not approved yet; the caller releases the claim.
-    Pending,
-    /// The upstream answered with something the client should see.
-    Message(String),
-    /// A failure the route turns into an error response.
-    Fatal(APIError),
 }
 
 /// Runs the exchange: poll the device token, resolve the identity, store it.

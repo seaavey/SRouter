@@ -17,7 +17,9 @@ use axum::{Json, Router};
 use serde::Serialize;
 use serde_json::{Value, json};
 
-use super::{query_params, state_from_body, text_field};
+use super::{
+    ConnectedProvider, PollFailure, PollResponse, query_params, state_from_body, text_field,
+};
 use crate::clock::now_ms;
 use crate::constants;
 use crate::error::APIError;
@@ -58,45 +60,6 @@ struct DeviceResponse {
     #[serde(rename = "expiresIn")]
     expires_in: i64,
     interval: i64,
-}
-
-/// The connected provider, echoed back so the client can show what was stored.
-#[derive(Serialize)]
-struct ConnectedProvider {
-    id: String,
-    provider_id: String,
-    name: String,
-    category: String,
-    protocol: String,
-    enabled: bool,
-    created_at: i64,
-}
-
-#[derive(Serialize)]
-struct PollResponse {
-    status: &'static str,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    error: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    provider: Option<ConnectedProvider>,
-}
-
-impl PollResponse {
-    fn pending(error: Option<String>) -> Self {
-        Self {
-            status: "pending",
-            error,
-            provider: None,
-        }
-    }
-
-    fn ok(provider: ConnectedProvider) -> Self {
-        Self {
-            status: "ok",
-            error: None,
-            provider: Some(provider),
-        }
-    }
 }
 
 /// Starts a device authorization: one WorkOS call plus the session row the poll
@@ -207,16 +170,6 @@ async fn poll(
             Err(error)
         }
     }
-}
-
-/// Why one poll round trip did not produce a connection.
-enum PollFailure {
-    /// The browser has not approved yet; the caller releases the claim.
-    Pending,
-    /// The upstream answered with something the client should see.
-    Message(String),
-    /// A failure the route turns into an error response.
-    Fatal(APIError),
 }
 
 /// Runs one exchange: authenticate the device code, register with Cline, store

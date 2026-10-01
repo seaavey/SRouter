@@ -5,7 +5,6 @@
 //! Anthropic SSE events or JSON responses.
 
 use std::convert::Infallible;
-use std::pin::Pin;
 
 use axum::{
     Json,
@@ -14,7 +13,7 @@ use axum::{
     http::{StatusCode, Version, header},
     response::{IntoResponse, Response},
 };
-use futures_util::{Stream, StreamExt};
+use futures_util::StreamExt;
 use serde_json::Value;
 
 use crate::constants;
@@ -32,6 +31,7 @@ use crate::features::gateway::model::{
     ToolCallKind,
 };
 use crate::features::gateway::usage::{UsageBreakdown, normalize_response_usage};
+use crate::features::gateway::{AssembledToolCall, ReceiverStream};
 use crate::http::middleware::client_address::client_address;
 use crate::infrastructure::database::request_logs::{
     RequestLogInput, generate_log_id, insert_request_log,
@@ -370,26 +370,6 @@ async fn read_json_body(request: Request) -> Result<Value, Box<Response>> {
 
     serde_json::from_str(text)
         .map_err(|_| Box::new(anthropic_error(400, constants::json::MALFORMED_VERIFY)))
-}
-
-struct ReceiverStream<T>(tokio::sync::mpsc::Receiver<T>);
-
-impl<T> Stream for ReceiverStream<T> {
-    type Item = T;
-
-    fn poll_next(
-        mut self: Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Option<Self::Item>> {
-        self.0.poll_recv(cx)
-    }
-}
-
-#[derive(Clone, Debug, Default)]
-struct AssembledToolCall {
-    id: String,
-    name: String,
-    arguments: String,
 }
 
 async fn run_anthropic_streaming_interception_loop(
