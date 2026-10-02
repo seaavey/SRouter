@@ -16,7 +16,7 @@ pub mod sse;
 pub mod token_saver;
 pub mod usage;
 
-pub use routes::create_gateway_router;
+pub use routes::{create_gateway_router, create_models_router};
 
 #[derive(Clone)]
 pub(crate) struct RequestLogContext {

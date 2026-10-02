@@ -141,13 +141,34 @@ Status legend: `[x]` done and covered by a Rust test, `[ ]` missing, `[~]` parti
 - [x] `/v1/keys` CRUD + credit (`features/api_keys/`), admin-session guard, API-key auth middleware,
       rate limiter, model allowlist filtering on catalog/gateway (`server/tests/api_keys.rs`,
       `api_key_auth.rs`, `model_access.rs`, `rate_limit.rs`).
-- [ ] Verify the remaining Node semantics case by case against
-      `apps/api/tests/api-keys-quota-credit.test.ts`, `api-keys-usage-deduction.test.ts`,
-      `api-keys-credit-route.test.ts`, `api-keys-credit-db.test.ts`:
-      disabled key → `401`; exhausted credit → `402`; exhausted token quota → `429`; missing key on
-      non-loopback → `401`; `rate_limit = 0` → unlimited; `429` carries
-      `code=rate_limit_exceeded` and `Retry-After`.
-      Record per-case results; open a Rust test for every case not yet covered.
+- [x] Case-by-case verification against the four Node files (2026-10-02): all six cases hold in
+      Rust. disabled key → `401` (`a_disabled_key_returns_api_key_disabled` covers requirement off
+      and loopback; `a_disabled_key_returns_api_key_disabled_when_the_requirement_is_on`, added
+      here, covers the enforced branch); exhausted credit → `402`
+      (`exhausted_credit_returns_402_insufficient_credit`, `credit_is_checked_before_quota`);
+      exhausted token quota → `429` (`exhausted_quota_returns_429_quota_exceeded`); missing key on
+      non-loopback → `401` (`remote_requests_need_a_key_even_when_the_requirement_is_off`);
+      `rate_limit = 0` → unlimited (`an_unlimited_key_is_never_rate_limited`); `429` carries
+      `code=rate_limit_exceeded` + `Retry-After` in 1..=60
+      (`requests_beyond_the_key_limit_return_429_with_retry_after`). Every rejection message is
+      byte-equal to Node (`ApiKeyAuth.ts`, `RateLimit.ts`, both singular/plural rate-limit forms),
+      compared programmatically. File mapping: quota-credit T1/T2/T3 → the credit, quota, and
+      added `usage_below_both_limits_passes` tests; credit-route + credit-db create/top-up/
+      non-positive cases → bullet 1 (`api_keys.rs`); usage-deduction (write-back) → the next
+      bullet, still open.
+      Case-1 nuance (Node oracle): `getAPIKeyByKeyDB` selects `enabled = 1` only, so Node's
+      gateway answers `401 invalid_api_key` for a disabled key when auth is required and passes
+      the request when it is not; its `api_key_disabled` branch (`ApiKeyAuth.ts:73-78`) never
+      runs. Rust reads disabled rows itself and always answers `401 api_key_disabled`, matching
+      the contract line "A disabled key returns `401`" in every context. Owner ruling
+      2026-10-02: keep the Rust behavior; the note is recorded in `docs/api-v1-contract.md`
+      under "Authentication, CSRF, rate limits, and request size".
+      Scope finding beyond the six (fixed): Node runs `EnforceRateLimit` on chat/messages/images
+      only, while Rust rate-limited the whole gateway including `GET /v1/models`, whose contract
+      row lists API-key auth only. Owner ruling 2026-10-02: the catalog is not rate limited.
+      `create_models_router()` now carries only the API-key guard, pinned by
+      `the_model_catalog_is_not_rate_limited` (red on the old wiring, green on the new), and the
+      contract's rate-limit bullet records the scope.
 - [ ] Reserved `max_tokens` budget for API-key requests (default `4096`) and usage/cost write-back
       on request completion — confirm parity with `apps/api/src/logic/quota.logic.ts` behavior via
       black-box comparison, and add the missing assertions to `server/tests/chat_completions.rs`.

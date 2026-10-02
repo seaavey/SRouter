@@ -117,6 +117,50 @@ async fn an_unlimited_key_is_never_rate_limited() {
 }
 
 #[tokio::test]
+async fn the_model_catalog_is_not_rate_limited() {
+    // Node applies only `ApiKeyAuth` to the catalog and never the limiter
+    // (`apps/api/src/routes/v1/models.ts`), and the contract row for
+    // `GET /v1/models` lists API-key auth only. With `rate_limit = 1`, three
+    // catalog fetches must all pass and must not consume the chat window.
+    let app = test_app(security_state(false, keyed(1), vec![]));
+
+    for _ in 0..3 {
+        let response = app
+            .clone()
+            .oneshot(with_remote_client(
+                json_request_with_headers(
+                    "GET",
+                    "/v1/models",
+                    serde_json::Value::Null,
+                    &[("x-api-key", KEY)],
+                ),
+                REMOTE,
+            ))
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    // The same key still shares one window on the chat route: the first
+    // request starts a fresh window (the catalog fetches never counted), and
+    // the second exceeds `rate_limit = 1`.
+    let first = app
+        .clone()
+        .oneshot(with_remote_client(keyed_request(CHAT), REMOTE))
+        .await
+        .unwrap();
+    assert_eq!(first.status(), StatusCode::NOT_FOUND);
+
+    let blocked = app
+        .clone()
+        .oneshot(with_remote_client(keyed_request(CHAT), REMOTE))
+        .await
+        .unwrap();
+    assert_eq!(blocked.status(), StatusCode::TOO_MANY_REQUESTS);
+}
+
+#[tokio::test]
 async fn admin_session_and_anonymous_requests_are_not_rate_limited() {
     let anonymous = test_app(security_state(false, vec![], vec![]));
     for _ in 0..5 {

@@ -380,7 +380,18 @@ async fn cline_models_are_live_only_and_keep_the_last_catalog_on_fetch_failure()
         .map(|entry| entry["id"].as_str().unwrap().to_owned())
         .collect::<Vec<_>>();
     assert!(after_failure.contains(&"cline/anthropic/claude-sonnet-5.5".to_owned()));
-    assert_eq!(fake.model_list_requests(), 2);
+    // The forced refresh is spawned in the background (`maybe_refresh` does not
+    // await it when the catalog already serves something), so poll for the
+    // upstream request instead of racing the spawn.
+    let mut requests = fake.model_list_requests();
+    for _ in 0..100 {
+        if requests >= 2 {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        requests = fake.model_list_requests();
+    }
+    assert_eq!(requests, 2);
 }
 
 #[tokio::test]

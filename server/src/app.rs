@@ -4,7 +4,7 @@ use serde::Serialize;
 
 use crate::features::admin_auth::create_admin_router;
 use crate::features::api_keys::create_api_keys_router;
-use crate::features::gateway::routes::create_gateway_router;
+use crate::features::gateway::routes::{create_gateway_router, create_models_router};
 use crate::features::logs::create_logs_router;
 use crate::features::provider_auth::{
     create_cline_login_router, create_grok_web_login_router, create_qoder_callback_router,
@@ -56,6 +56,12 @@ pub fn create_router(state: AppState) -> Router {
     let gateway_routes = create_gateway_router()
         .layer(from_fn_with_state(state.clone(), rate_limit))
         .layer(from_fn_with_state(state.clone(), api_key_auth));
+    // The model catalog skips the limiter: Node runs only `ApiKeyAuth` there
+    // (`apps/api/src/routes/v1/models.ts`) and the contract row for
+    // `GET /v1/models` lists API-key auth, so polling must not consume the
+    // chat/messages window.
+    let models_routes =
+        create_models_router().layer(from_fn_with_state(state.clone(), api_key_auth));
     // Key management is admin-session only, so it carries its own guard instead
     // of the gateway's API-key/auth-session chain.
     let keys_routes =
@@ -88,6 +94,7 @@ pub fn create_router(state: AppState) -> Router {
     // authentication or handler execution runs.
     let v1_routes = gateway_routes
         .clone()
+        .merge(models_routes.clone())
         .merge(keys_routes)
         .merge(create_admin_router())
         .merge(qoder_login_routes)
@@ -102,6 +109,7 @@ pub fn create_router(state: AppState) -> Router {
         .layer(from_fn_with_state(state.clone(), csrf_origin_guard))
         .layer(from_fn(body_limit));
     let v1_compat_routes = gateway_routes
+        .merge(models_routes)
         .layer(from_fn_with_state(state.clone(), csrf_origin_guard))
         .layer(from_fn(body_limit));
 

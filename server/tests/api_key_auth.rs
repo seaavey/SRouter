@@ -248,6 +248,56 @@ async fn exhausted_credit_returns_402_insufficient_credit() {
 }
 
 #[tokio::test]
+async fn a_disabled_key_returns_api_key_disabled_when_the_requirement_is_on() {
+    // The other half of `a_disabled_key_returns_api_key_disabled`: that test
+    // runs with the requirement off and a loopback peer, this one with auth
+    // enforced, so both branches of `auth_required` pin the same rejection.
+    let mut record = api_key_record("key_1");
+    record.enabled = false;
+
+    let app = test_app(security_state(true, keyed(record), vec![]));
+    let response = app
+        .oneshot(with_remote_client(
+            json_request_with_headers("POST", CHAT, chat_body(), &[("x-api-key", KEY)]),
+            REMOTE,
+        ))
+        .await
+        .unwrap();
+
+    assert_error(
+        response,
+        StatusCode::UNAUTHORIZED,
+        "invalid_request_error",
+        "api_key_disabled",
+        "The provided SRouter API Key is disabled",
+    )
+    .await;
+}
+
+#[tokio::test]
+async fn usage_below_both_limits_passes() {
+    // Mirror of `api-keys-quota-credit.test.ts` "allows request when within
+    // credit and quota limits": both counters are nonzero but under their caps.
+    let mut record = api_key_record("key_1");
+    record.credit_limit = 10.0;
+    record.usage_cost = 1.0;
+    record.quota_limit = 10_000.0;
+    record.usage_tokens = 1_000.0;
+
+    let app = test_app(security_state(false, keyed(record), vec![]));
+    let response = app
+        .oneshot(with_remote_client(
+            json_request_with_headers("POST", CHAT, chat_body(), &[("x-api-key", KEY)]),
+            REMOTE,
+        ))
+        .await
+        .unwrap();
+
+    // 404 means the request passed credit and quota checks and reached the handler.
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
 async fn exhausted_quota_returns_429_quota_exceeded() {
     let mut record = api_key_record("key_1");
     record.quota_limit = 1_500_000.0;
