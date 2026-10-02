@@ -537,6 +537,174 @@ async fn connect_stores_a_cookie_that_the_probe_accepts() {
     assert_eq!(stored.sso, "fixture-valid", "sso= prefix must be stripped");
 }
 
+/// Connect request builder for the non-JSON body shapes: raw text or a
+/// multipart form.
+fn connect_request(content_type: &str, body: &str, headers: &[(&str, &str)]) -> Request<Body> {
+    let mut builder = Request::builder()
+        .method("POST")
+        .uri("/v1/auth/grok-web/connect")
+        .header(header::CONTENT_TYPE, content_type);
+    for (name, value) in headers {
+        builder = builder.header(*name, *value);
+    }
+
+    builder.body(Body::from(body.to_owned())).expect("request")
+}
+
+#[tokio::test]
+async fn connect_accepts_a_raw_text_cookie_line() {
+    let database = TestDatabase::new().expect("temporary database");
+    let fake = FakeGrokUpstream::start().await;
+    let app = connect_app(&database, &fake).await;
+
+    let cookie = format!("srouter_admin_session={SESSION_TOKEN}");
+    let response = app
+        .oneshot(connect_request(
+            "text/plain",
+            "sso=fixture-valid; sso_csrf=ignored",
+            &[("cookie", &cookie)],
+        ))
+        .await
+        .expect("gateway response");
+    assert_eq!(response.status(), StatusCode::CREATED);
+
+    let app_database = database.connect().await.expect("temporary database");
+    let stored = load_grok_web_credentials(&app_database)
+        .await
+        .expect("credentials read")
+        .expect("connection stored");
+    assert_eq!(stored.sso, "fixture-valid", "only the sso pair is stored");
+    assert!(fake.with(|state| state.last_page_cookie.contains("sso=fixture-valid")));
+}
+
+#[tokio::test]
+async fn connect_accepts_an_uploaded_cookie_file() {
+    let database = TestDatabase::new().expect("temporary database");
+    let fake = FakeGrokUpstream::start().await;
+    let app = connect_app(&database, &fake).await;
+
+    let boundary = "srouter-cookie-boundary";
+    let body = format!(
+        "--{boundary}\r\n\
+         Content-Disposition: form-data; name=\"file\"; filename=\"cookies.txt\"\r\n\
+         Content-Type: text/plain\r\n\
+         \r\n\
+         grok.com\tTRUE\t/\tTRUE\t1790000000\tsso\tfixture-valid\r\n\
+         --{boundary}--\r\n"
+    );
+    let cookie = format!("srouter_admin_session={SESSION_TOKEN}");
+    let content_type = format!("multipart/form-data; boundary={boundary}");
+    let response = app
+        .oneshot(connect_request(
+            &content_type,
+            &body,
+            &[("cookie", &cookie)],
+        ))
+        .await
+        .expect("gateway response");
+    assert_eq!(response.status(), StatusCode::CREATED);
+
+    let app_database = database.connect().await.expect("temporary database");
+    let stored = load_grok_web_credentials(&app_database)
+        .await
+        .expect("credentials read")
+        .expect("connection stored");
+    assert_eq!(stored.sso, "fixture-valid", "the cookies.txt row is parsed");
+    assert!(fake.with(|state| state.last_page_cookie.contains("sso=fixture-valid")));
+}
+
+#[tokio::test]
+async fn connect_rejects_a_multipart_form_without_a_cookie() {
+    let database = TestDatabase::new().expect("temporary database");
+    let fake = FakeGrokUpstream::start().await;
+    let app = connect_app(&database, &fake).await;
+
+    let boundary = "srouter-cookie-boundary";
+    let body = format!(
+        "--{boundary}\r\n\
+         Content-Disposition: form-data; name=\"note\"\r\n\
+         \r\n\
+         no cookie here\r\n\
+         --{boundary}--\r\n"
+    );
+    let cookie = format!("srouter_admin_session={SESSION_TOKEN}");
+    let content_type = format!("multipart/form-data; boundary={boundary}");
+    let response = app
+        .oneshot(connect_request(
+            &content_type,
+            &body,
+            &[("cookie", &cookie)],
+        ))
+        .await
+        .expect("gateway response");
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(fake.page_requests(), 0);
+
+    let app_database = database.connect().await.expect("temporary database");
+    assert!(
+        load_grok_web_credentials(&app_database)
+            .await
+            .expect("credentials read")
+            .is_none(),
+        "a form without a cookie must not be stored"
+    );
+}
+
+#[tokio::test]
+async fn connect_rejects_a_cookie_value_with_control_characters() {
+    let database = TestDatabase::new().expect("temporary database");
+    let fake = FakeGrokUpstream::start().await;
+    let app = connect_app(&database, &fake).await;
+
+    let cookie = format!("srouter_admin_session={SESSION_TOKEN}");
+    let response = app
+        .oneshot(connect_request(
+            "text/plain",
+            "sso=fixture\u{1}-valid",
+            &[("cookie", &cookie)],
+        ))
+        .await
+        .expect("gateway response");
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(fake.page_requests(), 0, "validation runs before the probe");
+
+    let app_database = database.connect().await.expect("temporary database");
+    assert!(
+        load_grok_web_credentials(&app_database)
+            .await
+            .expect("credentials read")
+            .is_none(),
+        "a cookie value with control characters must not be stored"
+    );
+}
+
+#[tokio::test]
+async fn connect_rejects_an_oversized_cookie_value() {
+    let database = TestDatabase::new().expect("temporary database");
+    let fake = FakeGrokUpstream::start().await;
+    let app = connect_app(&database, &fake).await;
+
+    // Under the 64 KiB body limit but past the 8 KiB value cap, so this
+    // exercises the value cap rather than the body cap.
+    let body = format!("sso={}", "a".repeat(9_000));
+    let cookie = format!("srouter_admin_session={SESSION_TOKEN}");
+    let response = app
+        .oneshot(connect_request("text/plain", &body, &[("cookie", &cookie)]))
+        .await
+        .expect("gateway response");
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(fake.page_requests(), 0, "validation runs before the probe");
+
+    let app_database = database.connect().await.expect("temporary database");
+    assert!(
+        load_grok_web_credentials(&app_database)
+            .await
+            .expect("credentials read")
+            .is_none(),
+        "an oversized cookie value must not be stored"
+    );
+}
+
 #[tokio::test]
 async fn connect_rejects_a_cookie_the_probe_refuses() {
     let database = TestDatabase::new().expect("temporary database");

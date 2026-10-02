@@ -428,7 +428,8 @@ pub mod providers {
         pub const SESSION_TIMEOUT: &str = "Grok Web did not attach a conversation in time";
         pub const HANDSHAKE_FAILED: &str = "Grok Web WebSocket handshake failed";
         pub const EMPTY_QUERY: &str = "Empty query after processing";
-        pub const COOKIE_PAYLOAD_INVALID: &str = "Expected a JSON object carrying the session cookie under 'cookie', 'sso', or 'api_key'";
+        pub const COOKIE_PAYLOAD_INVALID: &str = "Expected the session cookie as a JSON field ('cookie', 'sso', or 'api_key'), as a raw text body, or as a multipart file upload";
+        pub const COOKIE_VALUE_INVALID: &str = "The extracted 'sso' cookie value is empty, too long, or contains characters a cookie value may not carry";
         pub const STREAM_ENDED: &str = "Grok Web stream ended before the response completed";
         pub const UNSUPPORTED_CONTENT: &str = "The grok-web provider accepts text content only; image or file parts are not supported";
 
