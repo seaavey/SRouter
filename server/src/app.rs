@@ -107,6 +107,9 @@ pub fn create_router(state: AppState) -> Router {
 
     Router::new()
         .route("/", get(api_info))
+        // `GET /v1` is a plain api-info route in Node (`apps/api/src/index.ts:121`),
+        // declared before the `/v1` nest so the literal wins over the sub-routes.
+        .route("/v1", get(api_info))
         .route("/health", get(health))
         // Production mounts chat routes under `/v1` and the `/v1/v1` compat alias
         // only; root-level mounts exist in the Node test harness, not here.

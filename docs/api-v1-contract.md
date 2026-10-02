@@ -148,11 +148,15 @@ Rust intentionally has no `/v1/tunnel/*` routes. The legacy-only routes are `GET
 
 ### Headers and CORS
 
-The main listener adds `X-Powered-By: Seaavey`, `X-Version: <API_VERSION>`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `X-XSS-Protection: 1; mode=block`, and `Referrer-Policy: strict-origin-when-cross-origin`. The exact API version comes from the existing API version constant.
+The main listener adds `X-Powered-By: Seaavey`, `X-Version: <API_VERSION>`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `X-XSS-Protection: 1; mode=block`, and `Referrer-Policy: strict-origin-when-cross-origin`. The exact API version comes from the existing API version constant; the Rust build reports its crate version instead (see "Version in the Rust build" below).
 
 When serving the web dist, asset paths ending in `js`, `css`, `map`, `woff`, `woff2`, `ttf`, `otf`, `png`, `svg`, `ico`, `webp`, `avif`, `jpg`, `jpeg`, or `gif` receive `Cache-Control: public, max-age=31536000, immutable`.
 
 `SROUTER_CORS_ORIGINS` is a comma-separated allowlist. Loopback HTTP/HTTPS origins (`localhost`, `127.0.0.1`, and `[::1]`, with optional ports) are always allowed. CORS allows `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, and `OPTIONS`; request headers `Content-Type`, `Authorization`, `x-api-key`, and `anthropic-version`; exposes `Content-Length`, `X-Request-Id`, and `X-Version`; and includes credentials.
+
+### Version in the Rust build (owner ruling 2026-10-02)
+
+Every version the Rust build reports comes from `package.version` in `server/Cargo.toml` (currently `0.2.0`), never from Node's `API_VERSION` (`packages/constants/src/version.ts`, currently `0.1.8`). That covers the `X-Version` header, the `version` field of `GET /` and `GET /v1`, and the upstream `User-Agent` (`srouter-server/<crate version>`). Releasing the Rust API means bumping `package.version` in `server/Cargo.toml`; the Rust build reads no other version source. No API consumer breaks on the differing number: the dashboard renders its own build-time `APP_VERSION` constant, and the CLI reports `CLI_VERSION`, so neither reads the version from the API.
 
 ### Authentication, CSRF, rate limits, and request size
 

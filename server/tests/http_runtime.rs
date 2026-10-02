@@ -9,8 +9,9 @@ use axum::{
 use srouter_server::{APIConfig, AppState, app::create_router};
 use tower::ServiceExt;
 
-/// Values frozen in `docs/api-v1-contract.md`. `X-Version` follows the Rust crate version,
-/// which is deliberately ahead of the 0.1.8 still served by the Node runtime.
+/// Values frozen in `docs/api-v1-contract.md`. `X-Version` reports the crate version from
+/// `server/Cargo.toml` (owner ruling 2026-10-02); Node's `API_VERSION` (0.1.8) stays the
+/// legacy reference and is not mirrored.
 const FROZEN_HEADERS: [(&str, &str); 6] = [
     ("x-powered-by", "Seaavey"),
     ("x-version", env!("CARGO_PKG_VERSION")),
@@ -70,6 +71,48 @@ async fn get_health_returns_ok_json() {
     let body = to_bytes(response.into_body(), 1024).await.unwrap();
     let json = serde_json::from_slice::<serde_json::Value>(&body).unwrap();
     assert_eq!(json, serde_json::json!({"status": "ok"}));
+}
+
+#[tokio::test]
+async fn get_v1_returns_api_info_json() {
+    let response = test_app()
+        .oneshot(Request::builder().uri("/v1").body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.headers()[header::CONTENT_TYPE], "application/json");
+    assert_frozen_headers(&response);
+
+    let body = to_bytes(response.into_body(), 1024).await.unwrap();
+    let json = serde_json::from_slice::<serde_json::Value>(&body).unwrap();
+    assert_eq!(
+        json,
+        serde_json::json!({
+            "name": "SRouter API",
+            "status": "ok",
+            "version": env!("CARGO_PKG_VERSION"),
+            "documentation": "Multi-Provider OpenAI & Anthropic Compatible LLM Gateway"
+        })
+    );
+}
+
+#[tokio::test]
+async fn get_v1_v1_root_stays_out_of_the_compat_alias() {
+    // The compat alias covers only the gateway paths listed in the contract,
+    // so its root must not answer with the api info object.
+    let response = test_app()
+        .oneshot(
+            Request::builder()
+                .uri("/v1/v1")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    assert_frozen_headers(&response);
 }
 
 #[tokio::test]

@@ -92,12 +92,17 @@ Status legend: `[x]` done and covered by a Rust test, `[ ]` missing, `[~]` parti
 
 ### 1.5 Version and info fields
 
-- [ ] `X-Version` and the `GET /v1` body currently report the Cargo crate version
-      (`app.rs:38`, `Cargo.toml` `version = "0.2.0"`). Node reports `API_VERSION = "0.1.8"`
-      (`packages/constants/src/version.ts`) through `apps/api/tests` and the web UI.
-      Decide (product call, needs owner approval): keep the Rust crate version and document the
-      change, or emit the release version separately from the crate version. Record the decision in
-      `docs/api-v1-contract.md` before cutover.
+- [x] Owner ruling 2026-10-02 --- 16-16 WIB: the Rust build follows `server/Cargo.toml`
+      (`package.version`, currently `0.2.0`) everywhere Node reports `API_VERSION = "0.1.8"`
+      (`packages/constants/src/version.ts`). `X-Version`, `GET /`, and `GET /v1` all carry the
+      crate version; releasing the Rust API means bumping `server/Cargo.toml` and nothing else.
+      `GET /v1` was not mounted at all (404) and now serves the same api info object as `GET /`.
+      No consumer breaks: the web UI renders its own `APP_VERSION` constant and the CLI reports
+      `CLI_VERSION`, so neither reads the version from the API. Recorded in
+      `docs/api-v1-contract.md` "Version in the Rust build"; covered by
+      `server/tests/http_runtime.rs` (`get_root_returns_api_info_json`,
+      `get_v1_returns_api_info_json`, `get_v1_v1_root_stays_out_of_the_compat_alias`,
+      `FROZEN_HEADERS`) and `server/tests/cors.rs` (preflight `X-Version`).
 
 ### 1.6 Telemetry
 
