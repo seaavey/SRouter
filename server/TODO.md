@@ -320,15 +320,20 @@ stale-while-revalidate=86400`, `refresh`/`force`/`no-cache` forcing a refresh.
       rolling-60 s RPS, top models/agents, and provider split. The report serializes
       snake_case rather than Node's camelCase (documented deviation, `docs/api-v1-contract.md`
       "Logs in the Rust build"). Legacy evidence: `apps/api/tests/analytics.test.ts`.
-- [ ] `GET /v1/settings` response must match Node: `require_api_key` **plus** the compatibility
-      field `requireApiKey` and the `settings` map (`apps/api/src/controllers/settings.controller.ts`).
-      Rust returns `require_api_key` only (`features/settings.rs`).
-- [ ] `POST|PATCH /v1/settings` must accept the same payload: boolean `require_api_key` and a
-      string-valued `settings` object, persisted and echoed back. Rust rejects/handles only
-      `require_api_key` today; decide whether the `settings` map is persisted as key/value rows or
-      dropped, and document the decision in the contract.
-- [ ] `GET`/write authorization parity: read = API-key auth, write = admin session + CSRF (already
-      layered; re-verify after the `settings` map lands).
+- [x] `GET /v1/settings` response: owner ruling 2026-10-02 --- Rust keeps the `require_api_key`-only
+      shape and does **not** add Node's `requireApiKey`/`settings` echo
+      (`apps/api/src/controllers/settings.controller.ts` is the Node reference). Deviation recorded
+      in `docs/api-v1-contract.md` "Settings in the Rust build". Covered by the shape assertions in
+      `server/tests/settings.rs`.
+- [x] `POST|PATCH /v1/settings` accept the same payload: boolean `require_api_key` and a
+      string-valued `settings` object, persisted as key/value rows via `set_setting()` (decision:
+      persist, not drop). The response stays `{require_api_key}` — no echo, per the same ruling.
+      Non-string/non-object values → `400` + `Invalid settings payload`
+      (`update_settings_persists_a_string_settings_map_without_echoing_it`,
+      `update_settings_rejects_non_string_settings_maps` in `server/tests/settings.rs`).
+- [x] `GET`/write authorization parity: read = API-key auth, write = admin session + CSRF (already
+      layered; re-verified when the `settings` map landed — `update_settings_requires_admin_session`
+      pins 401 for anonymous and API-key-only mutations).
 
 ## 9. Database transfer
 

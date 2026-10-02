@@ -230,6 +230,85 @@ async fn update_settings_toggles_require_api_key_and_persists_settings() {
 }
 
 #[tokio::test]
+async fn update_settings_persists_a_string_settings_map_without_echoing_it() {
+    let database = TestDatabase::new().unwrap();
+    let (app, pool) = setup_app(&database).await;
+
+    let request = admin_request(
+        "PATCH",
+        SETTINGS_URI,
+        serde_json::json!({ "settings": { "request_timeout_sec": "120", "logging_level": "metadata" } }),
+    );
+    let response = app.clone().oneshot(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+
+    // The response stays the frozen `{require_api_key}` shape: the map is
+    // stored, not echoed back.
+    let body = json_body(response).await;
+    assert_eq!(body, serde_json::json!({ "require_api_key": false }));
+
+    // Both rows landed in the settings table.
+    let timeout: Option<String> =
+        sqlx::query_scalar("SELECT value FROM settings WHERE key = 'request_timeout_sec'")
+            .fetch_optional(&pool)
+            .await
+            .unwrap();
+    assert_eq!(timeout.as_deref(), Some("120"));
+    let logging: Option<String> =
+        sqlx::query_scalar("SELECT value FROM settings WHERE key = 'logging_level'")
+            .fetch_optional(&pool)
+            .await
+            .unwrap();
+    assert_eq!(logging.as_deref(), Some("metadata"));
+
+    // A later write to the same key overwrites the row instead of duplicating it.
+    let request = admin_request(
+        "POST",
+        SETTINGS_URI,
+        serde_json::json!({ "settings": { "request_timeout_sec": "240" } }),
+    );
+    let response = app.clone().oneshot(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let timeout: String =
+        sqlx::query_scalar("SELECT value FROM settings WHERE key = 'request_timeout_sec'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(timeout, "240");
+    let rows: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM settings WHERE key = 'request_timeout_sec'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(rows, 1);
+}
+
+#[tokio::test]
+async fn update_settings_rejects_non_string_settings_maps() {
+    let database = TestDatabase::new().unwrap();
+    let (app, _) = setup_app(&database).await;
+
+    let invalid_payloads = [
+        serde_json::json!({ "settings": "not-an-object" }),
+        serde_json::json!({ "settings": { "max_retries": 3 } }),
+        serde_json::json!({ "settings": { "nested": { "a": "b" } } }),
+        serde_json::json!({ "settings": null }),
+    ];
+
+    for payload in invalid_payloads {
+        let request = admin_request("PATCH", SETTINGS_URI, payload.clone());
+        let response = app.clone().oneshot(request).await.unwrap();
+        assert_eq!(
+            response.status(),
+            StatusCode::BAD_REQUEST,
+            "expected 400 for payload: {payload}"
+        );
+        let body = json_body(response).await;
+        assert_eq!(body["error"]["message"], "Invalid settings payload");
+    }
+}
+
+#[tokio::test]
 async fn update_settings_rejects_invalid_payloads() {
     let database = TestDatabase::new().unwrap();
     let (app, _) = setup_app(&database).await;

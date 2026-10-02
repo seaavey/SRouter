@@ -129,6 +129,13 @@ codes, with these differences.
 - **Log record casing.** Log records returned by `GET /v1/logs` and `GET /v1/logs/:id` serialize snake_case (`status_code`, `request_id`, `api_key_id`, ...) rather than Node's camelCase.
 - **Bucket fill.** Analytics zero-fills buckets from the window start up to (exclusive) the report time, so the partial in-progress bucket is included whenever that time is not a bucket boundary, matching Node.
 
+### Settings in the Rust build (owner ruling 2026-10-02)
+
+The settings routes deviate from the route rows above by owner decision; the rows stay as the Node reference.
+
+- **Response shape.** `GET`, `POST`, and `PATCH /v1/settings` all return only `{require_api_key}`. The compatibility field `requireApiKey` and the `settings` map are not echoed, unlike Node's `{require_api_key, requireApiKey, settings}` (and Node's mutation response also carries `message`).
+- **Write acceptance.** `POST`/`PATCH` still accept a string-valued `settings` object and persist each entry as a key/value row, so data written by the web dashboard survives for later consumers; only the echo is omitted. Non-string values, a non-object `settings`, or a non-boolean `require_api_key` return `400` with `Invalid settings payload`, matching Node's Zod validation outcome.
+
 ## Compatibility aliases and retired routes
 
 The main listener mounts these compatibility paths under `/v1/v1`: `/chat/completions`, `/chat/completion`, `/messages`, `/models`, and `/models/:model`. They use the same route handlers and feature middleware as their `/v1` counterparts. The OAuth listener exposes only its `/v1` mounts, not `/v1/v1`.
