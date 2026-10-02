@@ -22,17 +22,20 @@ use futures_util::future::BoxFuture;
 use srouter_server::features::admin_auth::AdminSessionStore;
 use srouter_server::features::api_keys::{APIKeyRecord, APIKeyStore};
 use srouter_server::features::providers::cline::{self, ClineEndpoints};
+use srouter_server::features::providers::grok_web::{self, GrokWebEndpoints};
 use srouter_server::features::providers::qoder::{self, QoderEndpoints};
 use srouter_server::features::providers::{ProviderRegistry, opencode};
 use srouter_server::infrastructure::database::AppDatabase;
 use srouter_server::infrastructure::database::admin_auth::SQLxAdminAuthStore;
 use srouter_server::infrastructure::database::api_keys::SQLxAPIKeyStore;
 use srouter_server::infrastructure::database::providers::{
-    ClineConnectionWrite, QoderConnectionWrite, upsert_cline_connection, upsert_qoder_connection,
+    ClineConnectionWrite, GrokWebConnectionWrite, QoderConnectionWrite, upsert_cline_connection,
+    upsert_grok_web_connection, upsert_qoder_connection,
 };
 use srouter_server::{APIConfig, APIError, AppState, SecurityState};
 use tokio::net::TcpListener;
 use tokio::task::JoinHandle;
+use tokio_tungstenite::tungstenite::Message as WsMessage;
 
 static SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
@@ -907,6 +910,352 @@ pub fn cline_state(
     fake: &FakeClineUpstream,
 ) -> AppState {
     let providers = cline_registry(Some(database.clone()), fake);
+    AppState::with_security(test_config(), providers, security).with_database(database)
+}
+
+type SharedGrokState = Arc<StdMutex<FakeGrokState>>;
+
+/// Recorded behavior of the fake Grok Web upstream: page-probe and WebSocket
+/// legs are controlled independently so tests can isolate each failure path.
+#[derive(Default)]
+pub struct FakeGrokState {
+    /// `ok`, `no_uid`, or `error` for the `GET /` probe.
+    pub page_mode: String,
+    /// `ok`, `stream_error`, `no_done`, or `reject` (handshake 401).
+    pub ws_mode: String,
+    pub page_requests: usize,
+    pub last_page_cookie: String,
+    pub ws_connections: usize,
+    pub last_ws_cookie: String,
+    pub last_ws_origin: String,
+    pub last_ws_query: String,
+    pub last_model: String,
+    pub last_prompt: String,
+    pub session_capabilities: Option<serde_json::Value>,
+}
+
+/// A local Grok Web stand-in: an HTTP leg for the `x-userid` page probe and a
+/// WebSocket leg speaking the `session.create` chat protocol, aborted on drop.
+pub struct FakeGrokUpstream {
+    page_url: String,
+    ws_url: String,
+    state: SharedGrokState,
+    http_task: JoinHandle<()>,
+    ws_task: JoinHandle<()>,
+}
+
+impl FakeGrokUpstream {
+    pub async fn start() -> Self {
+        let state: SharedGrokState = Arc::new(StdMutex::new(FakeGrokState::default()));
+
+        let router = Router::new()
+            .route("/", get(grok_page_probe))
+            .with_state(state.clone());
+        let http_listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind the fake grok page probe");
+        let http_address = http_listener.local_addr().expect("fake grok page address");
+        let http_task = tokio::spawn(async move {
+            let _ = axum::serve(http_listener, router).await;
+        });
+
+        let ws_listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind the fake grok websocket");
+        let ws_address = ws_listener.local_addr().expect("fake grok ws address");
+        let ws_state = state.clone();
+        let ws_task = tokio::spawn(async move {
+            grok_ws_accept_loop(ws_listener, ws_state).await;
+        });
+
+        Self {
+            page_url: format!("http://{http_address}/"),
+            ws_url: format!("ws://{ws_address}/ws"),
+            state,
+            http_task,
+            ws_task,
+        }
+    }
+
+    /// Endpoints pointing both Grok Web legs at this fake.
+    pub fn endpoints(&self) -> GrokWebEndpoints {
+        GrokWebEndpoints {
+            page_url: self.page_url.clone(),
+            ws_url: self.ws_url.clone(),
+        }
+    }
+
+    /// Runs an edit against the recorded state.
+    pub fn with<F, R>(&self, edit: F) -> R
+    where
+        F: FnOnce(&mut FakeGrokState) -> R,
+    {
+        edit(&mut self.state.lock().expect("fake grok state"))
+    }
+
+    /// Recorded page-probe requests.
+    pub fn page_requests(&self) -> usize {
+        self.with(|state| state.page_requests)
+    }
+
+    /// Recorded WebSocket handshakes.
+    pub fn ws_connections(&self) -> usize {
+        self.with(|state| state.ws_connections)
+    }
+}
+
+impl Drop for FakeGrokUpstream {
+    fn drop(&mut self) {
+        self.http_task.abort();
+        self.ws_task.abort();
+    }
+}
+
+/// `GET /` issues `x-userid` only for the fixture cookie; a different cookie
+/// redirects, mirroring the live probe.
+async fn grok_page_probe(State(state): State<SharedGrokState>, headers: HeaderMap) -> Response {
+    let cookie = header_text(&headers, "cookie");
+    let mode = {
+        let mut guard = state.lock().expect("fake grok state");
+        guard.page_requests += 1;
+        guard.last_page_cookie = cookie.clone();
+        guard.page_mode.clone()
+    };
+
+    if mode == "error" {
+        return Response::builder()
+            .status(StatusCode::SERVICE_UNAVAILABLE)
+            .body(Body::empty())
+            .expect("fake grok probe error");
+    }
+    if mode != "no_uid" && cookie.contains("sso=fixture-valid") {
+        return Response::builder()
+            .status(StatusCode::OK)
+            .header(
+                header::SET_COOKIE,
+                "x-userid=fake-uid-1234; Path=/; HttpOnly",
+            )
+            .body(Body::empty())
+            .expect("fake grok probe success");
+    }
+    if mode == "no_uid" && cookie.contains("sso=") {
+        return Response::builder()
+            .status(StatusCode::OK)
+            .body(Body::empty())
+            .expect("fake grok probe without uid");
+    }
+
+    Response::builder()
+        .status(StatusCode::SEE_OTHER)
+        .header(header::LOCATION, "https://accounts.x.ai/")
+        .body(Body::empty())
+        .expect("fake grok probe redirect")
+}
+
+/// Accepts WebSocket connections until the listener is aborted.
+async fn grok_ws_accept_loop(listener: TcpListener, state: SharedGrokState) {
+    loop {
+        let Ok((stream, _)) = listener.accept().await else {
+            return;
+        };
+        let session_state = state.clone();
+        tokio::spawn(async move {
+            let _ = grok_ws_session(stream, session_state).await;
+        });
+    }
+}
+
+/// One fake chat conversation: `session.create` answers with
+/// `conversation.attached`, then `response.create` is answered according to
+/// `ws_mode`. Handshake headers are recorded, and `reject` answers 401.
+#[allow(clippy::result_large_err)]
+async fn grok_ws_session(
+    stream: tokio::net::TcpStream,
+    state: SharedGrokState,
+) -> Result<(), Box<dyn std::error::Error>> {
+    use futures_util::{SinkExt, StreamExt};
+
+    let handshake_state = state.clone();
+    let ws = tokio_tungstenite::accept_hdr_async(
+        stream,
+        move |request: &tokio_tungstenite::tungstenite::handshake::server::Request, response| {
+            let cookie = request
+                .headers()
+                .get("cookie")
+                .and_then(|value| value.to_str().ok())
+                .unwrap_or_default()
+                .to_owned();
+            let origin = request
+                .headers()
+                .get("origin")
+                .and_then(|value| value.to_str().ok())
+                .unwrap_or_default()
+                .to_owned();
+            let query = request.uri().query().unwrap_or_default().to_owned();
+            let reject = {
+                let mut guard = handshake_state.lock().expect("fake grok state");
+                guard.ws_connections += 1;
+                guard.last_ws_cookie = cookie;
+                guard.last_ws_origin = origin;
+                guard.last_ws_query = query;
+                guard.ws_mode == "reject"
+            };
+            if reject {
+                let error = tokio_tungstenite::tungstenite::http::Response::builder()
+                    .status(401)
+                    .body(Some(String::from("cookie rejected")))
+                    .expect("handshake rejection");
+                return Err(error);
+            }
+            Ok(response)
+        },
+    )
+    .await?;
+
+    let (mut tx, mut rx) = ws.split();
+
+    // session.create opens the conversation.
+    let mut recorded = false;
+    while let Some(message) = rx.next().await {
+        let WsMessage::Text(text) = message? else {
+            continue;
+        };
+        let value: serde_json::Value = serde_json::from_str(text.as_str())?;
+        if value["event"]["type"] != "session.create" {
+            continue;
+        }
+        {
+            let mut guard = state.lock().expect("fake grok state");
+            guard.last_model = value["event"]["session"]["model"]
+                .as_str()
+                .unwrap_or_default()
+                .to_owned();
+            guard.session_capabilities = Some(value["event"]["session"]["x_grok"].clone());
+        }
+
+        let attach = serde_json::json!({
+            "session_id": "fake-session-1",
+            "event": {
+                "type": "conversation.attached",
+                "event_id": "evt_attach_1",
+                "conversation": { "id": "fake-conversation-1", "object": "realtime.conversation" },
+                "mode": "new"
+            }
+        });
+        tx.send(WsMessage::Text(attach.to_string().into())).await?;
+        recorded = true;
+        break;
+    }
+    if !recorded {
+        return Ok(());
+    }
+
+    // response.create carries the flattened prompt.
+    while let Some(message) = rx.next().await {
+        let WsMessage::Text(text) = message? else {
+            continue;
+        };
+        let value: serde_json::Value = serde_json::from_str(text.as_str())?;
+        if value["event"]["type"] != "response.create" {
+            continue;
+        }
+        let prompt = value["event"]["item"]["x_grok"]["input_chunks"][0]["text"]["text"]
+            .as_str()
+            .unwrap_or_default()
+            .to_owned();
+        state.lock().expect("fake grok state").last_prompt = prompt;
+        break;
+    }
+
+    let mode = state.lock().expect("fake grok state").ws_mode.clone();
+    let chunk = |text: &str| {
+        serde_json::json!({
+            "session_id": "fake-session-1",
+            "event": {
+                "type": "response.chunk",
+                "event_id": "evt_chunk",
+                "response_id": "fake-response-1",
+                "item_id": "fake-item-1",
+                "chunk": {
+                    "text": { "text": text, "channel": "CHANNEL_ASSISTANT_RESPONSE" },
+                    "metadata": { "step_id": 0, "phase_index": 1 }
+                }
+            }
+        })
+        .to_string()
+    };
+    let done = |status: &str, reason: Option<&str>| {
+        let mut response = serde_json::json!({ "id": "fake-response-1", "status": status });
+        if let Some(reason) = reason {
+            response["status_details"] = serde_json::json!({ "reason": reason });
+        }
+        serde_json::json!({
+            "session_id": "fake-session-1",
+            "event": { "type": "response.done", "event_id": "evt_done", "response": response }
+        })
+        .to_string()
+    };
+
+    match mode.as_str() {
+        "stream_error" => {
+            tx.send(WsMessage::Text(done("failed", Some("stream_error")).into()))
+                .await?;
+        }
+        "no_done" => {
+            tx.send(WsMessage::Text(chunk("Hello").into())).await?;
+            tx.send(WsMessage::Text(chunk(" world").into())).await?;
+            // Close cleanly before response.done; the executor must not report success.
+            tx.send(WsMessage::Close(None)).await?;
+        }
+        _ => {
+            tx.send(WsMessage::Text(chunk("Hello").into())).await?;
+            tx.send(WsMessage::Text(chunk(" world").into())).await?;
+            tx.send(WsMessage::Text(done("completed", None).into()))
+                .await?;
+        }
+    }
+    tx.flush().await?;
+
+    Ok(())
+}
+
+/// Stores the fixture Grok Web connection used by catalog and chat tests.
+pub async fn connect_grok_web(database: &TestDatabase) {
+    let app_database = database.connect().await.expect("temporary database");
+    upsert_grok_web_connection(
+        &app_database,
+        &GrokWebConnectionWrite {
+            id: "grok-web_fixture".to_owned(),
+            name: "Grok Web".to_owned(),
+            sso: "fixture-valid".to_owned(),
+        },
+    )
+    .await
+    .expect("Grok Web connection stored");
+}
+
+/// A registry whose `grok-web` adapter points at the fake upstream and can
+/// read credentials from the given database.
+pub fn grok_web_registry(
+    database: Option<AppDatabase>,
+    fake: &FakeGrokUpstream,
+) -> ProviderRegistry {
+    let mut providers = ProviderRegistry::new();
+    providers.register(opencode::adapter().expect("opencode_zen adapter"));
+    providers.register(
+        grok_web::adapter_with_endpoints(fake.endpoints(), database).expect("grok-web adapter"),
+    );
+    providers
+}
+
+/// Application state wired to the fake Grok Web upstream and the given database.
+pub fn grok_web_state(
+    database: AppDatabase,
+    security: SecurityState,
+    fake: &FakeGrokUpstream,
+) -> AppState {
+    let providers = grok_web_registry(Some(database.clone()), fake);
+
     AppState::with_security(test_config(), providers, security).with_database(database)
 }
 

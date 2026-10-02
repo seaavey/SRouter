@@ -414,6 +414,44 @@ pub mod providers {
             format!("Cline token refresh failed: {error}")
         }
     }
+
+    /// Messages of the `grok-web` provider: the SSO cookie load, the uid page
+    /// probe, the WebSocket handshake, and the session lifecycle. Every string
+    /// a client can see lives here — none of them may contain the cookie.
+    pub mod grok_web {
+        pub const NOT_CONNECTED: &str = "No active Grok Web connection found. Connect the Grok Web account in the Providers tab.";
+        pub const DATABASE_REQUIRED: &str =
+            "no database is configured; the Grok Web connection cannot be read";
+        pub const COOKIE_INVALID: &str = "The Grok Web session cookie is invalid or has expired; reconnect the Grok Web account.";
+        pub const UID_NOT_ISSUED: &str =
+            "Grok Web did not issue a user id for this session; reconnect the Grok Web account.";
+        pub const SESSION_TIMEOUT: &str = "Grok Web did not attach a conversation in time";
+        pub const HANDSHAKE_FAILED: &str = "Grok Web WebSocket handshake failed";
+        pub const EMPTY_QUERY: &str = "Empty query after processing";
+        pub const COOKIE_PAYLOAD_INVALID: &str = "Expected a JSON object carrying the session cookie under 'cookie', 'sso', or 'api_key'";
+        pub const STREAM_ENDED: &str = "Grok Web stream ended before the response completed";
+        pub const UNSUPPORTED_CONTENT: &str = "The grok-web provider accepts text content only; image or file parts are not supported";
+
+        pub fn page_probe_failed(status: u16) -> String {
+            format!("Grok Web session probe failed ({status})")
+        }
+
+        pub fn page_probe_transport_failed(error: impl std::fmt::Display) -> String {
+            format!("Grok Web session probe failed: {error}")
+        }
+
+        pub fn handshake_failed(status: u16) -> String {
+            format!("Grok Web WebSocket handshake failed ({status})")
+        }
+
+        pub fn handshake_failed_message(error: impl std::fmt::Display) -> String {
+            format!("Grok Web WebSocket handshake failed: {error}")
+        }
+
+        pub fn response_failed(reason: &str) -> String {
+            format!("Grok Web response did not complete: {reason}")
+        }
+    }
 }
 
 /// `/v1/settings`.

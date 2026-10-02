@@ -7,7 +7,8 @@ use crate::features::api_keys::create_api_keys_router;
 use crate::features::gateway::routes::create_gateway_router;
 use crate::features::logs::create_logs_router;
 use crate::features::provider_auth::{
-    create_cline_login_router, create_qoder_callback_router, create_qoder_login_router,
+    create_cline_login_router, create_grok_web_login_router, create_qoder_callback_router,
+    create_qoder_login_router,
 };
 use crate::features::providers::management::{
     create_providers_management_router, create_providers_read_router,
@@ -73,6 +74,8 @@ pub fn create_router(state: AppState) -> Router {
         create_qoder_login_router().layer(from_fn_with_state(state.clone(), require_admin_session));
     let cline_login_routes =
         create_cline_login_router().layer(from_fn_with_state(state.clone(), require_admin_session));
+    let grok_web_login_routes = create_grok_web_login_router()
+        .layer(from_fn_with_state(state.clone(), require_admin_session));
     let qoder_callback_routes = create_qoder_callback_router();
     let logs_routes = create_logs_router().layer(from_fn_with_state(state.clone(), api_key_auth));
     let settings_read_routes =
@@ -89,6 +92,7 @@ pub fn create_router(state: AppState) -> Router {
         .merge(create_admin_router())
         .merge(qoder_login_routes)
         .merge(cline_login_routes)
+        .merge(grok_web_login_routes)
         .merge(qoder_callback_routes)
         .merge(providers_read_routes)
         .merge(providers_mgmt_routes)

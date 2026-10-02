@@ -2,6 +2,7 @@
 //! JSON-body helpers every device or callback route shares.
 
 mod cline;
+mod grok_web;
 mod qoder;
 
 use std::collections::HashMap;
@@ -12,6 +13,7 @@ use serde_json::Value;
 use crate::error::APIError;
 
 pub use cline::create_cline_login_router;
+pub use grok_web::create_grok_web_login_router;
 pub use qoder::{create_qoder_callback_router, create_qoder_login_router};
 
 /// The connected provider, echoed back so the client can show what was stored.

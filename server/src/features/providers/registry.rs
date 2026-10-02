@@ -7,6 +7,8 @@ use crate::error::APIError;
 use crate::features::providers::adapter::ProviderAdapter;
 use crate::features::providers::cline;
 use crate::features::providers::cline::types::ClineEndpoints;
+use crate::features::providers::grok_web;
+use crate::features::providers::grok_web::types::GrokWebEndpoints;
 use crate::features::providers::model::ModelObject;
 use crate::features::providers::opencode;
 use crate::features::providers::qoder;
@@ -68,7 +70,8 @@ impl ProviderRegistry {
         let mut registry = Self::new();
         registry.register(opencode::adapter()?);
         registry.register(qoder::adapter(database.clone())?);
-        registry.register(cline::adapter(database)?);
+        registry.register(cline::adapter(database.clone())?);
+        registry.register(grok_web::adapter(database)?);
 
         Ok(registry)
     }
@@ -87,6 +90,15 @@ impl ProviderRegistry {
     pub fn cline_endpoints(&self) -> Option<ClineEndpoints> {
         self.adapters.values().find_map(|adapter| match adapter {
             ProviderAdapter::Cline(executor) => Some(executor.endpoints().clone()),
+            _ => None,
+        })
+    }
+
+    /// The Grok Web endpoints in use, so the cookie-connect route can probe
+    /// the same page the executor will read `x-userid` from.
+    pub fn grok_web_endpoints(&self) -> Option<GrokWebEndpoints> {
+        self.adapters.values().find_map(|adapter| match adapter {
+            ProviderAdapter::GrokWeb(executor) => Some(executor.endpoints().clone()),
             _ => None,
         })
     }

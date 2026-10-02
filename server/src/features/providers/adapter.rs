@@ -13,6 +13,7 @@ use crate::error::APIError;
 use crate::features::gateway::model::ChatCompletionRequest;
 use crate::features::gateway::sse;
 use crate::features::providers::cline::ClineExecutor;
+use crate::features::providers::grok_web::GrokWebExecutor;
 use crate::features::providers::model::ModelDefinition;
 use crate::features::providers::opencode::OpenCodeExecutor;
 use crate::features::providers::qoder::QoderExecutor;
@@ -30,6 +31,7 @@ pub enum ProviderAdapter {
     OpenCode(OpenCodeExecutor),
     Qoder(QoderExecutor),
     Cline(ClineExecutor),
+    GrokWeb(GrokWebExecutor),
 }
 
 pub type ProviderExecutor = ProviderAdapter;
@@ -42,6 +44,7 @@ impl ProviderAdapter {
             Self::OpenCode(adapter) => adapter.id(),
             Self::Qoder(adapter) => adapter.id(),
             Self::Cline(adapter) => adapter.id(),
+            Self::GrokWeb(adapter) => adapter.id(),
         }
     }
 
@@ -52,6 +55,7 @@ impl ProviderAdapter {
             Self::OpenCode(adapter) => adapter.keys(),
             Self::Qoder(adapter) => adapter.keys(),
             Self::Cline(adapter) => adapter.keys(),
+            Self::GrokWeb(adapter) => adapter.keys(),
         }
     }
 
@@ -62,6 +66,7 @@ impl ProviderAdapter {
             Self::OpenCode(adapter) => adapter.alias(),
             Self::Qoder(adapter) => adapter.alias(),
             Self::Cline(adapter) => adapter.alias(),
+            Self::GrokWeb(adapter) => adapter.alias(),
         }
     }
 
@@ -74,6 +79,7 @@ impl ProviderAdapter {
             Self::OpenCode(adapter) => adapter.models(),
             Self::Qoder(adapter) => adapter.models(),
             Self::Cline(adapter) => adapter.models(),
+            Self::GrokWeb(adapter) => adapter.models(),
         }
     }
 
@@ -95,6 +101,7 @@ impl ProviderAdapter {
         match self {
             Self::Qoder(adapter) => adapter.maybe_refresh(force).await,
             Self::Cline(adapter) => adapter.maybe_refresh(force).await,
+            Self::GrokWeb(adapter) => adapter.maybe_refresh(force).await,
             _ => {}
         }
     }
@@ -111,6 +118,7 @@ impl ProviderAdapter {
             Self::OpenCode(adapter) => adapter.chat_completion(model, request).await,
             Self::Qoder(adapter) => adapter.chat_completion(model, request).await,
             Self::Cline(adapter) => adapter.chat_completion(model, request).await,
+            Self::GrokWeb(adapter) => adapter.chat_completion(model, request).await,
         }
     }
 
@@ -127,6 +135,7 @@ impl ProviderAdapter {
             Self::OpenCode(adapter) => adapter.chat_completion_stream(model, request).await,
             Self::Qoder(adapter) => adapter.chat_completion_stream(model, request).await,
             Self::Cline(adapter) => adapter.chat_completion_stream(model, request).await,
+            Self::GrokWeb(adapter) => adapter.chat_completion_stream(model, request).await,
         }
     }
 }
