@@ -30,3 +30,18 @@ rsa = { version = "0.9.10", features = ["pem"] }
 
 [dev-dependencies]
 tower = { version = "0.5.3", features = ["util"] }
+
+# Disk footprint tuning.
+# Full debuginfo (debug = 2, the default) made every test binary ~180 MB:
+# ~85% of each binary was .debug_* sections from the whole dependency graph,
+# and Cargo keeps one binary per (unit-hash, target), so the target/ dir grew
+# to 32 GB. line-tables-only keeps file:line in backtraces at a fraction of
+# the size; dependencies carry no debuginfo at all.
+[profile.dev]
+debug = 1
+
+[profile.test]
+debug = 1
+
+[profile.dev.package."*"]
+debug = false
