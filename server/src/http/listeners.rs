@@ -8,7 +8,7 @@ use tokio::net::TcpListener;
 /// `localhost` even for the wildcard bind, matching the Node API's startup message.
 pub async fn serve_main(router: Router, address: SocketAddr) -> io::Result<()> {
     let listener = TcpListener::bind(address).await?;
-    println!(
+    tracing::info!(
         "listening on http://localhost:{}",
         listener.local_addr()?.port()
     );
@@ -23,6 +23,6 @@ pub async fn serve_main(router: Router, address: SocketAddr) -> io::Result<()> {
 
 async fn shutdown_signal() {
     if let Err(error) = tokio::signal::ctrl_c().await {
-        eprintln!("could not listen for the shutdown signal: {error}");
+        tracing::error!("could not listen for the shutdown signal: {error}");
     }
 }

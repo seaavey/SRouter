@@ -5,5 +5,6 @@ pub mod client_address;
 pub mod cookies;
 pub mod cors;
 pub mod csrf;
+pub mod failure_log;
 pub mod rate_limit;
 pub mod security_headers;

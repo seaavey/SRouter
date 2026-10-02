@@ -87,6 +87,9 @@ impl std::error::Error for APIError {}
 impl IntoResponse for APIError {
     fn into_response(self) -> Response {
         let status = StatusCode::from_u16(self.status).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+        if status.is_server_error() {
+            tracing::error!(status = status.as_u16(), message = %self.message, "request exception");
+        }
         (status, axum::Json(self.to_envelope())).into_response()
     }
 }

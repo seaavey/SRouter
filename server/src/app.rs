@@ -19,6 +19,7 @@ use crate::http::middleware::api_key_auth::api_key_auth;
 use crate::http::middleware::body_limit::body_limit;
 use crate::http::middleware::cors::cors;
 use crate::http::middleware::csrf::csrf_origin_guard;
+use crate::http::middleware::failure_log::log_failed_requests;
 use crate::http::middleware::rate_limit::rate_limit;
 use crate::http::middleware::security_headers::security_headers;
 use crate::state::AppState;
@@ -125,5 +126,8 @@ pub fn create_router(state: AppState) -> Router {
         .nest("/v1/v1", v1_compat_routes)
         .layer(from_fn_with_state(state.clone(), cors))
         .layer(from_fn(security_headers))
+        // Outermost on purpose: every final status, including auth, CORS, and body-limit
+        // rejections, passes through here before the response leaves the process.
+        .layer(from_fn(log_failed_requests))
         .with_state(state)
 }

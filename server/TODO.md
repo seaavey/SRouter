@@ -106,9 +106,21 @@ Status legend: `[x]` done and covered by a Rust test, `[ ]` missing, `[~]` parti
 
 ### 1.6 Telemetry
 
-- [ ] Add `server/src/infrastructure/telemetry.rs` (tracing subscriber) per the target layout and
-      the plan's tech stack. Node logs request failures through `console.error` in its error
-      handlers; Rust currently logs only startup and shutdown lines.
+- [x] `server/src/infrastructure/telemetry.rs` (tracing subscriber) per the target layout and the
+      plan's tech stack: `tracing` + `tracing-subscriber` (`env-filter`), one subscriber with two
+      fmt layers, stdout (ANSI) and `<cwd>/logs/srouter-server.log` (append, no ANSI). File
+      logging is unconditional so every run leaves a visible trail in `logs/` for non-production
+      debugging (owner requirement 2026-10-02); `RUST_LOG` overrides the default `info`, and an
+      unopenable folder falls back to stdout-only. `main()` installs it before anything else, and
+      the `listeners.rs` startup/shutdown lines moved from `println!`/`eprintln!` onto `tracing`.
+      Format: plain text with `key=value` fields (owner decision 2026-10-02: `txt` over `json`
+      until a log pipeline needs machine parsing).
+- [x] Request-failure logging matching Node's `console.error` in its error handlers: the
+      outermost `http/middleware/failure_log.rs` layer logs every final status (`error` for 5xx,
+      `warn` for 4xx, with method and path but never the query string, which carries OAuth
+      `code`/`state`), and `error.rs` logs the error detail behind every 5xx envelope. Covered by
+      `server/tests/telemetry.rs` (file output, 404 request log, 5xx detail, 4xx silence) plus a
+      live smoke run: startup line and 404 line both land in `logs/srouter-server.log`.
 
 ---
 

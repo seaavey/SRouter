@@ -9,6 +9,9 @@ out
 .turbo
 .tanstack
 
+# Server log files
+logs/
+
 # SQLite Database Files
 *.db
 *.db-wal

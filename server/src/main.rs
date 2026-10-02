@@ -6,10 +6,12 @@ use srouter_server::features::providers::ProviderRegistry;
 use srouter_server::infrastructure::database::AppDatabase;
 use srouter_server::infrastructure::database::admin_auth::SQLxAdminAuthStore;
 use srouter_server::infrastructure::database::api_keys::SQLxAPIKeyStore;
+use srouter_server::infrastructure::telemetry;
 use srouter_server::{APIConfig, AppState, SecurityState, app::create_router, http::listeners};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    telemetry::init();
     let environment: HashMap<String, String> = std::env::vars().collect();
     let config = APIConfig::from_env_map(&environment)?;
     // Wildcard bind matches the Node listener and keeps Docker/VPS traffic reachable.
