@@ -54,7 +54,7 @@ export default function KeyTelemetryCard({ apiKey }: KeyTelemetryCardProps) {
                         Spent
                     </span>
                     <span className="text-xs font-semibold text-ink font-mono tabular-nums mt-0.5 block">
-                        ${(apiKey.usage_cost ?? 0).toFixed(2)}
+                        ${(apiKey.usage_cost ?? 0).toFixed(4)}
                     </span>
                 </div>
                 <div className="px-2">
