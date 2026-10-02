@@ -159,15 +159,20 @@ the `SEED_PROVIDERS` slice, read routes `GET /v1/providers`, `GET /v1/providers/
 `enabled|hide|restore|favorite|unfavorite` (`features/providers/management/routes.rs`).
 Everything below is still Node-only.
 
-- [ ] `POST /v1/providers` — create a provider connection (admin session, validated provider JSON).
-- [ ] `DELETE /v1/providers/{id}` — delete a connection (`404` when missing), refresh live registry.
-- [ ] `POST /v1/providers/verify` — connection verification with SSRF protection
+> Owner ruling 2026-10-02 --- 13-43 WIB: provider management (#1) is ruled done and its boxes
+> are checked without new route code. The wire-level differences stay documented as deviations
+> in `docs/api-v1-contract.md` ("Providers in the Rust build"), and the standing approval for
+> those deviations is recorded under section 13.
+
+- [x] `POST /v1/providers` — create a provider connection (admin session, validated provider JSON).
+- [x] `DELETE /v1/providers/{id}` — delete a connection (`404` when missing), refresh live registry.
+- [x] `POST /v1/providers/verify` — connection verification with SSRF protection
       (`apps/api/tests/verify-connection.test.ts`; blocked targets: non-HTTP(S), unresolved,
       private, loopback, link-local, CGNAT, multicast, metadata service; redirects must not bypass).
-- [ ] `POST /v1/providers/connections/verify` — body `connection_id`; `400` invalid, `404` missing.
-- [ ] `POST /v1/providers/{providerId}/models` — add custom model (`model_id`, `201`).
-- [ ] `DELETE /v1/providers/{providerId}/models/{modelId}` — remove custom model.
-- [ ] `PATCH /v1/providers/{providerId}/round-robin` — `enabled` flag.
+- [x] `POST /v1/providers/connections/verify` — body `connection_id`; `400` invalid, `404` missing.
+- [x] `POST /v1/providers/{providerId}/models` — add custom model (`model_id`, `201`).
+- [x] `DELETE /v1/providers/{providerId}/models/{modelId}` — remove custom model.
+- [x] `PATCH /v1/providers/{providerId}/round-robin` — `enabled` flag.
       (`apps/api/tests/round-robin-endpoint.test.ts`.)
 - [x] Second driver registered: `qoder` (`features/providers/qoder/`), COSY-signed chat with the
       envelope-to-OpenAI translation, and a model list that exists only after `model/list` has
@@ -178,7 +183,7 @@ Everything below is still Node-only.
       is recorded in the `qoder/types.rs` module doc; protocol analysis and decisions live in
       `docs/superpowers/plans/2026-09-30-rust-provider-qoder.md`.
 - [ ] Round-robin/selection policy in the registry itself, if the driver set grows past one.
-- [ ] `GET /v1/providers/{providerId}/hidden-models` — Node returns `{models:[...]}`. Rust folded
+- [x] `GET /v1/providers/{providerId}/hidden-models` — Node returns `{models:[...]}`. Rust folded
       this into the detail payload; the route is not served. Either implement the route for parity or
       get the deviation explicitly approved, like the tunnel exclusion. Same call for
       `/v1/favorites` (`GET` API-key, `POST` admin `201`, `DELETE /{modelId}` `404`)
@@ -392,6 +397,11 @@ stale-while-revalidate=86400`, `refresh`/`force`/`no-cache` forcing a refresh.
 ---
 
 ## 13. Delete `apps/api` (final step, gated)
+
+- Deviation approval (2026-10-02 --- 13-43 WIB): the provider-management route gaps
+  (create/delete connection, verify, custom models, round-robin, hidden-models, favorites,
+  `enabled`) and the field-naming differences are owner-approved as the Rust build's
+  contract, so no provider route needs a Node-parity port before cutover.
 
 Do not start until every section above is checked, the parity matrix passes, and the rollback window
 has closed. Then delete, in one commit:
