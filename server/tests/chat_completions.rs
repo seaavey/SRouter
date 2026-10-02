@@ -6,6 +6,7 @@ use axum::{
     http::{Request, StatusCode, Version, header},
 };
 use srouter_server::app::create_router;
+use srouter_server::features::gateway::token_saver::TERSE_DIRECTIVE;
 use support::{FakeUpstream, app_state_with_fake_upstream, with_loopback_client};
 use tower::ServiceExt;
 
@@ -615,12 +616,15 @@ async fn post_v1_chat_completions_forwards_cache_control_and_returns_cached_toke
     assert_eq!(response.status(), StatusCode::OK);
     let json = json_body(response).await;
 
-    // Upstream receives cache_control on message and content parts
+    // Upstream receives cache_control on message and content parts. The token
+    // saver prepends a system message, so the client's user turn is at index 1.
     let echo = &json["echo"];
     assert_eq!(echo["prompt_cache_key"], "cache-sess-ctx-1");
-    assert_eq!(echo["messages"][0]["cache_control"]["type"], "ephemeral");
+    assert_eq!(echo["messages"][0]["role"], "system");
+    assert_eq!(echo["messages"][0]["content"], TERSE_DIRECTIVE);
+    assert_eq!(echo["messages"][1]["cache_control"]["type"], "ephemeral");
     assert_eq!(
-        echo["messages"][0]["content"][0]["cache_control"]["type"],
+        echo["messages"][1]["content"][0]["cache_control"]["type"],
         "ephemeral"
     );
 
@@ -725,14 +729,17 @@ async fn post_v1_chat_completions_intercepts_web_search_when_not_provided_by_cli
     assert_eq!(json["usage"]["completion_tokens"], 35);
     assert_eq!(json["usage"]["total_tokens"], 115);
 
-    // Verify messages delivered to upstream in turn 2
+    // Verify messages delivered to upstream in turn 2. The token saver prepends
+    // a system message, so the follow-up turn carries four messages.
     let echo_messages = json["echo"]["messages"].as_array().unwrap();
-    assert_eq!(echo_messages.len(), 3);
-    assert_eq!(echo_messages[0]["role"], "user");
-    assert_eq!(echo_messages[1]["role"], "assistant");
-    assert_eq!(echo_messages[2]["role"], "tool");
+    assert_eq!(echo_messages.len(), 4);
+    assert_eq!(echo_messages[0]["role"], "system");
+    assert_eq!(echo_messages[0]["content"], TERSE_DIRECTIVE);
+    assert_eq!(echo_messages[1]["role"], "user");
+    assert_eq!(echo_messages[2]["role"], "assistant");
+    assert_eq!(echo_messages[3]["role"], "tool");
     assert!(
-        echo_messages[2]["content"]
+        echo_messages[3]["content"]
             .as_str()
             .unwrap()
             .contains("Rust Async Book")
@@ -882,4 +889,90 @@ async fn stream_chat_completions_does_not_intercept_when_tool_is_provided_by_cli
     assert!(text.contains("[DONE]"));
 
     drop(upstream);
+}
+
+#[tokio::test]
+async fn token_saver_compresses_tool_output_and_appends_the_terse_directive() {
+    let (upstream, app) = test_app().await;
+    let noisy_tool_output =
+        "\u{1b}[31mred\u{1b}[0m\n\n\n\nsame repeated line\nsame repeated line\nsame repeated line";
+    let body = serde_json::json!({
+        "model": "opencode_zen/space-bunny-free",
+        "messages": [
+            { "role": "system", "content": "policy" },
+            { "role": "tool", "content": noisy_tool_output },
+            { "role": "user", "content": "summarize" }
+        ],
+        "stream": false
+    });
+
+    let response = app
+        .oneshot(chat_request("/v1/chat/completions", body))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let captured = upstream.last_chat_body();
+    let messages = captured["messages"].as_array().expect("messages array");
+    assert_eq!(
+        messages[0]["content"],
+        serde_json::json!(format!("policy\n\n{TERSE_DIRECTIVE}"))
+    );
+    assert_eq!(
+        messages[1]["content"],
+        serde_json::json!("red\n\nsame repeated line (x3)")
+    );
+    assert_eq!(messages[2]["content"], serde_json::json!("summarize"));
+}
+
+#[tokio::test]
+async fn token_saver_prepends_the_directive_and_leaves_clean_content_untouched() {
+    let (upstream, app) = test_app().await;
+    let body = serde_json::json!({
+        "model": "opencode_zen/space-bunny-free",
+        "messages": [
+            { "role": "user", "content": "hello world\nsecond line" }
+        ],
+        "stream": false
+    });
+
+    let response = app
+        .oneshot(chat_request("/v1/chat/completions", body))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let captured = upstream.last_chat_body();
+    let messages = captured["messages"].as_array().expect("messages array");
+    assert_eq!(messages[0]["role"], serde_json::json!("system"));
+    assert_eq!(messages[0]["content"], serde_json::json!(TERSE_DIRECTIVE));
+    assert_eq!(
+        messages[1]["content"],
+        serde_json::json!("hello world\nsecond line")
+    );
+}
+
+#[tokio::test]
+async fn token_saver_compresses_streaming_requests_too() {
+    let (upstream, app) = test_app().await;
+    let body = serde_json::json!({
+        "model": "opencode_zen/space-bunny-free",
+        "messages": [
+            { "role": "tool", "content": "\u{1b}[32mtool output\u{1b}[0m" }
+        ],
+        "stream": true
+    });
+
+    let response = app
+        .oneshot(chat_request("/v1/chat/completions", body))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let _ = text_body(response).await;
+
+    let captured = upstream.last_chat_body();
+    assert_eq!(captured["stream"], serde_json::json!(true));
+    let messages = captured["messages"].as_array().expect("messages array");
+    assert_eq!(messages[0]["content"], serde_json::json!(TERSE_DIRECTIVE));
+    assert_eq!(messages[1]["content"], serde_json::json!("tool output"));
 }

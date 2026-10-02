@@ -30,6 +30,7 @@ use crate::features::gateway::model::{
     ChatCompletionRequest, ChatContent, ChatMessage, ChatRole, ToolCall, ToolCallFunction,
     ToolCallKind,
 };
+use crate::features::gateway::token_saver::apply_to_request;
 use crate::features::gateway::usage::{UsageBreakdown, normalize_response_usage};
 use crate::features::gateway::{AssembledToolCall, ReceiverStream};
 use crate::http::middleware::client_address::client_address;
@@ -107,7 +108,8 @@ pub async fn create_message(
 
     let original_model = anthropic_req.model.clone();
     let stream = anthropic_req.stream;
-    let chat_request = anthropic_to_openai_request(anthropic_req);
+    let mut chat_request = anthropic_to_openai_request(anthropic_req);
+    apply_to_request(&mut chat_request);
 
     if stream {
         return stream_anthropic_message(

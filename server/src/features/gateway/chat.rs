@@ -21,6 +21,7 @@ use crate::features::gateway::model::{
     ToolCallKind, parse_chat_completion_request,
 };
 use crate::features::gateway::sse;
+use crate::features::gateway::token_saver::apply_to_request;
 use crate::features::gateway::usage::{UsageBreakdown, normalize_response_usage};
 use crate::features::gateway::{AssembledToolCall, ReceiverStream};
 use crate::http::middleware::client_address::client_address;
@@ -79,6 +80,9 @@ pub async fn create_completion(
             message.role = ChatRole::System;
         }
     }
+
+    // Strip noisy tool output and apply the terse directive once per top-level request.
+    apply_to_request(&mut chat_request);
 
     if chat_request.stream {
         return stream_completion(state, chat_request, version);

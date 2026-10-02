@@ -85,16 +85,29 @@ impl Drop for TestDatabase {
     }
 }
 
+/// State recorded by the generic OpenAI-compatible fake upstream.
+#[derive(Debug, Default)]
+pub struct FakeUpstreamState {
+    pub chat_requests: usize,
+    pub last_chat_body: serde_json::Value,
+}
+
+type SharedFakeUpstreamState = Arc<StdMutex<FakeUpstreamState>>;
+
 /// A local stand-in for an OpenAI-compatible upstream, served on a random
 /// loopback port and aborted when dropped.
 pub struct FakeUpstream {
     base_url: String,
+    state: SharedFakeUpstreamState,
     task: JoinHandle<()>,
 }
 
 impl FakeUpstream {
     pub async fn start() -> Self {
-        let router = Router::new().route("/v1/chat/completions", post(fake_chat_completion));
+        let state: SharedFakeUpstreamState = Arc::new(StdMutex::new(FakeUpstreamState::default()));
+        let router = Router::new()
+            .route("/v1/chat/completions", post(fake_chat_completion))
+            .with_state(state.clone());
         let listener = TcpListener::bind("127.0.0.1:0")
             .await
             .expect("bind the fake upstream");
@@ -106,6 +119,7 @@ impl FakeUpstream {
 
         Self {
             base_url: format!("http://{address}/v1"),
+            state,
             task,
         }
     }
@@ -113,6 +127,24 @@ impl FakeUpstream {
     /// The base URL to register on a provider adapter.
     pub fn base_url(&self) -> &str {
         &self.base_url
+    }
+
+    /// Runs an edit against the recorded state.
+    pub fn with<F, R>(&self, edit: F) -> R
+    where
+        F: FnOnce(&mut FakeUpstreamState) -> R,
+    {
+        edit(&mut self.state.lock().expect("fake upstream state"))
+    }
+
+    /// Recorded chat requests.
+    pub fn chat_requests(&self) -> usize {
+        self.with(|state| state.chat_requests)
+    }
+
+    /// The body of the most recent chat request the gateway forwarded.
+    pub fn last_chat_body(&self) -> serde_json::Value {
+        self.with(|state| state.last_chat_body.clone())
     }
 }
 
@@ -1458,7 +1490,16 @@ pub fn json_request_with_headers(
         .expect("request")
 }
 
-async fn fake_chat_completion(Json(payload): Json<serde_json::Value>) -> Response {
+async fn fake_chat_completion(
+    State(state): State<SharedFakeUpstreamState>,
+    Json(payload): Json<serde_json::Value>,
+) -> Response {
+    {
+        let mut guard = state.lock().expect("fake upstream state");
+        guard.chat_requests += 1;
+        guard.last_chat_body = payload.clone();
+    }
+
     let model = payload
         .get("model")
         .and_then(|value| value.as_str())

@@ -6,6 +6,7 @@ use axum::{
     http::{Request, StatusCode, Version, header},
 };
 use srouter_server::app::create_router;
+use srouter_server::features::gateway::token_saver::TERSE_DIRECTIVE;
 use support::{
     FakeUpstream, api_key_record, app_state_with_fake_upstream,
     app_state_with_fake_upstream_and_security, security_state, with_loopback_client,
@@ -413,4 +414,38 @@ async fn post_v1_messages_enforces_model_allowlist() {
     let json = json_body(res).await;
     assert_eq!(json["type"], "error");
     assert_eq!(json["error"]["type"], "permission_error");
+}
+
+#[tokio::test]
+async fn token_saver_compresses_the_translated_anthropic_request() {
+    let (upstream, app) = test_app().await;
+    let body = serde_json::json!({
+        "model": "opencode_zen/space-bunny-free",
+        "system": "policy",
+        "messages": [
+            {
+                "role": "user",
+                "content": "\u{1b}[31mhello\u{1b}[0m\n\n\n\nsame repeated line\nsame repeated line\nsame repeated line"
+            }
+        ],
+        "max_tokens": 1024,
+        "stream": false
+    });
+
+    let response = app
+        .oneshot(message_request("/v1/messages", body))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let _ = json_body(response).await;
+
+    let captured = upstream.last_chat_body();
+    let messages = captured["messages"].as_array().expect("messages array");
+    let system = messages[0]["content"].as_str().expect("system content");
+    assert!(system.starts_with("policy"), "system: {system}");
+    assert!(system.contains(TERSE_DIRECTIVE), "system: {system}");
+    assert_eq!(
+        messages[1]["content"],
+        serde_json::json!("hello\n\nsame repeated line (x3)")
+    );
 }

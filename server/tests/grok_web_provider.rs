@@ -11,6 +11,7 @@ use axum::{
 use srouter_server::SecurityState;
 use srouter_server::app::create_router;
 use srouter_server::features::admin_auth::hash_session_token;
+use srouter_server::features::gateway::token_saver::TERSE_DIRECTIVE;
 use srouter_server::infrastructure::database::providers::{
     GrokWebConnectionWrite, load_grok_web_credentials, upsert_grok_web_connection,
 };
@@ -105,7 +106,7 @@ async fn non_stream_chat_translates_the_ws_exchange_into_a_completion() {
         )
     });
     assert_eq!(model, "fast");
-    assert_eq!(prompt, "Hello");
+    assert_eq!(prompt, format!("system: {TERSE_DIRECTIVE}\n\nHello"));
     assert_eq!(query, "uid=fake-uid-1234");
     assert_eq!(origin, "https://grok.com");
     assert!(cookie.contains("sso=fixture-valid"));
@@ -164,7 +165,9 @@ async fn history_and_system_messages_reach_the_upstream_flattened() {
     let prompt = fake.with(|state| state.last_prompt.clone());
     assert_eq!(
         prompt,
-        "system: Be brief.\n\nuser: First\n\nassistant: Sure\n\nSecond"
+        format!(
+            "system: Be brief.\n\n{TERSE_DIRECTIVE}\n\nuser: First\n\nassistant: Sure\n\nSecond"
+        )
     );
 }
 

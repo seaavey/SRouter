@@ -12,6 +12,7 @@ use axum::{
 };
 use futures_util::future::join_all;
 use srouter_server::app::create_router;
+use srouter_server::features::gateway::token_saver::TERSE_DIRECTIVE;
 use srouter_server::features::providers::OPENCODE_ZEN_MODELS;
 use srouter_server::features::providers::ProviderAdapter;
 use srouter_server::features::providers::qoder::{self};
@@ -123,7 +124,7 @@ async fn a_streaming_chat_translates_the_envelope_into_openai_frames() {
     );
     let sent = sent_body(&fake);
 
-    assert_eq!(sent["system"], "be brief");
+    assert_eq!(sent["system"], format!("be brief\n\n{TERSE_DIRECTIVE}"));
     assert_eq!(sent["messages"][0]["role"], "user");
     assert_eq!(sent["model_config"]["key"], "auto");
     assert_eq!(sent["parameters"]["max_tokens"], 32_768);

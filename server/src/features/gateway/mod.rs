@@ -13,6 +13,7 @@ pub mod models;
 pub mod routes;
 pub mod search;
 pub mod sse;
+pub mod token_saver;
 pub mod usage;
 
 pub use routes::create_gateway_router;
