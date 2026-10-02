@@ -267,10 +267,10 @@ codebuddy-cn, qoder`) → validated token import, `201`.
       (`apps/api/tests/` streaming cases, `docs/api-v1-contract.md` "Streaming").
 - [ ] `/v1/v1/*` alias must cover every gateway path once images/fallbacks land, and must stay
       absent for provider/auth/keys/logs/settings routes.
-- [ ] Token Saver: compress noisy tool output (ANSI, whitespace, diff metadata, repeated log
-      lines) and optionally append a terse-output directive on every top-level chat/messages
-      request; settings read from the `settings` table (key `token_saver`, JSON, disabled when
-      missing or malformed, fail-open). Native gateway design, no Node parity:
+- [x] Token Saver: always-on compression of noisy tool output (ANSI, whitespace, diff metadata,
+      repeated log lines) plus one fixed terse-output directive, applied once per top-level
+      chat/messages request before model resolution. No settings row, no toggle, no threshold;
+      native gateway design, no Node parity:
       `docs/superpowers/plans/2026-10-01-token-saver.md`.
 
 ---
