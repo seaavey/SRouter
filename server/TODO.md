@@ -216,7 +216,7 @@ Qoder and Cline routes exist in Rust. Source of truth for the route list: `docs/
       `client_id`, `redirect_uri`, `prompt`, `format=json`), `/v1/auth/{codebuddy,codebuddy-cn}/login`
       (GET) and `/poll` (GET, POST), and every other `/token` route
       (`openai, antigravity, commandcode, anthropic, atria, claude, tokenrouter, codebuddy,
-      codebuddy-cn, qoder`) → validated token import, `201`.
+codebuddy-cn, qoder`) → validated token import, `201`.
 - [x] `qoder` privileged routes: `GET /v1/auth/qoder/login` (supports `client_id`, `redirect_uri`,
       `format=json`, otherwise redirects to the device URL) and `/v1/auth/qoder/poll` (GET, POST,
       `state` from query or JSON body) in `features/provider_auth/qoder.rs`, mounted behind
@@ -267,6 +267,11 @@ Qoder and Cline routes exist in Rust. Source of truth for the route list: `docs/
       (`apps/api/tests/` streaming cases, `docs/api-v1-contract.md` "Streaming").
 - [ ] `/v1/v1/*` alias must cover every gateway path once images/fallbacks land, and must stay
       absent for provider/auth/keys/logs/settings routes.
+- [ ] Token Saver: compress noisy tool output (ANSI, whitespace, diff metadata, repeated log
+      lines) and optionally append a terse-output directive on every top-level chat/messages
+      request; settings read from the `settings` table (key `token_saver`, JSON, disabled when
+      missing or malformed, fail-open). Native gateway design, no Node parity:
+      `docs/superpowers/plans/2026-10-01-token-saver.md`.
 
 ---
 
