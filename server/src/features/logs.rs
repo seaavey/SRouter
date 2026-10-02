@@ -157,7 +157,7 @@ struct EventStreamSlot;
 impl EventStreamSlot {
     fn acquire() -> Result<Self, APIError> {
         ACTIVE_EVENT_STREAMS
-            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |active| {
+            .try_update(Ordering::AcqRel, Ordering::Acquire, |active| {
                 (active < MAX_EVENT_STREAMS).then_some(active + 1)
             })
             .map(|_| Self)
