@@ -9,6 +9,10 @@ use axum::{
 };
 use srouter_server::SecurityState;
 use srouter_server::app::create_router;
+use srouter_server::clock::now_ms;
+use srouter_server::infrastructure::database::providers::{
+    ClineConnectionWrite, load_cline_credentials, upsert_cline_connection,
+};
 use support::{
     FakeClineUpstream, TestDatabase, cline_registry, connect_cline, test_config,
     with_loopback_client,
@@ -265,4 +269,50 @@ async fn no_cline_connection_returns_not_connected_and_messages_route_smokes() {
     let body = json_body(response).await;
     assert_eq!(body["type"], "message");
     assert_eq!(body["stop_reason"], "end_turn");
+}
+
+#[tokio::test]
+async fn cline_refresh_drops_the_workos_prefix_and_rotates_the_stored_token() {
+    let database = TestDatabase::new().expect("temporary database");
+    let db = database.connect().await.expect("temporary database");
+    // The row shape written by earlier builds: a refresh token that still
+    // carries the header-only prefix, past its refresh lead.
+    upsert_cline_connection(
+        &db,
+        &ClineConnectionWrite {
+            id: "user-1".to_owned(),
+            name: "Dev".to_owned(),
+            access_token: "workos:old-access".to_owned(),
+            refresh_token: Some("workos:cline-refresh".to_owned()),
+            token_expires_at: Some(now_ms() - 1),
+            email: "dev@example.com".to_owned(),
+        },
+    )
+    .await
+    .expect("Cline connection stored");
+    let fake = FakeClineUpstream::start().await;
+    let app = app(&database, &fake).await;
+
+    let response = app
+        .oneshot(request(
+            "/v1/chat/completions",
+            chat_body("cline/anthropic/claude-sonnet-5.5", false),
+        ))
+        .await
+        .expect("gateway response");
+    assert_eq!(response.status(), StatusCode::OK);
+    let _ = json_body(response).await;
+
+    assert_eq!(fake.with(|state| state.refresh_requests), 1);
+    assert_eq!(
+        fake.with(|state| state.last_refresh_token.clone()),
+        "cline-refresh",
+        "upstream rejects the refresh token while it carries the workos: prefix"
+    );
+    let credentials = load_cline_credentials(&db)
+        .await
+        .expect("credentials load")
+        .expect("connection");
+    assert_eq!(credentials.access_token, "workos:cline-access");
+    assert_eq!(credentials.refresh_token.as_deref(), Some("cline-refresh"));
 }

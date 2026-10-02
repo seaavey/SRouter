@@ -397,7 +397,7 @@ impl ClineExecutor {
             .post(endpoint_url(&self.endpoints.api_base_url, "auth/refresh"))
             .timeout(self.client.request_timeout())
             .json(&serde_json::json!({
-                "refreshToken": refresh_token,
+                "refreshToken": strip_workos_prefix(refresh_token),
                 "grantType": "refresh_token",
             }))
             .send()
@@ -436,20 +436,19 @@ impl ClineExecutor {
             .or_else(|| payload.get("refresh_token"))
             .and_then(Value::as_str)
             .filter(|token| !token.trim().is_empty())
-            .unwrap_or(refresh_token);
+            .unwrap_or(strip_workos_prefix(refresh_token));
         let expires_at = payload
             .get("expiresAt")
             .or_else(|| payload.get("expires_at"))
             .and_then(parse_expiry_ms);
         let refreshed_at = now_ms();
         let access_token = prefixed_token(access_token);
-        let rotated_refresh = prefixed_token(rotated_refresh);
 
         update_cline_tokens(
             database,
             connection_id,
             &access_token,
-            &rotated_refresh,
+            rotated_refresh,
             expires_at,
             refreshed_at,
         )
@@ -458,7 +457,7 @@ impl ClineExecutor {
         Ok(ClineCredentials {
             id: connection_id.to_owned(),
             access_token,
-            refresh_token: Some(rotated_refresh),
+            refresh_token: Some(rotated_refresh.to_owned()),
             token_expires_at: expires_at,
             last_refreshed_at: Some(refreshed_at),
         })
@@ -487,6 +486,12 @@ fn prefixed_token(token: &str) -> String {
 
 fn bearer_token(token: &str) -> String {
     format!("Bearer {}", prefixed_token(token))
+}
+
+/// The `workos:` prefix is a header-only marker; upstream answers
+/// `400 failed to refresh token` for a prefixed refresh token.
+fn strip_workos_prefix(token: &str) -> &str {
+    token.strip_prefix("workos:").unwrap_or(token)
 }
 
 fn apply_headers(

@@ -311,6 +311,7 @@ pub struct FakeClineState {
     pub last_chat_body: serde_json::Value,
     pub last_device_form: String,
     pub last_authenticate_form: String,
+    pub last_refresh_token: String,
     pub model_catalog: serde_json::Value,
     pub register_user_id: String,
     pub register_email: String,
@@ -339,6 +340,7 @@ impl Default for FakeClineState {
             last_chat_body: serde_json::Value::Null,
             last_device_form: String::new(),
             last_authenticate_form: String::new(),
+            last_refresh_token: String::new(),
             model_catalog: serde_json::json!({
                 "object": "list",
                 "data": [
@@ -512,13 +514,32 @@ async fn cline_register(
 
 async fn cline_refresh(
     State(state): State<SharedClineState>,
-    Json(_payload): Json<serde_json::Value>,
+    Json(payload): Json<serde_json::Value>,
 ) -> Response {
+    let refresh_token = payload
+        .get("refreshToken")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_default()
+        .to_owned();
     let fail = {
         let mut state = state.lock().expect("fake Cline state");
         state.refresh_requests += 1;
+        state.last_refresh_token = refresh_token.clone();
         state.refresh_failure
     };
+    // The real API rejects a refresh token carrying the header-only `workos:`
+    // prefix, and a test row deliberately stores one.
+    if refresh_token.starts_with("workos:") {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "data": "",
+                "error": "failed to refresh token: invalid refresh token",
+                "success": false
+            })),
+        )
+            .into_response();
+    }
     if fail {
         return (StatusCode::INTERNAL_SERVER_ERROR, "refresh unavailable").into_response();
     }
