@@ -19,7 +19,8 @@ use serde::Serialize;
 use serde_json::Value;
 
 use super::{
-    ConnectedProvider, PollFailure, PollResponse, query_params, state_from_body, text_field,
+    ConnectedProvider, PollFailure, PollResponse, Protocol, query_params, state_from_body,
+    text_field,
 };
 use crate::clock::now_ms;
 use crate::constants;
@@ -252,7 +253,7 @@ async fn connect(
         provider_id: QODER_PROVIDER.id.to_owned(),
         name,
         category: "oauth".to_owned(),
-        protocol: "openai".to_owned(),
+        protocol: Protocol::OpenAI,
         enabled: true,
         created_at: timestamp,
     })

@@ -14,7 +14,7 @@ use axum::routing::post;
 use axum::{Json, Router};
 use serde_json::Value;
 
-use super::{ConnectedProvider, text_field};
+use super::{ConnectedProvider, Protocol, text_field};
 use crate::clock::now_ms;
 use crate::constants;
 use crate::error::APIError;
@@ -83,7 +83,7 @@ async fn connect(
             provider_id: GROK_WEB_PROVIDER.id.to_owned(),
             name,
             category: GROK_WEB_PROVIDER.category.to_owned(),
-            protocol: GROK_WEB_PROVIDER.protocol.to_owned(),
+            protocol: Protocol::from_name(GROK_WEB_PROVIDER.protocol),
             enabled: true,
             created_at: timestamp,
         }),

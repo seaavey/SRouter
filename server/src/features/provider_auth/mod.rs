@@ -16,6 +16,25 @@ pub use cline::create_cline_login_router;
 pub use grok_web::create_grok_web_login_router;
 pub use qoder::{create_qoder_callback_router, create_qoder_login_router};
 
+/// The wire protocol a connected provider speaks.
+#[derive(Serialize)]
+#[serde(rename_all = "lowercase")]
+enum Protocol {
+    OpenAI,
+    Anthropic,
+}
+
+impl Protocol {
+    /// Maps a provider metadata `protocol` name onto the enum. Unknown names
+    /// keep the OpenAI shape, which is what every seed provider speaks.
+    fn from_name(name: &str) -> Self {
+        match name {
+            "anthropic" => Self::Anthropic,
+            _ => Self::OpenAI,
+        }
+    }
+}
+
 /// The connected provider, echoed back so the client can show what was stored.
 #[derive(Serialize)]
 struct ConnectedProvider {
@@ -23,14 +42,22 @@ struct ConnectedProvider {
     provider_id: String,
     name: String,
     category: String,
-    protocol: String,
+    protocol: Protocol,
     enabled: bool,
     created_at: i64,
 }
 
+/// The poll round-trip outcome the client switches on.
+#[derive(Serialize)]
+#[serde(rename_all = "lowercase")]
+enum PollStatus {
+    Pending,
+    Ok,
+}
+
 #[derive(Serialize)]
 struct PollResponse {
-    status: &'static str,
+    status: PollStatus,
     #[serde(skip_serializing_if = "Option::is_none")]
     error: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -40,7 +67,7 @@ struct PollResponse {
 impl PollResponse {
     fn pending(error: Option<String>) -> Self {
         Self {
-            status: "pending",
+            status: PollStatus::Pending,
             error,
             provider: None,
         }
@@ -48,7 +75,7 @@ impl PollResponse {
 
     fn ok(provider: ConnectedProvider) -> Self {
         Self {
-            status: "ok",
+            status: PollStatus::Ok,
             error: None,
             provider: Some(provider),
         }
