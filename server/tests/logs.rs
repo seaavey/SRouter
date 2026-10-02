@@ -56,6 +56,31 @@ async fn seed_log(database: &srouter_server::AppDatabase, id: &str, created_at: 
     .unwrap();
 }
 
+async fn seed_complete_log(
+    database: &srouter_server::AppDatabase,
+    id: &str,
+    created_at: i64,
+    status: i64,
+) {
+    sqlx::query(
+        "INSERT INTO request_logs (
+            id, request_id, method, path, api_key_id, provider_id, model,
+            prompt_tokens, completion_tokens, total_tokens, cached_tokens,
+            cache_creation_tokens, reasoning_tokens, estimated_cost, fallback_occurred,
+            fallback_path, fallback_reason, resolved_model, status_code, latency_ms, created_at
+        ) VALUES (?, ?, 'POST', '/v1/chat/completions', NULL, 'opencode_zen', 'test-model',
+            2, 3, 5, 7, 8, 9, 0.1234, 1, 'fallback-a', 'fallback-test',
+            'resolved-test-model', ?, 12, ?)",
+    )
+    .bind(id)
+    .bind(id)
+    .bind(status)
+    .bind(created_at)
+    .execute(database.sqlite_pool().unwrap())
+    .await
+    .unwrap();
+}
+
 struct AnalyticsSeed<'a> {
     id: &'a str,
     created_at: i64,
@@ -117,7 +142,7 @@ async fn logs_list_supports_latest_order_pagination_and_status_filter() {
     let state = logs_state(&test_database).await;
     let database = state.database.as_ref().unwrap();
     seed_log(database, "00000000-0000-4000-8000-000000000001", 100, 200).await;
-    seed_log(database, "00000000-0000-4000-8000-000000000002", 200, 500).await;
+    seed_complete_log(database, "00000000-0000-4000-8000-000000000002", 200, 500).await;
     let app = app(state);
 
     let response = app.clone().oneshot(get("/v1/logs?limit=1")).await.unwrap();
@@ -141,6 +166,15 @@ async fn logs_list_supports_latest_order_pagination_and_status_filter() {
         })
     );
     assert_eq!(body["data"][0]["status_code"], 500);
+    assert_eq!(body["data"][0]["cached_tokens"], 7);
+    assert_eq!(body["data"][0]["cache_creation_tokens"], 8);
+    assert_eq!(body["data"][0]["reasoning_tokens"], 9);
+    assert_eq!(body["data"][0]["estimated_cost"], 0.1234);
+    assert_eq!(body["data"][0]["resolved_model"], "resolved-test-model");
+    assert_eq!(body["data"][0]["fallback_occurred"], true);
+    assert_eq!(body["data"][0]["fallback_path"], "fallback-a");
+    assert_eq!(body["data"][0]["fallback_reason"], "fallback-test");
+    assert_eq!(body["data"][0]["created_at"], 200);
 }
 
 #[tokio::test]
@@ -149,7 +183,7 @@ async fn log_detail_returns_snake_case_uuid_record_and_404_for_missing_id() {
     let state = logs_state(&test_database).await;
     let database = state.database.as_ref().unwrap();
     let id = "00000000-0000-4000-8000-000000000003";
-    seed_log(database, id, 300, 200).await;
+    seed_complete_log(database, id, 300, 200).await;
     let app = app(state);
 
     let response = app
@@ -179,6 +213,11 @@ async fn logs_stats_aggregate_usage_and_by_model() {
     let database = state.database.as_ref().unwrap();
     seed_log(database, "00000000-0000-4000-8000-00000000000a", 100, 200).await;
     seed_log(database, "00000000-0000-4000-8000-00000000000b", 200, 500).await;
+    sqlx::query("UPDATE request_logs SET estimated_cost = 0.1234 WHERE id = ?")
+        .bind("00000000-0000-4000-8000-00000000000a")
+        .execute(database.sqlite_pool().unwrap())
+        .await
+        .unwrap();
     let app = app(state);
 
     let response = app.oneshot(get("/v1/logs/stats")).await.unwrap();
@@ -193,7 +232,7 @@ async fn logs_stats_aggregate_usage_and_by_model() {
     assert_eq!(body["total_input_tokens"], 4);
     assert_eq!(body["total_output_tokens"], 6);
     assert_eq!(body["estimated"], true);
-    assert!(body["cost_label"].is_string());
+    assert_eq!(body["cost_label"], "$0.1234");
     assert_eq!(body["by_model"][0]["model"], "test-model");
     assert_eq!(body["by_model"][0]["total_requests"], 2);
     assert_eq!(body["by_model"][0]["total_input_tokens"], 4);

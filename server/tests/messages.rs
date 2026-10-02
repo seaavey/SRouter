@@ -8,7 +8,7 @@ use axum::{
 use srouter_server::app::create_router;
 use srouter_server::features::gateway::token_saver::TERSE_DIRECTIVE;
 use support::{
-    FakeUpstream, api_key_record, app_state_with_fake_upstream,
+    FakeUpstream, TestDatabase, api_key_record, app_state_with_fake_upstream,
     app_state_with_fake_upstream_and_security, security_state, with_loopback_client,
 };
 use tower::ServiceExt;
@@ -118,6 +118,60 @@ async fn post_v1_messages_streaming_emits_anthropic_sse_events() {
     assert!(text.contains("event: message_delta"));
     assert!(text.contains("event: message_stop"));
     assert!(text.contains("fake stream"));
+}
+
+#[tokio::test]
+async fn post_v1_messages_logs_streaming_request() {
+    let test_db = TestDatabase::new().expect("test db");
+    let database = test_db.connect().await.expect("db connect");
+    let (_upstream, state) = app_state_with_fake_upstream().await;
+    let app = create_router(state.with_database(database.clone()));
+    let body = serde_json::json!({
+        "model": "opencode_zen/fragmented-stream",
+        "messages": [{ "role": "user", "content": "log stream" }],
+        "max_tokens": 1024,
+        "stream": true
+    });
+
+    let response = app
+        .oneshot(message_request("/v1/messages", body))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let stream_body = text_body(response).await;
+    assert!(stream_body.contains("message_stop"));
+
+    let row = sqlx::query(
+        "SELECT status_code, prompt_tokens, completion_tokens, total_tokens, path FROM request_logs",
+    )
+    .fetch_one(database.sqlite_pool().unwrap())
+    .await
+    .expect("stream log row");
+    assert_eq!(
+        sqlx::Row::try_get::<i64, _>(&row, "status_code").unwrap(),
+        200
+    );
+    assert_eq!(
+        sqlx::Row::try_get::<i64, _>(&row, "prompt_tokens").unwrap(),
+        11
+    );
+    assert_eq!(
+        sqlx::Row::try_get::<i64, _>(&row, "completion_tokens").unwrap(),
+        22
+    );
+    assert_eq!(
+        sqlx::Row::try_get::<i64, _>(&row, "total_tokens").unwrap(),
+        33
+    );
+    assert_eq!(
+        sqlx::Row::try_get::<String, _>(&row, "path").unwrap(),
+        "/v1/messages"
+    );
+    let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM request_logs")
+        .fetch_one(database.sqlite_pool().unwrap())
+        .await
+        .unwrap();
+    assert_eq!(count, 1);
 }
 
 #[tokio::test]

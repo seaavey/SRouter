@@ -256,6 +256,9 @@ codebuddy-cn, qoder`) → validated token import, `201`.
       `/v1/models`, `/v1/models/{model}`, SSE framing, tool interceptor, usage recording
       (`features/gateway/`, `server/tests/chat_completions.rs`, `messages.rs`,
       `reasoning_stream.rs`, `models.rs`).
+- [x] Streamed chat and Messages requests write one request-log row after output completes, on
+      upstream/model errors, and on client disconnect; successful rows include accumulated SSE usage
+      (`features/gateway/chat.rs`, `messages.rs`, `server/tests/chat_completions.rs`, `messages.rs`).
 - [ ] `POST /v1/images/generations` — validated image-generation JSON (`prompt`, `model`), API-key
       auth + rate limit + model access, provider image output, unsupported image model → `400`.
       Legacy evidence: `apps/api/tests/images-route.test.ts`, `images-fallback.test.ts`.
@@ -308,6 +311,9 @@ stale-while-revalidate=86400`, `refresh`/`force`/`no-cache` forcing a refresh.
 - [x] `GET /v1/logs` (paginated + recent), `GET /v1/logs/{id}`, `GET /v1/logs/events` SSE with
       `connected`/`usage.updated`/`request.logged` and 25 s heartbeats, 16-stream cap with `429`
       (`features/logs.rs`, `server/tests/logs.rs`).
+- [x] Log records expose token, cost, resolved-model, fallback, and creation-time columns; stats
+      `cost_label` uses four decimals. `estimated_cost` remains `0.0` until the pricing catalog lands
+      (`infrastructure/database/request_logs.rs`, `server/tests/logs.rs`).
 - [x] `GET /v1/logs/stats` — aggregate usage statistics (`usage_stats` in
       `infrastructure/database/request_logs.rs`, now served directly instead of only through the
       `usage.updated` SSE payload). Serializes snake_case, as does the SSE `usage.updated` payload

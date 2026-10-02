@@ -29,9 +29,18 @@ pub struct RequestLog {
     pub input_tokens: Option<i64>,
     pub output_tokens: Option<i64>,
     pub total_tokens: Option<i64>,
+    pub cached_tokens: Option<i64>,
+    pub cache_creation_tokens: Option<i64>,
+    pub reasoning_tokens: Option<i64>,
+    pub estimated_cost: Option<f64>,
+    pub resolved_model: Option<String>,
+    pub fallback_occurred: Option<bool>,
+    pub fallback_path: Option<String>,
+    pub fallback_reason: Option<String>,
     pub latency_ms: i64,
     pub error_code: Option<String>,
     pub error_message: Option<String>,
+    pub created_at: i64,
 }
 
 #[derive(Debug)]
@@ -207,7 +216,7 @@ pub async fn usage_stats(database: &AppDatabase) -> Result<serde_json::Value, AP
         "total_estimated_cost": estimated_cost,
         "total_input_tokens": input_tokens,
         "total_output_tokens": output_tokens,
-        "cost_label": format!("${estimated_cost:.2}"),
+        "cost_label": format!("${estimated_cost:.4}"),
         "estimated": true,
         "by_model": by_model
     }))
@@ -550,9 +559,23 @@ fn map_request_log(row: &sqlx::sqlite::SqliteRow) -> Result<RequestLog, APIError
         input_tokens: row.try_get("prompt_tokens").map_err(log_row_error)?,
         output_tokens: row.try_get("completion_tokens").map_err(log_row_error)?,
         total_tokens: row.try_get("total_tokens").map_err(log_row_error)?,
+        cached_tokens: row.try_get("cached_tokens").map_err(log_row_error)?,
+        cache_creation_tokens: row
+            .try_get("cache_creation_tokens")
+            .map_err(log_row_error)?,
+        reasoning_tokens: row.try_get("reasoning_tokens").map_err(log_row_error)?,
+        estimated_cost: row.try_get("estimated_cost").map_err(log_row_error)?,
+        resolved_model: row.try_get("resolved_model").map_err(log_row_error)?,
+        fallback_occurred: row
+            .try_get::<Option<i64>, _>("fallback_occurred")
+            .map_err(log_row_error)?
+            .map(|value| value != 0),
+        fallback_path: row.try_get("fallback_path").map_err(log_row_error)?,
+        fallback_reason: row.try_get("fallback_reason").map_err(log_row_error)?,
         latency_ms: row.try_get("latency_ms").map_err(log_row_error)?,
         error_code: row.try_get("error_code").map_err(log_row_error)?,
         error_message: row.try_get("error_message").map_err(log_row_error)?,
+        created_at: row.try_get("created_at").map_err(log_row_error)?,
     })
 }
 

@@ -32,7 +32,7 @@ use crate::features::gateway::model::{
 };
 use crate::features::gateway::token_saver::apply_to_request;
 use crate::features::gateway::usage::{UsageBreakdown, normalize_response_usage};
-use crate::features::gateway::{AssembledToolCall, ReceiverStream};
+use crate::features::gateway::{AssembledToolCall, ReceiverStream, RequestLogContext};
 use crate::http::middleware::client_address::client_address;
 use crate::infrastructure::database::request_logs::{
     RequestLogInput, generate_log_id, insert_request_log,
@@ -68,6 +68,15 @@ pub async fn create_message(
     let api_key_id = principal
         .as_ref()
         .and_then(|ext| ext.0.api_key.as_ref().map(|key| key.id.clone()));
+    let log_context = RequestLogContext {
+        request_id: request_id.clone(),
+        method: method.clone(),
+        path: path.clone(),
+        client_ip: client_ip.clone(),
+        user_agent: user_agent.clone(),
+        api_key_id: api_key_id.clone(),
+        start_time,
+    };
 
     let body = match read_json_body(request).await {
         Ok(b) => b,
@@ -118,6 +127,7 @@ pub async fn create_message(
             chat_request,
             version,
             is_thinking_enabled,
+            log_context,
         );
     }
 
@@ -374,15 +384,80 @@ async fn read_json_body(request: Request) -> Result<Value, Box<Response>> {
         .map_err(|_| Box::new(anthropic_error(400, constants::json::MALFORMED_VERIFY)))
 }
 
+#[allow(clippy::too_many_arguments)]
+async fn log_stream_request(
+    state: &AppState,
+    context: &RequestLogContext,
+    provider_id: &str,
+    model: &str,
+    resolved_model: Option<&str>,
+    status_code: u16,
+    usage: &UsageBreakdown,
+    error_message: Option<&str>,
+) {
+    if let Some(db) = &state.database {
+        let _ = insert_request_log(
+            db,
+            RequestLogInput {
+                request_id: &context.request_id,
+                method: &context.method,
+                path: &context.path,
+                api_key_id: context.api_key_id.as_deref(),
+                ip_address: context.client_ip.as_deref(),
+                user_agent: context.user_agent.as_deref(),
+                provider_id,
+                model,
+                status_code,
+                latency_ms: crate::clock::now_ms() - context.start_time,
+                usage,
+                estimated_cost: 0.0,
+                fallback_occurred: false,
+                fallback_path: None,
+                fallback_reason: error_message,
+                resolved_model,
+                error_code: None,
+                error_message,
+                created_at: crate::clock::now_ms(),
+            },
+        )
+        .await;
+    }
+}
+
+fn unresolved_provider_id(model: &str) -> &str {
+    model
+        .split_once('/')
+        .map_or("default", |(provider, _)| provider)
+}
+
+fn stream_log_status(message: &str, fallback: u16) -> u16 {
+    message
+        .split_once(" Error (")
+        .and_then(|(_, status)| status.split_once(')'))
+        .and_then(|(status, _)| status.parse().ok())
+        .unwrap_or(fallback)
+}
+
+fn add_stream_usage(total: &mut UsageBreakdown, usage: &UsageBreakdown) {
+    total.prompt_tokens += usage.prompt_tokens;
+    total.completion_tokens += usage.completion_tokens;
+    total.total_tokens += usage.total_tokens;
+    total.cached_tokens += usage.cached_tokens;
+    total.cache_creation_tokens += usage.cache_creation_tokens;
+    total.reasoning_tokens += usage.reasoning_tokens;
+}
+
 async fn run_anthropic_streaming_interception_loop(
     state: AppState,
     original_model: String,
     mut chat_request: ChatCompletionRequest,
     is_thinking_enabled: bool,
+    context: RequestLogContext,
     tx: tokio::sync::mpsc::Sender<Result<Bytes, Infallible>>,
 ) {
     const MAX_INTERCEPT_DEPTH: usize = 3;
     let mut current_depth = 0;
+    let mut stream_usage = UsageBreakdown::default();
 
     while current_depth <= MAX_INTERCEPT_DEPTH {
         let resolved = match state.providers.resolve(&chat_request.model) {
@@ -392,6 +467,18 @@ async fn run_anthropic_streaming_interception_loop(
                 let _ = tx
                     .send(Ok(anthropic_error_event_bytes("not_found_error", &err_msg)))
                     .await;
+                let provider_id = unresolved_provider_id(&chat_request.model).to_owned();
+                log_stream_request(
+                    &state,
+                    &context,
+                    &provider_id,
+                    &chat_request.model,
+                    None,
+                    404,
+                    &UsageBreakdown::default(),
+                    Some(&err_msg),
+                )
+                .await;
                 return;
             }
         };
@@ -406,6 +493,17 @@ async fn run_anthropic_streaming_interception_loop(
                 let _ = tx
                     .send(Ok(anthropic_error_event_bytes("api_error", err.message())))
                     .await;
+                log_stream_request(
+                    &state,
+                    &context,
+                    resolved.adapter.id(),
+                    &chat_request.model,
+                    Some(&resolved.model),
+                    stream_log_status(err.message(), err.status()),
+                    &UsageBreakdown::default(),
+                    Some(err.message()),
+                )
+                .await;
                 return;
             }
         };
@@ -434,10 +532,28 @@ async fn run_anthropic_streaming_interception_loop(
                         }
 
                         if let Ok(json) = serde_json::from_str::<Value>(data_str) {
+                            if let Some(usage) = json.get("usage").filter(|usage| usage.is_object())
+                            {
+                                add_stream_usage(
+                                    &mut stream_usage,
+                                    &UsageBreakdown::from_value(usage),
+                                );
+                            }
                             if streamed_directly {
                                 let events = translator.feed_chunk(&json);
                                 for ev in events {
                                     if tx.send(Ok(ev)).await.is_err() {
+                                        log_stream_request(
+                                            &state,
+                                            &context,
+                                            resolved.adapter.id(),
+                                            &chat_request.model,
+                                            Some(&resolved.model),
+                                            200,
+                                            &stream_usage,
+                                            None,
+                                        )
+                                        .await;
                                         return;
                                     }
                                 }
@@ -506,6 +622,17 @@ async fn run_anthropic_streaming_interception_loop(
                                         let events = translator.feed_chunk(&chunk);
                                         for ev in events {
                                             if tx.send(Ok(ev)).await.is_err() {
+                                                log_stream_request(
+                                                    &state,
+                                                    &context,
+                                                    resolved.adapter.id(),
+                                                    &chat_request.model,
+                                                    Some(&resolved.model),
+                                                    200,
+                                                    &stream_usage,
+                                                    None,
+                                                )
+                                                .await;
                                                 return;
                                             }
                                         }
@@ -521,8 +648,32 @@ async fn run_anthropic_streaming_interception_loop(
         if streamed_directly {
             let finish_events = translator.finish();
             for ev in finish_events {
-                let _ = tx.send(Ok(ev)).await;
+                if tx.send(Ok(ev)).await.is_err() {
+                    log_stream_request(
+                        &state,
+                        &context,
+                        resolved.adapter.id(),
+                        &chat_request.model,
+                        Some(&resolved.model),
+                        200,
+                        &stream_usage,
+                        None,
+                    )
+                    .await;
+                    return;
+                }
             }
+            log_stream_request(
+                &state,
+                &context,
+                resolved.adapter.id(),
+                &chat_request.model,
+                Some(&resolved.model),
+                200,
+                &stream_usage,
+                None,
+            )
+            .await;
             return;
         }
 
@@ -602,14 +753,49 @@ async fn run_anthropic_streaming_interception_loop(
             let events = translator.feed_chunk(&chunk);
             for ev in events {
                 if tx.send(Ok(ev)).await.is_err() {
+                    log_stream_request(
+                        &state,
+                        &context,
+                        resolved.adapter.id(),
+                        &chat_request.model,
+                        Some(&resolved.model),
+                        200,
+                        &stream_usage,
+                        None,
+                    )
+                    .await;
                     return;
                 }
             }
         }
         let finish_events = translator.finish();
         for ev in finish_events {
-            let _ = tx.send(Ok(ev)).await;
+            if tx.send(Ok(ev)).await.is_err() {
+                log_stream_request(
+                    &state,
+                    &context,
+                    resolved.adapter.id(),
+                    &chat_request.model,
+                    Some(&resolved.model),
+                    200,
+                    &stream_usage,
+                    None,
+                )
+                .await;
+                return;
+            }
         }
+        log_stream_request(
+            &state,
+            &context,
+            resolved.adapter.id(),
+            &chat_request.model,
+            Some(&resolved.model),
+            200,
+            &stream_usage,
+            None,
+        )
+        .await;
         return;
     }
 }
@@ -620,6 +806,7 @@ fn stream_anthropic_message(
     chat_request: ChatCompletionRequest,
     version: Version,
     is_thinking_enabled: bool,
+    context: RequestLogContext,
 ) -> Response {
     let (tx, rx) = tokio::sync::mpsc::channel::<Result<Bytes, Infallible>>(64);
 
@@ -629,6 +816,7 @@ fn stream_anthropic_message(
             original_model,
             chat_request,
             is_thinking_enabled,
+            context,
             tx,
         )
         .await;

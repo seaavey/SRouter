@@ -18,6 +18,17 @@ pub mod usage;
 
 pub use routes::create_gateway_router;
 
+#[derive(Clone)]
+pub(crate) struct RequestLogContext {
+    pub request_id: String,
+    pub method: String,
+    pub path: String,
+    pub client_ip: Option<String>,
+    pub user_agent: Option<String>,
+    pub api_key_id: Option<String>,
+    pub start_time: i64,
+}
+
 /// An mpsc receiver of stream events, presented as a `Stream` for the response body.
 struct ReceiverStream<T>(tokio::sync::mpsc::Receiver<T>);
 
