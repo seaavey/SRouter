@@ -16,7 +16,8 @@ use srouter_server::infrastructure::database::oauth_sessions::{
     SESSION_TTL_MS, claim_session, delete_session, release_session, save_session,
 };
 use srouter_server::infrastructure::database::providers::{
-    load_cline_credentials, load_qoder_credentials,
+    ClineConnectionWrite, load_cline_credentials, load_qoder_credentials, update_cline_tokens,
+    upsert_cline_connection,
 };
 use support::{
     FakeClineUpstream, FakeQoderUpstream, TestDatabase, cline_state, json_request_with_headers,
@@ -587,4 +588,46 @@ async fn cline_device_and_poll_require_an_admin_session() {
             .unwrap();
         assert_eq!(response.status(), StatusCode::UNAUTHORIZED, "{uri}");
     }
+}
+
+#[tokio::test]
+async fn update_cline_tokens_persists_rotated_credentials() {
+    let database = TestDatabase::new().unwrap();
+    let db = database.connect().await.expect("temporary database");
+    upsert_cline_connection(
+        &db,
+        &ClineConnectionWrite {
+            id: "user-1".to_owned(),
+            name: "Dev".to_owned(),
+            access_token: "workos:old-access".to_owned(),
+            refresh_token: Some("workos:old-refresh".to_owned()),
+            token_expires_at: Some(1),
+            email: "dev@example.com".to_owned(),
+        },
+    )
+    .await
+    .expect("connection stored");
+
+    update_cline_tokens(
+        &db,
+        "user-1",
+        "workos:new-access",
+        "workos:new-refresh",
+        Some(42),
+        99,
+    )
+    .await
+    .expect("tokens updated");
+
+    let credentials = load_cline_credentials(&db)
+        .await
+        .expect("credentials read")
+        .expect("Cline connection stored");
+    assert_eq!(credentials.access_token, "workos:new-access");
+    assert_eq!(
+        credentials.refresh_token.as_deref(),
+        Some("workos:new-refresh")
+    );
+    assert_eq!(credentials.token_expires_at, Some(42));
+    assert_eq!(credentials.last_refreshed_at, Some(99));
 }

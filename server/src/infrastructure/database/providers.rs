@@ -715,8 +715,10 @@ fn parse_cline_credentials(raw: &str) -> Option<ClineCredentials> {
     })
 }
 
-/// Writes the three credential fields back into the JSON, read-modify-write
-/// of the credentials column, exactly like the Qoder update helper.
+/// Writes the refreshed credential fields back into the providers row and
+/// re-enables it. The row always exists here (its credentials were just read
+/// to obtain the refresh token), so a plain UPDATE is correct: `ON CONFLICT`
+/// is only valid on INSERT and SQLite rejects it on UPDATE.
 pub async fn update_cline_tokens(
     database: &AppDatabase,
     id: &str,
@@ -740,9 +742,7 @@ pub async fn update_cline_tokens(
     sqlx::query(
         "UPDATE providers
          SET credentials = ?, enabled = 1
-         WHERE id = ?
-         ON CONFLICT(id) DO UPDATE SET
-           credentials = excluded.credentials, enabled = 1",
+         WHERE id = ?",
     )
     .bind(credentials.to_string())
     .bind(id)
