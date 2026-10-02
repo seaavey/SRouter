@@ -173,6 +173,55 @@ async fn cline_request_uses_bare_model_forced_stream_and_single_workos_prefix() 
 }
 
 #[tokio::test]
+async fn cline_mandatory_reasoning_drops_the_disable_and_keeps_real_efforts() {
+    let database = TestDatabase::new().expect("temporary database");
+    connect_cline(&database).await;
+    let fake = FakeClineUpstream::start().await;
+    fake.with(|state| {
+        state.model_catalog = serde_json::json!({
+            "object": "list",
+            "data": [
+                { "id": "cline-free/muse-spark-1.3-contributor" },
+                { "id": "anthropic/claude-sonnet-5.5" }
+            ]
+        });
+    });
+    let app = app(&database, &fake).await;
+
+    // The mandatory-reasoning model must never receive the disable its
+    // endpoint rejects with 400.
+    let mut body = chat_body("cline/cline-free/muse-spark-1.3-contributor", true);
+    body["reasoning_effort"] = serde_json::json!("none");
+    let response = app
+        .clone()
+        .oneshot(request("/v1/chat/completions", body))
+        .await
+        .expect("gateway response");
+    assert_eq!(response.status(), StatusCode::OK);
+    let _ = text_body(response).await;
+    let upstream = fake.with(|state| state.last_chat_body.clone());
+    assert!(
+        upstream.get("reasoning_effort").is_none(),
+        "the reasoning disable must be dropped upstream: {upstream}"
+    );
+
+    // An ordinary model keeps the caller's effort untouched.
+    let mut body = chat_body("cline/anthropic/claude-sonnet-5.5", true);
+    body["reasoning_effort"] = serde_json::json!("none");
+    let response = app
+        .oneshot(request("/v1/chat/completions", body))
+        .await
+        .expect("gateway response");
+    assert_eq!(response.status(), StatusCode::OK);
+    let _ = text_body(response).await;
+    let upstream = fake.with(|state| state.last_chat_body.clone());
+    assert_eq!(
+        upstream["reasoning_effort"], "none",
+        "models without the mandate forward the caller's effort verbatim"
+    );
+}
+
+#[tokio::test]
 async fn cline_catalog_merges_the_curated_free_ids_and_chat_sends_one_bare() {
     let database = TestDatabase::new().expect("temporary database");
     connect_cline(&database).await;

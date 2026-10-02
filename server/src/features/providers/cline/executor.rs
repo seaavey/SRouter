@@ -308,6 +308,9 @@ impl ClineExecutor {
         })?;
         body["model"] = Value::String(model_key.clone());
         body["stream"] = Value::Bool(true);
+        if model_requires_reasoning(&model_key) {
+            strip_reasoning_disables(&mut body);
+        }
 
         let encoded_body = serde_json::to_string(&body).map_err(|error| {
             APIError::new(500, constants::providers::could_not_build_request(&error))
@@ -474,6 +477,35 @@ pub(crate) fn endpoint_url(base: &str, path: &str) -> String {
 
 fn strip_cline_prefix(model: &str) -> &str {
     model.strip_prefix("cline/").unwrap_or(model)
+}
+
+/// Whether the upstream endpoint for this model refuses to run without
+/// reasoning. Verified live (2026-10-02): `meta/muse-spark-1.3-contributor`
+/// answers `400 Reasoning is mandatory for this endpoint and cannot be
+/// disabled.` the moment a `reasoning_effort: "none"` reaches it, which
+/// fails the whole stream for clients that only want a cheap request.
+fn model_requires_reasoning(model_key: &str) -> bool {
+    model_key.to_ascii_lowercase().contains("muse-spark")
+}
+
+/// Drops the reasoning-disable shapes from an outgoing body for models that
+/// mandate reasoning. The request struct already drops the unknown
+/// `reasoning.enabled` key, so `effort: "none"` (the only disable value
+/// upstream accepts as valid input) is what must not be forwarded; leaving
+/// the field absent lets upstream run its mandatory reasoning at the default
+/// effort instead of rejecting the request.
+fn strip_reasoning_disables(body: &mut Value) {
+    let Some(object) = body.as_object_mut() else {
+        return;
+    };
+    if object.get("reasoning_effort").and_then(Value::as_str) == Some("none") {
+        object.remove("reasoning_effort");
+    }
+    if let Some(reasoning) = object.get_mut("reasoning").and_then(Value::as_object_mut)
+        && reasoning.get("effort").and_then(Value::as_str) == Some("none")
+    {
+        reasoning.remove("effort");
+    }
 }
 
 fn prefixed_token(token: &str) -> String {
@@ -1064,6 +1096,44 @@ mod tests {
 
         assert_eq!(body["model"], "openai/gpt-5");
         assert_eq!(body["stream"], true);
+    }
+
+    #[test]
+    fn mandatory_reasoning_models_are_matched_on_the_upstream_key() {
+        assert!(model_requires_reasoning(
+            "cline-free/muse-spark-1.3-contributor"
+        ));
+        assert!(model_requires_reasoning(
+            "cline/cline-free/Muse-Spark-1.3-Contributor"
+        ));
+        assert!(!model_requires_reasoning("cline-free/deepseek-v4.1-flash"));
+        assert!(!model_requires_reasoning("anthropic/claude-sonnet-5.5"));
+    }
+
+    #[test]
+    fn disabling_effort_is_dropped_only_where_reasoning_is_mandatory() {
+        let mut body = json!({
+            "model": "cline-free/muse-spark-1.3-contributor",
+            "reasoning_effort": "none",
+            "reasoning": {"effort": "none", "summary": "auto"},
+            "temperature": 0.2
+        });
+        strip_reasoning_disables(&mut body);
+
+        assert!(
+            body.get("reasoning_effort").is_none(),
+            "the disable must not reach an endpoint that mandates reasoning: {body}"
+        );
+        assert_eq!(body["reasoning"], json!({"summary": "auto"}));
+        assert_eq!(body["temperature"], 0.2);
+
+        let mut kept = json!({"reasoning_effort": "low", "reasoning": {"effort": "medium"}});
+        strip_reasoning_disables(&mut kept);
+        assert_eq!(
+            kept,
+            json!({"reasoning_effort": "low", "reasoning": {"effort": "medium"}}),
+            "a real effort level is the caller's choice and stays untouched"
+        );
     }
 
     #[test]
