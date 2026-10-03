@@ -105,13 +105,15 @@ async fn codex_models_appear_only_for_a_connected_account() {
     let connected = catalog_ids(&app).await;
     assert!(connected.contains(&"openai_codex/gpt-6.1-sol".to_owned()));
     assert!(connected.contains(&"openai_codex/gpt-6-luna".to_owned()));
+    assert!(!connected.contains(&"openai_codex/gpt-reserve".to_owned()));
     assert_eq!(
         connected
             .iter()
             .filter(|id| id.starts_with("openai_codex/"))
             .count(),
-        8
+        2
     );
+    assert_eq!(fake.models_requests(), 1);
 }
 
 #[tokio::test]
@@ -332,4 +334,25 @@ async fn a_chat_without_a_connection_reports_not_connected() {
         0,
         "no upstream call without a session"
     );
+}
+
+#[tokio::test]
+async fn codex_chat_supports_dot_variant_and_chat_route() {
+    let database = TestDatabase::new().expect("temporary database");
+    connect_codex(&database, None).await;
+    let fake = FakeCodexUpstream::start().await;
+    let app = app(&database, &fake).await;
+
+    // Both /v1/chat and bare "gpt-6.luna" should resolve and translate to upstream "gpt-6-luna"
+    let response = app
+        .clone()
+        .oneshot(post_request("/v1/chat", chat_body("gpt-6.luna", false)))
+        .await
+        .expect("gateway response");
+    let status = response.status();
+    let body = text_body(response).await;
+    assert_eq!(status, StatusCode::OK, "response failed with: {body}");
+
+    let upstream_payload = fake.with(|state| state.last_chat_body.clone());
+    assert_eq!(upstream_payload["model"], "gpt-6-luna");
 }

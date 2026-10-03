@@ -10,7 +10,6 @@
 
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::pin::Pin;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use axum::body::Bytes;
@@ -32,8 +31,11 @@ use crate::features::providers::adapter::{
     ProviderAdapter, ProviderStream, upstream_error, upstream_status_error,
     upstream_stream_status_error,
 };
+use crate::features::providers::codex::catalog::{
+    CATALOG_REQUEST_TIMEOUT, CodexCatalog, SharedCatalog, read_catalog, write_catalog,
+};
 use crate::features::providers::codex::types::{
-    CODEX_KEYS, CODEX_MODELS, CODEX_OAUTH_CLIENT_ID, CODEX_ORIGINATOR, CODEX_PROVIDER,
+    CODEX_CLIENT_VERSION, CODEX_KEYS, CODEX_OAUTH_CLIENT_ID, CODEX_ORIGINATOR, CODEX_PROVIDER,
     CODEX_USER_AGENT, CodexEndpoints,
 };
 use crate::features::providers::executor::{BoxFuture, ProviderExecutor};
@@ -64,9 +66,8 @@ pub struct CodexExecutor {
     endpoints: CodexEndpoints,
     database: Option<AppDatabase>,
     client: UpstreamClient,
-    /// Set once a stored connection is seen: the static seed is only advertised
-    /// for a connected account, the way Node registers an executor per row.
-    connected: Arc<AtomicBool>,
+    catalog: SharedCatalog,
+    catalog_refresh_lock: Arc<tokio::sync::Mutex<()>>,
     token_refreshes: Arc<Mutex<HashMap<String, Arc<tokio::sync::Mutex<()>>>>>,
 }
 
@@ -82,7 +83,8 @@ impl CodexExecutor {
             endpoints,
             database,
             client,
-            connected: Arc::new(AtomicBool::new(false)),
+            catalog: CodexCatalog::shared_empty(),
+            catalog_refresh_lock: Arc::new(tokio::sync::Mutex::new(())),
             token_refreshes: Arc::new(Mutex::new(HashMap::new())),
         }
     }
@@ -100,38 +102,117 @@ impl CodexExecutor {
     }
 
     pub fn models(&self) -> Vec<String> {
-        if self.connected.load(Ordering::Relaxed) {
-            CODEX_MODELS
-                .iter()
-                .map(|model| model.id.to_owned())
-                .collect()
-        } else {
-            Vec::new()
-        }
+        read_catalog(&self.catalog).models.clone()
     }
 
     /// A model is addressed as `openai_codex/<slug>`; the bare id the upstream
     /// expects is what the registry keeps.
     pub fn model_id_variants(&self, model: &str) -> Vec<String> {
-        vec![strip_codex_prefix(model.trim()).to_lowercase()]
+        let bare = strip_codex_prefix(model.trim()).to_lowercase();
+        let mut variants = vec![bare.clone()];
+        if bare.contains('.') {
+            let dash = bare.replace('.', "-");
+            if !variants.contains(&dash) {
+                variants.push(dash);
+            }
+        }
+        if let Some((prefix, suffix)) = bare.rsplit_once('-') {
+            let dot = format!("{prefix}.{suffix}");
+            if !variants.contains(&dot) {
+                variants.push(dot);
+            }
+        }
+        variants
     }
 
     pub fn endpoints(&self) -> &CodexEndpoints {
         &self.endpoints
     }
 
-    /// Advertises the seed as soon as a stored connection exists. No network
-    /// round trip: the model list is a static carve of the vendor catalog.
-    pub async fn maybe_refresh(&self, _force: bool) {
-        if self.connected.load(Ordering::Relaxed) {
-            return;
-        }
+    /// An empty catalog waits for the shared fetch; a populated one refreshes
+    /// in the background.
+    pub async fn maybe_refresh(&self, force: bool) {
         let Some(database) = self.database.as_ref() else {
             return;
         };
-        if matches!(load_codex_credentials(database).await, Ok(Some(_))) {
-            self.connected.store(true, Ordering::Relaxed);
+        if !matches!(load_codex_credentials(database).await, Ok(Some(_))) {
+            return;
         }
+
+        if self.catalog_is_empty() {
+            let _ = self.refresh_catalog_coalesced(force).await;
+            return;
+        }
+
+        if !self.refresh_is_due(force) {
+            return;
+        }
+
+        let executor = self.clone();
+        tokio::spawn(async move {
+            let _ = executor.refresh_catalog_coalesced(force).await;
+        });
+    }
+
+    fn catalog_is_empty(&self) -> bool {
+        read_catalog(&self.catalog).is_empty()
+    }
+
+    fn refresh_is_due(&self, force: bool) -> bool {
+        read_catalog(&self.catalog).refresh_is_due(force, now_ms())
+    }
+
+    async fn refresh_catalog_coalesced(&self, force: bool) -> Result<(), APIError> {
+        let _guard = self.catalog_refresh_lock.lock().await;
+        if !self.refresh_is_due(force) {
+            return Ok(());
+        }
+        write_catalog(&self.catalog).attempted_at_ms = now_ms();
+        self.refresh_catalog().await
+    }
+
+    /// Replaces the snapshot only when upstream returns a usable model list.
+    pub async fn refresh_catalog(&self) -> Result<(), APIError> {
+        let credentials = self.ensure_fresh_token(false).await?;
+        let url = format!(
+            "{}/models?client_version={CODEX_CLIENT_VERSION}",
+            self.endpoints.api_base_url.trim_end_matches('/')
+        );
+        let mut request = self
+            .client
+            .raw()
+            .get(&url)
+            .timeout(CATALOG_REQUEST_TIMEOUT)
+            .header("authorization", bearer_token(&credentials.access_token))
+            .header("originator", CODEX_ORIGINATOR)
+            .header("user-agent", CODEX_USER_AGENT)
+            .header("accept", "application/json");
+
+        if let Some(account_id) = credentials
+            .account_id
+            .as_deref()
+            .filter(|value| !value.trim().is_empty())
+        {
+            request = request.header("chatgpt-account-id", account_id);
+        }
+
+        let response = request.send().await.map_err(upstream_error)?;
+        let status = response.status();
+
+        if !status.is_success() {
+            let detail = response.text().await.unwrap_or_default();
+            return Err(map_status_error(status, &detail));
+        }
+
+        let payload = response.json::<Value>().await.map_err(|error| {
+            APIError::new(500, constants::providers::could_not_decode_response(&error))
+        })?;
+
+        if let Some(catalog) = CodexCatalog::parse_model_list(&payload) {
+            *write_catalog(&self.catalog) = catalog;
+        }
+
+        Ok(())
     }
 
     pub async fn chat_completion(
@@ -219,7 +300,20 @@ impl CodexExecutor {
         force_refresh: bool,
     ) -> Result<PreparedRequest, APIError> {
         let credentials = self.ensure_fresh_token(force_refresh).await?;
-        let model_key = strip_codex_prefix(model.trim()).to_owned();
+        let raw_key = strip_codex_prefix(model.trim());
+        let model_key = {
+            let catalog = read_catalog(&self.catalog);
+            if catalog.models.iter().any(|m| m == raw_key) {
+                raw_key.to_owned()
+            } else {
+                let dash_variant = raw_key.replace('.', "-");
+                if catalog.models.iter().any(|m| m == &dash_variant) {
+                    dash_variant
+                } else {
+                    raw_key.to_owned()
+                }
+            }
+        };
         let body = upstream_body(&model_key, request)?;
 
         let encoded_body = serde_json::to_string(&body).map_err(|error| {
@@ -298,7 +392,10 @@ impl CodexExecutor {
         }
         let refresh_token = current.refresh_token.as_deref().unwrap_or(refresh_token);
 
-        match self.refresh_token(&current.id, refresh_token).await {
+        match self
+            .refresh_token(&current.id, refresh_token, current.account_id.clone())
+            .await
+        {
             Ok(refreshed) => Ok(refreshed),
             // A transient upstream failure must not revoke a still-valid session.
             Err(error) if error.status() >= 500 && !current.is_expired(now_ms()) => Ok(current),
@@ -310,6 +407,7 @@ impl CodexExecutor {
         &self,
         connection_id: &str,
         refresh_token: &str,
+        account_id: Option<String>,
     ) -> Result<CodexCredentials, APIError> {
         let database = self
             .database
@@ -381,10 +479,18 @@ impl CodexExecutor {
             id: connection_id.to_owned(),
             access_token: access_token.to_owned(),
             refresh_token: Some(rotated_refresh.to_owned()),
-            account_id: None,
+            account_id,
             token_expires_at: expires_at,
             last_refreshed_at: Some(refreshed_at),
         })
+    }
+}
+
+fn map_status_error(status: reqwest::StatusCode, _detail: &str) -> APIError {
+    if status.as_u16() == 401 {
+        APIError::new(401, constants::providers::codex::TOKEN_EXPIRED)
+    } else {
+        upstream_status_error(status, "Codex models request failed")
     }
 }
 
@@ -533,8 +639,7 @@ fn input_items(messages: &[ChatMessage]) -> Vec<Value> {
 
     for message in messages {
         let role = match message.role {
-            ChatRole::System => "system",
-            ChatRole::Developer => "developer",
+            ChatRole::System | ChatRole::Developer => "developer",
             ChatRole::User => "user",
             ChatRole::Assistant => "assistant",
             ChatRole::Tool | ChatRole::Function => {
@@ -634,7 +739,10 @@ fn content_parts(content: &ChatContent, text_part_type: &str) -> Vec<Value> {
 }
 
 fn strip_codex_prefix(model: &str) -> &str {
-    model.strip_prefix("openai_codex/").unwrap_or(model)
+    model
+        .strip_prefix("openai_codex/")
+        .or_else(|| model.strip_prefix("codex/"))
+        .unwrap_or(model)
 }
 
 fn bearer_token(token: &str) -> String {
@@ -1358,7 +1466,7 @@ mod tests {
     }
 
     #[test]
-    fn executor_contract_uses_the_static_seed_and_needs_a_connection() {
+    fn executor_contract_uses_live_catalog_and_needs_a_connection() {
         let executor = CodexExecutor::new(
             CodexEndpoints::default(),
             None,
@@ -1366,17 +1474,16 @@ mod tests {
         );
 
         assert_eq!(executor.id(), "openai_codex");
-        assert_eq!(executor.keys(), &["openai_codex"]);
+        assert_eq!(executor.keys(), &["openai_codex", "codex"]);
         assert_eq!(executor.alias(), "openai_codex");
         assert!(
             executor.models().is_empty(),
-            "the seed is advertised only for a connected account"
+            "the catalog is empty until a live fetch confirms models"
         );
         assert_eq!(
             executor.model_id_variants("openai_codex/GPT-6-Luna"),
-            vec!["gpt-6-luna"]
+            vec!["gpt-6-luna", "gpt-6.luna"]
         );
-        assert_eq!(CODEX_MODELS.len(), 8);
     }
 
     #[test]
@@ -1398,7 +1505,7 @@ mod tests {
         let input = body["input"].as_array().expect("input array");
         assert_eq!(input.len(), 2);
         assert_eq!(input[0]["type"], "message");
-        assert_eq!(input[0]["role"], "system");
+        assert_eq!(input[0]["role"], "developer");
         assert_eq!(input[0]["content"][0]["type"], "input_text");
         assert_eq!(input[0]["content"][0]["text"], "be terse");
         assert_eq!(input[1]["role"], "user");

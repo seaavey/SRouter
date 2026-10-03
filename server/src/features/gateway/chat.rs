@@ -79,10 +79,16 @@ pub async fn create_completion(
 
     // Resolve before reserving: an unregistered model returns without logging,
     // and a reservation that is never settled would stay charged.
-    let resolved = state
-        .providers
-        .resolve(&chat_request.model)
-        .ok_or_else(|| unregistered_model(&chat_request.model))?;
+    let resolved = match state.providers.resolve(&chat_request.model) {
+        Some(resolved) => resolved,
+        None => {
+            state.providers.maybe_refresh_catalogs(false).await;
+            state
+                .providers
+                .resolve(&chat_request.model)
+                .ok_or_else(|| unregistered_model(&chat_request.model))?
+        }
+    };
 
     log_context.reserved_tokens =
         reserve_api_key_quota(&state, principal.as_ref(), &chat_request).await?;
@@ -145,21 +151,27 @@ async fn run_streaming_interception_loop(
         let resolved = match state.providers.resolve(&chat_request.model) {
             Some(resolved) => resolved,
             None => {
-                let error = unregistered_model(&chat_request.model);
-                let _ = tx.send(Ok(sse::error_event_bytes(&error))).await;
-                let provider_id = unresolved_provider_id(&chat_request.model).to_owned();
-                log_request(
-                    &state,
-                    &context,
-                    &provider_id,
-                    &chat_request.model,
-                    None,
-                    404,
-                    &UsageBreakdown::default(),
-                    Some(error.message()),
-                )
-                .await;
-                return;
+                state.providers.maybe_refresh_catalogs(false).await;
+                match state.providers.resolve(&chat_request.model) {
+                    Some(resolved) => resolved,
+                    None => {
+                        let error = unregistered_model(&chat_request.model);
+                        let _ = tx.send(Ok(sse::error_event_bytes(&error))).await;
+                        let provider_id = unresolved_provider_id(&chat_request.model).to_owned();
+                        log_request(
+                            &state,
+                            &context,
+                            &provider_id,
+                            &chat_request.model,
+                            None,
+                            404,
+                            &UsageBreakdown::default(),
+                            Some(error.message()),
+                        )
+                        .await;
+                        return;
+                    }
+                }
             }
         };
 

@@ -15,6 +15,7 @@ pub fn create_gateway_router() -> Router<AppState> {
     Router::new()
         .route("/chat/completions", post(create_completion))
         .route("/chat/completion", post(create_completion))
+        .route("/chat", post(create_completion))
         .route("/messages", post(create_message))
         .route("/messages/count_tokens", post(count_tokens))
 }

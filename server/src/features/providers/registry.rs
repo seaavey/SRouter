@@ -157,7 +157,11 @@ impl ProviderRegistry {
 
         self.adapters
             .values()
-            .find(|adapter| adapter.models().iter().any(|id| id.as_str() == model))
+            .find(|adapter| {
+                adapter.models().iter().any(|id| {
+                    id.as_str() == model || (model.contains('.') && model.replace('.', "-") == *id)
+                })
+            })
             .map(|adapter| ResolvedModel {
                 adapter: adapter.clone(),
                 model: model.to_owned(),

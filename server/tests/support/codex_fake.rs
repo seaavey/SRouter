@@ -13,6 +13,7 @@ pub struct FakeCodexState {
     pub refresh_failure: bool,
     pub chat_requests: usize,
     pub refresh_requests: usize,
+    pub models_requests: usize,
     pub last_authorization: String,
     pub last_account_id: String,
     pub last_originator: String,
@@ -27,6 +28,7 @@ impl Default for FakeCodexState {
             refresh_failure: false,
             chat_requests: 0,
             refresh_requests: 0,
+            models_requests: 0,
             last_authorization: String::new(),
             last_account_id: String::new(),
             last_originator: String::new(),
@@ -49,6 +51,8 @@ impl FakeCodexUpstream {
         let state: SharedCodexState = Arc::new(StdMutex::new(FakeCodexState::default()));
         let router = Router::new()
             .route("/codex/responses", post(codex_responses))
+            .route("/codex/models", get(codex_models))
+            .route("/models", get(codex_models))
             .route("/token", post(codex_token))
             .with_state(state.clone());
         let listener = TcpListener::bind("127.0.0.1:0")
@@ -93,12 +97,48 @@ impl FakeCodexUpstream {
     pub fn refresh_requests(&self) -> usize {
         self.with(|state| state.refresh_requests)
     }
+
+    pub fn models_requests(&self) -> usize {
+        self.with(|state| state.models_requests)
+    }
 }
 
 impl Drop for FakeCodexUpstream {
     fn drop(&mut self) {
         self.task.abort();
     }
+}
+
+async fn codex_models(State(state): State<SharedCodexState>, headers: HeaderMap) -> Response {
+    let mut state = state.lock().expect("fake Codex state");
+    state.models_requests += 1;
+    state.last_authorization = header_text(&headers, "authorization");
+    state.last_account_id = header_text(&headers, "chatgpt-account-id");
+    state.last_originator = header_text(&headers, "originator");
+
+    let body = serde_json::json!({
+        "models": [
+            {
+                "slug": "gpt-6.1-sol",
+                "display_name": "GPT-6.1-Sol",
+                "visibility": "list",
+                "priority": 1
+            },
+            {
+                "slug": "gpt-6-luna",
+                "display_name": "GPT-6-Luna",
+                "visibility": "list",
+                "priority": 2
+            },
+            {
+                "slug": "gpt-reserve",
+                "display_name": "GPT-Reserve",
+                "visibility": "hide",
+                "priority": 3
+            }
+        ]
+    });
+    (StatusCode::OK, Json(body)).into_response()
 }
 
 async fn codex_responses(

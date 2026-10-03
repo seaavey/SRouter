@@ -165,10 +165,10 @@ Status legend: `[x]` done and covered by a Rust test, `[ ]` missing, `[~]` parti
       `http_public_url_does_not_enable_secure_cookies`,
       `https_public_url_keeps_secure_cookies_on_when_the_flag_is_false`).
 - [~] Startup ordering: Node awaits PostgreSQL schema init, then admin bootstrap, then provider
-      registry, then serves; model warmup runs after the listener is up, and the token-refresh
-      sweeper starts last (`docs/api-v1-contract.md`, "Legacy baseline"). Rust `main.rs` now runs
-      the admin bootstrap before the listener starts; the model-registry warmup and the token-refresh
-      sweeper remain open (sections 4 and 5).
+  registry, then serves; model warmup runs after the listener is up, and the token-refresh
+  sweeper starts last (`docs/api-v1-contract.md`, "Legacy baseline"). Rust `main.rs` now runs
+  the admin bootstrap before the listener starts; the model-registry warmup and the token-refresh
+  sweeper remain open (sections 4 and 5).
 
 ---
 
@@ -284,10 +284,13 @@ Everything below is still Node-only.
       the header names, the `apps/api` oracle — is recorded in `features/providers/codex/types.rs`.
       Covered by `server/tests/codex_provider.rs` (fake upstream: headers, fragmented SSE, tool
       calls, refresh, 401 retry) and the in-file unit tests.
-- [ ] Codex model catalog: the 8 `visibility: list` slugs are a static seed of the vendor catalog,
-      advertised only while a connection exists; the three `visibility: hide` slugs stay
-      unadvertised. A live `GET /codex/models` fetch (the Node executor's source) is not ported —
-      decide seed-only or live fetch before cutover.
+- [x] Codex model catalog: live-only dynamic catalog fetched directly from ChatGPT
+      (`GET {base}/models?client_version=0.160.0`), matching the user ruling to eliminate all
+      hardcoded models. Implemented in `features/providers/codex/catalog.rs` and `executor.rs`:
+      5-minute TTL (`CATALOG_TTL_MS`), 30-second retry window (`CATALOG_RETRY_MS`), coalesced fetch
+      lock, in-memory `SharedCatalog`, filtering of `visibility: "hide"` models (such as
+      `codex-auto-review` and `gpt-reserve`), and retention of rotated `account_id`. Covered by
+      `server/tests/codex_provider.rs` and in-file unit tests in `catalog.rs` and `executor.rs`.
 - [x] Codex OAuth connect route: `features/provider_auth/openai.rs` ports
       `/v1/auth/openai/login`, `/callback`, and `/token` on the shared `features/provider_auth/`
       helpers (PKCE, callback parsing, `SROUTER_PUBLIC_URL` resolution). A successful callback or
@@ -322,12 +325,12 @@ Qoder, Cline, and OpenAI routes exist in Rust. Source of truth for the route lis
       guarded by the admin session. `/v1/auth/cline/token` (contract row 58) remains deliberately
       deferred; the OAuth-only scope is recorded in the Cline plan.
 - [~] Privileged routes: `openai` landed (`features/provider_auth/openai.rs`):
-      `GET /v1/auth/openai/login` (supports `client_id`, `redirect_uri`, `prompt`,
-      `format=json`) and `POST /v1/auth/openai/token` (validated token import, `201`), both
-      admin-guarded. Still open:
-      `/v1/auth/{antigravity,claude}/login`, `/v1/auth/{codebuddy,codebuddy-cn}/login` (GET) and
-      `/poll` (GET, POST), and every other `/token` route
-      (`antigravity, commandcode, anthropic, atria, claude, tokenrouter, codebuddy,
+  `GET /v1/auth/openai/login` (supports `client_id`, `redirect_uri`, `prompt`,
+  `format=json`) and `POST /v1/auth/openai/token` (validated token import, `201`), both
+  admin-guarded. Still open:
+  `/v1/auth/{antigravity,claude}/login`, `/v1/auth/{codebuddy,codebuddy-cn}/login` (GET) and
+  `/poll` (GET, POST), and every other `/token` route
+  (`antigravity, commandcode, anthropic, atria, claude, tokenrouter, codebuddy,
 codebuddy-cn, qoder`) → validated token import, `201`.
 - [x] `qoder` privileged routes: `GET /v1/auth/qoder/login` (supports `client_id`, `redirect_uri`,
       `format=json`, otherwise redirects to the device URL) and `/v1/auth/qoder/poll` (GET, POST,
@@ -338,10 +341,10 @@ codebuddy-cn, qoder`) → validated token import, `201`.
       `GET|POST /auth/qoder/callback` is mounted at the application root (`qoder.rs`) and shares the
       generic `success_page`/`error_page` helpers in `provider_auth/mod.rs` with `openai`.
 - [~] Public routes: `openai` landed — `/v1/auth/openai/callback` (GET, POST) shares
-      `parse_callback` with `qoder` and reads `code` and `state` from query, JSON body, or
-      `callback_url`; missing values → `400`, unknown state → `500`
-      (`Invalid or expired OAuth state parameter`). Still open:
-      `/v1/auth/{antigravity,claude}/callback`.
+  `parse_callback` with `qoder` and reads `code` and `state` from query, JSON body, or
+  `callback_url`; missing values → `400`, unknown state → `500`
+  (`Invalid or expired OAuth state parameter`). Still open:
+  `/v1/auth/{antigravity,claude}/callback`.
 - [x] `qoder` `/token` import is deliberately deferred: the slice is OAuth only (plan decision,
       web PAT tab returns `404` until it lands).
 - [x] Callback URL selection: callbacks are hosted on the main listener (single-port ruling,

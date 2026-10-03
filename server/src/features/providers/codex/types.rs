@@ -15,7 +15,7 @@
 //! - `docs/api-database-contract.md`: `providers.credentials` columns (`access_token`,
 //!   `refresh_token`, `account_id`, `token_expires_at`, `last_refreshed_at`).
 
-use crate::features::providers::model::{ModelDefinition, ProviderMetadata};
+use crate::features::providers::model::ProviderMetadata;
 
 /// API root for `POST {base}/responses` and the model list.
 pub const CODEX_BASE_URL: &str = "https://chatgpt.com/backend-api/codex";
@@ -47,8 +47,9 @@ pub const CODEX_USER_AGENT: &str =
     "codex_cli_rs/0.160.0 (Linux; x86_64) srouter (codex_cli_rs; 0.160.0)";
 
 /// Registry lookup keys: the base id is also the user-facing alias, so a model
-/// advertises as `openai_codex/<slug>` (the id the Node gateway uses).
-pub const CODEX_KEYS: &[&str] = &["openai_codex"];
+/// advertises as `openai_codex/<slug>` (the id the Node gateway uses), while also
+/// accepting `codex/<slug>`.
+pub const CODEX_KEYS: &[&str] = &["openai_codex", "codex"];
 
 pub const CODEX_PROVIDER: ProviderMetadata = ProviderMetadata {
     id: "openai_codex",
@@ -64,44 +65,8 @@ pub const CODEX_PROVIDER: ProviderMetadata = ProviderMetadata {
     status_message: "OpenAI Codex account not connected",
 };
 
-/// The carved catalog's `visibility: "list"` entries — the models the official
-/// client offers in its picker. The three `visibility: "hide"` slugs
-/// (`gpt-daybreak-blue-latest`, `gpt-daybreak-red-latest`, `codex-auto-review`)
-/// are internal and are deliberately not advertised.
-pub const CODEX_MODELS: &[ModelDefinition] = &[
-    ModelDefinition {
-        id: "gpt-6-astra",
-        name: "GPT-6-Astra",
-    },
-    ModelDefinition {
-        id: "gpt-6.1-sol",
-        name: "GPT-6.1-Sol",
-    },
-    ModelDefinition {
-        id: "gpt-6-sol",
-        name: "GPT-6-Sol",
-    },
-    ModelDefinition {
-        id: "gpt-6-luna",
-        name: "GPT-6-Luna",
-    },
-    ModelDefinition {
-        id: "gpt-5.6-sol",
-        name: "GPT-5.6-Sol",
-    },
-    ModelDefinition {
-        id: "gpt-5.6-terra",
-        name: "GPT-5.6-Terra",
-    },
-    ModelDefinition {
-        id: "gpt-5.6-luna",
-        name: "GPT-5.6-Luna",
-    },
-    ModelDefinition {
-        id: "gpt-5.5",
-        name: "GPT-5.5",
-    },
-];
+/// Client version sent in `?client_version=` to `GET {base}/models`.
+pub const CODEX_CLIENT_VERSION: &str = "0.160.0";
 
 /// Hosts the executor talks to. Production defaults are the constants above;
 /// tests inject the fake upstream through `adapter_with_endpoints`.
