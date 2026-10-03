@@ -5,6 +5,7 @@ use serde::Serialize;
 
 use crate::features::admin_auth::create_admin_router;
 use crate::features::api_keys::create_api_keys_router;
+use crate::features::catalog::create_quota_router;
 use crate::features::gateway::routes::{create_gateway_router, create_models_router};
 use crate::features::logs::create_logs_router;
 use crate::features::provider_auth::{
@@ -97,6 +98,7 @@ pub fn create_router(state: AppState) -> Router {
     let openai_callback_pages = create_openai_callback_pages_router().layer(from_fn(body_limit));
     let qoder_callback_pages = create_qoder_callback_pages_router().layer(from_fn(body_limit));
     let logs_routes = create_logs_router().layer(from_fn_with_state(state.clone(), api_key_auth));
+    let quota_routes = create_quota_router().layer(from_fn_with_state(state.clone(), api_key_auth));
     let settings_read_routes =
         create_settings_read_router().layer(from_fn_with_state(state.clone(), api_key_auth));
     let settings_mgmt_routes = create_settings_management_router()
@@ -119,6 +121,7 @@ pub fn create_router(state: AppState) -> Router {
         .merge(providers_read_routes)
         .merge(providers_mgmt_routes)
         .merge(logs_routes)
+        .merge(quota_routes)
         .merge(settings_read_routes)
         .merge(settings_mgmt_routes)
         .layer(from_fn_with_state(state.clone(), csrf_origin_guard))

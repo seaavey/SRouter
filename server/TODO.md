@@ -416,11 +416,13 @@ stale-while-revalidate=86400`, `refresh`/`force`/`no-cache` forcing a refresh.
       Legacy evidence: `apps/api/tests/pricing-route.test.ts`.
       Blocked on provenance: the Node catalog data comes from `packages/pricing`; an independent
       allowed source must be recorded before implementing (design doc "Static catalog/pricing").
-- [ ] `GET /v1/quota` and the retained misspelling alias `GET /v1/qouta` — provider OAuth quota data,
+- [x] `GET /v1/quota` and the retained misspelling alias `GET /v1/qouta` — provider OAuth quota data,
       `refresh`/`force` refresh. Legacy evidence: `apps/api/tests/quota-oauth-filter.test.ts`.
-      Depends on section 5 (quota reads provider OAuth state).
+      Implemented in `features/catalog/quota.rs` and mounted in `app.rs`: 60-second in-memory cache,
+      coalesced concurrent requests, filters out non-OAuth providers, parses live ChatGPT rate limit
+      windows (`wham/usage`), and handles upstream errors gracefully. Covered by `server/tests/quota.rs`.
 - [ ] Create `features/catalog/` per the plan layout and move the model/pricing/quota routes there
-      when they land (today they live in `features/gateway/models.rs`).
+      when they land (quota lands in `features/catalog/quota.rs`; models and pricing to follow).
 
 ## 8. Dashboard: logs, analytics, settings
 

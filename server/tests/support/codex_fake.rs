@@ -14,6 +14,9 @@ pub struct FakeCodexState {
     pub chat_requests: usize,
     pub refresh_requests: usize,
     pub models_requests: usize,
+    pub usage_requests: usize,
+    pub usage_failure: bool,
+    pub usage_payload: Option<serde_json::Value>,
     pub last_authorization: String,
     pub last_account_id: String,
     pub last_originator: String,
@@ -29,6 +32,9 @@ impl Default for FakeCodexState {
             chat_requests: 0,
             refresh_requests: 0,
             models_requests: 0,
+            usage_requests: 0,
+            usage_failure: false,
+            usage_payload: None,
             last_authorization: String::new(),
             last_account_id: String::new(),
             last_originator: String::new(),
@@ -54,6 +60,7 @@ impl FakeCodexUpstream {
             .route("/codex/models", get(codex_models))
             .route("/models", get(codex_models))
             .route("/token", post(codex_token))
+            .route("/backend-api/wham/usage", get(codex_usage))
             .with_state(state.clone());
         let listener = TcpListener::bind("127.0.0.1:0")
             .await
@@ -73,6 +80,10 @@ impl FakeCodexUpstream {
 
     pub fn base_url(&self) -> &str {
         &self.base_url
+    }
+
+    pub fn usage_url(&self) -> String {
+        format!("{}/backend-api/wham/usage", self.base_url)
     }
 
     pub fn endpoints(&self) -> CodexEndpoints {
@@ -100,6 +111,10 @@ impl FakeCodexUpstream {
 
     pub fn models_requests(&self) -> usize {
         self.with(|state| state.models_requests)
+    }
+
+    pub fn usage_requests(&self) -> usize {
+        self.with(|state| state.usage_requests)
     }
 }
 
@@ -270,6 +285,60 @@ async fn codex_token(State(state): State<SharedCodexState>, body: String) -> Res
         "token_type": "Bearer"
     }))
     .into_response()
+}
+
+async fn codex_usage(State(state): State<SharedCodexState>, headers: HeaderMap) -> Response {
+    let (failure, payload) = {
+        let mut state = state.lock().expect("fake Codex state");
+        state.usage_requests += 1;
+        if let Some(auth) = headers
+            .get(header::AUTHORIZATION)
+            .and_then(|h| h.to_str().ok())
+        {
+            state.last_authorization = auth.to_owned();
+        }
+        if let Some(acct) = headers
+            .get("chatgpt-account-id")
+            .and_then(|h| h.to_str().ok())
+        {
+            state.last_account_id = acct.to_owned();
+        }
+        if let Some(orig) = headers.get("originator").and_then(|h| h.to_str().ok()) {
+            state.last_originator = orig.to_owned();
+        }
+        (state.usage_failure, state.usage_payload.clone())
+    };
+
+    if failure {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": "upstream_error"})),
+        )
+            .into_response();
+    }
+
+    let body = payload.unwrap_or_else(|| {
+        serde_json::json!({
+            "plan_type": "go",
+            "rate_limit": {
+                "allowed": true,
+                "limit_reached": false,
+                "primary_window": {
+                    "used_percent": 10.0,
+                    "reset_at": 1759508316,
+                    "limit_window_seconds": 18000
+                },
+                "secondary_window": {
+                    "used_percent": 25.0,
+                    "reset_at": 1759881804,
+                    "limit_window_seconds": 604800
+                }
+            },
+            "rate_limits_by_limit_id": {}
+        })
+    });
+
+    Json(body).into_response()
 }
 
 /// An unsigned JWT whose payload carries the claims the identity reader uses.

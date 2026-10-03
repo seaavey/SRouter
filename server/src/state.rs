@@ -9,6 +9,7 @@ use crate::features::admin_auth::{
 use crate::features::api_keys::{
     APIKeyRepository, APIKeyStore, EmptyAPIKeyRepository, EmptyAPIKeyStore,
 };
+use crate::features::catalog::QuotaCache;
 use crate::features::gateway::search::SearchService;
 use crate::features::providers::ProviderRegistry;
 use crate::http::middleware::rate_limit::RateLimiter;
@@ -91,6 +92,7 @@ pub struct AppState {
     pub security: SecurityState,
     pub database: Option<AppDatabase>,
     pub search: Arc<SearchService>,
+    pub quota_cache: Arc<QuotaCache>,
 }
 
 impl AppState {
@@ -121,6 +123,7 @@ impl AppState {
             security,
             database: None,
             search: Arc::new(SearchService::new()),
+            quota_cache: Arc::new(QuotaCache::new()),
         }
     }
 
@@ -133,6 +136,12 @@ impl AppState {
     /// Overrides the search service (used by tests to inject mock search results).
     pub fn with_search(mut self, search: SearchService) -> Self {
         self.search = Arc::new(search);
+        self
+    }
+
+    /// Overrides the quota cache (used by tests to inject an upstream URL override).
+    pub fn with_quota_cache(mut self, quota_cache: Arc<QuotaCache>) -> Self {
+        self.quota_cache = quota_cache;
         self
     }
 }

@@ -94,6 +94,58 @@ pub async fn list_connections(database: &AppDatabase) -> Result<Vec<ProviderConn
     Ok(connections)
 }
 
+/// A provider row read for quota inspection, with credentials included.
+#[derive(Clone, Debug)]
+pub struct ProviderForQuota {
+    pub id: String,
+    pub provider_id: String,
+    pub name: String,
+    pub category: String,
+    pub enabled: bool,
+    pub credentials_raw: String,
+}
+
+/// Lists stored providers for quota inspection with their credentials intact,
+/// newest first, excluding seed driver rows.
+pub async fn list_providers_for_quota(
+    database: &AppDatabase,
+) -> Result<Vec<ProviderForQuota>, APIError> {
+    let Some(pool) = database.sqlite_pool() else {
+        return Ok(Vec::new());
+    };
+
+    let rows = sqlx::query(
+        "SELECT id, provider_id, name, category, enabled, credentials, meta \
+         FROM providers ORDER BY created_at DESC",
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(|error| {
+        APIError::new(
+            500,
+            constants::database::could_not_read_provider_connections(&error),
+        )
+    })?;
+
+    let mut result = Vec::with_capacity(rows.len());
+    for row in &rows {
+        if is_seed_row(optional_text(row, "meta")?.as_deref()) {
+            continue;
+        }
+
+        result.push(ProviderForQuota {
+            id: text(row, "id")?,
+            provider_id: text(row, "provider_id")?,
+            name: text(row, "name")?,
+            category: text(row, "category")?,
+            enabled: integer(row, "enabled")? != 0,
+            credentials_raw: text(row, "credentials")?,
+        });
+    }
+
+    Ok(result)
+}
+
 /// Whether any stored row—seed or connection—is driven by `base_id`. Node's
 /// existence check counts seed rows too, so this one skips the seed filter.
 pub async fn provider_exists(database: &AppDatabase, base_id: &str) -> Result<bool, APIError> {
