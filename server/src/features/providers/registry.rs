@@ -8,6 +8,9 @@ use crate::features::providers::adapter::ProviderAdapter;
 use crate::features::providers::cline;
 use crate::features::providers::cline::ClineExecutor;
 use crate::features::providers::cline::types::ClineEndpoints;
+use crate::features::providers::codex;
+use crate::features::providers::codex::CodexExecutor;
+use crate::features::providers::codex::types::CodexEndpoints;
 use crate::features::providers::grok_web;
 use crate::features::providers::grok_web::GrokWebExecutor;
 use crate::features::providers::grok_web::types::GrokWebEndpoints;
@@ -67,14 +70,15 @@ impl ProviderRegistry {
         Self::with_database(None)
     }
 
-    /// Builds the registry with the built-in providers registered. The Qoder
-    /// and Cline adapters keep the database to read their own credentials.
+    /// Builds the registry with the built-in providers registered. The Qoder,
+    /// Cline, and Codex adapters keep the database to read their own credentials.
     pub fn with_database(database: Option<AppDatabase>) -> Result<Self, APIError> {
         let mut registry = Self::new();
         registry.register(opencode::adapter()?);
         registry.register(qoder::adapter(database.clone())?);
         registry.register(cline::adapter(database.clone())?);
-        registry.register(grok_web::adapter(database)?);
+        registry.register(grok_web::adapter(database.clone())?);
+        registry.register(codex::adapter(database)?);
 
         Ok(registry)
     }
@@ -103,6 +107,15 @@ impl ProviderRegistry {
         self.adapters
             .values()
             .find_map(|adapter| adapter.downcast_ref::<GrokWebExecutor>())
+            .map(|executor| executor.endpoints().clone())
+    }
+
+    /// The Codex endpoints in use, so the OAuth routes exchange their code
+    /// against the same token endpoint the executor refreshes against.
+    pub fn codex_endpoints(&self) -> Option<CodexEndpoints> {
+        self.adapters
+            .values()
+            .find_map(|adapter| adapter.downcast_ref::<CodexExecutor>())
             .map(|executor| executor.endpoints().clone())
     }
 

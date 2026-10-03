@@ -6,9 +6,10 @@ mod support;
 use axum::{
     Router,
     body::{Body, to_bytes},
-    http::{Request, StatusCode},
+    http::{Request, StatusCode, header},
     response::Response,
 };
+use srouter_server::AppState;
 use srouter_server::app::create_router;
 use srouter_server::clock::now_ms;
 use srouter_server::features::admin_auth::hash_session_token;
@@ -16,12 +17,13 @@ use srouter_server::infrastructure::database::oauth_sessions::{
     SESSION_TTL_MS, claim_session, delete_session, release_session, save_session,
 };
 use srouter_server::infrastructure::database::providers::{
-    ClineConnectionWrite, load_cline_credentials, load_qoder_credentials, update_cline_tokens,
-    upsert_cline_connection,
+    ClineConnectionWrite, load_cline_credentials, load_codex_credentials, load_qoder_credentials,
+    update_cline_tokens, upsert_cline_connection,
 };
+use support::codex_fake::{FakeCodexUpstream, codex_registry};
 use support::{
     FakeClineUpstream, FakeQoderUpstream, TestDatabase, cline_state, json_request_with_headers,
-    qoder_state, sqlx_security_state, with_loopback_client,
+    qoder_state, sqlx_security_state, test_config, with_loopback_client,
 };
 use tower::ServiceExt;
 
@@ -38,6 +40,20 @@ async fn app(database: &TestDatabase, fake: &FakeQoderUpstream) -> Router {
     let app_database = database.connect().await.expect("temporary database");
 
     create_router(qoder_state(app_database, security, fake))
+}
+
+/// The app wired to the fake Codex token endpoint, with fixture admin sessions.
+async fn openai_app(database: &TestDatabase, fake: &FakeCodexUpstream) -> Router {
+    let security = sqlx_security_state(database, vec![hash_session_token(SESSION_TOKEN)]).await;
+    let app_database = database.connect().await.expect("temporary database");
+    let state = AppState::with_security(
+        test_config(),
+        codex_registry(Some(app_database.clone()), fake),
+        security,
+    )
+    .with_database(app_database);
+
+    create_router(state)
 }
 
 /// A GET carrying the fixture admin-session cookie.
@@ -58,6 +74,12 @@ async fn json_body(response: Response) -> serde_json::Value {
     let bytes = to_bytes(response.into_body(), 65_536).await.unwrap();
 
     serde_json::from_slice(&bytes).unwrap()
+}
+
+async fn text_body(response: Response) -> String {
+    let bytes = to_bytes(response.into_body(), 65_536).await.unwrap();
+
+    String::from_utf8_lossy(&bytes).into_owned()
 }
 
 /// Starts a login and returns its JSON body.
@@ -236,6 +258,39 @@ async fn the_callback_finishes_the_flow_for_a_pasted_url() {
     assert_eq!(body["success"], true);
     assert_eq!(body["message"], "Login Qoder Berhasil!");
     assert_eq!(body["provider"]["provider_id"], "qoder");
+}
+
+#[tokio::test]
+async fn qoder_browser_callback_finishes_without_a_paste() {
+    let database = TestDatabase::new().unwrap();
+    let fake = FakeQoderUpstream::start().await;
+    let app = app(&database, &fake).await;
+    let login = start_login(&app).await;
+    let state = login["state"].as_str().expect("state").to_owned();
+    fake.with(|state| state.approve_device = true);
+
+    let response = app
+        .oneshot(with_loopback_client(
+            Request::builder()
+                .method("GET")
+                .uri(format!("/auth/qoder/callback?code={state}&state={state}"))
+                .body(Body::empty())
+                .unwrap(),
+        ))
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response
+            .headers()
+            .get(header::CONTENT_TYPE)
+            .and_then(|value| value.to_str().ok()),
+        Some("text/html; charset=utf-8")
+    );
+    let html = text_body(response).await;
+    assert!(html.contains("Login Qoder Berhasil!"), "{html}");
+    assert!(html.contains("qoder"), "{html}");
 }
 
 #[tokio::test]
@@ -630,4 +685,378 @@ async fn update_cline_tokens_persists_rotated_credentials() {
     );
     assert_eq!(credentials.token_expires_at, Some(42));
     assert_eq!(credentials.last_refreshed_at, Some(99));
+}
+
+/// Starts a Codex login and returns its JSON body.
+async fn start_openai_login(app: &Router) -> serde_json::Value {
+    let response = app
+        .clone()
+        .oneshot(admin_get("/v1/auth/openai/login?format=json"))
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    json_body(response).await
+}
+
+#[tokio::test]
+async fn openai_login_opens_the_authorize_url_with_a_pkce_challenge() {
+    let database = TestDatabase::new().unwrap();
+    let fake = FakeCodexUpstream::start().await;
+    let app = openai_app(&database, &fake).await;
+
+    let body = start_openai_login(&app).await;
+    let authorize_url = body["authorizeUrl"].as_str().expect("authorize url");
+
+    assert!(
+        authorize_url.starts_with("https://auth.openai.com/oauth/authorize?"),
+        "{authorize_url}"
+    );
+    assert!(authorize_url.contains("code_challenge_method=S256"));
+    assert!(authorize_url.contains("challenge="));
+    assert!(authorize_url.contains("originator=codex_cli_rs"));
+    assert_eq!(
+        body["codeVerifier"].as_str().expect("verifier").len(),
+        43,
+        "RFC 7636 wants a 43 character verifier"
+    );
+    assert_eq!(body["state"].as_str().expect("state").len(), 36);
+    assert_eq!(
+        body["redirectUri"],
+        "http://localhost:3000/v1/auth/openai/callback"
+    );
+}
+
+#[tokio::test]
+async fn openai_login_requires_the_admin_session() {
+    let database = TestDatabase::new().unwrap();
+    let fake = FakeCodexUpstream::start().await;
+    let app = openai_app(&database, &fake).await;
+
+    let response = app
+        .oneshot(with_loopback_client(
+            Request::builder()
+                .method("GET")
+                .uri("/v1/auth/openai/login?format=json")
+                .body(Body::empty())
+                .unwrap(),
+        ))
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
+async fn openai_callback_exchanges_the_code_and_stores_the_connection() {
+    let database = TestDatabase::new().unwrap();
+    let fake = FakeCodexUpstream::start().await;
+    let app = openai_app(&database, &fake).await;
+    let login = start_openai_login(&app).await;
+    let state = login["state"].as_str().expect("state").to_owned();
+
+    // The callback route is public: no admin cookie is carried here.
+    let response = app
+        .clone()
+        .oneshot(with_loopback_client(
+            Request::builder()
+                .method("GET")
+                .uri(format!(
+                    "/v1/auth/openai/callback?code=code-1&state={state}"
+                ))
+                .body(Body::empty())
+                .unwrap(),
+        ))
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = json_body(response).await;
+    assert_eq!(body["success"], true);
+    assert_eq!(body["message"], "Login OpenAI Codex Berhasil!");
+    assert_eq!(body["provider"]["provider_id"], "openai_codex");
+    assert_eq!(body["provider"]["category"], "oauth");
+    assert_eq!(body["provider"]["protocol"], "openai");
+    assert_eq!(body["provider"]["name"], "codex@example.com");
+
+    let exchange = fake.with(|state| state.last_refresh_form.clone());
+    assert!(exchange.contains("grant_type=authorization_code"));
+    assert!(exchange.contains("code=code-1"));
+    assert!(exchange.contains("code_verifier="));
+
+    let app_database = database.connect().await.expect("temporary database");
+    let credentials = load_codex_credentials(&app_database)
+        .await
+        .expect("credentials read")
+        .expect("a connection was stored");
+    assert_eq!(credentials.access_token, "codex-access");
+    assert_eq!(credentials.refresh_token.as_deref(), Some("codex-refresh"));
+    assert_eq!(credentials.account_id.as_deref(), Some("acct-1"));
+}
+
+#[tokio::test]
+async fn openai_callback_reads_the_code_and_state_from_a_callback_url() {
+    let database = TestDatabase::new().unwrap();
+    let fake = FakeCodexUpstream::start().await;
+    let app = openai_app(&database, &fake).await;
+    let login = start_openai_login(&app).await;
+    let state = login["state"].as_str().expect("state").to_owned();
+
+    let callback_url = format!("http://localhost:1455/auth/callback?code=code-2&state={state}");
+    let response = app
+        .clone()
+        .oneshot(json_request_with_headers(
+            "POST",
+            "/v1/auth/openai/callback",
+            serde_json::json!({ "callback_url": callback_url }),
+            &[],
+        ))
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        json_body(response).await["provider"]["provider_id"],
+        "openai_codex"
+    );
+}
+
+#[tokio::test]
+async fn openai_callback_rejects_a_body_without_code_or_state() {
+    let database = TestDatabase::new().unwrap();
+    let fake = FakeCodexUpstream::start().await;
+    let app = openai_app(&database, &fake).await;
+
+    let response = app
+        .oneshot(json_request_with_headers(
+            "POST",
+            "/v1/auth/openai/callback",
+            serde_json::json!({}),
+            &[],
+        ))
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(
+        json_body(response).await["error"]["message"],
+        "Missing required 'code' or 'state' parameters in OAuth callback"
+    );
+}
+
+#[tokio::test]
+async fn openai_callback_with_an_unknown_state_is_rejected() {
+    let database = TestDatabase::new().unwrap();
+    let fake = FakeCodexUpstream::start().await;
+    let app = openai_app(&database, &fake).await;
+
+    let response = app
+        .oneshot(with_loopback_client(
+            Request::builder()
+                .method("GET")
+                .uri("/v1/auth/openai/callback?code=code-1&state=unknown")
+                .body(Body::empty())
+                .unwrap(),
+        ))
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    assert_eq!(
+        json_body(response).await["error"]["message"],
+        "Invalid or expired OAuth state parameter"
+    );
+}
+
+#[tokio::test]
+async fn openai_browser_callback_finishes_without_a_paste() {
+    let database = TestDatabase::new().unwrap();
+    let fake = FakeCodexUpstream::start().await;
+    let app = openai_app(&database, &fake).await;
+    let login = start_openai_login(&app).await;
+    let state = login["state"].as_str().expect("state").to_owned();
+
+    // The vendor redirect lands here with no session cookie and no JSON body.
+    let response = app
+        .clone()
+        .oneshot(with_loopback_client(
+            Request::builder()
+                .method("GET")
+                .uri(format!("/auth/callback?code=code-page&state={state}"))
+                .header(header::ACCEPT, "text/html")
+                .body(Body::empty())
+                .unwrap(),
+        ))
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response
+            .headers()
+            .get(header::CONTENT_TYPE)
+            .and_then(|value| value.to_str().ok()),
+        Some("text/html; charset=utf-8")
+    );
+    let html = text_body(response).await;
+    assert!(html.contains("Login OpenAI Codex Berhasil!"), "{html}");
+    assert!(html.contains("openai_codex_"), "{html}");
+
+    let app_database = database.connect().await.expect("temporary database");
+    let credentials = load_codex_credentials(&app_database)
+        .await
+        .expect("credentials read")
+        .expect("a connection was stored");
+    assert_eq!(credentials.access_token, "codex-access");
+}
+
+#[tokio::test]
+async fn openai_browser_callback_alias_serves_the_page() {
+    let database = TestDatabase::new().unwrap();
+    let fake = FakeCodexUpstream::start().await;
+    let app = openai_app(&database, &fake).await;
+    let login = start_openai_login(&app).await;
+    let state = login["state"].as_str().expect("state").to_owned();
+
+    let response = app
+        .oneshot(with_loopback_client(
+            Request::builder()
+                .method("GET")
+                .uri(format!(
+                    "/auth/openai/callback?code=code-alias&state={state}"
+                ))
+                .body(Body::empty())
+                .unwrap(),
+        ))
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    assert!(
+        text_body(response)
+            .await
+            .contains("Login OpenAI Codex Berhasil!")
+    );
+}
+
+#[tokio::test]
+async fn openai_browser_callback_renders_an_error_page() {
+    let database = TestDatabase::new().unwrap();
+    let fake = FakeCodexUpstream::start().await;
+    let app = openai_app(&database, &fake).await;
+
+    let response = app
+        .oneshot(with_loopback_client(
+            Request::builder()
+                .method("GET")
+                .uri("/auth/callback?code=code-1&state=unknown")
+                .body(Body::empty())
+                .unwrap(),
+        ))
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    assert!(
+        text_body(response)
+            .await
+            .contains("Invalid or expired OAuth state parameter")
+    );
+}
+
+#[tokio::test]
+async fn openai_token_import_stores_a_connection() {
+    let database = TestDatabase::new().unwrap();
+    let fake = FakeCodexUpstream::start().await;
+    let app = openai_app(&database, &fake).await;
+    let cookie = format!("srouter_admin_session={SESSION_TOKEN}");
+
+    let response = app
+        .clone()
+        .oneshot(with_loopback_client(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/auth/openai/token")
+                .header("cookie", cookie)
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::json!({
+                        "accessToken": "imported-access",
+                        "refreshToken": "imported-refresh",
+                        "accountId": "acct-imported"
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        ))
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::CREATED);
+    let body = json_body(response).await;
+    assert_eq!(body["success"], true);
+    assert_eq!(
+        body["message"],
+        "OpenAI Codex Access Token registered and saved directly to SQLite database!"
+    );
+    assert_eq!(body["provider"]["provider_id"], "openai_codex");
+    assert!(
+        body["provider"]["id"]
+            .as_str()
+            .expect("id")
+            .starts_with("openai_codex_")
+    );
+
+    let app_database = database.connect().await.expect("temporary database");
+    let credentials = load_codex_credentials(&app_database)
+        .await
+        .expect("credentials read")
+        .expect("a connection was stored");
+    assert_eq!(credentials.access_token, "imported-access");
+    assert_eq!(
+        credentials.refresh_token.as_deref(),
+        Some("imported-refresh")
+    );
+    assert_eq!(credentials.account_id.as_deref(), Some("acct-imported"));
+}
+
+#[tokio::test]
+async fn openai_token_import_requires_an_admin_session_and_a_token() {
+    let database = TestDatabase::new().unwrap();
+    let fake = FakeCodexUpstream::start().await;
+    let app = openai_app(&database, &fake).await;
+
+    let anonymous = app
+        .clone()
+        .oneshot(json_request_with_headers(
+            "POST",
+            "/v1/auth/openai/token",
+            serde_json::json!({ "accessToken": "token" }),
+            &[],
+        ))
+        .await
+        .unwrap();
+    assert_eq!(anonymous.status(), StatusCode::UNAUTHORIZED);
+
+    let cookie = format!("srouter_admin_session={SESSION_TOKEN}");
+    let missing = app
+        .oneshot(with_loopback_client(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/auth/openai/token")
+                .header("cookie", cookie)
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::json!({ "refreshToken": "r" }).to_string(),
+                ))
+                .unwrap(),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(missing.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(
+        json_body(missing).await["error"]["message"],
+        "Missing required 'accessToken' parameter"
+    );
 }

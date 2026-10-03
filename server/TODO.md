@@ -238,6 +238,33 @@ Everything below is still Node-only.
       documentation, credential-free live probes, `apps/api` oracle, web flow, and frozen API
       contract. `features/providers/cline/types.rs` records the sources. The official client uses
       `recommended-models` instead, a recorded catalog deviation in the Cline plan.
+- [x] Codex provider registered: `openai_codex` (`features/providers/codex/`) with ChatGPT OAuth
+      credentials read from the `providers` row, a lazy refresh against the vendor token endpoint,
+      the Responses API request encoder, and the Responses-SSE → OpenAI chat translation shared by
+      the streaming and the buffered path (which always calls upstream with `stream: true`).
+      Provenance for every constant — the carved vendor catalog, the token endpoint and client id,
+      the header names, the `apps/api` oracle — is recorded in `features/providers/codex/types.rs`.
+      Covered by `server/tests/codex_provider.rs` (fake upstream: headers, fragmented SSE, tool
+      calls, refresh, 401 retry) and the in-file unit tests.
+- [ ] Codex model catalog: the 8 `visibility: list` slugs are a static seed of the vendor catalog,
+      advertised only while a connection exists; the three `visibility: hide` slugs stay
+      unadvertised. A live `GET /codex/models` fetch (the Node executor's source) is not ported —
+      decide seed-only or live fetch before cutover.
+- [x] Codex OAuth connect route: `features/provider_auth/openai.rs` ports
+      `/v1/auth/openai/login`, `/callback`, and `/token` on the shared `features/provider_auth/`
+      helpers (PKCE, callback parsing, `SROUTER_PUBLIC_URL` resolution). A successful callback or
+      token import writes the row `upsert_codex_connection` stores and force-refreshes the Codex
+      catalog; the lazy per-request refresh already worked. The background sweeper remains open
+      for every provider (section 5).
+      Vendor allow-list note: `auth.openai.com` accepts only the Codex redirects
+      `http://127.0.0.1:{1455,1457}/auth/callback`, not the Rust default `/v1/auth/openai/callback`
+      (or a `localhost` host). The browser-facing page route `GET|POST /auth/callback` (plus the
+      `/auth/openai/callback` alias) is mounted at the application root, outside `/v1`, and
+      auto-finishes the flow with an HTML result once the vendor redirect reaches the server (a
+      local run on port 1455, or an `ssh -L 1455:127.0.0.1:3001` tunnel from the client). Without
+      that route reachable, the flow still finishes through `POST /v1/auth/openai/callback` with
+      the pasted `callback_url`. The scope constant includes
+      `api.connectors.read api.connectors.invoke` (`openai/codex` `codex-rs/login/src/server.rs`).
 - [ ] Model-registry warmup after the main listener starts (`warmModelRegistry` in Node). The live
       `qoder` and Cline catalogs are already warmed at boot (`server/src/main.rs`); DB-backed catalogs
       stay empty until their connection exists.
@@ -249,25 +276,34 @@ Everything below is still Node-only.
 
 ## 5. Provider auth (OAuth, device flows, token import) — `features/provider_auth/`
 
-Qoder and Cline routes exist in Rust. Source of truth for the route list: `docs/api-v1-contract.md`
+Qoder, Cline, and OpenAI routes exist in Rust. Source of truth for the route list:
+`docs/api-v1-contract.md`
 "Retained route inventory" (rows 57-65) and `apps/api/src/routes/v1/auth.ts` (34 routes).
 
 - [x] Cline device flow: `/v1/auth/cline/device` (GET) and `/v1/auth/cline/poll` (GET, POST),
       guarded by the admin session. `/v1/auth/cline/token` (contract row 58) remains deliberately
       deferred; the OAuth-only scope is recorded in the Cline plan.
-- [ ] Remaining privileged routes: `/v1/auth/{openai,antigravity,claude}/login` (GET, supports
-      `client_id`, `redirect_uri`, `prompt`, `format=json`), `/v1/auth/{codebuddy,codebuddy-cn}/login`
-      (GET) and `/poll` (GET, POST), and every other `/token` route
-      (`openai, antigravity, commandcode, anthropic, atria, claude, tokenrouter, codebuddy,
+- [~] Privileged routes: `openai` landed (`features/provider_auth/openai.rs`):
+      `GET /v1/auth/openai/login` (supports `client_id`, `redirect_uri`, `prompt`,
+      `format=json`) and `POST /v1/auth/openai/token` (validated token import, `201`), both
+      admin-guarded. Still open:
+      `/v1/auth/{antigravity,claude}/login`, `/v1/auth/{codebuddy,codebuddy-cn}/login` (GET) and
+      `/poll` (GET, POST), and every other `/token` route
+      (`antigravity, commandcode, anthropic, atria, claude, tokenrouter, codebuddy,
 codebuddy-cn, qoder`) → validated token import, `201`.
 - [x] `qoder` privileged routes: `GET /v1/auth/qoder/login` (supports `client_id`, `redirect_uri`,
       `format=json`, otherwise redirects to the device URL) and `/v1/auth/qoder/poll` (GET, POST,
       `state` from query or JSON body) in `features/provider_auth/qoder.rs`, mounted behind
       `require_admin_session` (`server/tests/provider_auth.rs`).
 - [x] Public route: `/v1/auth/qoder/callback` (GET, POST) reading `code` and `state` from query,
-      JSON body, or `callback_url`; missing values → `400`.
-- [ ] Public routes: `/v1/auth/{openai,antigravity,claude}/callback` (GET, POST) reading
-      `code` and `state` from query, JSON body, or `callback_url`; missing values → `400`.
+      JSON body, or `callback_url`; missing values → `400`. The browser page
+      `GET|POST /auth/qoder/callback` is mounted at the application root (`qoder.rs`) and shares the
+      generic `success_page`/`error_page` helpers in `provider_auth/mod.rs` with `openai`.
+- [~] Public routes: `openai` landed — `/v1/auth/openai/callback` (GET, POST) shares
+      `parse_callback` with `qoder` and reads `code` and `state` from query, JSON body, or
+      `callback_url`; missing values → `400`, unknown state → `500`
+      (`Invalid or expired OAuth state parameter`). Still open:
+      `/v1/auth/{antigravity,claude}/callback`.
 - [x] `qoder` `/token` import is deliberately deferred: the slice is OAuth only (plan decision,
       web PAT tab returns `404` until it lands).
 - [x] Callback URL selection: callbacks are hosted on the main listener (single-port ruling,

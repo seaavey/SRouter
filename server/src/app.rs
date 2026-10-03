@@ -7,8 +7,9 @@ use crate::features::api_keys::create_api_keys_router;
 use crate::features::gateway::routes::{create_gateway_router, create_models_router};
 use crate::features::logs::create_logs_router;
 use crate::features::provider_auth::{
-    create_cline_login_router, create_grok_web_login_router, create_qoder_callback_router,
-    create_qoder_login_router,
+    create_cline_login_router, create_grok_web_login_router, create_openai_callback_pages_router,
+    create_openai_callback_router, create_openai_login_router, create_qoder_callback_pages_router,
+    create_qoder_callback_router, create_qoder_login_router,
 };
 use crate::features::providers::management::{
     create_providers_management_router, create_providers_read_router,
@@ -83,7 +84,15 @@ pub fn create_router(state: AppState) -> Router {
         create_cline_login_router().layer(from_fn_with_state(state.clone(), require_admin_session));
     let grok_web_login_routes = create_grok_web_login_router()
         .layer(from_fn_with_state(state.clone(), require_admin_session));
+    let openai_login_routes = create_openai_login_router()
+        .layer(from_fn_with_state(state.clone(), require_admin_session));
     let qoder_callback_routes = create_qoder_callback_router();
+    let openai_callback_routes = create_openai_callback_router();
+    // The browser callback lives at the application root, outside `/v1`, because
+    // the vendor only accepts `http://127.0.0.1:{1455,1457}/auth/callback`. It
+    // carries the body limit but neither the API-key nor the admin guard.
+    let openai_callback_pages = create_openai_callback_pages_router().layer(from_fn(body_limit));
+    let qoder_callback_pages = create_qoder_callback_pages_router().layer(from_fn(body_limit));
     let logs_routes = create_logs_router().layer(from_fn_with_state(state.clone(), api_key_auth));
     let settings_read_routes =
         create_settings_read_router().layer(from_fn_with_state(state.clone(), api_key_auth));
@@ -101,7 +110,9 @@ pub fn create_router(state: AppState) -> Router {
         .merge(qoder_login_routes)
         .merge(cline_login_routes)
         .merge(grok_web_login_routes)
+        .merge(openai_login_routes)
         .merge(qoder_callback_routes)
+        .merge(openai_callback_routes)
         .merge(providers_read_routes)
         .merge(providers_mgmt_routes)
         .merge(logs_routes)
@@ -120,6 +131,10 @@ pub fn create_router(state: AppState) -> Router {
         // declared before the `/v1` nest so the literal wins over the sub-routes.
         .route("/v1", get(api_info))
         .route("/health", get(health))
+        // The provider browser callbacks are the deliberate root-level mounts:
+        // the Codex vendor allow-list pins its path outside `/v1`.
+        .merge(openai_callback_pages)
+        .merge(qoder_callback_pages)
         // Production mounts chat routes under `/v1` and the `/v1/v1` compat alias
         // only; root-level mounts exist in the Node test harness, not here.
         .nest("/v1", v1_routes)

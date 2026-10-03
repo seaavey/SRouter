@@ -329,6 +329,38 @@ pub mod providers {
         format!("could not parse default OpenCode tools: {error}")
     }
 
+    /// Messages shared by every provider OAuth route: the callback carrier and
+    /// the state lifecycle. Wording is frozen against `apps/api`
+    /// (`AuthController.CallbackFor`, `AuthLogic.ProcessOAuthCallbackFor`).
+    pub mod oauth {
+        pub const CALLBACK_MISSING_PARAMS: &str =
+            "Missing required 'code' or 'state' parameters in OAuth callback";
+        pub const INVALID_OR_EXPIRED_STATE: &str = "Invalid or expired OAuth state parameter";
+        pub const DATABASE_REQUIRED: &str =
+            "no database is configured; the OAuth session cannot be stored";
+    }
+
+    /// Messages of the `openai_codex` OAuth routes: starting the authorization
+    /// code flow and importing a token. Wording is frozen against
+    /// `apps/api/src/services/authHandlers.ts` (`AuthHandlers.OpenAI`).
+    pub mod openai {
+        pub const OAUTH_SUCCESS: &str = "Login OpenAI Codex Berhasil!";
+        pub const TOKEN_IMPORT_SUCCESS: &str =
+            "OpenAI Codex Access Token registered and saved directly to SQLite database!";
+        pub const MISSING_ACCESS_TOKEN: &str = "Missing required 'accessToken' parameter";
+        pub const INVALID_JSON_BODY: &str = "Invalid JSON body";
+        pub const EMPTY_TOKEN_RESPONSE: &str =
+            "OpenAI Codex token exchange returned no access token";
+
+        pub fn exchange_failed(status: u16) -> String {
+            format!("OpenAI Codex token exchange failed ({status})")
+        }
+
+        pub fn exchange_transport_failed(error: impl std::fmt::Display) -> String {
+            format!("OpenAI Codex token exchange failed: {error}")
+        }
+    }
+
     /// Messages of the `qoder` provider: the device flow, the credential load,
     /// and the COSY signer. Every string a client can see lives here.
     pub mod qoder {
@@ -412,6 +444,25 @@ pub mod providers {
 
         pub fn refresh_transport_failed(error: impl std::fmt::Display) -> String {
             format!("Cline token refresh failed: {error}")
+        }
+    }
+
+    /// Messages of the `codex` provider: the credential load and the lazy
+    /// refresh of the ChatGPT OAuth session. Every string a client can see
+    /// lives here — none of them may contain the token.
+    pub mod codex {
+        pub const NOT_CONNECTED: &str = "No active OpenAI Codex connection found. Connect the OpenAI Codex account in the Providers tab.";
+        pub const TOKEN_EXPIRED: &str =
+            "The OpenAI Codex token has expired; reconnect the OpenAI Codex account.";
+        pub const DATABASE_REQUIRED: &str =
+            "no database is configured; the OpenAI Codex connection cannot be read";
+
+        pub fn refresh_failed(status: u16) -> String {
+            format!("OpenAI Codex token refresh failed ({status})")
+        }
+
+        pub fn refresh_transport_failed(error: impl std::fmt::Display) -> String {
+            format!("OpenAI Codex token refresh failed: {error}")
         }
     }
 

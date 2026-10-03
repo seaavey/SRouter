@@ -22,6 +22,7 @@ use futures_util::future::BoxFuture;
 use srouter_server::features::admin_auth::AdminSessionStore;
 use srouter_server::features::api_keys::{APIKeyRecord, APIKeyStore};
 use srouter_server::features::providers::cline::{self, ClineEndpoints};
+use srouter_server::features::providers::codex::{self, CodexEndpoints};
 use srouter_server::features::providers::grok_web::{self, GrokWebEndpoints};
 use srouter_server::features::providers::qoder::{self, QoderEndpoints};
 use srouter_server::features::providers::{ProviderRegistry, opencode};
@@ -29,13 +30,16 @@ use srouter_server::infrastructure::database::AppDatabase;
 use srouter_server::infrastructure::database::admin_auth::SQLxAdminAuthStore;
 use srouter_server::infrastructure::database::api_keys::SQLxAPIKeyStore;
 use srouter_server::infrastructure::database::providers::{
-    ClineConnectionWrite, GrokWebConnectionWrite, QoderConnectionWrite, upsert_cline_connection,
-    upsert_grok_web_connection, upsert_qoder_connection,
+    ClineConnectionWrite, CodexConnectionWrite, GrokWebConnectionWrite, QoderConnectionWrite,
+    upsert_cline_connection, upsert_codex_connection, upsert_grok_web_connection,
+    upsert_qoder_connection,
 };
 use srouter_server::{APIConfig, APIError, AppState, SecurityState};
 use tokio::net::TcpListener;
 use tokio::task::JoinHandle;
 use tokio_tungstenite::tungstenite::Message as WsMessage;
+
+pub mod codex_fake;
 
 static SEQUENCE: AtomicU64 = AtomicU64::new(0);
 

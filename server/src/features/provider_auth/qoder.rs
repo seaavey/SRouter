@@ -6,21 +6,17 @@
 //! with the state as nonce until the approval lands. The session row carries the
 //! PKCE verifier the poll needs and is claimed while one poll is in flight.
 
-use std::collections::HashMap;
-
 use axum::body::Bytes;
 use axum::extract::{RawQuery, State};
 use axum::response::{IntoResponse, Redirect, Response};
 use axum::routing::get;
 use axum::{Json, Router};
-use base64::Engine;
-use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use serde::Serialize;
 use serde_json::Value;
 
 use super::{
-    ConnectedProvider, PollFailure, PollResponse, Protocol, query_params, state_from_body,
-    text_field,
+    ConnectedProvider, PollFailure, PollResponse, Protocol, error_page, parse_callback,
+    pkce_challenge, pkce_verifier, query_params, state_from_body, success_page,
 };
 use crate::clock::now_ms;
 use crate::constants;
@@ -39,6 +35,9 @@ use crate::state::AppState;
 /// Default lifetime of a device token when the upstream does not state one.
 const DEFAULT_TOKEN_TTL_MS: i64 = 30 * 24 * 60 * 60 * 1000;
 
+/// The success message the Qoder callback answers with (frozen wording).
+const QODER_OAUTH_SUCCESS: &str = "Login Qoder Berhasil!";
+
 /// Routes the admin session guards: starting a login and polling it.
 pub fn create_qoder_login_router() -> Router<AppState> {
     Router::new()
@@ -46,9 +45,21 @@ pub fn create_qoder_login_router() -> Router<AppState> {
         .route("/auth/qoder/poll", get(poll).post(poll))
 }
 
-/// The public callback route, which the contract leaves unguarded.
+/// The public JSON callback route, which the contract leaves unguarded.
 pub fn create_qoder_callback_router() -> Router<AppState> {
     Router::new().route("/auth/qoder/callback", get(callback).post(callback))
+}
+
+/// The browser-facing callback page, mounted at the application root beside the
+/// OpenAI one. Qoder is a device flow, so the browser normally lands on
+/// `qoder.com`; this route still finishes a redirected callback with an HTML
+/// result instead of JSON. Oracle: `apps/api/src/index.ts` mounts the same path
+/// on the OAuth listener.
+pub fn create_qoder_callback_pages_router() -> Router<AppState> {
+    Router::new().route(
+        "/auth/qoder/callback",
+        get(callback_page).post(callback_page),
+    )
 }
 
 /// What `GET /v1/auth/qoder/login` answers with. The field names are the ones
@@ -80,7 +91,7 @@ async fn login(
     let database = require_database(&state)?;
     cleanup_expired_sessions(database, now_ms() - SESSION_TTL_MS).await?;
 
-    let code_verifier = random_challenge();
+    let code_verifier = pkce_verifier();
     let state_token = uuid::Uuid::new_v4().to_string();
     save_session(
         database,
@@ -93,7 +104,7 @@ async fn login(
 
     let endpoints = qoder_endpoints(&state);
     let authorize_url = endpoints.authorize_url(
-        &challenge(&code_verifier),
+        &pkce_challenge(&code_verifier),
         &machine_id_for(database).await?,
         &state_token,
     );
@@ -155,23 +166,50 @@ async fn poll(
     }
 }
 
-/// The public callback: the same exchange, driven by a pasted callback URL.
+/// The public JSON callback: the same exchange, driven by a pasted callback URL.
 async fn callback(
     State(state): State<AppState>,
     RawQuery(query): RawQuery,
     body: Bytes,
 ) -> Result<Json<CallbackResponse>, APIError> {
-    let parsed = parse_callback(query.as_deref(), &body)?;
-    let database = require_database(&state)?;
+    let provider = complete_callback(&state, query.as_deref(), &body).await?;
+
+    Ok(Json(CallbackResponse {
+        success: true,
+        message: QODER_OAUTH_SUCCESS,
+        provider,
+    }))
+}
+
+/// The browser callback: the same completion, rendered as a page.
+async fn callback_page(
+    State(state): State<AppState>,
+    RawQuery(query): RawQuery,
+    body: Bytes,
+) -> Response {
+    match complete_callback(&state, query.as_deref(), &body).await {
+        Ok(provider) => success_page(QODER_OAUTH_SUCCESS, &provider),
+        Err(error) => error_page(&error),
+    }
+}
+
+/// Claims the session and runs the exchange. The session is consumed only after
+/// the connection is stored, so a failed attempt can be retried instead of
+/// being burned.
+async fn complete_callback(
+    state: &AppState,
+    query: Option<&str>,
+    body: &[u8],
+) -> Result<ConnectedProvider, APIError> {
+    let parsed = parse_callback(query, body)?;
+    let database = require_database(state)?;
 
     let session = claim_session(database, &parsed.state)
         .await?
         .ok_or_else(|| APIError::new(500, constants::providers::qoder::SESSION_EXPIRED))?;
 
-    // The session is consumed only after the connection is stored, so a failed
-    // attempt can be retried instead of being burned.
-    let provider = connect(
-        &state,
+    connect(
+        state,
         database,
         &parsed.state,
         &parsed.code,
@@ -182,13 +220,7 @@ async fn callback(
         PollFailure::Fatal(error) => error,
         PollFailure::Pending => APIError::new(500, constants::providers::qoder::SESSION_EXPIRED),
         PollFailure::Message(message) => APIError::new(500, message),
-    })?;
-
-    Ok(Json(CallbackResponse {
-        success: true,
-        message: "Login Qoder Berhasil!",
-        provider,
-    }))
+    })
 }
 
 /// Runs the exchange: poll the device token, resolve the identity, store it.
@@ -405,57 +437,6 @@ fn account_suffix(timestamp: i64) -> String {
     digits[digits.len().saturating_sub(4)..].to_owned()
 }
 
-#[derive(Debug, Default, PartialEq, Eq)]
-struct CallbackParams {
-    code: String,
-    state: String,
-}
-
-/// Reads `code` and `state` from the query string, the JSON body, or a pasted
-/// `callback_url`, which is how the web client finishes a redirected login.
-fn parse_callback(query: Option<&str>, body: &[u8]) -> Result<CallbackParams, APIError> {
-    let missing = || APIError::new(400, constants::providers::qoder::CALLBACK_MISSING_PARAMS);
-    let query = query_params(query);
-    let parsed: Value = serde_json::from_slice(body).unwrap_or(Value::Null);
-
-    let mut code = query
-        .get("code")
-        .cloned()
-        .or_else(|| text_field(&parsed, "code"));
-    let mut state = query
-        .get("state")
-        .cloned()
-        .or_else(|| text_field(&parsed, "state"));
-
-    if let Some(callback_url) = text_field(&parsed, "callback_url")
-        && let Ok(url) = url::Url::parse(&callback_url)
-    {
-        let from_url: HashMap<String, String> = url.query_pairs().into_owned().collect();
-        code = code.or_else(|| from_url.get("code").cloned());
-        state = state.or_else(|| from_url.get("state").cloned());
-    }
-
-    Ok(CallbackParams {
-        code: code.ok_or_else(missing)?,
-        state: state.ok_or_else(missing)?,
-    })
-}
-
-/// A PKCE verifier of the length RFC 7636 requires: 43 base64url characters.
-fn random_challenge() -> String {
-    let mut bytes = [0u8; 32];
-    let _ = getrandom::fill(&mut bytes);
-
-    URL_SAFE_NO_PAD.encode(bytes)
-}
-
-/// The S256 challenge of a verifier, which is what the browser receives.
-fn challenge(code_verifier: &str) -> String {
-    use sha2::{Digest, Sha256};
-
-    URL_SAFE_NO_PAD.encode(Sha256::digest(code_verifier.as_bytes()))
-}
-
 fn qoder_endpoints(state: &AppState) -> QoderEndpoints {
     state.providers.qoder_endpoints().unwrap_or_default()
 }
@@ -471,11 +452,11 @@ fn require_database(state: &AppState) -> Result<&AppDatabase, APIError> {
 mod tests {
     use serde_json::json;
 
-    use super::{
-        CallbackParams, account_suffix, challenge, parse_callback, random_challenge,
-        token_expiry_ms,
-    };
+    use super::{account_suffix, token_expiry_ms};
     use crate::clock::now_ms;
+    use crate::features::provider_auth::{
+        CallbackParams, parse_callback, pkce_challenge, pkce_verifier,
+    };
 
     #[test]
     fn the_challenge_is_the_s256_of_the_verifier() {
@@ -485,8 +466,8 @@ mod tests {
             "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
         );
 
-        assert_eq!(challenge(verifier), expected);
-        assert_eq!(random_challenge().len(), 43, "RFC 7636 wants 43 characters");
+        assert_eq!(pkce_challenge(verifier), expected);
+        assert_eq!(pkce_verifier().len(), 43, "RFC 7636 wants 43 characters");
     }
 
     #[test]

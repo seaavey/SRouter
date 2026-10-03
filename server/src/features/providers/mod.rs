@@ -2,6 +2,7 @@
 
 pub mod adapter;
 pub mod cline;
+pub mod codex;
 pub mod executor;
 pub mod grok_web;
 pub mod management;
@@ -18,6 +19,7 @@ pub mod adapters {
 
 pub use adapter::{OpenAIAdapter, OpenAIExecutor, ProviderAdapter, ProviderStream};
 pub use cline::{CLINE_KEYS, CLINE_PROVIDER};
+pub use codex::{CODEX_KEYS, CODEX_PROVIDER};
 pub use grok_web::{GROK_WEB_KEYS, GROK_WEB_PROVIDER};
 pub use model::{ModelDefinition, ModelObject, ProviderMetadata};
 pub use opencode::{
@@ -32,5 +34,6 @@ pub const SEED_PROVIDERS: &[ProviderMetadata] = &[
     QODER_PROVIDER,
     CLINE_PROVIDER,
     GROK_WEB_PROVIDER,
+    CODEX_PROVIDER,
 ];
 pub use registry::{ProviderRegistry, ResolvedModel};
