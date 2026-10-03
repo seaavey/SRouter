@@ -117,6 +117,42 @@ pub(crate) async fn log_request(
         )
         .await;
     }
+
+    apply_usage_accounting(state, context, status_code, usage).await;
+}
+
+/// Settles or releases the API-key token budget reserved at chat admission
+/// (Node's `settleAPIKeyQuotaDB` / `releaseAPIKeyQuotaDB`). A completed request
+/// settles to the real token count and records the cost separately; every other
+/// outcome releases the reservation in full. Best-effort like the request log:
+/// an accounting failure never changes the response.
+///
+/// Node skips a successful response with `total_tokens == 0`, which leaves the
+/// whole reservation charged; here that case settles to zero so the budget is
+/// returned (recorded deviation).
+async fn apply_usage_accounting(
+    state: &AppState,
+    context: &RequestLogContext,
+    status_code: u16,
+    usage: &UsageBreakdown,
+) {
+    let (Some(api_key_id), Some(reserved)) =
+        (context.api_key_id.as_deref(), context.reserved_tokens)
+    else {
+        return;
+    };
+    let repository = &state.security.key_repository;
+
+    if status_code == 200 {
+        let _ = repository
+            .settle_quota(api_key_id, reserved, usage.total_tokens)
+            .await;
+        // Pricing is not ported yet, so the recorded cost is always zero; the
+        // call keeps the column accounting path in place for when it lands.
+        let _ = repository.increment_usage(api_key_id, 0, 0.0).await;
+    } else {
+        let _ = repository.settle_quota(api_key_id, reserved, 0).await;
+    }
 }
 
 /// Logs a successful streamed request with the running usage total.

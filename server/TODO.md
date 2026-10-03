@@ -205,9 +205,23 @@ Status legend: `[x]` done and covered by a Rust test, `[ ]` missing, `[~]` parti
       `create_models_router()` now carries only the API-key guard, pinned by
       `the_model_catalog_is_not_rate_limited` (red on the old wiring, green on the new), and the
       contract's rate-limit bullet records the scope.
-- [ ] Reserved `max_tokens` budget for API-key requests (default `4096`) and usage/cost write-back
-      on request completion — confirm parity with `apps/api/src/logic/quota.logic.ts` behavior via
-      black-box comparison, and add the missing assertions to `server/tests/chat_completions.rs`.
+- [x] Reserved `max_tokens` budget for API-key requests (default `4096`) and usage write-back on
+      completion. `chat::create_completion` reserves `max_tokens` (or `4096`) before any upstream
+      call through `APIKeyRepository::reserve_quota`, reproducing the Node controller's atomic
+      `UPDATE ... WHERE quota_limit = 0 OR usage_tokens + ? <= quota_limit`
+      (`apps/api/src/controllers/chat.controller.ts`, `reserveAPIKeyQuotaDB` in
+      `packages/db/src/apiKeys.ts`); a refused reservation is `429` + `code=quota_exceeded` with
+      `Token quota exceeded. The requested budget is unavailable.` The reservation is settled to
+      the real token count on a completed request (`settle_quota`) and released in full on any
+      failure, from the shared `log_request` path (`apps/api/src/logic/chat.logic.ts`). Cost is
+      written through `increment_usage` but stays `0` until pricing lands (section 8 notes the same
+      gap). Documented deviation: a `200` with zero total tokens settles to zero and returns the
+      budget, where Node's `LogCompletion` skips the settle and leaves the reservation charged.
+      Covered by `server/tests/chat_completions.rs` (a refused-budget admission test, a settle test,
+      and a release-on-failure test, backed by a recording `APIKeyRepository`) and by
+      `quota_reservation_settlement_and_increment_update_usage` and
+      `an_unlimited_key_reserves_any_budget` in `server/tests/api_keys.rs`, which exercise the SQLx
+      store.
 - [ ] CSRF origin guard coverage for every cookie-authenticated mutation after the new routes land
       (body limit applies on the main listener, admin/database routes included).
 

@@ -28,6 +28,10 @@ use crate::features::gateway::usage::UsageBreakdown;
 use crate::features::gateway::{ReceiverStream, RequestLogContext};
 use crate::state::AppState;
 
+/// Default per-request token budget reserved on an API key when the request
+/// carries no `max_tokens` (`apps/api/src/controllers/chat.controller.ts`).
+const DEFAULT_RESERVED_TOKENS: u32 = 4096;
+
 /// Handles `POST /v1/chat/completions`. The body is parsed and validated the
 /// way the frozen contract requires (`400` + error envelope for empty,
 /// malformed, or schema-invalid JSON), then the requested model is resolved
@@ -38,7 +42,7 @@ pub async fn create_completion(
     request: Request,
 ) -> Result<Response, APIError> {
     let version = request.version();
-    let log_context = RequestLogContext::from_request(&request, principal.as_ref())?;
+    let mut log_context = RequestLogContext::from_request(&request, principal.as_ref())?;
 
     let body = read_json_body(request)
         .await
@@ -65,18 +69,58 @@ pub async fn create_completion(
     apply_to_request(&mut chat_request);
 
     if chat_request.stream {
+        // Streamed requests log every outcome inside the spawned loop, so the
+        // reservation is always settled or released there.
+        log_context.reserved_tokens =
+            reserve_api_key_quota(&state, principal.as_ref(), &chat_request).await?;
+
         return stream_completion(state, chat_request, version, log_context);
     }
 
+    // Resolve before reserving: an unregistered model returns without logging,
+    // and a reservation that is never settled would stay charged.
     let resolved = state
         .providers
         .resolve(&chat_request.model)
         .ok_or_else(|| unregistered_model(&chat_request.model))?;
 
+    log_context.reserved_tokens =
+        reserve_api_key_quota(&state, principal.as_ref(), &chat_request).await?;
+
     let final_response =
         run_buffered_interception(&state, &resolved, chat_request, &log_context).await?;
 
     Ok(Json(final_response).into_response())
+}
+
+/// Reserves the request's token budget on the API key, mirroring the Node chat
+/// controller: `max_tokens`, defaulting to [`DEFAULT_RESERVED_TOKENS`], must fit
+/// the key's quota or the request is rejected with `429 quota_exceeded` before
+/// any upstream call. Returns the reserved budget so the completion can settle
+/// it. Anonymous requests reserve nothing.
+async fn reserve_api_key_quota(
+    state: &AppState,
+    principal: Option<&Extension<APIPrincipal>>,
+    chat_request: &ChatCompletionRequest,
+) -> Result<Option<i64>, APIError> {
+    let Some(api_key) = principal.and_then(|extension| extension.0.api_key.as_ref()) else {
+        return Ok(None);
+    };
+
+    let reserved = i64::from(chat_request.max_tokens.unwrap_or(DEFAULT_RESERVED_TOKENS));
+    if !state
+        .security
+        .key_repository
+        .reserve_quota(&api_key.id, reserved)
+        .await?
+    {
+        return Err(
+            APIError::new(429, constants::api_key::RESERVATION_UNAVAILABLE)
+                .with_code(constants::code::QUOTA_EXCEEDED),
+        );
+    }
+
+    Ok(Some(reserved))
 }
 
 fn unregistered_model(model: &str) -> APIError {

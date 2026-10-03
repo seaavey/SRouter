@@ -248,6 +248,93 @@ impl APIKeyRepository for SQLxAPIKeyStore {
             Ok(result.rows_affected() > 0)
         })
     }
+
+    fn reserve_quota(
+        &self,
+        id: &str,
+        reserved_tokens: i64,
+    ) -> BoxFuture<'_, Result<bool, APIError>> {
+        let id = id.to_owned();
+
+        Box::pin(async move {
+            if reserved_tokens <= 0 {
+                return Ok(true);
+            }
+
+            let pool = self.pool()?;
+            // The `WHERE` clause makes the check and the reservation atomic; a
+            // zero-row update means the budget did not fit.
+            let result = sqlx::query(
+                "UPDATE api_keys SET usage_tokens = usage_tokens + ? \
+                 WHERE id = ? AND (quota_limit = 0 OR usage_tokens + ? <= quota_limit)",
+            )
+            .bind(reserved_tokens)
+            .bind(id)
+            .bind(reserved_tokens)
+            .execute(pool)
+            .await
+            .map_err(sql_error(
+                constants::database::context::RESERVE_API_KEY_QUOTA,
+            ))?;
+
+            Ok(result.rows_affected() > 0)
+        })
+    }
+
+    fn settle_quota(
+        &self,
+        id: &str,
+        reserved_tokens: i64,
+        actual_tokens: i64,
+    ) -> BoxFuture<'_, Result<(), APIError>> {
+        let id = id.to_owned();
+
+        Box::pin(async move {
+            let difference = actual_tokens - reserved_tokens;
+            if difference == 0 {
+                return Ok(());
+            }
+
+            let pool = self.pool()?;
+            sqlx::query("UPDATE api_keys SET usage_tokens = usage_tokens + ? WHERE id = ?")
+                .bind(difference)
+                .bind(id)
+                .execute(pool)
+                .await
+                .map_err(sql_error(
+                    constants::database::context::SETTLE_API_KEY_QUOTA,
+                ))?;
+
+            Ok(())
+        })
+    }
+
+    fn increment_usage(
+        &self,
+        id: &str,
+        tokens: i64,
+        cost: f64,
+    ) -> BoxFuture<'_, Result<(), APIError>> {
+        let id = id.to_owned();
+
+        Box::pin(async move {
+            let pool = self.pool()?;
+            sqlx::query(
+                "UPDATE api_keys SET usage_tokens = usage_tokens + ?, \
+                 usage_cost = usage_cost + ? WHERE id = ?",
+            )
+            .bind(tokens)
+            .bind(cost)
+            .bind(id)
+            .execute(pool)
+            .await
+            .map_err(sql_error(
+                constants::database::context::INCREMENT_API_KEY_USAGE,
+            ))?;
+
+            Ok(())
+        })
+    }
 }
 
 async fn read_key(

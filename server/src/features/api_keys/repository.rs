@@ -31,6 +31,35 @@ pub trait APIKeyRepository: Send + Sync {
 
     /// Deletes a key; `false` means the id does not exist.
     fn delete(&self, id: &str) -> BoxFuture<'_, Result<bool, APIError>>;
+
+    /// Atomically reserves `reserved_tokens` against the key quota, the chat
+    /// admission check (`reserveAPIKeyQuotaDB`): an unlimited key
+    /// (`quota_limit = 0`) always reserves, otherwise the reservation only
+    /// lands while `usage_tokens + reserved <= quota_limit`. `false` means the
+    /// budget did not fit; `reserved_tokens <= 0` always succeeds.
+    fn reserve_quota(
+        &self,
+        id: &str,
+        reserved_tokens: i64,
+    ) -> BoxFuture<'_, Result<bool, APIError>>;
+
+    /// Adjusts a reservation to the actual usage (`settleAPIKeyQuotaDB`):
+    /// adds `actual_tokens - reserved_tokens` to `usage_tokens`. Settling to
+    /// the same value is a no-op; settling to zero releases the reservation.
+    fn settle_quota(
+        &self,
+        id: &str,
+        reserved_tokens: i64,
+        actual_tokens: i64,
+    ) -> BoxFuture<'_, Result<(), APIError>>;
+
+    /// Adds completed usage to the key (`incrementAPIKeyUsageDB`).
+    fn increment_usage(
+        &self,
+        id: &str,
+        tokens: i64,
+        cost: f64,
+    ) -> BoxFuture<'_, Result<(), APIError>>;
 }
 
 /// Stand-in used while no database is wired in. The management routes cannot
@@ -66,6 +95,34 @@ impl APIKeyRepository for EmptyAPIKeyRepository {
 
     fn delete(&self, _id: &str) -> BoxFuture<'_, Result<bool, APIError>> {
         Box::pin(async { Err(unconfigured()) })
+    }
+
+    // Usage accounting is best-effort and only meaningful with persistence, so
+    // a process without a database reserves nothing and records nothing.
+    fn reserve_quota(
+        &self,
+        _id: &str,
+        _reserved_tokens: i64,
+    ) -> BoxFuture<'_, Result<bool, APIError>> {
+        Box::pin(async { Ok(true) })
+    }
+
+    fn settle_quota(
+        &self,
+        _id: &str,
+        _reserved_tokens: i64,
+        _actual_tokens: i64,
+    ) -> BoxFuture<'_, Result<(), APIError>> {
+        Box::pin(async { Ok(()) })
+    }
+
+    fn increment_usage(
+        &self,
+        _id: &str,
+        _tokens: i64,
+        _cost: f64,
+    ) -> BoxFuture<'_, Result<(), APIError>> {
+        Box::pin(async { Ok(()) })
     }
 }
 

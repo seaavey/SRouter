@@ -185,6 +185,10 @@ pub mod api_key {
         "Insufficient credit balance. Your credit limit has been reached.";
     pub const QUOTA_EXCEEDED: &str =
         "Token quota exceeded. Your lifetime token limit has been reached.";
+    /// Rejection when the reserved per-request budget cannot fit the key quota
+    /// (`reserveAPIKeyQuotaDB` in the Node chat controller).
+    pub const RESERVATION_UNAVAILABLE: &str =
+        "Token quota exceeded. The requested budget is unavailable.";
     pub const MISSING_LOCAL: &str = "Missing SRouter API Key. Please provide a valid key via 'Authorization: Bearer ***' header or disable 'Require API Key' in Settings.";
     pub const MISSING_REMOTE: &str = "Remote/public requests require a valid SRouter API Key. Please provide your key via 'Authorization: Bearer ***' or 'x-api-key'.";
 
@@ -703,10 +707,13 @@ pub mod database {
         pub const COMMIT_KEY_UPDATE: &str = "commit a key update";
         pub const CREATE_API_KEY: &str = "create an API key";
         pub const DELETE_API_KEY: &str = "delete an API key";
+        pub const INCREMENT_API_KEY_USAGE: &str = "increment API-key usage";
         pub const LIST_API_KEYS: &str = "list API keys";
         pub const LOOK_UP_API_KEY: &str = "look up an API key";
         pub const READ_API_KEY: &str = "read an API key";
         pub const READ_REQUIRE_API_KEY: &str = "read the require_api_key setting";
+        pub const RESERVE_API_KEY_QUOTA: &str = "reserve API-key quota";
+        pub const SETTLE_API_KEY_QUOTA: &str = "settle API-key quota";
         pub const START_CREDIT_UPDATE: &str = "start a credit update";
         pub const START_KEY_UPDATE: &str = "start a key update";
         pub const UPDATE_API_KEY: &str = "update an API key";

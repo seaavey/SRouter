@@ -1,13 +1,23 @@
 mod support;
 
+use std::sync::{Arc, Mutex};
+
 use axum::{
     Router,
     body::{Body, to_bytes},
     http::{Request, StatusCode, Version, header},
 };
+use futures_util::future::BoxFuture;
 use srouter_server::app::create_router;
+use srouter_server::features::api_keys::{
+    APIKey, APIKeyRepository, CreateAPIKeyInput, CreatedAPIKey, UpdateAPIKeyInput,
+};
 use srouter_server::features::gateway::token_saver::TERSE_DIRECTIVE;
-use support::{FakeUpstream, TestDatabase, app_state_with_fake_upstream, with_loopback_client};
+use srouter_server::{APIError, SecurityState};
+use support::{
+    FakeUpstream, FixtureAPIKeyStore, FixtureAdminSessionStore, TestDatabase, api_key_record,
+    app_state_with_fake_upstream, app_state_with_fake_upstream_and_security, with_loopback_client,
+};
 use tower::ServiceExt;
 
 async fn test_app() -> (FakeUpstream, Router) {
@@ -1159,4 +1169,208 @@ async fn token_saver_compresses_streaming_requests_too() {
     let messages = captured["messages"].as_array().expect("messages array");
     assert_eq!(messages[0]["content"], serde_json::json!(TERSE_DIRECTIVE));
     assert_eq!(messages[1]["content"], serde_json::json!("tool output"));
+}
+
+/// What the recording API-key repository observed during a request.
+#[derive(Default)]
+struct UsageRecord {
+    reservations: Vec<(String, i64)>,
+    settlements: Vec<(String, i64, i64)>,
+    increments: Vec<(String, i64, f64)>,
+}
+
+/// An `APIKeyRepository` that records the quota calls the gateway makes, so the
+/// chat accounting can be asserted without a real database. Only the quota
+/// methods are exercised; the CRUD surface is unused.
+struct RecordingAPIKeyRepository {
+    reserve_succeeds: bool,
+    record: Mutex<UsageRecord>,
+}
+
+impl RecordingAPIKeyRepository {
+    fn new(reserve_succeeds: bool) -> Self {
+        Self {
+            reserve_succeeds,
+            record: Mutex::new(UsageRecord::default()),
+        }
+    }
+
+    fn record(&self) -> std::sync::MutexGuard<'_, UsageRecord> {
+        self.record.lock().expect("usage record")
+    }
+}
+
+fn not_recorded() -> APIError {
+    APIError::new(500, "recording repository: method not exercised")
+}
+
+impl APIKeyRepository for RecordingAPIKeyRepository {
+    fn list(&self) -> BoxFuture<'_, Result<Vec<APIKey>, APIError>> {
+        Box::pin(async { Err(not_recorded()) })
+    }
+
+    fn create(&self, _input: CreateAPIKeyInput) -> BoxFuture<'_, Result<CreatedAPIKey, APIError>> {
+        Box::pin(async { Err(not_recorded()) })
+    }
+
+    fn update(
+        &self,
+        _id: &str,
+        _patch: UpdateAPIKeyInput,
+    ) -> BoxFuture<'_, Result<Option<APIKey>, APIError>> {
+        Box::pin(async { Err(not_recorded()) })
+    }
+
+    fn add_credit(
+        &self,
+        _id: &str,
+        _amount: f64,
+    ) -> BoxFuture<'_, Result<Option<APIKey>, APIError>> {
+        Box::pin(async { Err(not_recorded()) })
+    }
+
+    fn delete(&self, _id: &str) -> BoxFuture<'_, Result<bool, APIError>> {
+        Box::pin(async { Err(not_recorded()) })
+    }
+
+    fn reserve_quota(
+        &self,
+        id: &str,
+        reserved_tokens: i64,
+    ) -> BoxFuture<'_, Result<bool, APIError>> {
+        let id = id.to_owned();
+        let succeeds = self.reserve_succeeds;
+
+        Box::pin(async move {
+            self.record().reservations.push((id, reserved_tokens));
+            Ok(succeeds)
+        })
+    }
+
+    fn settle_quota(
+        &self,
+        id: &str,
+        reserved_tokens: i64,
+        actual_tokens: i64,
+    ) -> BoxFuture<'_, Result<(), APIError>> {
+        let id = id.to_owned();
+
+        Box::pin(async move {
+            self.record()
+                .settlements
+                .push((id, reserved_tokens, actual_tokens));
+            Ok(())
+        })
+    }
+
+    fn increment_usage(
+        &self,
+        id: &str,
+        tokens: i64,
+        cost: f64,
+    ) -> BoxFuture<'_, Result<(), APIError>> {
+        let id = id.to_owned();
+
+        Box::pin(async move {
+            self.record().increments.push((id, tokens, cost));
+            Ok(())
+        })
+    }
+}
+
+/// Router with a recording quota repository and one fixture key whose raw value
+/// is `sr-live-quota-test`. `reserve_succeeds` decides whether the admission
+/// reservation lands.
+async fn keyed_app(
+    reserve_succeeds: bool,
+) -> (FakeUpstream, Arc<RecordingAPIKeyRepository>, Router) {
+    let repository = Arc::new(RecordingAPIKeyRepository::new(reserve_succeeds));
+    let security = SecurityState::with_repository(
+        Arc::new(FixtureAPIKeyStore::new(
+            false,
+            vec![("sr-live-quota-test".to_owned(), api_key_record("key-1"))],
+        )),
+        Arc::new(FixtureAdminSessionStore::new(vec![])),
+        repository.clone(),
+    );
+    let (upstream, state) = app_state_with_fake_upstream_and_security(security).await;
+
+    (upstream, repository, create_router(state))
+}
+
+fn keyed_chat_request(body: serde_json::Value) -> Request<Body> {
+    with_loopback_client(
+        Request::builder()
+            .method("POST")
+            .uri("/v1/chat/completions")
+            .version(Version::HTTP_11)
+            .header(header::CONTENT_TYPE, "application/json")
+            .header(header::AUTHORIZATION, "Bearer sr-live-quota-test")
+            .body(Body::from(serde_json::to_vec(&body).unwrap()))
+            .unwrap(),
+    )
+}
+
+#[tokio::test]
+async fn a_request_that_cannot_reserve_its_budget_is_rejected_before_the_upstream() {
+    let (upstream, repository, app) = keyed_app(false).await;
+    let body = serde_json::json!({
+        "model": "opencode_zen/space-bunny-free",
+        "messages": [ { "role": "user", "content": "Hello" } ],
+        "stream": false,
+        "max_tokens": 100
+    });
+
+    let response = app.oneshot(keyed_chat_request(body)).await.unwrap();
+
+    assert_eq!(response.status(), StatusCode::TOO_MANY_REQUESTS);
+    let json = json_body(response).await;
+    assert_eq!(json["error"]["code"], "quota_exceeded");
+    assert_eq!(
+        json["error"]["message"],
+        "Token quota exceeded. The requested budget is unavailable."
+    );
+    assert_eq!(upstream.chat_requests(), 0);
+    assert_eq!(
+        repository.record().reservations,
+        vec![("key-1".to_owned(), 100)]
+    );
+}
+
+#[tokio::test]
+async fn a_completed_request_settles_the_reservation_to_the_real_tokens() {
+    let (_upstream, repository, app) = keyed_app(true).await;
+    let body = serde_json::json!({
+        "model": "opencode_zen/space-bunny-free",
+        "messages": [ { "role": "user", "content": "Hello" } ],
+        "stream": false
+    });
+
+    let response = app.oneshot(keyed_chat_request(body)).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let record = repository.record();
+    // No `max_tokens` in the body, so the default 4096 budget is reserved and
+    // settled to the fake upstream's 3 total tokens.
+    assert_eq!(record.reservations, vec![("key-1".to_owned(), 4096)]);
+    assert_eq!(record.settlements, vec![("key-1".to_owned(), 4096, 3)]);
+    assert_eq!(record.increments, vec![("key-1".to_owned(), 0, 0.0)]);
+}
+
+#[tokio::test]
+async fn an_upstream_failure_releases_the_reservation() {
+    let (_upstream, repository, app) = keyed_app(true).await;
+    let body = serde_json::json!({
+        "model": "opencode_zen/upstream-fail",
+        "messages": [ { "role": "user", "content": "Hello" } ],
+        "stream": false
+    });
+
+    let response = app.oneshot(keyed_chat_request(body)).await.unwrap();
+    assert_ne!(response.status(), StatusCode::OK);
+
+    let record = repository.record();
+    assert_eq!(record.reservations, vec![("key-1".to_owned(), 4096)]);
+    assert_eq!(record.settlements, vec![("key-1".to_owned(), 4096, 0)]);
+    assert!(record.increments.is_empty());
 }

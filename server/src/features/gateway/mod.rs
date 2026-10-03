@@ -36,6 +36,11 @@ pub(crate) struct RequestLogContext {
     pub user_agent: Option<String>,
     pub api_key_id: Option<String>,
     pub start_time: i64,
+    /// Token budget reserved on the API key at admission. `Some` only for chat
+    /// requests served with an API key, so the chat completion is the only
+    /// place that settles or releases a reservation; messages and anonymous
+    /// traffic leave it `None` and never touch the usage columns.
+    pub(crate) reserved_tokens: Option<i64>,
 }
 
 impl RequestLogContext {
@@ -68,6 +73,7 @@ impl RequestLogContext {
             user_agent,
             api_key_id,
             start_time,
+            reserved_tokens: None,
         })
     }
 }

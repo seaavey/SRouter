@@ -12,6 +12,8 @@ use axum::{
 };
 use srouter_server::app::create_router;
 use srouter_server::features::admin_auth::hash_session_token;
+use srouter_server::features::api_keys::APIKeyRepository;
+use srouter_server::infrastructure::database::api_keys::SQLxAPIKeyStore;
 use support::{
     TestDatabase, empty_registry_state, json_request, json_request_with_headers,
     sqlx_security_state,
@@ -358,4 +360,60 @@ async fn create_rejects_a_missing_name() {
 
     assert_eq!(status, StatusCode::BAD_REQUEST);
     assert_eq!(body["error"]["message"], "Field 'name' is required");
+}
+
+/// The quota accounting the gateway runs against the real SQLx repository:
+/// reserve is atomic with the limit check, settle adjusts to actual usage, and
+/// increment records tokens and cost.
+#[tokio::test]
+async fn quota_reservation_settlement_and_increment_update_usage() {
+    let database = TestDatabase::new().unwrap();
+    let app = admin_app(&database).await;
+    let (_, body) = create_key(
+        &app,
+        serde_json::json!({ "name": "Quota Key", "quota_limit": 100 }),
+    )
+    .await;
+    let id = body["id"].as_str().unwrap().to_owned();
+
+    let repository = SQLxAPIKeyStore::new(database.connect().await.unwrap());
+
+    // 60 fits; a further 50 would exceed the 100 limit and is refused.
+    assert!(repository.reserve_quota(&id, 60).await.unwrap());
+    assert!(!repository.reserve_quota(&id, 50).await.unwrap());
+
+    // Settling to the actual 40 returns the unused 20.
+    repository.settle_quota(&id, 60, 40).await.unwrap();
+    repository.increment_usage(&id, 5, 0.25).await.unwrap();
+
+    let key = repository
+        .list()
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|key| key.id == id)
+        .expect("the stored key");
+    assert_eq!(key.usage_tokens, 45);
+    assert_eq!(key.usage_cost, 0.25);
+}
+
+#[tokio::test]
+async fn an_unlimited_key_reserves_any_budget() {
+    let database = TestDatabase::new().unwrap();
+    let app = admin_app(&database).await;
+    let (_, body) = create_key(&app, serde_json::json!({ "name": "Unlimited" })).await;
+    let id = body["id"].as_str().unwrap().to_owned();
+
+    let repository = SQLxAPIKeyStore::new(database.connect().await.unwrap());
+    assert!(repository.reserve_quota(&id, 10_000).await.unwrap());
+    repository.settle_quota(&id, 10_000, 0).await.unwrap();
+
+    let key = repository
+        .list()
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|key| key.id == id)
+        .expect("the stored key");
+    assert_eq!(key.usage_tokens, 0);
 }
