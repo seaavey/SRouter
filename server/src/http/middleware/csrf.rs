@@ -25,13 +25,25 @@ fn is_unsafe_method(method: &Method) -> bool {
 }
 
 fn hosts_match(origin_url: &reqwest::Url, request_host: &str) -> bool {
-    let (req_host_only, req_port) = match request_host.split_once(':') {
-        Some((h, p)) => (h, p.parse::<u16>().ok()),
-        None => (request_host, None),
+    let (req_host_only, req_port) = if let Some(rest) = request_host.strip_prefix('[') {
+        match rest.split_once(']') {
+            Some((ipv6, after_bracket)) => {
+                let port = after_bracket
+                    .strip_prefix(':')
+                    .and_then(|p| p.parse::<u16>().ok());
+                (format!("[{ipv6}]"), port)
+            }
+            None => (request_host.to_owned(), None),
+        }
+    } else {
+        match request_host.split_once(':') {
+            Some((h, p)) => (h.to_owned(), p.parse::<u16>().ok()),
+            None => (request_host.to_owned(), None),
+        }
     };
 
     let origin_host = origin_url.host_str().unwrap_or("");
-    if !origin_host.eq_ignore_ascii_case(req_host_only) {
+    if !origin_host.eq_ignore_ascii_case(&req_host_only) {
         return false;
     }
 
@@ -140,5 +152,15 @@ mod tests {
 
         // Case insensitivity
         assert!(hosts_match(&u1, "GATEWAY.LOCAL:3000"));
+
+        // IPv6 hosts
+        let u4 = reqwest::Url::parse("http://[::1]:3000/v1/keys").unwrap();
+        assert!(hosts_match(&u4, "[::1]:3000"));
+        assert!(!hosts_match(&u4, "[::1]:8080"));
+        assert!(!hosts_match(&u4, "[::2]:3000"));
+
+        let u5 = reqwest::Url::parse("http://[::1]/v1/keys").unwrap();
+        assert!(hosts_match(&u5, "[::1]"));
+        assert!(hosts_match(&u5, "[::1]:80"));
     }
 }

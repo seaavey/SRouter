@@ -284,3 +284,476 @@ async fn malformed_origin_returns_403_csrf_origin_rejected() {
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert_eq!(json["error"]["code"], "csrf_origin_rejected");
 }
+
+const COOKIE_MUTATION_ROUTES: &[(&str, &str, Option<&str>)] = &[
+    // Admin routes
+    (
+        "POST",
+        "/v1/admin/change-password",
+        Some(r#"{"current_password":"old","new_password":"new","confirmation":"new"}"#),
+    ),
+    ("POST", "/v1/admin/logout", None),
+    (
+        "POST",
+        "/v1/admin/setup",
+        Some(r#"{"password":"secret","confirmation":"secret"}"#),
+    ),
+    ("POST", "/v1/admin/login", Some(r#"{"password":"secret"}"#)),
+    // API keys routes
+    ("POST", "/v1/keys", Some(r#"{"name":"test key"}"#)),
+    ("PUT", "/v1/keys/key_test123", Some(r#"{"name":"renamed"}"#)),
+    ("DELETE", "/v1/keys/key_test123", None),
+    (
+        "POST",
+        "/v1/keys/key_test123/credit",
+        Some(r#"{"amount":100}"#),
+    ),
+    // Settings routes
+    ("POST", "/v1/settings", Some(r#"{"require_api_key":true}"#)),
+    ("PATCH", "/v1/settings", Some(r#"{"require_api_key":true}"#)),
+    // Provider management routes
+    (
+        "PATCH",
+        "/v1/providers/opencode_zen",
+        Some(r#"{"action":"enable"}"#),
+    ),
+    // Provider auth / device connect & callback routes
+    (
+        "POST",
+        "/v1/auth/grok-web/connect",
+        Some(r#"{"sso":"fixture-valid"}"#),
+    ),
+    (
+        "POST",
+        "/v1/auth/openai/token",
+        Some(r#"{"code":"test","state":"test"}"#),
+    ),
+    (
+        "POST",
+        "/v1/auth/openai/callback",
+        Some(r#"{"code":"test","state":"test"}"#),
+    ),
+    (
+        "POST",
+        "/v1/auth/qoder/poll",
+        Some(r#"{"device_code":"test"}"#),
+    ),
+    (
+        "POST",
+        "/v1/auth/qoder/callback",
+        Some(r#"{"code":"test","state":"test"}"#),
+    ),
+    (
+        "POST",
+        "/v1/auth/cline/poll",
+        Some(r#"{"device_code":"test"}"#),
+    ),
+    // Gateway mutation routes (when session cookie is present)
+    (
+        "POST",
+        "/v1/chat/completions",
+        Some(r#"{"model":"gpt-4","messages":[{"role":"user","content":"hi"}]}"#),
+    ),
+    (
+        "POST",
+        "/v1/chat/completion",
+        Some(r#"{"model":"gpt-4","messages":[{"role":"user","content":"hi"}]}"#),
+    ),
+    (
+        "POST",
+        "/v1/chat",
+        Some(r#"{"model":"gpt-4","messages":[{"role":"user","content":"hi"}]}"#),
+    ),
+    (
+        "POST",
+        "/v1/messages",
+        Some(
+            r#"{"model":"claude-3-opus","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}"#,
+        ),
+    ),
+    (
+        "POST",
+        "/v1/messages/count_tokens",
+        Some(r#"{"model":"claude-3-opus","messages":[{"role":"user","content":"hi"}]}"#),
+    ),
+    // Gateway /v1/v1 compat routes
+    (
+        "POST",
+        "/v1/v1/chat/completions",
+        Some(r#"{"model":"gpt-4","messages":[{"role":"user","content":"hi"}]}"#),
+    ),
+    (
+        "POST",
+        "/v1/v1/chat/completion",
+        Some(r#"{"model":"gpt-4","messages":[{"role":"user","content":"hi"}]}"#),
+    ),
+    (
+        "POST",
+        "/v1/v1/chat",
+        Some(r#"{"model":"gpt-4","messages":[{"role":"user","content":"hi"}]}"#),
+    ),
+    (
+        "POST",
+        "/v1/v1/messages",
+        Some(
+            r#"{"model":"claude-3-opus","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}"#,
+        ),
+    ),
+    (
+        "POST",
+        "/v1/v1/messages/count_tokens",
+        Some(r#"{"model":"claude-3-opus","messages":[{"role":"user","content":"hi"}]}"#),
+    ),
+];
+
+const BODY_LIMIT_ROUTES: &[(&str, &str)] = &[
+    ("POST", "/v1/admin/change-password"),
+    ("POST", "/v1/admin/setup"),
+    ("POST", "/v1/admin/login"),
+    ("POST", "/v1/admin/logout"),
+    ("POST", "/v1/settings"),
+    ("PATCH", "/v1/settings"),
+    ("PATCH", "/v1/providers/opencode_zen"),
+    ("POST", "/v1/auth/grok-web/connect"),
+    ("POST", "/v1/auth/openai/token"),
+    ("POST", "/v1/auth/openai/callback"),
+    ("POST", "/v1/auth/qoder/poll"),
+    ("POST", "/v1/auth/qoder/callback"),
+    ("POST", "/v1/auth/cline/poll"),
+    ("POST", "/v1/keys"),
+    ("PUT", "/v1/keys/key_test123"),
+    ("POST", "/v1/keys/key_test123/credit"),
+    ("POST", "/v1/chat/completions"),
+    ("POST", "/v1/v1/chat/completions"),
+];
+
+#[tokio::test]
+async fn every_cookie_authenticated_mutation_route_rejects_foreign_origin() {
+    let app = test_app(&[], &["test-session-token"]);
+
+    for &(method, uri, body_payload) in COOKIE_MUTATION_ROUTES {
+        let body = match body_payload {
+            Some(b) => Body::from(b),
+            None => Body::empty(),
+        };
+
+        let mut builder = Request::builder()
+            .method(method)
+            .uri(uri)
+            .header(
+                header::COOKIE,
+                format!("{ADMIN_SESSION_COOKIE}=test-session-token"),
+            )
+            .header(header::ORIGIN, "https://evil.example.com");
+
+        if body_payload.is_some() {
+            builder = builder.header(header::CONTENT_TYPE, "application/json");
+        }
+
+        let response = app
+            .clone()
+            .oneshot(builder.body(body).unwrap())
+            .await
+            .unwrap();
+
+        assert_eq!(
+            response.status(),
+            StatusCode::FORBIDDEN,
+            "failed rejection for {method} {uri}"
+        );
+        assert_eq!(
+            response.headers().get("x-powered-by").unwrap(),
+            "Seaavey",
+            "missing x-powered-by on {method} {uri}"
+        );
+
+        let resp_body = to_bytes(response.into_body(), 1024).await.unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&resp_body).unwrap();
+        assert_eq!(
+            json["error"]["code"], "csrf_origin_rejected",
+            "wrong code for {method} {uri}"
+        );
+        assert_eq!(
+            json["error"]["type"], "permission_error",
+            "wrong type for {method} {uri}"
+        );
+        assert_eq!(
+            json["error"]["message"], "Cross-origin admin mutation is not allowed",
+            "wrong message for {method} {uri}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn every_cookie_authenticated_mutation_route_passes_same_origin() {
+    let app = test_app(&[], &["test-session-token"]);
+
+    for &(method, uri, body_payload) in COOKIE_MUTATION_ROUTES {
+        let body = match body_payload {
+            Some(b) => Body::from(b),
+            None => Body::empty(),
+        };
+
+        let mut builder = Request::builder()
+            .method(method)
+            .uri(uri)
+            .header(header::HOST, "gateway.local:3000")
+            .header(
+                header::COOKIE,
+                format!("{ADMIN_SESSION_COOKIE}=test-session-token"),
+            )
+            .header(header::ORIGIN, "http://gateway.local:3000");
+
+        if body_payload.is_some() {
+            builder = builder.header(header::CONTENT_TYPE, "application/json");
+        }
+
+        let response = app
+            .clone()
+            .oneshot(builder.body(body).unwrap())
+            .await
+            .unwrap();
+
+        if response.status() == StatusCode::FORBIDDEN {
+            let resp_body = to_bytes(response.into_body(), 1024).await.unwrap();
+            let json: serde_json::Value = serde_json::from_slice(&resp_body).unwrap();
+            assert_ne!(
+                json["error"]["code"], "csrf_origin_rejected",
+                "{method} {uri} was unexpectedly blocked by CSRF guard on same-origin request"
+            );
+        }
+    }
+}
+
+#[tokio::test]
+async fn every_cookie_authenticated_mutation_route_passes_allowlisted_origin() {
+    let app = test_app(&["https://dash.example.com"], &["test-session-token"]);
+
+    for &(method, uri, body_payload) in COOKIE_MUTATION_ROUTES {
+        let body = match body_payload {
+            Some(b) => Body::from(b),
+            None => Body::empty(),
+        };
+
+        let mut builder = Request::builder()
+            .method(method)
+            .uri(uri)
+            .header(header::HOST, "gateway.local:3000")
+            .header(
+                header::COOKIE,
+                format!("{ADMIN_SESSION_COOKIE}=test-session-token"),
+            )
+            .header(header::ORIGIN, "https://dash.example.com");
+
+        if body_payload.is_some() {
+            builder = builder.header(header::CONTENT_TYPE, "application/json");
+        }
+
+        let response = app
+            .clone()
+            .oneshot(builder.body(body).unwrap())
+            .await
+            .unwrap();
+
+        if response.status() == StatusCode::FORBIDDEN {
+            let resp_body = to_bytes(response.into_body(), 1024).await.unwrap();
+            let json: serde_json::Value = serde_json::from_slice(&resp_body).unwrap();
+            assert_ne!(
+                json["error"]["code"], "csrf_origin_rejected",
+                "{method} {uri} was unexpectedly blocked by CSRF guard on allowlisted origin"
+            );
+        }
+    }
+}
+
+#[tokio::test]
+async fn every_cookie_authenticated_mutation_route_passes_non_browser_client() {
+    let app = test_app(&[], &["test-session-token"]);
+
+    for &(method, uri, body_payload) in COOKIE_MUTATION_ROUTES {
+        let body = match body_payload {
+            Some(b) => Body::from(b),
+            None => Body::empty(),
+        };
+
+        let mut builder = Request::builder().method(method).uri(uri).header(
+            header::COOKIE,
+            format!("{ADMIN_SESSION_COOKIE}=test-session-token"),
+        );
+
+        if body_payload.is_some() {
+            builder = builder.header(header::CONTENT_TYPE, "application/json");
+        }
+
+        let response = app
+            .clone()
+            .oneshot(builder.body(body).unwrap())
+            .await
+            .unwrap();
+
+        if response.status() == StatusCode::FORBIDDEN {
+            let resp_body = to_bytes(response.into_body(), 1024).await.unwrap();
+            let json: serde_json::Value = serde_json::from_slice(&resp_body).unwrap();
+            assert_ne!(
+                json["error"]["code"], "csrf_origin_rejected",
+                "{method} {uri} was unexpectedly blocked by CSRF guard without origin header"
+            );
+        }
+    }
+}
+
+#[tokio::test]
+async fn foreign_referer_is_rejected_across_all_cookie_authenticated_routes() {
+    let app = test_app(&[], &["test-session-token"]);
+
+    for &(method, uri, body_payload) in COOKIE_MUTATION_ROUTES {
+        let body = match body_payload {
+            Some(b) => Body::from(b),
+            None => Body::empty(),
+        };
+
+        let mut builder = Request::builder()
+            .method(method)
+            .uri(uri)
+            .header(
+                header::COOKIE,
+                format!("{ADMIN_SESSION_COOKIE}=test-session-token"),
+            )
+            .header(header::REFERER, "https://evil.example.com/exploit");
+
+        if body_payload.is_some() {
+            builder = builder.header(header::CONTENT_TYPE, "application/json");
+        }
+
+        let response = app
+            .clone()
+            .oneshot(builder.body(body).unwrap())
+            .await
+            .unwrap();
+
+        assert_eq!(
+            response.status(),
+            StatusCode::FORBIDDEN,
+            "failed referer rejection for {method} {uri}"
+        );
+        let resp_body = to_bytes(response.into_body(), 1024).await.unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&resp_body).unwrap();
+        assert_eq!(
+            json["error"]["code"], "csrf_origin_rejected",
+            "wrong code for referer on {method} {uri}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn same_origin_ipv6_cookie_mutation_passes() {
+    let app = test_app(&[], &["test-session-token"]);
+
+    for &(method, uri, body_payload) in &[
+        ("POST", "/v1/keys", Some(r#"{"name":"test key"}"#)),
+        (
+            "POST",
+            "/v1/admin/change-password",
+            Some(r#"{"current_password":"old","new_password":"new","confirmation":"new"}"#),
+        ),
+    ] {
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(method)
+                    .uri(uri)
+                    .header(header::HOST, "[::1]:3000")
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .header(
+                        header::COOKIE,
+                        format!("{ADMIN_SESSION_COOKIE}=test-session-token"),
+                    )
+                    .header(header::ORIGIN, "http://[::1]:3000")
+                    .body(Body::from(body_payload.unwrap()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        if response.status() == StatusCode::FORBIDDEN {
+            let resp_body = to_bytes(response.into_body(), 1024).await.unwrap();
+            let json: serde_json::Value = serde_json::from_slice(&resp_body).unwrap();
+            assert_ne!(json["error"]["code"], "csrf_origin_rejected");
+        }
+    }
+}
+
+#[tokio::test]
+async fn body_limit_rejects_oversized_content_length_on_admin_database_and_mutation_routes() {
+    let app = test_app(&[], &["test-session-token"]);
+
+    for &(method, uri) in BODY_LIMIT_ROUTES {
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(method)
+                    .uri(uri)
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .header(header::CONTENT_LENGTH, (25 * 1024 * 1024 + 1).to_string())
+                    .body(Body::from("{}"))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(
+            response.status(),
+            StatusCode::PAYLOAD_TOO_LARGE,
+            "body limit did not reject oversized Content-Length on {method} {uri}"
+        );
+        assert_eq!(
+            response.headers().get("x-powered-by").unwrap(),
+            "Seaavey",
+            "missing x-powered-by on 413 for {method} {uri}"
+        );
+
+        let resp_body = to_bytes(response.into_body(), 1024).await.unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&resp_body).unwrap();
+        assert_eq!(
+            json["error"]["code"], "request_too_large",
+            "wrong code on {method} {uri}"
+        );
+        assert_eq!(
+            json["error"]["type"], "invalid_request_error",
+            "wrong type on {method} {uri}"
+        );
+        assert_eq!(
+            json["error"]["message"], "Request body too large",
+            "wrong message on {method} {uri}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn body_limit_allows_normal_sized_payloads_on_admin_database_and_mutation_routes() {
+    let app = test_app(&[], &["test-session-token"]);
+
+    for &(method, uri) in BODY_LIMIT_ROUTES {
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(method)
+                    .uri(uri)
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .header(header::CONTENT_LENGTH, "2")
+                    .body(Body::from("{}"))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_ne!(
+            response.status(),
+            StatusCode::PAYLOAD_TOO_LARGE,
+            "{method} {uri} was unexpectedly rejected by body limit with normal payload"
+        );
+    }
+}

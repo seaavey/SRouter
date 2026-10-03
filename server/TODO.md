@@ -223,8 +223,16 @@ Status legend: `[x]` done and covered by a Rust test, `[ ]` missing, `[~]` parti
       `quota_reservation_settlement_and_increment_update_usage` and
       `an_unlimited_key_reserves_any_budget` in `server/tests/api_keys.rs`, which exercise the SQLx
       store.
-- [ ] CSRF origin guard coverage for every cookie-authenticated mutation after the new routes land
-      (body limit applies on the main listener, admin/database routes included).
+- [x] CSRF origin guard coverage for every cookie-authenticated mutation after the new routes land
+      (body limit applies on the main listener, admin/database routes included). Every landed mutation
+      route under `/v1` (admin password change, logout, setup, login; API key create, update, delete,
+      credit; settings POST and PATCH; provider management PATCH; provider device/poll/connect/token/callback
+      flows; gateway chat/messages mutations and `/v1/v1` compat routes) rejects cross-origin cookie-authenticated
+      mutations with `403` + `code=csrf_origin_rejected`, verifies foreign `Referer` fallback, accepts
+      same-origin (including bracketed IPv6 hosts), CORS allowlist origins, and non-browser clients, while
+      API-key traffic and safe GET requests pass untouched. Global 25 MiB body limit on `/v1` rejects
+      oversized payloads (`413` + `code=request_too_large`) across admin, settings, providers, keys, and gateway
+      routes while permitting normal payloads. Covered by `server/tests/csrf.rs` (17 integration tests).
 
 ---
 
