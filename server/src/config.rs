@@ -32,6 +32,23 @@ impl APIConfig {
                 PathBuf::from(home).join(".srouter").join("srouter.db")
             }
         };
+        let public_url = environment
+            .get("SROUTER_PUBLIC_URL")
+            .map(|url| url.trim().trim_end_matches('/'))
+            .filter(|url| !url.is_empty())
+            .map(str::to_owned);
+        // Owner ruling 2026-10-03 --- 10-30 WIB: an `https://` public URL implies secure
+        // cookies without `SROUTER_SECURE_COOKIES`, so production stays correct by
+        // validation alone. The flag still enables them for deployments without a public
+        // URL; under `https://` it cannot turn them off (a non-Secure cookie would be the
+        // misconfiguration).
+        let secure_cookies = environment
+            .get("SROUTER_SECURE_COOKIES")
+            .is_some_and(|value| value == "true")
+            || public_url.as_deref().is_some_and(|url| {
+                url.get(..8)
+                    .is_some_and(|scheme| scheme.eq_ignore_ascii_case("https://"))
+            });
 
         Ok(Self {
             port,
@@ -41,11 +58,7 @@ impl APIConfig {
                 .filter(|host| !host.is_empty())
                 .cloned()
                 .unwrap_or_else(|| "0.0.0.0".to_owned()),
-            public_url: environment
-                .get("SROUTER_PUBLIC_URL")
-                .map(|url| url.trim().trim_end_matches('/'))
-                .filter(|url| !url.is_empty())
-                .map(str::to_owned),
+            public_url,
             cors_origins: environment
                 .get("SROUTER_CORS_ORIGINS")
                 .into_iter()
@@ -58,9 +71,7 @@ impl APIConfig {
                 .get("SROUTER_ADMIN_PASSWORD")
                 .filter(|password| !password.is_empty())
                 .cloned(),
-            secure_cookies: environment
-                .get("SROUTER_SECURE_COOKIES")
-                .is_some_and(|value| value == "true"),
+            secure_cookies,
             web_dist_path: environment
                 .get("WEB_DIST_PATH")
                 .filter(|path| !path.is_empty())

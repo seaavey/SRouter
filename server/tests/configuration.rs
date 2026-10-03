@@ -132,6 +132,51 @@ fn secure_cookies_are_enabled_only_by_the_exact_true_value() {
 }
 
 #[test]
+fn secure_cookies_accept_the_exact_true_value_without_an_https_public_url() {
+    let config = config_from(&[
+        ("HOME", "/tmp/srouter-home"),
+        ("SROUTER_SECURE_COOKIES", "true"),
+    ])
+    .unwrap();
+
+    assert!(config.secure_cookies);
+}
+
+#[test]
+fn https_public_url_enables_secure_cookies_without_the_flag() {
+    let config = config_from(&[
+        ("HOME", "/tmp/srouter-home"),
+        ("SROUTER_PUBLIC_URL", "https://srouter.example.test"),
+    ])
+    .unwrap();
+
+    assert!(config.secure_cookies);
+}
+
+#[test]
+fn http_public_url_does_not_enable_secure_cookies() {
+    let config = config_from(&[
+        ("HOME", "/tmp/srouter-home"),
+        ("SROUTER_PUBLIC_URL", "http://srouter.example.test"),
+    ])
+    .unwrap();
+
+    assert!(!config.secure_cookies);
+}
+
+#[test]
+fn https_public_url_keeps_secure_cookies_on_when_the_flag_is_false() {
+    let config = config_from(&[
+        ("HOME", "/tmp/srouter-home"),
+        ("SROUTER_PUBLIC_URL", "https://srouter.example.test"),
+        ("SROUTER_SECURE_COOKIES", "false"),
+    ])
+    .unwrap();
+
+    assert!(config.secure_cookies);
+}
+
+#[test]
 fn empty_public_url_is_treated_as_unset() {
     for public_url in ["", " \t "] {
         let config = config_from(&[

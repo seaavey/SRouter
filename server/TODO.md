@@ -134,6 +134,13 @@ Status legend: `[x]` done and covered by a Rust test, `[ ]` missing, `[~]` parti
       cases now pin them (`session_cookie_carries_the_frozen_flags`,
       `secure_cookies_flag_adds_secure_to_session_and_cleared_cookies`,
       `cleared_cookie_carries_the_frozen_flags`), backed by `support::test_secure_config`.
+      Documented deviation, owner ruling 2026-10-03 --- 10-30 WIB: an `https://`
+      `SROUTER_PUBLIC_URL` also turns `Secure` on without the flag (production is correct by
+      validation alone), and under `https://` the flag cannot turn it off. Node oracle stays
+      exact-true-only until cutover; pinned by `server/tests/configuration.rs`
+      (`https_public_url_enables_secure_cookies_without_the_flag`,
+      `http_public_url_does_not_enable_secure_cookies`,
+      `https_public_url_keeps_secure_cookies_on_when_the_flag_is_false`).
 - [ ] Startup ordering: Node awaits PostgreSQL schema init, then admin bootstrap, then provider
       registry, then serves; model warmup runs after the listener is up, and the token-refresh
       sweeper starts last (`docs/api-v1-contract.md`, "Legacy baseline"). Rust `main.rs` currently
