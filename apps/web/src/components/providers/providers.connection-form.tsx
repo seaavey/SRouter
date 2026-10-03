@@ -105,8 +105,9 @@ export default function ConnectionForm({
         }
 
         setFormError("");
+        // No explicit name: the caller numbers new keys ("Key 1", "Key 2", …)
+        // so the provider's display name is never doubled ("atria Key Key").
         onSubmit({
-            name: `${providerName} Key`,
             base_url: defaultBaseUrl || undefined,
             api_key: trimmedKey
         });

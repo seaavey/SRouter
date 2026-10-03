@@ -123,9 +123,25 @@ function ProviderDetailPage() {
     const handleAddSubmit = (input: ConnectionFormInput) => {
         if (!provider) return;
 
+        // Number new keys with the provider's own name ("atria 2", "atria 3").
+        // A legacy "… Key" suffix on the display name is stripped so keys
+        // never read "atria Key Key". max() + 1 avoids reusing a number freed
+        // by a deletion ("atria", "atria 3" → next is "atria 4", not "atria 3").
+        const existing = provider.connections ?? [];
+        const baseName = provider.name.replace(/ Key$/i, "");
+        const keyNumber =
+            existing.reduce((Max, C) => {
+                const N = parseInt((C.name ?? "").split(" ").pop() ?? "", 10);
+                return Number.isNaN(N) ? Max : Math.max(Max, N);
+            }, 0) + 1;
+
         const payload: AddConnectionPayload = {
             id: `${provider.id}-${Date.now()}`,
-            name: input.name?.trim() || `${provider.name} Key`,
+            // Link the new key to its parent explicitly. Without this the row
+            // stores `providerId = id` and only `providerBaseId`'s UUID-prefix
+            // heuristic keeps it under the parent's Active Credentials list.
+            provider_id: provider.id,
+            name: input.name?.trim() || `${baseName} ${keyNumber}`,
             category: provider.category,
             protocol: provider.protocol,
             base_url: input.base_url || provider.default_base_url || undefined,

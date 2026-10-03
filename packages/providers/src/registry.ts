@@ -398,25 +398,22 @@ export class ProviderRegistry {
         // falling back to built-in provider type resolution.
         if (candidates.length === 0) {
             const prefix = modelId.includes("/") ? (modelId.split("/")[0] ?? modelId) : modelId;
-            const exactAlias = Array.from(this.providers.values()).find(
-                (provider) =>
-                    provider.id !== "default" &&
-                    this.isProviderEnabled(provider.id) &&
-                    provider.alias &&
-                    provider.alias === prefix
+            const active = Array.from(this.providers.values()).filter(
+                (provider) => provider.id !== "default" && this.isProviderEnabled(provider.id)
             );
-            if (exactAlias) {
-                candidates.push(exactAlias);
+            // Collect every provider sharing the alias — extra keys on a custom
+            // provider all carry the parent's alias, and round-robin needs them
+            // all as candidates when model lists are unavailable.
+            const exactAliasMatches = active.filter((p) => p.alias && p.alias === prefix);
+            if (exactAliasMatches.length > 0) {
+                candidates.push(...exactAliasMatches);
             } else {
                 // Fallback: derived alias (via constants catalog) or base ID matching
-                const derivedAlias = Array.from(this.providers.values()).find(
-                    (provider) =>
-                        provider.id !== "default" &&
-                        this.isProviderEnabled(provider.id) &&
-                        providerAliasFor(provider) === prefix
+                const derivedAliasMatches = active.filter(
+                    (provider) => providerAliasFor(provider) === prefix
                 );
-                if (derivedAlias) {
-                    candidates.push(derivedAlias);
+                if (derivedAliasMatches.length > 0) {
+                    candidates.push(...derivedAliasMatches);
                 } else {
                     const targetBaseId = providerTypeForAlias(prefix) ?? prefix;
                     for (const [id, provider] of this.providers.entries()) {
@@ -438,8 +435,12 @@ export class ProviderRegistry {
 
         if (candidates.length > 0) {
             const sorted = this.circuitBreaker.sortCandidatesByHealth(candidates);
-            const baseId = providerBaseId(candidates[0]!.id);
-            if (this.roundRobinEnabled.get(baseId) && sorted.length > 1) {
+            // Rotate only when every candidate belongs to one provider — a
+            // mixed set (two parents sharing an alias) has no single flag to
+            // read, and candidates[0] is just Map insertion order.
+            const baseIds = new Set(sorted.map((c) => providerBaseId(c.id)));
+            const baseId = providerBaseId(sorted[0]!.id);
+            if (baseIds.size === 1 && this.roundRobinEnabled.get(baseId) && sorted.length > 1) {
                 // Rotate only among healthy candidates; degraded ones stay as a
                 // fallback tail so a cooling-down account is never hit first.
                 const healthy = sorted.filter(

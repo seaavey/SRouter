@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
 import { Loader2, Plug, CheckCircle2, Globe, Key, X } from "lucide-react";
 import { toast } from "sonner";
 import type { CreateProviderZod, ProviderDefinition, ProviderProtocol } from "@srouter/types";
@@ -32,6 +33,7 @@ interface CustomProviderDialogProps {
 
 export default function CustomProviderDialog({ open, onOpenChange }: CustomProviderDialogProps) {
     const queryClient = useQueryClient();
+    const navigate = useNavigate();
     const [name, setName] = useState("");
     const [alias, setAlias] = useState("");
     const [baseUrl, setBaseUrl] = useState("");
@@ -66,6 +68,13 @@ export default function CustomProviderDialog({ open, onOpenChange }: CustomProvi
             invalidateCatalog();
             toast.success(`Provider "${provider.name}" added`);
             onOpenChange(false);
+            // Land the user on the new provider's detail page so its first
+            // credential is visible under "Active Credentials" — a custom
+            // provider has an opaque UUID id and is otherwise hard to find.
+            void navigate({
+                to: "/providers/$providerId",
+                params: { providerId: provider.id }
+            });
         },
         onError: (err: Error) => {
             const msg = err.message || "Failed to add provider";

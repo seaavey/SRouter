@@ -100,6 +100,16 @@ export async function seedDefaultProviders(): Promise<void> {
  */
 export async function loadSavedProvidersFromDB(): Promise<void> {
     const savedProviders = await getAllProvidersDB();
+    const rowsById = new Map(savedProviders.map((row) => [row.id, row]));
+    // Extra keys on a custom provider are stored as `<parent-uuid>-<suffix>`
+    // and carry no alias of their own; inherit the parent's alias so every
+    // key routes under the same model prefix (e.g. "zax/model") instead of
+    // falling back to the raw UUID.
+    const aliasFor = (row: (typeof savedProviders)[number]): string | undefined => {
+        if (row.alias) return row.alias;
+        const baseId = providerBaseId(row.providerId || row.id);
+        return baseId !== row.id ? rowsById.get(baseId)?.alias : undefined;
+    };
     for (const p of savedProviders) {
         registry.setProviderEnabled(
             providerBaseId(p.providerId || p.id),
@@ -276,7 +286,7 @@ export async function loadSavedProvidersFromDB(): Promise<void> {
                     new OpenAIExecutor({
                         id: p.id || p.providerId,
                         name: p.name,
-                        alias: p.alias ?? providerAlias(providerBaseId(p.providerId || p.id)),
+                        alias: aliasFor(p) ?? providerAlias(providerBaseId(p.providerId || p.id)),
                         baseUrl:
                             baseUrl ||
                             (providerType === "experientiallabs"
@@ -309,7 +319,7 @@ export async function loadSavedProvidersFromDB(): Promise<void> {
                     new AnthropicExecutor({
                         id: p.id || p.providerId,
                         name: p.name,
-                        alias: p.alias,
+                        alias: aliasFor(p) ?? providerAlias(providerBaseId(p.providerId || p.id)),
                         baseUrl,
                         apiKey: p.apiKey,
                         accessToken: p.accessToken

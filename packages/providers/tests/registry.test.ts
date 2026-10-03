@@ -866,3 +866,34 @@ test("ProviderRegistry records provider attempts separately from transport attem
     assert.equal(budget.transportAttempts, 0);
     assert.equal(budget.remaining, 4);
 });
+
+test("round-robin rotates custom-provider keys matched by shared alias prefix", async () => {
+    const registry = new ProviderRegistry();
+    const parentId = "18cdf1f4-2450-4c61-b488-4d7b1c9cf77b";
+    const key = (id: string): AIProvider => ({
+        id,
+        name: `Custom ${id}`,
+        alias: "zax",
+        // Empty model lists force prefix matching, the common case for
+        // custom gateways whose /models endpoint is unavailable.
+        listModels: async () => [],
+        chatCompletion: async () => {
+            throw new Error("not used");
+        },
+        chatCompletionStream: async function* () {
+            throw new Error("not used");
+        }
+    });
+
+    registry.registerProvider(key(parentId));
+    registry.registerProvider(key(`${parentId}-1789000000001`));
+    registry.registerProvider(key(`${parentId}-1789000000002`));
+    registry.setRoundRobin(parentId, true);
+
+    const seen = new Set<string>();
+    for (let i = 0; i < 3; i++) {
+        const picked = await registry.getProviderForModel("zax/some-model");
+        seen.add(picked.id);
+    }
+    assert.equal(seen.size, 3, "all three keys should be rotated via alias prefix match");
+});

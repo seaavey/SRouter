@@ -62,18 +62,40 @@ export function isKnownProvider(Id: string): boolean {
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export function providerBaseId(Id: string): string {
-    // Custom providers carry a UUID v4 as their immutable ID — never
-    // truncate it; a UUID is its own base identity.
+/**
+ * Resolve the catalog identity of a provider id without the generic
+ * `split("_")[0].split("-")[0]` truncation: UUIDs (and `<uuid>-<suffix>` key
+ * ids) collapse onto the parent UUID, known ids resolve to their base id, and
+ * every other id comes back unchanged. Unknown ids must stay whole — the
+ * catalog stores them as-is, so truncating "grok-web" to "grok" would break
+ * deep links and merge unrelated providers that share a first token.
+ */
+export function providerCatalogBaseId(Id: string): string {
     if (UUID_RE.test(Id)) return Id;
+    // Extra keys added to a custom provider are stored as `<parent-uuid>-<suffix>`.
+    // Collapse them onto the parent UUID so all keys share one base identity.
+    if (Id.length > 37 && Id[36] === "-") {
+        const Prefix = Id.slice(0, 36);
+        if (UUID_RE.test(Prefix)) return Prefix.toLowerCase();
+    }
     return (
         KNOWN_PROVIDER_IDS_DESC.find(
             (Candidate) =>
                 Id === Candidate || Id.startsWith(`${Candidate}_`) || Id.startsWith(`${Candidate}-`)
-        ) ??
-        Id.split("_")[0]?.split("-")[0] ??
-        Id
+        ) ?? Id
     );
+}
+
+export function providerBaseId(Id: string): string {
+    // A UUID is its own base identity — never truncate it. This guard is
+    // separate from providerCatalogBaseId, which returns a UUID unchanged and
+    // so cannot be distinguished from an unknown id by the `!== Id` check below.
+    if (UUID_RE.test(Id)) return Id;
+    const CatalogBaseId = providerCatalogBaseId(Id);
+    if (CatalogBaseId !== Id) return CatalogBaseId;
+    // Legacy connections with opaque ids ("grok-web") fall back to the first
+    // token so runtime flags keyed by base id still resolve.
+    return Id.split("_")[0]?.split("-")[0] ?? Id;
 }
 
 export function isProviderBaseId(Id: string, BaseId: string): boolean {

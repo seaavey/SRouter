@@ -3,7 +3,8 @@ import {
     isProviderCategory,
     isSeedProvider,
     providerAlias,
-    providerBaseId
+    providerBaseId,
+    providerCatalogBaseId
 } from "@srouter/constants";
 import type {
     CreateProviderZod,
@@ -50,21 +51,14 @@ function isProviderProtocol(Value: string): Value is ProviderProtocol {
     return ["openai", "anthropic", "gemini", "custom"].includes(Value);
 }
 
-const PROVIDER_IDS_BY_LENGTH = Object.keys(DEFAULT_PROVIDER_MAP).sort(
-    (Left, Right) => Right.length - Left.length
-);
-
+// Collapse `<parent-uuid>-<suffix>` custom-provider keys onto the parent UUID
+// (and known providers onto their base id) so one custom provider remains a
+// single catalog entry and its keys share one Active Credentials list.
+// Uses providerCatalogBaseId (not providerBaseId): the catalog stores unknown
+// ids verbatim, so "grok-web" must stay whole — truncating it to "grok" would
+// break /providers/grok-web deep links and merge providers sharing a token.
 function BaseIdOf(ProviderId: string): string {
-    for (const Id of PROVIDER_IDS_BY_LENGTH) {
-        if (
-            ProviderId === Id ||
-            ProviderId.startsWith(`${Id}_`) ||
-            ProviderId.startsWith(`${Id}-`)
-        ) {
-            return Id;
-        }
-    }
-    return ProviderId;
+    return providerCatalogBaseId(ProviderId);
 }
 
 function ProviderDefinitionFromConfig(Connection: ProviderConfig): ProviderDefinition {
@@ -99,14 +93,19 @@ async function CatalogWithSavedProviders(): Promise<ProviderDefinition[]> {
         if (Seen.has(BaseId)) continue;
         Seen.add(BaseId);
 
+        // Display identity comes from the parent row (the provider itself),
+        // not the newest connection — otherwise adding a key renames the
+        // provider in the catalog ("atria" becomes "atria Key Key").
+        const Parent = Rows.find((R) => R.id === BaseId) ?? Connection;
+
         const Seed = DEFAULT_PROVIDER_MAP[BaseId];
         const Category: ProviderCategory =
-            Connection.category && isProviderCategory(Connection.category)
-                ? Connection.category
+            Parent.category && isProviderCategory(Parent.category)
+                ? Parent.category
                 : (Seed?.category ?? "api_key");
         const Protocol: ProviderProtocol =
-            Connection.protocol && isProviderProtocol(Connection.protocol)
-                ? Connection.protocol
+            Parent.protocol && isProviderProtocol(Parent.protocol)
+                ? Parent.protocol
                 : (Seed?.protocol ?? "openai");
 
         const ConnectedCount = Rows.filter(
@@ -115,11 +114,11 @@ async function CatalogWithSavedProviders(): Promise<ProviderDefinition[]> {
 
         Catalog.push({
             id: BaseId,
-            name: Seed?.name ?? Connection.name,
+            name: Seed?.name ?? Parent.name,
             category: Seed?.category ?? Category,
             protocol: Seed?.protocol ?? Protocol,
-            default_base_url: Seed?.base_url ?? Connection.base_url,
-            requires_api_key: Seed ? Seed.requires_api_key : Boolean(Connection.apiKey),
+            default_base_url: Seed?.base_url ?? Parent.base_url,
+            requires_api_key: Seed ? Seed.requires_api_key : Boolean(Parent.apiKey),
             requires_oauth: Seed?.requires_oauth,
             supports_custom_url: Seed ? (Seed.supports_custom_url ?? true) : true,
             roundRobin: await getRoundRobinDB(BaseId),
