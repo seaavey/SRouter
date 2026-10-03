@@ -35,19 +35,25 @@ Status legend: `[x]` done and covered by a Rust test, `[ ]` missing, `[~]` parti
 
 ### 1.1 Static web serving and SPA fallback
 
-- [ ] Implement `server/src/http/static_files.rs` and mount it from `server/src/app.rs`.
+- [x] `server/src/http/static_files.rs` mounted from `server/src/app.rs`.
       Node evidence: `apps/api/src/index.ts:148-170` (`resolveWebDistPath()`, `serveStatic`,
       SPA fallback to `index.html`), `apps/api/src/services/webDist.ts`,
       `apps/api/tests/web-dist.test.ts`.
-      Required behavior: resolve the web dist from `WEB_DIST_PATH` when set, otherwise search the
-      repository- and app-relative `dist` candidates; when `<dist>/index.html` exists, serve assets
-      at `/*` and fall back to `index.html` for unmatched GETs; when it does not exist, `GET /`
-      returns the API info object (already implemented in `app.rs`).
-- [ ] Add the asset cache header rule: paths ending in
+      `resolve_web_dist` resolves `WEB_DIST_PATH` when set, otherwise searches the repository- and
+      app-relative `dist` candidates, and requires `<dist>/index.html`; when it resolves, `app.rs`
+      mounts `serve_static` as the router fallback and `GET /` and unmatched GETs serve the SPA
+      shell, while `GET /` keeps the API info object when no dist exists. `safe_join` rejects
+      traversal, and non-GET/HEAD fall through to `404`.
+      Documented deviation: unmatched `/v1/*` paths stay JSON `404` (the `/v1` nest owns its
+      fallback), where Node's global `GET *` would serve `index.html`; recorded in the module doc.
+      Covered by `server/tests/static_files.rs` (asset, SPA fallback, root dual behavior, health
+      and `/v1` not swallowed, traversal) and the in-file unit tests.
+- [x] Asset cache header rule: paths ending in
       `js|css|map|woff|woff2|ttf|otf|png|svg|ico|webp|avif|jpg|jpeg|gif` get
-      `Cache-Control: public, max-age=31536000, immutable`.
-      Accept: Rust test asserting header presence on a fixture asset and its absence on the SPA
-      fallback response.
+      `Cache-Control: public, max-age=31536000, immutable` (`IMMUTABLE_CACHE_CONTROL`).
+      `an_asset_is_served_with_the_immutable_cache_header` pins presence on a fixture asset and
+      `an_unmatched_route_falls_back_to_the_spa_shell_without_a_cache_header` pins its absence on
+      the SPA fallback.
 
 ### 1.2 Global body limit
 

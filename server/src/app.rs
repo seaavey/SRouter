@@ -1,5 +1,5 @@
+use axum::Extension;
 use axum::middleware::{from_fn, from_fn_with_state};
-
 use axum::{Json, Router, routing::get};
 use serde::Serialize;
 
@@ -25,6 +25,7 @@ use crate::http::middleware::csrf::csrf_origin_guard;
 use crate::http::middleware::failure_log::log_failed_requests;
 use crate::http::middleware::rate_limit::rate_limit;
 use crate::http::middleware::security_headers::security_headers;
+use crate::http::static_files;
 use crate::state::AppState;
 
 #[derive(Serialize)]
@@ -127,10 +128,9 @@ pub fn create_router(state: AppState) -> Router {
         .layer(from_fn_with_state(state.clone(), csrf_origin_guard))
         .layer(from_fn(body_limit));
 
-    Router::new()
-        .route("/", get(api_info))
-        // `GET /v1` is a plain api-info route in Node (`apps/api/src/index.ts:121`),
-        // declared before the `/v1` nest so the literal wins over the sub-routes.
+    // `GET /v1` is a plain api-info route in Node (`apps/api/src/index.ts:121`),
+    // declared before the `/v1` nest so the literal wins over the sub-routes.
+    let mut router = Router::new()
         .route("/v1", get(api_info))
         .route("/health", get(health))
         // The provider browser callbacks are the deliberate root-level mounts:
@@ -140,7 +140,20 @@ pub fn create_router(state: AppState) -> Router {
         // Production mounts chat routes under `/v1` and the `/v1/v1` compat alias
         // only; root-level mounts exist in the Node test harness, not here.
         .nest("/v1", v1_routes)
-        .nest("/v1/v1", v1_compat_routes)
+        .nest("/v1/v1", v1_compat_routes);
+
+    // With a built dashboard, `/` and every unmatched GET serve the SPA (Node's
+    // `serveStatic` + `GET *` mount); without one, `/` keeps the API info object.
+    // The root route and fallback must be registered before the layers below,
+    // because `Router::layer` only wraps routes that already exist.
+    router = match static_files::resolve_web_dist(&state.config) {
+        Some(dist) => router
+            .fallback(get(static_files::serve_static))
+            .layer(Extension(dist)),
+        None => router.route("/", get(api_info)),
+    };
+
+    router
         .layer(from_fn_with_state(state.clone(), cors))
         .layer(from_fn(security_headers))
         // Outermost on purpose: every final status, including auth, CORS, and body-limit
