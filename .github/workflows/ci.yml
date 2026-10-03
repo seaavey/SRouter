@@ -40,3 +40,29 @@ jobs:
 
             - name: Run unit & integration tests
               run: pnpm test
+
+    rust-lint:
+        name: Rust Lint
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
+            - name: Install Rust toolchain
+              # `stable` matches server/rust-toolchain.toml; the components add
+              # the two tools the checks below need.
+              uses: dtolnay/rust-toolchain@stable
+              with:
+                  components: rustfmt, clippy
+
+            - name: Cache cargo build
+              uses: Swatinem/rust-cache@v2
+              with:
+                  workspaces: server
+
+            - name: Check formatting
+              run: cargo fmt --manifest-path server/Cargo.toml -- --check
+
+            - name: Lint with clippy
+              run: cargo clippy --manifest-path server/Cargo.toml --all-targets --all-features --locked -- -D warnings

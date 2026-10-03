@@ -29,13 +29,13 @@ export function PricingSummaryMetrics({
         {
             label: "Median Input",
             icon: ArrowDownToLine,
-            value: `$${medianInputPrice.toFixed(2)}`,
+            value: `$${medianInputPrice.toFixed(4)}`,
             detail: "Per 1M prompt tokens"
         },
         {
             label: "Median Output",
             icon: ArrowUpFromLine,
-            value: `$${medianOutputPrice.toFixed(2)}`,
+            value: `$${medianOutputPrice.toFixed(4)}`,
             detail: "Per 1M completion tokens"
         }
     ];

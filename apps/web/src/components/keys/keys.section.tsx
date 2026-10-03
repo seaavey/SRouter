@@ -67,7 +67,7 @@ export default function KeyMetrics({
                         title={`Total Recorded Cost: $${totalUsageCost.toFixed(4)}`}
                     >
                         <span className="text-3xl font-bold tracking-tight text-ink font-sans tabular-nums">
-                            ${totalUsageCost.toFixed(2)}
+                            ${totalUsageCost.toFixed(4)}
                         </span>
                         <span className="font-mono text-xs text-text-muted">USD</span>
                     </div>

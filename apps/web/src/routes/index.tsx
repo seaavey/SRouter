@@ -216,9 +216,9 @@ function DashboardPage() {
                 />
                 <StatCard
                     label="Estimated Cost"
-                    value={stats?.costLabel ?? "$0.00"}
+                    value={stats?.costLabel ?? "$0.0000"}
                     animatedValue={stats.totalEstimatedCost}
-                    animatedFormat={(value) => `$${value.toFixed(2)}`}
+                    animatedFormat={(value) => `$${value.toFixed(4)}`}
                     detail={
                         stats?.estimated ? "Calculated from pricing catalog" : "Recorded token cost"
                     }

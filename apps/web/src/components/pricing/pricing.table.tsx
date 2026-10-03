@@ -16,9 +16,7 @@ interface PricingTableProps {
 
 function formatRate(value?: number): string {
     if (value === undefined) return "-";
-    if (value === 0) return "Free";
-    if (value < 0.01) return `$${value.toFixed(4)}`;
-    return `$${value.toFixed(2)}`;
+    return `$${value.toFixed(4)}`;
 }
 
 function formatTokens(count?: number): string {

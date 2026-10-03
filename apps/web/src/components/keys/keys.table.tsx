@@ -290,7 +290,7 @@ export default function KeyTable({
                                             </div>
                                             {usageCost > 0 && (
                                                 <div className="text-[11px] text-text-muted font-mono mt-0.5">
-                                                    ${usageCost.toFixed(2)} spent
+                                                    ${usageCost.toFixed(4)} spent
                                                 </div>
                                             )}
                                         </td>
