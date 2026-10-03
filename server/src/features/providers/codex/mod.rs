@@ -3,6 +3,7 @@
 
 pub mod catalog;
 pub mod executor;
+pub mod quota;
 pub mod types;
 
 pub use catalog::{
@@ -10,4 +11,5 @@ pub use catalog::{
     read_catalog, write_catalog,
 };
 pub use executor::{CodexExecutor, adapter, adapter_with_endpoints};
+pub use quota::{CODEX_USAGE_URL, fetch_codex_quota};
 pub use types::{CODEX_CLIENT_VERSION, CODEX_KEYS, CODEX_PROVIDER, CodexEndpoints};

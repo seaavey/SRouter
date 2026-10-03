@@ -109,7 +109,8 @@ async fn quota_and_qouta_return_identical_response() {
 
     assert_eq!(json1, json2);
     assert_eq!(json1["object"], "quota");
-    assert_eq!(json1["totalAccounts"], 1);
+    assert_eq!(json1["total_accounts"], 1);
+    assert!(json1.get("totalAccounts").is_none());
 }
 
 #[tokio::test]
@@ -140,7 +141,8 @@ async fn quota_filters_out_non_oauth_providers() {
 
     let json = json_body(res).await;
     assert_eq!(json["object"], "quota");
-    assert_eq!(json["totalAccounts"], 1);
+    assert_eq!(json["total_accounts"], 1);
+    assert!(json.get("totalAccounts").is_none());
 
     let providers = json["providers"].as_array().expect("providers array");
     assert_eq!(providers.len(), 1);
@@ -190,21 +192,28 @@ async fn quota_maps_rate_limit_windows_and_status() {
     let json = json_body(res).await;
     let account = &json["providers"][0];
     assert_eq!(account["provider"], "OpenAI Codex (go)");
-    assert_eq!(account["quotaType"], "live_provider_quota");
-    assert_eq!(account["totalQuotas"], 2);
+    assert_eq!(account["quota_type"], "live_provider_quota");
+    assert_eq!(account["total_quotas"], 2);
+    assert!(account.get("quotaType").is_none());
+    assert!(account.get("totalQuotas").is_none());
 
     let quotas = account["quotas"].as_array().expect("quotas array");
     assert_eq!(quotas[0]["name"], "Codex 5-hour");
     assert_eq!(quotas[0]["used"], 10);
     assert_eq!(quotas[0]["percentage"], "90%");
-    assert_eq!(quotas[0]["percentageValue"], 90);
+    assert_eq!(quotas[0]["percentage_value"], 90);
     assert_eq!(quotas[0]["status"], "ok");
+    assert!(quotas[0].get("percentageValue").is_none());
+    assert!(quotas[0].get("reset_in").is_some());
+    assert!(quotas[0].get("resetIn").is_none());
+    assert!(quotas[0].get("reset_time").is_some());
+    assert!(quotas[0].get("resetTime").is_none());
 
     // 96% used -> 4% remaining -> status: exhausted
     assert_eq!(quotas[1]["name"], "Codex Weekly");
     assert_eq!(quotas[1]["used"], 96);
     assert_eq!(quotas[1]["percentage"], "4%");
-    assert_eq!(quotas[1]["percentageValue"], 4);
+    assert_eq!(quotas[1]["percentage_value"], 4);
     assert_eq!(quotas[1]["status"], "exhausted");
 }
 
@@ -272,6 +281,7 @@ async fn quota_handles_upstream_failure_gracefully() {
     assert_eq!(res.status(), StatusCode::OK);
     let json = json_body(res).await;
     assert_eq!(json["object"], "quota");
-    assert_eq!(json["totalAccounts"], 0);
+    assert_eq!(json["total_accounts"], 0);
+    assert!(json.get("totalAccounts").is_none());
     assert_eq!(json["providers"], serde_json::json!([]));
 }
