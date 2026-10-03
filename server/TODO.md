@@ -140,11 +140,17 @@ Status legend: `[x]` done and covered by a Rust test, `[ ]` missing, `[~]` parti
       repeated), `POST /v1/admin/login` (cookie, `401`, five failures → 15-minute `429`),
       `POST /v1/admin/change-password`, `POST /v1/admin/logout` (`204`, invalid session `401` +
       cookie clear) — `features/admin_auth/`, `server/tests/admin_auth.rs`.
-- [ ] Admin bootstrap from the environment at startup: when `SROUTER_ADMIN_PASSWORD` is set, apply
-      it during boot exactly like `bootstrapAdminAccountFromEnv`
-      (`apps/api/src/services/adminAuth.ts`, invoked from `boot()`); `APIConfig.admin_password` is
-      parsed but never consumed.
-      Accept: `server/tests/startup.rs` case that boots with the env var and logs in with it.
+- [x] Admin bootstrap from the environment at startup: `features/admin_auth/bootstrap.rs`
+      (`bootstrap_admin_account_from_env`) applies `SROUTER_ADMIN_PASSWORD` during boot exactly
+      like `bootstrapAdminAccountFromEnv` (`apps/api/src/services/adminAuth.ts`, invoked from
+      `boot()`): hash the password, create the account when missing, otherwise reset the hash on
+      every boot. A missing or empty value leaves the database untouched, so first-run setup still
+      goes through `POST /v1/admin/setup`. `main.rs` calls it after the database opens and before
+      the listener starts.
+      Covered by `server/tests/startup.rs`: `the_env_password_creates_the_account_and_logs_in`
+      (boots with the env var, `setup_required` false, login succeeds and sets the session
+      cookie), `a_later_boot_resets_the_password` (recovery path), and
+      `without_the_env_password_the_install_stays_fresh`.
 - [x] Cookie flags parity: `HttpOnly`, `Path=/`, `SameSite=Lax`, `Secure` only when
       `SROUTER_SECURE_COOKIES=true`, max age seven days (`docs/api-v1-contract.md`).
       `session_cookie()`/`cleared_cookie()` already set all five; three `server/tests/admin_auth.rs`
@@ -158,10 +164,11 @@ Status legend: `[x]` done and covered by a Rust test, `[ ]` missing, `[~]` parti
       (`https_public_url_enables_secure_cookies_without_the_flag`,
       `http_public_url_does_not_enable_secure_cookies`,
       `https_public_url_keeps_secure_cookies_on_when_the_flag_is_false`).
-- [ ] Startup ordering: Node awaits PostgreSQL schema init, then admin bootstrap, then provider
+- [~] Startup ordering: Node awaits PostgreSQL schema init, then admin bootstrap, then provider
       registry, then serves; model warmup runs after the listener is up, and the token-refresh
-      sweeper starts last (`docs/api-v1-contract.md`, "Legacy baseline"). Rust `main.rs` currently
-      does not run bootstrap, warmup, or the sweeper — re-check after sections 2 and 5 land.
+      sweeper starts last (`docs/api-v1-contract.md`, "Legacy baseline"). Rust `main.rs` now runs
+      the admin bootstrap before the listener starts; the model-registry warmup and the token-refresh
+      sweeper remain open (sections 4 and 5).
 
 ---
 

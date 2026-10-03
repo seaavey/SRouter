@@ -2,12 +2,15 @@ use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
+use srouter_server::features::admin_auth::bootstrap_admin_account_from_env;
 use srouter_server::features::providers::ProviderRegistry;
 use srouter_server::infrastructure::database::AppDatabase;
 use srouter_server::infrastructure::database::admin_auth::SQLxAdminAuthStore;
 use srouter_server::infrastructure::database::api_keys::SQLxAPIKeyStore;
 use srouter_server::infrastructure::telemetry;
-use srouter_server::{APIConfig, AppState, SecurityState, app::create_router, http::listeners};
+use srouter_server::{
+    APIConfig, AppState, SecurityState, app::create_router, clock, http::listeners,
+};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -21,6 +24,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let database = AppDatabase::connect(&config).await?;
     let api_key_store = Arc::new(SQLxAPIKeyStore::new(database.clone()));
     let admin_store = Arc::new(SQLxAdminAuthStore::new(database.clone()));
+    // Apply `SROUTER_ADMIN_PASSWORD` before the listener starts, exactly like
+    // Node's `bootstrapAdminAccountFromEnv` invoked from `boot()`: create the
+    // account on first boot, reset the password on every later boot.
+    bootstrap_admin_account_from_env(admin_store.as_ref(), &config, clock::now_ms()).await?;
     let security =
         SecurityState::with_repository(api_key_store.clone(), admin_store.clone(), api_key_store)
             .with_admin_auth(admin_store);

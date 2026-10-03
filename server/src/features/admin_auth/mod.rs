@@ -1,12 +1,14 @@
 //! Admin authentication: password hashing, session mechanics, account/session
 //! persistence, login throttling, and the `/v1/admin` routes.
 
+pub mod bootstrap;
 pub mod password;
 pub mod repository;
 pub mod routes;
 pub mod session;
 pub mod throttle;
 
+pub use bootstrap::bootstrap_admin_account_from_env;
 pub use password::{hash_admin_password, validate_admin_password, verify_admin_password};
 pub use repository::{AdminAuthRepository, EmptyAdminAuthRepository};
 pub use routes::create_admin_router;
