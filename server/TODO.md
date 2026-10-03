@@ -73,22 +73,15 @@ Status legend: `[x]` done and covered by a Rust test, `[ ]` missing, `[~]` parti
       `code`/`param` (`docs/api-v1-contract.md`, "Error envelopes"). Covered by the table-driven
       `server/src/error.rs` mapping test, which also asserts the HTTP status per row.
 
-### 1.4 OAuth listener (port 1455)
-
-- [ ] Implement the secondary listener in `server/src/http/listeners.rs`: bind
-      `OAUTH_HOST` (default `0.0.0.0`) on `OAUTH_PORT` (default `1455`), skip it entirely when
-      `SROUTER_PUBLIC_URL` is non-empty, and log the same startup lines as Node
-      (`apps/api/src/index.ts:174-248`).
-      `APIConfig` already parses all three values; nothing binds them today.
-- [ ] Mount `/v1/messages`, `/v1/chat/completions`, `/v1/chat/completion`, `/v1/models`,
-      `/v1/models/{model}` on the OAuth listener **without** the main app's security-header, CORS,
-      CSRF, and body-limit middleware (feature-level auth/validation still apply).
-- [ ] Mount the OAuth callback routes on the OAuth listener:
-      `GET|POST /auth/callback` (OpenAI), `/auth/antigravity/callback`, `/auth/claude/callback`,
-      `/auth/qoder/callback`. Blocked by section 5 (provider auth) — the handlers do not exist yet.
-- [ ] Add `server/tests/oauth_listener.rs`: bind on an ephemeral port, assert the listener is
-      absent when `SROUTER_PUBLIC_URL` is set, assert gateway routes respond on it and that no
-      `X-Powered-By` header is added there.
+- [x] Owner ruling 2026-10-03 --- 10-30 WIB: the Rust server ships a single listener on `PORT`
+      (default `3000`) and mounts provider callbacks on the main listener under `/v1/auth/...`.
+      The Node secondary listener (`:1455`) is **not ported** — the Rust target has no OAuth
+      listener. `OAUTH_PORT` / `OAUTH_HOST` are no longer read at all (see `server/.env.example`),
+      and both Node-only callback branches (`local mode uses the OAuth listener`,
+      `SROUTER_PUBLIC_URL` suppresses the secondary listener) are dropped rather than reproduced.
+      Force-reimplementing two listeners later would mean reversing this ruling.
+      Consequence: `server/src/http/listeners.rs` keeps only `serve_main`, and any doc/plan text
+      that still describes a `:1455` Rust listener is stale for `server/`.
 
 ### 1.5 Version and info fields
 
@@ -185,7 +178,7 @@ Status legend: `[x]` done and covered by a Rust test, `[ ]` missing, `[~]` parti
       on request completion — confirm parity with `apps/api/src/logic/quota.logic.ts` behavior via
       black-box comparison, and add the missing assertions to `server/tests/chat_completions.rs`.
 - [ ] CSRF origin guard coverage for every cookie-authenticated mutation after the new routes land
-      (body limit, OAuth listener mounts do not need it, admin/database routes do).
+      (body limit applies on the main listener, admin/database routes included).
 
 ---
 
@@ -270,9 +263,10 @@ codebuddy-cn, qoder`) → validated token import, `201`.
       `code` and `state` from query, JSON body, or `callback_url`; missing values → `400`.
 - [x] `qoder` `/token` import is deliberately deferred: the slice is OAuth only (plan decision,
       web PAT tab returns `404` until it lands).
-- [ ] Callback URL selection: `SROUTER_PUBLIC_URL` switches callbacks to the main listener's
-      `/v1/auth/.../callback`; local mode uses the OAuth listener; user-supplied non-local callback
-      URLs pass through unchanged (`apps/api/src/utils/callbackUrl.ts`).
+- [x] Callback URL selection: callbacks are hosted on the main listener (single-port ruling,
+      section 1.4). `SROUTER_PUBLIC_URL` supplies the public base; user-supplied non-local callback
+      URLs pass through unchanged (`apps/api/src/utils/callbackUrl.ts`). The Node local-mode branch
+      that handed callbacks to the `:1455` listener is intentionally not ported.
 - [~] PKCE + state lifecycle: state creation, replay/expiry rejection, device-poll state read from
   query or JSON body. Done for `qoder` and Cline (`infrastructure/database/oauth_sessions.rs`:
   PKCE/device-code save, claim, release, delete, 15-minute sweep); other providers still need it.
@@ -432,7 +426,9 @@ stale-while-revalidate=86400`, `refresh`/`force`/`no-cache` forcing a refresh.
 - [ ] `Dockerfile`: add a Rust builder stage and a Rust runtime target (binary, web dist, CA
       certificates, tzdata, non-Node health check), keeping the Node target selectable for rollback.
       Root `Dockerfile:21` still copies `apps/api/package.json` and `pnpm build` builds the Node API.
-- [ ] `docker-compose.yml` healthcheck uses `node -e` — replace for the Rust target.
+- [ ] `docker-compose.yml`: drop the `:1455` port mapping and rewrite the `node -e` healthcheck for
+      the Rust target, which exposes `PORT` only (single-port ruling, section 1.4). Keep the Node
+      service definition intact for rollback until cutover.
 - [ ] Root `Procfile` (`web: node apps/api/dist/index.js`) → Docker-based Rust deployment; root
       `heroku.yml` does not exist yet although the plan creates/keeps one. `apps/api/heroku.yml`
       becomes obsolete with `apps/api`.
