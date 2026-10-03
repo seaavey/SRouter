@@ -14,8 +14,7 @@ use futures_util::future::join_all;
 use srouter_server::app::create_router;
 use srouter_server::features::gateway::token_saver::TERSE_DIRECTIVE;
 use srouter_server::features::providers::OPENCODE_ZEN_MODELS;
-use srouter_server::features::providers::ProviderAdapter;
-use srouter_server::features::providers::qoder::{self};
+use srouter_server::features::providers::qoder::{self, QoderExecutor};
 use srouter_server::infrastructure::database::AppDatabase;
 use support::{
     FAKE_QODER_ADVERTISED, FakeQoderUpstream, TestDatabase, api_key_record, connect_qoder,
@@ -72,14 +71,15 @@ fn sent_body(fake: &FakeQoderUpstream) -> serde_json::Value {
     serde_json::from_slice(&decoded).expect("body is json")
 }
 
-/// The qoder adapter out of a registry that can read `database`.
-fn qoder_executor(database: Option<AppDatabase>, fake: &FakeQoderUpstream) -> ProviderAdapter {
+/// The qoder driver out of a registry that can read `database`.
+fn qoder_executor(database: Option<AppDatabase>, fake: &FakeQoderUpstream) -> QoderExecutor {
     let providers = qoder_registry(database, fake);
+    let adapter = providers.resolve("qd/auto").expect("resolves").adapter;
 
-    match providers.resolve("qd/auto").expect("resolves").adapter {
-        ProviderAdapter::Qoder(executor) => ProviderAdapter::Qoder(executor),
-        _ => panic!("the registry must hold the qoder adapter"),
-    }
+    adapter
+        .downcast_ref::<QoderExecutor>()
+        .expect("the registry must hold the qoder adapter")
+        .clone()
 }
 
 #[tokio::test]
@@ -391,12 +391,10 @@ async fn the_live_catalog_replaces_the_empty_snapshot_and_stops_refreshing_withi
         })
     });
 
-    let ProviderAdapter::Qoder(executor) = qoder_executor(
+    let executor = qoder_executor(
         Some(database.connect().await.expect("temporary database")),
         &fake,
-    ) else {
-        unreachable!("the registry holds the qoder adapter");
-    };
+    );
 
     assert!(
         executor.models().is_empty(),
@@ -458,12 +456,10 @@ async fn a_failed_fetch_keeps_the_last_good_snapshot() {
     let fake = FakeQoderUpstream::start().await;
     fake.with(|state| state.model_catalog = qoder_catalog_body());
 
-    let ProviderAdapter::Qoder(executor) = qoder_executor(
+    let executor = qoder_executor(
         Some(database.connect().await.expect("temporary database")),
         &fake,
-    ) else {
-        unreachable!("the registry holds the qoder adapter");
-    };
+    );
 
     executor.refresh_catalog().await.expect("first fetch lands");
     let previous = executor.models();
@@ -486,12 +482,10 @@ async fn a_fetch_that_never_succeeded_leaves_no_models() {
     let fake = FakeQoderUpstream::start().await;
     fake.with(|state| state.model_catalog = serde_json::json!({"error": "no catalog"}));
 
-    let ProviderAdapter::Qoder(executor) = qoder_executor(
+    let executor = qoder_executor(
         Some(database.connect().await.expect("temporary database")),
         &fake,
-    ) else {
-        unreachable!("the registry holds the qoder adapter");
-    };
+    );
 
     executor.refresh_catalog().await.expect("nothing to parse");
 
@@ -610,13 +604,13 @@ async fn a_bare_model_id_resolves_once_the_catalog_advertises_it() {
         "a bare id needs an advertised model to resolve"
     );
 
-    let ProviderAdapter::Qoder(executor) = providers
+    let executor = providers
         .resolve("qd/auto")
         .expect("a prefix resolves without a catalog entry")
         .adapter
-    else {
-        unreachable!("the registry holds the qoder adapter");
-    };
+        .downcast_ref::<QoderExecutor>()
+        .expect("the registry holds the qoder adapter")
+        .clone();
     executor.refresh_catalog().await.expect("catalog refreshes");
 
     assert_eq!(

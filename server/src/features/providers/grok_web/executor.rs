@@ -36,6 +36,7 @@ use crate::features::gateway::model::{ChatCompletionRequest, ChatContent, ChatMe
 use crate::features::gateway::sse;
 use crate::features::gateway::usage::UsageBreakdown;
 use crate::features::providers::adapter::{ProviderAdapter, ProviderStream};
+use crate::features::providers::executor::{BoxFuture, ProviderExecutor};
 use crate::infrastructure::database::AppDatabase;
 use crate::infrastructure::database::providers::{GrokWebCredentials, load_grok_web_credentials};
 use crate::infrastructure::upstream::STREAM_IDLE_TIMEOUT;
@@ -883,6 +884,48 @@ fn estimate_prompt_tokens(messages: &[ChatMessage]) -> i64 {
     (total_chars / 4).max(1) as i64
 }
 
+impl ProviderExecutor for GrokWebExecutor {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn id(&self) -> &'static str {
+        GrokWebExecutor::id(self)
+    }
+
+    fn keys(&self) -> &'static [&'static str] {
+        GrokWebExecutor::keys(self)
+    }
+
+    fn alias(&self) -> &'static str {
+        GrokWebExecutor::alias(self)
+    }
+
+    fn models(&self) -> Vec<String> {
+        GrokWebExecutor::models(self)
+    }
+
+    fn maybe_refresh(&self, force: bool) -> BoxFuture<'_, ()> {
+        Box::pin(async move { GrokWebExecutor::maybe_refresh(self, force).await })
+    }
+
+    fn chat_completion<'a>(
+        &'a self,
+        model: &'a str,
+        request: &'a ChatCompletionRequest,
+    ) -> BoxFuture<'a, Result<Value, APIError>> {
+        Box::pin(async move { GrokWebExecutor::chat_completion(self, model, request).await })
+    }
+
+    fn chat_completion_stream<'a>(
+        &'a self,
+        model: &'a str,
+        request: &'a ChatCompletionRequest,
+    ) -> BoxFuture<'a, Result<ProviderStream, APIError>> {
+        Box::pin(async move { GrokWebExecutor::chat_completion_stream(self, model, request).await })
+    }
+}
+
 /// Builds the adapter for the production endpoints.
 pub fn adapter(database: Option<AppDatabase>) -> Result<ProviderAdapter, APIError> {
     adapter_with_endpoints(GrokWebEndpoints::default(), database)
@@ -894,7 +937,7 @@ pub fn adapter_with_endpoints(
     endpoints: GrokWebEndpoints,
     database: Option<AppDatabase>,
 ) -> Result<ProviderAdapter, APIError> {
-    Ok(ProviderAdapter::GrokWeb(GrokWebExecutor::new(
+    Ok(ProviderAdapter::new(GrokWebExecutor::new(
         endpoints, database,
     )?))
 }

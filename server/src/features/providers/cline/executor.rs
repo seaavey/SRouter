@@ -25,6 +25,7 @@ use crate::features::providers::cline::catalog::{
 use crate::features::providers::cline::types::{
     CLINE_CLIENT_TYPE, CLINE_KEYS, CLINE_PROVIDER, ClineEndpoints,
 };
+use crate::features::providers::executor::{BoxFuture, ProviderExecutor};
 use crate::infrastructure::database::AppDatabase;
 use crate::infrastructure::database::providers::{
     ClineCredentials, load_cline_credentials, update_cline_tokens,
@@ -1030,6 +1031,52 @@ fn random_hex(length: usize) -> String {
     hex::encode(bytes)
 }
 
+impl ProviderExecutor for ClineExecutor {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn id(&self) -> &'static str {
+        ClineExecutor::id(self)
+    }
+
+    fn keys(&self) -> &'static [&'static str] {
+        ClineExecutor::keys(self)
+    }
+
+    fn alias(&self) -> &'static str {
+        ClineExecutor::alias(self)
+    }
+
+    fn models(&self) -> Vec<String> {
+        ClineExecutor::models(self)
+    }
+
+    fn model_id_variants(&self, model: &str) -> Vec<String> {
+        ClineExecutor::model_id_variants(self, model)
+    }
+
+    fn maybe_refresh(&self, force: bool) -> BoxFuture<'_, ()> {
+        Box::pin(async move { ClineExecutor::maybe_refresh(self, force).await })
+    }
+
+    fn chat_completion<'a>(
+        &'a self,
+        model: &'a str,
+        request: &'a ChatCompletionRequest,
+    ) -> BoxFuture<'a, Result<Value, APIError>> {
+        Box::pin(async move { ClineExecutor::chat_completion(self, model, request).await })
+    }
+
+    fn chat_completion_stream<'a>(
+        &'a self,
+        model: &'a str,
+        request: &'a ChatCompletionRequest,
+    ) -> BoxFuture<'a, Result<ProviderStream, APIError>> {
+        Box::pin(async move { ClineExecutor::chat_completion_stream(self, model, request).await })
+    }
+}
+
 pub fn adapter(database: Option<AppDatabase>) -> Result<ProviderAdapter, APIError> {
     adapter_with_endpoints(ClineEndpoints::default(), database)
 }
@@ -1039,7 +1086,7 @@ pub fn adapter_with_endpoints(
     database: Option<AppDatabase>,
 ) -> Result<ProviderAdapter, APIError> {
     let client = UpstreamClient::new()?;
-    Ok(ProviderAdapter::Cline(ClineExecutor::new(
+    Ok(ProviderAdapter::new(ClineExecutor::new(
         endpoints, database, client,
     )))
 }

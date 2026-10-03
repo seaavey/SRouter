@@ -6,12 +6,15 @@ use std::collections::{HashMap, HashSet};
 use crate::error::APIError;
 use crate::features::providers::adapter::ProviderAdapter;
 use crate::features::providers::cline;
+use crate::features::providers::cline::ClineExecutor;
 use crate::features::providers::cline::types::ClineEndpoints;
 use crate::features::providers::grok_web;
+use crate::features::providers::grok_web::GrokWebExecutor;
 use crate::features::providers::grok_web::types::GrokWebEndpoints;
 use crate::features::providers::model::ModelObject;
 use crate::features::providers::opencode;
 use crate::features::providers::qoder;
+use crate::features::providers::qoder::QoderExecutor;
 use crate::features::providers::qoder::types::QoderEndpoints;
 use crate::infrastructure::database::AppDatabase;
 
@@ -79,28 +82,28 @@ impl ProviderRegistry {
     /// The Qoder endpoints in use, so the device-flow routes can talk to the
     /// same base the executor does.
     pub fn qoder_endpoints(&self) -> Option<QoderEndpoints> {
-        self.adapters.values().find_map(|adapter| match adapter {
-            ProviderAdapter::Qoder(executor) => Some(executor.endpoints().clone()),
-            _ => None,
-        })
+        self.adapters
+            .values()
+            .find_map(|adapter| adapter.downcast_ref::<QoderExecutor>())
+            .map(|executor| executor.endpoints().clone())
     }
 
     /// The Cline endpoints in use, so the device-flow routes can talk to the
     /// same base the executor does.
     pub fn cline_endpoints(&self) -> Option<ClineEndpoints> {
-        self.adapters.values().find_map(|adapter| match adapter {
-            ProviderAdapter::Cline(executor) => Some(executor.endpoints().clone()),
-            _ => None,
-        })
+        self.adapters
+            .values()
+            .find_map(|adapter| adapter.downcast_ref::<ClineExecutor>())
+            .map(|executor| executor.endpoints().clone())
     }
 
     /// The Grok Web endpoints in use, so the cookie-connect route can probe
     /// the same page the executor will read `x-userid` from.
     pub fn grok_web_endpoints(&self) -> Option<GrokWebEndpoints> {
-        self.adapters.values().find_map(|adapter| match adapter {
-            ProviderAdapter::GrokWeb(executor) => Some(executor.endpoints().clone()),
-            _ => None,
-        })
+        self.adapters
+            .values()
+            .find_map(|adapter| adapter.downcast_ref::<GrokWebExecutor>())
+            .map(|executor| executor.endpoints().clone())
     }
 
     /// Asks every adapter with a time-varying catalog to refresh when stale, or
@@ -214,8 +217,8 @@ mod tests {
     use std::collections::HashSet;
 
     use super::ProviderRegistry;
-    use crate::features::providers::adapter::ProviderAdapter;
     use crate::features::providers::cline;
+    use crate::features::providers::cline::ClineExecutor;
     use crate::features::providers::cline::catalog::write_catalog;
     use crate::features::providers::opencode;
 
@@ -392,16 +395,15 @@ mod tests {
     #[test]
     fn list_models_emits_cline_ids_under_the_cline_prefix() {
         let adapter = cline::adapter(None).expect("cline adapter builds");
-        let executor = match adapter {
-            ProviderAdapter::Cline(executor) => executor,
-            other => panic!("expected the cline executor, got {}", other.id()),
-        };
+        let executor = adapter
+            .downcast_ref::<ClineExecutor>()
+            .expect("expected the cline executor");
         write_catalog(&executor.catalog)
             .models
             .push(String::from("anthropic/claude-sonnet-5.5"));
 
         let mut registry = ProviderRegistry::new();
-        registry.register(ProviderAdapter::Cline(executor));
+        registry.register(adapter);
         let models = registry.list_models();
 
         assert_eq!(models.len(), 1);

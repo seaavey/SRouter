@@ -11,6 +11,7 @@ use crate::features::providers::adapter::{
     ProviderAdapter, ProviderStream, encode_stream, upstream_error, upstream_status_error,
     upstream_stream_status_error,
 };
+use crate::features::providers::executor::{BoxFuture, ProviderExecutor};
 use crate::features::providers::model::ModelDefinition;
 use crate::features::providers::opencode::types::{
     OPENCODE_ZEN_BASE_URL, OPENCODE_ZEN_KEYS, OPENCODE_ZEN_MODELS, OPENCODE_ZEN_PROVIDER,
@@ -448,6 +449,46 @@ fn random_hex(len: usize) -> String {
     hex::encode(bytes)
 }
 
+impl ProviderExecutor for OpenCodeExecutor {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn id(&self) -> &'static str {
+        OpenCodeExecutor::id(self)
+    }
+
+    fn keys(&self) -> &'static [&'static str] {
+        OpenCodeExecutor::keys(self)
+    }
+
+    fn alias(&self) -> &'static str {
+        OpenCodeExecutor::alias(self)
+    }
+
+    fn models(&self) -> Vec<String> {
+        OpenCodeExecutor::models(self)
+    }
+
+    fn chat_completion<'a>(
+        &'a self,
+        model: &'a str,
+        request: &'a ChatCompletionRequest,
+    ) -> BoxFuture<'a, Result<Value, APIError>> {
+        Box::pin(async move { OpenCodeExecutor::chat_completion(self, model, request).await })
+    }
+
+    fn chat_completion_stream<'a>(
+        &'a self,
+        model: &'a str,
+        request: &'a ChatCompletionRequest,
+    ) -> BoxFuture<'a, Result<ProviderStream, APIError>> {
+        Box::pin(
+            async move { OpenCodeExecutor::chat_completion_stream(self, model, request).await },
+        )
+    }
+}
+
 /// Builds the adapter / executor against the production base URL.
 pub fn adapter() -> Result<ProviderAdapter, APIError> {
     adapter_with_base_url(OPENCODE_ZEN_BASE_URL)
@@ -457,7 +498,7 @@ pub fn adapter() -> Result<ProviderAdapter, APIError> {
 pub fn adapter_with_base_url(base_url: impl Into<String>) -> Result<ProviderAdapter, APIError> {
     let client = UpstreamClient::new()?;
 
-    Ok(ProviderAdapter::OpenCode(OpenCodeExecutor::new(
+    Ok(ProviderAdapter::new(OpenCodeExecutor::new(
         OPENCODE_ZEN_PROVIDER.id,
         OPENCODE_ZEN_KEYS,
         base_url,

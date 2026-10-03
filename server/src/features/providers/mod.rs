@@ -2,6 +2,7 @@
 
 pub mod adapter;
 pub mod cline;
+pub mod executor;
 pub mod grok_web;
 pub mod management;
 pub mod model;
@@ -15,9 +16,7 @@ pub mod adapters {
     pub use super::opencode as opencode_zen;
 }
 
-pub use adapter::{
-    OpenAIAdapter, OpenAIExecutor, ProviderAdapter, ProviderExecutor, ProviderStream,
-};
+pub use adapter::{OpenAIAdapter, OpenAIExecutor, ProviderAdapter, ProviderStream};
 pub use cline::{CLINE_KEYS, CLINE_PROVIDER};
 pub use grok_web::{GROK_WEB_KEYS, GROK_WEB_PROVIDER};
 pub use model::{ModelDefinition, ModelObject, ProviderMetadata};

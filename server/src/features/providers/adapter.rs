@@ -2,6 +2,7 @@
 //! request onto its upstream protocol and returns a typed response or a streamed body.
 
 use std::pin::Pin;
+use std::sync::Arc;
 
 use axum::body::Bytes;
 use axum::http::StatusCode;
@@ -12,131 +13,83 @@ use crate::constants;
 use crate::error::APIError;
 use crate::features::gateway::model::ChatCompletionRequest;
 use crate::features::gateway::sse;
-use crate::features::providers::cline::ClineExecutor;
-use crate::features::providers::grok_web::GrokWebExecutor;
+use crate::features::providers::executor::{BoxFuture, ProviderExecutor};
 use crate::features::providers::model::ModelDefinition;
-use crate::features::providers::opencode::OpenCodeExecutor;
-use crate::features::providers::qoder::QoderExecutor;
 use crate::infrastructure::upstream::{STREAM_IDLE_TIMEOUT, UpstreamClient};
 
 /// A provider stream of raw SSE bytes. Upstream failures are already encoded
 /// as in-stream error events, so the stream itself never yields an error.
 pub type ProviderStream = Pin<Box<dyn Stream<Item = Bytes> + Send>>;
 
-/// The adapters/executors the registry can dispatch to. Adding a protocol means
-/// adding a variant here and handling it in the delegating methods below.
+/// A registered provider driver. This is a thin handle over the driver's trait
+/// object so the registry and the gateway can clone it cheaply; all dispatch
+/// goes through [`ProviderExecutor`], which each driver module implements.
 #[derive(Clone)]
-pub enum ProviderAdapter {
-    OpenAI(OpenAIAdapter),
-    OpenCode(OpenCodeExecutor),
-    Qoder(QoderExecutor),
-    Cline(ClineExecutor),
-    GrokWeb(GrokWebExecutor),
-}
-
-pub type ProviderExecutor = ProviderAdapter;
+pub struct ProviderAdapter(Arc<dyn ProviderExecutor>);
 
 impl ProviderAdapter {
+    /// Wraps a driver implementation.
+    pub fn new(executor: impl ProviderExecutor + 'static) -> Self {
+        Self(Arc::new(executor))
+    }
+
+    /// Borrows the driver as a concrete `T`, for the endpoint accessors in
+    /// [`crate::features::providers::registry`]. Returns `None` when the
+    /// adapter is a different driver.
+    pub fn downcast_ref<T: ProviderExecutor + 'static>(&self) -> Option<&T> {
+        self.0.as_any().downcast_ref::<T>()
+    }
+
     /// The provider's registered base id.
     pub fn id(&self) -> &'static str {
-        match self {
-            Self::OpenAI(adapter) => adapter.id(),
-            Self::OpenCode(adapter) => adapter.id(),
-            Self::Qoder(adapter) => adapter.id(),
-            Self::Cline(adapter) => adapter.id(),
-            Self::GrokWeb(adapter) => adapter.id(),
-        }
+        self.0.id()
     }
 
     /// Registry lookup keys: the base id plus any alias.
     pub fn keys(&self) -> &'static [&'static str] {
-        match self {
-            Self::OpenAI(adapter) => adapter.keys(),
-            Self::OpenCode(adapter) => adapter.keys(),
-            Self::Qoder(adapter) => adapter.keys(),
-            Self::Cline(adapter) => adapter.keys(),
-            Self::GrokWeb(adapter) => adapter.keys(),
-        }
+        self.0.keys()
     }
 
     /// The user-facing model prefix, mirroring Node's `providerAliasFor`.
     pub fn alias(&self) -> &'static str {
-        match self {
-            Self::OpenAI(adapter) => adapter.alias(),
-            Self::OpenCode(adapter) => adapter.alias(),
-            Self::Qoder(adapter) => adapter.alias(),
-            Self::Cline(adapter) => adapter.alias(),
-            Self::GrokWeb(adapter) => adapter.alias(),
-        }
+        self.0.alias()
     }
 
-    /// The model ids this adapter advertises. Ids rather than the static
-    /// `ModelDefinition` because a catalog can change at runtime (Qoder reads
-    /// its list from upstream).
+    /// The model ids this driver advertises.
     pub fn models(&self) -> Vec<String> {
-        match self {
-            Self::OpenAI(adapter) => adapter.models(),
-            Self::OpenCode(adapter) => adapter.models(),
-            Self::Qoder(adapter) => adapter.models(),
-            Self::Cline(adapter) => adapter.models(),
-            Self::GrokWeb(adapter) => adapter.models(),
-        }
+        self.0.models()
     }
 
-    /// Every bare id this adapter advertises for the model `model` names. Only a
-    /// catalog read from upstream carries several names for one model; every
-    /// fixed list answers with the id it was asked about.
+    /// Every bare id this driver advertises for the model `model` names.
     pub fn model_id_variants(&self, model: &str) -> Vec<String> {
-        match self {
-            Self::Qoder(adapter) => adapter.model_id_variants(model),
-            Self::Cline(adapter) => adapter.model_id_variants(model),
-            _ => vec![model.trim().to_lowercase()],
-        }
+        self.0.model_id_variants(model)
     }
 
-    /// Asks the adapter to refresh a time-varying catalog. Adapters with a
-    /// fixed list do nothing. A caller whose catalog is still empty waits for
-    /// the fetch, because there is nothing else to serve.
+    /// Asks the driver to refresh a time-varying catalog. A driver with a fixed
+    /// list does nothing.
     pub async fn maybe_refresh(&self, force: bool) {
-        match self {
-            Self::Qoder(adapter) => adapter.maybe_refresh(force).await,
-            Self::Cline(adapter) => adapter.maybe_refresh(force).await,
-            Self::GrokWeb(adapter) => adapter.maybe_refresh(force).await,
-            _ => {}
-        }
+        self.0.maybe_refresh(force).await
     }
 
-    /// Performs a buffered inference request and returns the upstream JSON
-    /// body unchanged, the way the Node gateway passes provider responses on.
+    /// Performs a buffered inference request and returns the upstream JSON body
+    /// unchanged, the way the Node gateway passes provider responses on.
     pub async fn chat_completion(
         &self,
         model: &str,
         request: &ChatCompletionRequest,
     ) -> Result<Value, APIError> {
-        match self {
-            Self::OpenAI(adapter) => adapter.chat_completion(model, request).await,
-            Self::OpenCode(adapter) => adapter.chat_completion(model, request).await,
-            Self::Qoder(adapter) => adapter.chat_completion(model, request).await,
-            Self::Cline(adapter) => adapter.chat_completion(model, request).await,
-            Self::GrokWeb(adapter) => adapter.chat_completion(model, request).await,
-        }
+        self.0.chat_completion(model, request).await
     }
 
-    /// Performs a streaming inference request. The upstream call happens
-    /// inside the returned future so the caller can open the SSE response
-    /// first; transport failures are reported as `Err` before any byte flows.
+    /// Performs a streaming inference request. The upstream call happens inside
+    /// the returned future so the caller can open the SSE response first;
+    /// transport failures are reported as `Err` before any byte flows.
     pub async fn chat_completion_stream(
         &self,
         model: &str,
         request: &ChatCompletionRequest,
     ) -> Result<ProviderStream, APIError> {
-        match self {
-            Self::OpenAI(adapter) => adapter.chat_completion_stream(model, request).await,
-            Self::OpenCode(adapter) => adapter.chat_completion_stream(model, request).await,
-            Self::Qoder(adapter) => adapter.chat_completion_stream(model, request).await,
-            Self::Cline(adapter) => adapter.chat_completion_stream(model, request).await,
-            Self::GrokWeb(adapter) => adapter.chat_completion_stream(model, request).await,
-        }
+        self.0.chat_completion_stream(model, request).await
     }
 }
 
@@ -258,6 +211,44 @@ impl OpenAIAdapter {
         body["stream"] = Value::Bool(stream);
 
         Ok(body)
+    }
+}
+
+impl ProviderExecutor for OpenAIAdapter {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn id(&self) -> &'static str {
+        OpenAIAdapter::id(self)
+    }
+
+    fn keys(&self) -> &'static [&'static str] {
+        OpenAIAdapter::keys(self)
+    }
+
+    fn alias(&self) -> &'static str {
+        OpenAIAdapter::alias(self)
+    }
+
+    fn models(&self) -> Vec<String> {
+        OpenAIAdapter::models(self)
+    }
+
+    fn chat_completion<'a>(
+        &'a self,
+        model: &'a str,
+        request: &'a ChatCompletionRequest,
+    ) -> BoxFuture<'a, Result<Value, APIError>> {
+        Box::pin(async move { OpenAIAdapter::chat_completion(self, model, request).await })
+    }
+
+    fn chat_completion_stream<'a>(
+        &'a self,
+        model: &'a str,
+        request: &'a ChatCompletionRequest,
+    ) -> BoxFuture<'a, Result<ProviderStream, APIError>> {
+        Box::pin(async move { OpenAIAdapter::chat_completion_stream(self, model, request).await })
     }
 }
 

@@ -26,6 +26,7 @@ use crate::features::gateway::usage::UsageBreakdown;
 use crate::features::providers::adapter::{
     ProviderAdapter, ProviderStream, upstream_error, upstream_status_error,
 };
+use crate::features::providers::executor::{BoxFuture, ProviderExecutor};
 use crate::features::providers::qoder::catalog::{ModelConfig, QoderCatalog, SharedCatalog};
 use crate::features::providers::qoder::cosy::{CosyIdentity, encode_body, sign};
 use crate::features::providers::qoder::types::{
@@ -1056,6 +1057,52 @@ fn random_hex(length: usize) -> String {
     hex::encode(bytes)
 }
 
+impl ProviderExecutor for QoderExecutor {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn id(&self) -> &'static str {
+        QoderExecutor::id(self)
+    }
+
+    fn keys(&self) -> &'static [&'static str] {
+        QoderExecutor::keys(self)
+    }
+
+    fn alias(&self) -> &'static str {
+        QoderExecutor::alias(self)
+    }
+
+    fn models(&self) -> Vec<String> {
+        QoderExecutor::models(self)
+    }
+
+    fn model_id_variants(&self, model: &str) -> Vec<String> {
+        QoderExecutor::model_id_variants(self, model)
+    }
+
+    fn maybe_refresh(&self, force: bool) -> BoxFuture<'_, ()> {
+        Box::pin(async move { QoderExecutor::maybe_refresh(self, force).await })
+    }
+
+    fn chat_completion<'a>(
+        &'a self,
+        model: &'a str,
+        request: &'a ChatCompletionRequest,
+    ) -> BoxFuture<'a, Result<Value, APIError>> {
+        Box::pin(async move { QoderExecutor::chat_completion(self, model, request).await })
+    }
+
+    fn chat_completion_stream<'a>(
+        &'a self,
+        model: &'a str,
+        request: &'a ChatCompletionRequest,
+    ) -> BoxFuture<'a, Result<ProviderStream, APIError>> {
+        Box::pin(async move { QoderExecutor::chat_completion_stream(self, model, request).await })
+    }
+}
+
 /// Builds the adapter against the production endpoints.
 pub fn adapter(database: Option<AppDatabase>) -> Result<ProviderAdapter, APIError> {
     adapter_with_endpoints(QoderEndpoints::default(), database)
@@ -1069,7 +1116,7 @@ pub fn adapter_with_endpoints(
 ) -> Result<ProviderAdapter, APIError> {
     let client = UpstreamClient::new()?;
 
-    Ok(ProviderAdapter::Qoder(QoderExecutor::new(
+    Ok(ProviderAdapter::new(QoderExecutor::new(
         endpoints, database, client,
     )))
 }
