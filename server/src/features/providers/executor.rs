@@ -52,6 +52,12 @@ pub trait ProviderExecutor: Send + Sync {
         Box::pin(async {})
     }
 
+    /// Checks and refreshes expired or near-expiry credentials in the background
+    /// sweeper loop. A driver without OAuth tokens does nothing.
+    fn sweep_tokens(&self) -> BoxFuture<'_, ()> {
+        Box::pin(async {})
+    }
+
     /// A buffered inference request, returning the upstream JSON body unchanged
     /// the way the Node gateway passes provider responses on.
     fn chat_completion<'a>(

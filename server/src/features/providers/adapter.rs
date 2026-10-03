@@ -71,6 +71,12 @@ impl ProviderAdapter {
         self.0.maybe_refresh(force).await
     }
 
+    /// Checks and refreshes expired or near-expiry credentials in the background
+    /// sweeper loop. A driver without OAuth tokens does nothing.
+    pub async fn sweep_tokens(&self) {
+        self.0.sweep_tokens().await
+    }
+
     /// Performs a buffered inference request and returns the upstream JSON body
     /// unchanged, the way the Node gateway passes provider responses on.
     pub async fn chat_completion(

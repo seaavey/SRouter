@@ -356,3 +356,29 @@ async fn codex_chat_supports_dot_variant_and_chat_route() {
     let upstream_payload = fake.with(|state| state.last_chat_body.clone());
     assert_eq!(upstream_payload["model"], "gpt-6-luna");
 }
+
+#[tokio::test]
+async fn sweeper_refreshes_due_tokens_in_the_background() {
+    let database = TestDatabase::new().expect("temporary database");
+    connect_codex(&database, Some(now_ms() - 1_000)).await;
+    let fake = FakeCodexUpstream::start().await;
+    let app_db = database.connect().await.expect("temporary database");
+    let registry = codex_registry(Some(app_db.clone()), &fake);
+
+    assert_eq!(fake.refresh_requests(), 0);
+
+    // Run a sweep cycle
+    registry.sweep_tokens().await;
+
+    // The due token was refreshed by the sweeper
+    assert_eq!(fake.refresh_requests(), 1);
+
+    // Stored credentials reflect the rotated tokens
+    let stored =
+        srouter_server::infrastructure::database::providers::load_codex_credentials(&app_db)
+            .await
+            .expect("read credentials")
+            .expect("connection exists");
+    assert_eq!(stored.access_token, "new-access");
+    assert_eq!(stored.refresh_token.as_deref(), Some("new-refresh"));
+}

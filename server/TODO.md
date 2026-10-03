@@ -164,11 +164,12 @@ Status legend: `[x]` done and covered by a Rust test, `[ ]` missing, `[~]` parti
       (`https_public_url_enables_secure_cookies_without_the_flag`,
       `http_public_url_does_not_enable_secure_cookies`,
       `https_public_url_keeps_secure_cookies_on_when_the_flag_is_false`).
-- [~] Startup ordering: Node awaits PostgreSQL schema init, then admin bootstrap, then provider
-  registry, then serves; model warmup runs after the listener is up, and the token-refresh
-  sweeper starts last (`docs/api-v1-contract.md`, "Legacy baseline"). Rust `main.rs` now runs
-  the admin bootstrap before the listener starts; the model-registry warmup and the token-refresh
-  sweeper remain open (sections 4 and 5).
+- [x] Startup ordering: Node awaits PostgreSQL schema init, then admin bootstrap, then provider
+      registry, then serves; model warmup runs after the listener is up, and the token-refresh
+      sweeper starts last (`docs/api-v1-contract.md`, "Legacy baseline"). Rust `main.rs` matches this
+      sequence: DB migrations run, admin bootstrap completes before the listener starts, and both
+      the model warmup and background token-refresh sweeper (5-second initial delay, 60-second ticker)
+      run as background tasks.
 
 ---
 
@@ -306,9 +307,9 @@ Everything below is still Node-only.
       that route reachable, the flow still finishes through `POST /v1/auth/openai/callback` with
       the pasted `callback_url`. The scope constant includes
       `api.connectors.read api.connectors.invoke` (`openai/codex` `codex-rs/login/src/server.rs`).
-- [ ] Model-registry warmup after the main listener starts (`warmModelRegistry` in Node). The live
-      `qoder` and Cline catalogs are already warmed at boot (`server/src/main.rs`); DB-backed catalogs
-      stay empty until their connection exists.
+- [x] Model-registry warmup after the main listener starts (`warmModelRegistry` in Node): the live
+      catalogs (`qoder`, Cline, and dynamic Codex) are warmed in a background task spawned at boot
+      (`server/src/main.rs`).
 - [ ] Registry lifecycle on write: Node refreshes the live registry after connection
       create/delete; Rust writes rows but never rebuilds `ProviderRegistry`. `qoder` needs no
       rebuild: the device-flow connection force-refreshes the catalog in place.
@@ -354,9 +355,10 @@ codebuddy-cn, qoder`) → validated token import, `201`.
 - [~] PKCE + state lifecycle: state creation, replay/expiry rejection, device-poll state read from
   query or JSON body. Done for `qoder` and Cline (`infrastructure/database/oauth_sessions.rs`:
   PKCE/device-code save, claim, release, delete, 15-minute sweep); other providers still need it.
-- [ ] Token refresh sweeper and scheduling (`apps/api/src/services/tokenRefresh.ts`), started only
-      after database/provider state is ready, stopped on shutdown. Cline's lazy per-request refresh
-      path landed in `features/providers/cline/executor.rs`; the sweeper remains open.
+- [x] Token refresh sweeper and scheduling (`apps/api/src/services/tokenRefresh.ts`), started only
+      after database/provider state is ready: implemented via `ProviderRegistry::sweep_tokens`
+      invoking each provider's `sweep_tokens()` method (Codex, Cline) with a 5-second initial delay
+      and 60-second background ticker in `main.rs`. Verified in `server/tests/codex_provider.rs`.
 - [ ] Env override `CLAUDE_OAUTH_CLIENT_ID`.
 - [ ] Fake-upstream tests only (`server/tests/provider_auth.rs`); never real provider credentials.
       Legacy evidence to read as oracle: `auth-providers.test.ts`, `token-refresh.test.ts`,

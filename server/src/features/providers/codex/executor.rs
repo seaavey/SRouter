@@ -1372,6 +1372,14 @@ impl ProviderExecutor for CodexExecutor {
         Box::pin(async move { CodexExecutor::maybe_refresh(self, force).await })
     }
 
+    fn sweep_tokens(&self) -> BoxFuture<'_, ()> {
+        Box::pin(async move {
+            if let Err(error) = self.ensure_fresh_token(false).await {
+                tracing::debug!(error = %error, "Codex token refresh sweeper check completed with error");
+            }
+        })
+    }
+
     fn chat_completion<'a>(
         &'a self,
         model: &'a str,

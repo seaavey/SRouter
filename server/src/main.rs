@@ -38,6 +38,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tokio::spawn(async move {
         warmup.maybe_refresh_catalogs(false).await;
     });
+    // Background OAuth token refresh sweeper matching Node's startTokenRefreshSweeper:
+    // starts with a 5-second initial delay, then sweeps every 60 seconds.
+    let sweeper = registry.clone();
+    tokio::spawn(async move {
+        tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+        sweeper.sweep_tokens().await;
+        let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(60));
+        loop {
+            interval.tick().await;
+            sweeper.sweep_tokens().await;
+        }
+    });
     let state = AppState::with_security(config, registry, security).with_database(database);
 
     listeners::serve_main(create_router(state), address).await?;

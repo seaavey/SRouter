@@ -131,6 +131,18 @@ impl ProviderRegistry {
         }
     }
 
+    /// Checks and refreshes expired or near-expiry credentials across every
+    /// registered adapter.
+    pub async fn sweep_tokens(&self) {
+        let mut seen = HashSet::new();
+
+        for adapter in self.adapters.values() {
+            if seen.insert(adapter.id()) {
+                adapter.sweep_tokens().await;
+            }
+        }
+    }
+
     /// Registers an adapter under each of its lookup keys.
     pub fn register(&mut self, adapter: ProviderAdapter) {
         for key in adapter.keys() {

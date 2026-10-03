@@ -1060,6 +1060,14 @@ impl ProviderExecutor for ClineExecutor {
         Box::pin(async move { ClineExecutor::maybe_refresh(self, force).await })
     }
 
+    fn sweep_tokens(&self) -> BoxFuture<'_, ()> {
+        Box::pin(async move {
+            if let Err(error) = self.ensure_fresh_token(false).await {
+                tracing::debug!(error = %error, "Cline token refresh sweeper check completed with error");
+            }
+        })
+    }
+
     fn chat_completion<'a>(
         &'a self,
         model: &'a str,
