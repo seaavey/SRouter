@@ -13,6 +13,11 @@ pub struct APIConfig {
     pub cors_origins: Vec<String>,
     pub admin_password: Option<String>,
     pub secure_cookies: bool,
+    /// `NODE_ENV=production` (case-insensitive). Drives production-only defaults.
+    pub is_production: bool,
+    /// Whether the per-request access log runs. Off in production unless
+    /// `SROUTER_ACCESS_LOG` explicitly turns it back on.
+    pub access_log: bool,
     pub web_dist_path: Option<PathBuf>,
     pub database_path: PathBuf,
     pub database_url: Option<String>,
@@ -49,6 +54,21 @@ impl APIConfig {
                 url.get(..8)
                     .is_some_and(|scheme| scheme.eq_ignore_ascii_case("https://"))
             });
+        // Production detection follows the Node convention. The access log is a
+        // development aid, so it defaults off in production and stays on
+        // everywhere else; `SROUTER_ACCESS_LOG` overrides either way.
+        let is_production = environment
+            .get("NODE_ENV")
+            .is_some_and(|value| value.trim().eq_ignore_ascii_case("production"));
+        let access_log_override = environment
+            .get("SROUTER_ACCESS_LOG")
+            .map(|value| value.trim().to_ascii_lowercase())
+            .filter(|value| !value.is_empty());
+        let access_log = match access_log_override.as_deref() {
+            Some("off" | "false" | "0" | "no") => false,
+            Some(_) => true,
+            None => !is_production,
+        };
 
         Ok(Self {
             port,
@@ -72,6 +92,8 @@ impl APIConfig {
                 .filter(|password| !password.is_empty())
                 .cloned(),
             secure_cookies,
+            is_production,
+            access_log,
             web_dist_path: environment
                 .get("WEB_DIST_PATH")
                 .filter(|path| !path.is_empty())
@@ -99,6 +121,8 @@ impl Debug for APIConfig {
                 &self.admin_password.as_ref().map(|_| REDACTED),
             )
             .field("secure_cookies", &self.secure_cookies)
+            .field("is_production", &self.is_production)
+            .field("access_log", &self.access_log)
             .field("web_dist_path", &self.web_dist_path)
             .field("database_path", &self.database_path)
             .field(

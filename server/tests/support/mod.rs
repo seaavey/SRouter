@@ -1322,6 +1322,17 @@ pub fn test_config() -> APIConfig {
     APIConfig::from_env_map(&environment).expect("test configuration")
 }
 
+/// `test_config` with `NODE_ENV=production`, so production-only defaults (the
+/// per-request access log) turn off.
+pub fn production_config() -> APIConfig {
+    let environment = HashMap::from([
+        ("HOME".to_owned(), "/tmp/srouter-test-home".to_owned()),
+        ("NODE_ENV".to_owned(), "production".to_owned()),
+    ]);
+
+    APIConfig::from_env_map(&environment).expect("production test configuration")
+}
+
 /// `test_config` with `SROUTER_SECURE_COOKIES=true`, so responses should tag
 /// the admin session cookie `Secure`.
 pub fn test_secure_config() -> APIConfig {

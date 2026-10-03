@@ -9,10 +9,15 @@ use std::sync::{Arc, Mutex};
 
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
+use srouter_server::AppState;
 use srouter_server::app::create_router;
 use srouter_server::error::APIError;
+use srouter_server::features::providers::ProviderRegistry;
 use srouter_server::infrastructure::telemetry;
-use support::{empty_registry_state, json_request, json_request_with_headers, security_state};
+use support::{
+    empty_registry_state, json_request, json_request_with_headers, production_config,
+    security_state,
+};
 use tower::ServiceExt;
 use tracing_subscriber::EnvFilter;
 use tracing_subscriber::fmt;
@@ -146,6 +151,34 @@ fn access_log_records_successes_and_redacts_credentials() {
     assert!(logged.contains("[REDACTED]"), "{logged}");
     assert!(!logged.contains("super-secret-value"), "{logged}");
     assert!(!logged.contains("top-secret-token"), "{logged}");
+}
+
+#[test]
+fn access_log_is_off_in_production() {
+    let buffer = Buffer::new();
+    let subscriber = capturing_subscriber(buffer.clone());
+    let state = AppState::with_security(
+        production_config(),
+        ProviderRegistry::new(),
+        security_state(false, vec![], vec![]),
+    );
+    let app = create_router(state);
+
+    let response = tracing::subscriber::with_default(subscriber, || {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("runtime");
+        runtime
+            .block_on(app.oneshot(json_request("GET", "/health", serde_json::Value::Null)))
+            .expect("request completes")
+    });
+
+    assert_eq!(response.status(), StatusCode::OK);
+    assert!(
+        buffer.contents().is_empty(),
+        "production keeps the access log off"
+    );
 }
 
 #[test]

@@ -1,4 +1,5 @@
 use axum::middleware::{from_fn, from_fn_with_state};
+
 use axum::{Json, Router, routing::get};
 use serde::Serialize;
 
@@ -146,7 +147,8 @@ pub fn create_router(state: AppState) -> Router {
         // rejections, passes through here before the response leaves the process.
         .layer(from_fn(log_failed_requests))
         // The access log sits outside even the failure log so it sees the final status and the
-        // full request duration; credentials are redacted before anything is written.
-        .layer(from_fn(log_access))
+        // full request duration; credentials are redacted before anything is written, and the
+        // whole layer is a no-op in production unless `SROUTER_ACCESS_LOG` re-enables it.
+        .layer(from_fn_with_state(state.clone(), log_access))
         .with_state(state)
 }

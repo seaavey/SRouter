@@ -7,11 +7,13 @@
 use std::time::Instant;
 
 use axum::body::{Body, to_bytes};
-use axum::extract::Request;
+use axum::extract::{Request, State};
 use axum::http::{HeaderMap, header};
 use axum::middleware::Next;
 use axum::response::Response;
 use serde_json::Value;
+
+use crate::state::AppState;
 
 /// Largest request body the log buffers for a summary; larger or chunked bodies pass through
 /// untouched and are reported as uncaptured.
@@ -20,8 +22,13 @@ const BODY_CAPTURE_LIMIT: usize = 64 * 1024;
 const DISPLAY_LIMIT: usize = 2048;
 
 /// Logs one access event per request, then hands the request (body intact) to the rest of the
-/// chain. The response body is never buffered, so SSE streams stay streaming.
-pub async fn log_access(request: Request, next: Next) -> Response {
+/// chain. The response body is never buffered, so SSE streams stay streaming. Disabled in
+/// production by default (`APIConfig::access_log`), where it passes straight through.
+pub async fn log_access(State(state): State<AppState>, request: Request, next: Next) -> Response {
+    if !state.config.access_log {
+        return next.run(request).await;
+    }
+
     let started = Instant::now();
     let method = request.method().clone();
     let path = request.uri().path().to_owned();

@@ -119,8 +119,12 @@ Status legend: `[x]` done and covered by a Rust test, `[ ]` missing, `[~]` parti
       redacted headers, a redacted request-body summary, and the response type/size. Sensitive
       headers, query keys, and JSON fields render as `[REDACTED]`; bodies above 64 KiB or chunked
       are forwarded untouched and reported as uncaptured. Mounted outermost in `app.rs` so it sees
-      the final status and full duration. Covered by `server/tests/telemetry.rs`
-      (`access_log_records_successes_and_redacts_credentials`) plus the in-file unit tests.
+      the final status and full duration. On by default outside production; `NODE_ENV=production`
+      turns it off and `SROUTER_ACCESS_LOG=on|off` overrides either way (`APIConfig::access_log`,
+      `server/.env.example`). Covered by `server/tests/telemetry.rs`
+      (`access_log_records_successes_and_redacts_credentials`, `access_log_is_off_in_production`),
+      `server/tests/configuration.rs` (`production_turns_the_access_log_off`,
+      `access_log_can_be_forced_on_or_off`), and the in-file unit tests.
 
 ---
 

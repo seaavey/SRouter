@@ -27,6 +27,8 @@ fn defaults_use_frozen_listener_and_sqlite_values() {
     assert!(config.cors_origins.is_empty());
     assert!(config.admin_password.is_none());
     assert!(!config.secure_cookies);
+    assert!(!config.is_production);
+    assert!(config.access_log, "the access log is on outside production");
     assert!(config.web_dist_path.is_none());
     assert!(config.database_url.is_none());
 }
@@ -255,4 +257,35 @@ fn debug_output_redacts_configured_credentials() {
     assert!(!debug_output.contains("private-admin-password"));
     assert!(!debug_output.contains("private-db-password"));
     assert!(debug_output.contains("[REDACTED]"));
+}
+
+#[test]
+fn production_turns_the_access_log_off() {
+    let config = config_from(&[("HOME", "/tmp/srouter-home"), ("NODE_ENV", "production")]).unwrap();
+
+    assert!(config.is_production);
+    assert!(!config.access_log);
+}
+
+#[test]
+fn access_log_can_be_forced_on_or_off() {
+    let forced_on = config_from(&[
+        ("HOME", "/tmp/srouter-home"),
+        ("NODE_ENV", "production"),
+        ("SROUTER_ACCESS_LOG", "on"),
+    ])
+    .unwrap();
+    assert!(forced_on.access_log);
+
+    let forced_off =
+        config_from(&[("HOME", "/tmp/srouter-home"), ("SROUTER_ACCESS_LOG", "off")]).unwrap();
+    assert!(!forced_off.access_log);
+
+    let blank = config_from(&[
+        ("HOME", "/tmp/srouter-home"),
+        ("NODE_ENV", "development"),
+        ("SROUTER_ACCESS_LOG", "  "),
+    ])
+    .unwrap();
+    assert!(blank.access_log, "a blank override is treated as unset");
 }
