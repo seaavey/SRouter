@@ -15,6 +15,7 @@ use crate::features::providers::management::{
     create_providers_management_router, create_providers_read_router,
 };
 use crate::features::settings::{create_settings_management_router, create_settings_read_router};
+use crate::http::middleware::access_log::log_access;
 use crate::http::middleware::admin_session::require_admin_session;
 use crate::http::middleware::api_key_auth::api_key_auth;
 use crate::http::middleware::body_limit::body_limit;
@@ -144,5 +145,8 @@ pub fn create_router(state: AppState) -> Router {
         // Outermost on purpose: every final status, including auth, CORS, and body-limit
         // rejections, passes through here before the response leaves the process.
         .layer(from_fn(log_failed_requests))
+        // The access log sits outside even the failure log so it sees the final status and the
+        // full request duration; credentials are redacted before anything is written.
+        .layer(from_fn(log_access))
         .with_state(state)
 }

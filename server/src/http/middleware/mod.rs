@@ -1,3 +1,4 @@
+pub mod access_log;
 pub mod admin_session;
 pub mod api_key_auth;
 pub mod body_limit;

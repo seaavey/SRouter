@@ -114,6 +114,13 @@ Status legend: `[x]` done and covered by a Rust test, `[ ]` missing, `[~]` parti
       `code`/`state`), and `error.rs` logs the error detail behind every 5xx envelope. Covered by
       `server/tests/telemetry.rs` (file output, 404 request log, 5xx detail, 4xx silence) plus a
       live smoke run: startup line and 404 line both land in `logs/srouter-server.log`.
+- [x] Per-request access log (`http/middleware/access_log.rs`), a Rust-native addition with no Node
+      parity: one `info` event per request carrying method, path, redacted query, status, duration,
+      redacted headers, a redacted request-body summary, and the response type/size. Sensitive
+      headers, query keys, and JSON fields render as `[REDACTED]`; bodies above 64 KiB or chunked
+      are forwarded untouched and reported as uncaptured. Mounted outermost in `app.rs` so it sees
+      the final status and full duration. Covered by `server/tests/telemetry.rs`
+      (`access_log_records_successes_and_redacts_credentials`) plus the in-file unit tests.
 
 ---
 

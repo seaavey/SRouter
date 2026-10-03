@@ -1,5 +1,6 @@
-//! Telemetry coverage: every event reaches the log file, failed requests log their method,
-//! path, and status, and 5xx envelopes log the error detail while 4xx stays silent there.
+//! Telemetry coverage: every event reaches the log file, the access log records each request
+//! (method, path, status, redacted headers/body), failed requests keep their warning line, and
+//! 5xx envelopes log the error detail while 4xx stays silent there.
 
 mod support;
 
@@ -11,7 +12,7 @@ use axum::response::IntoResponse;
 use srouter_server::app::create_router;
 use srouter_server::error::APIError;
 use srouter_server::infrastructure::telemetry;
-use support::{empty_registry_state, json_request, security_state};
+use support::{empty_registry_state, json_request, json_request_with_headers, security_state};
 use tower::ServiceExt;
 use tracing_subscriber::EnvFilter;
 use tracing_subscriber::fmt;
@@ -108,11 +109,43 @@ fn failed_requests_are_logged_with_method_path_and_status() {
     assert!(logged.contains("WARN"), "{logged}");
     assert!(logged.contains("/v1/no-such-route"), "{logged}");
     assert!(logged.contains("status=404"), "{logged}");
+
     assert_eq!(welcome.status(), StatusCode::OK);
-    assert!(
-        buffer.contents().is_empty(),
-        "successful requests must not log"
-    );
+    let welcome_log = buffer.contents();
+    assert!(welcome_log.contains("INFO"), "{welcome_log}");
+    assert!(welcome_log.contains("path=/"), "{welcome_log}");
+    assert!(welcome_log.contains("status=200"), "{welcome_log}");
+}
+
+#[test]
+fn access_log_records_successes_and_redacts_credentials() {
+    let buffer = Buffer::new();
+    let subscriber = capturing_subscriber(buffer.clone());
+    let app = create_router(empty_registry_state(security_state(false, vec![], vec![])));
+
+    let response = tracing::subscriber::with_default(subscriber, || {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("runtime");
+        runtime
+            .block_on(app.oneshot(json_request_with_headers(
+                "POST",
+                "/v1/no-such-route",
+                serde_json::json!({"apiKey": "super-secret-value", "model": "gpt"}),
+                &[("authorization", "Bearer top-secret-token")],
+            )))
+            .expect("request completes")
+    });
+
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    let logged = buffer.contents();
+    assert!(logged.contains("INFO"), "{logged}");
+    assert!(logged.contains("/v1/no-such-route"), "{logged}");
+    assert!(logged.contains("status=404"), "{logged}");
+    assert!(logged.contains("[REDACTED]"), "{logged}");
+    assert!(!logged.contains("super-secret-value"), "{logged}");
+    assert!(!logged.contains("top-secret-token"), "{logged}");
 }
 
 #[test]
