@@ -505,6 +505,31 @@ async fn models_are_advertised_only_while_a_connection_exists() {
     ] {
         assert!(ids.contains(&expected), "missing {expected} in {ids:?}");
     }
+
+    let db = database.connect().await.expect("temporary database");
+    sqlx::query("DELETE FROM providers WHERE provider_id = 'grok-web'")
+        .execute(db.sqlite_pool().unwrap())
+        .await
+        .unwrap();
+    let router = app(&database, &fake).await;
+    let response = router
+        .oneshot(with_loopback_client(
+            Request::builder()
+                .method("GET")
+                .uri("/v1/models")
+                .header("cookie", &cookie)
+                .body(Body::empty())
+                .expect("models request"),
+        ))
+        .await
+        .expect("models response");
+    let ids: Vec<String> = json_body(response).await["data"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|model| model["id"].as_str().map(str::to_owned))
+        .collect();
+    assert!(ids.iter().all(|id| !id.starts_with("grok-web/")));
 }
 
 #[tokio::test]

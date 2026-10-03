@@ -8,6 +8,7 @@ This document freezes the behavior visible at the `apps/api` HTTP boundary for t
 - Exclude Cloudflare Tunnel routes and startup work from Rust. They remain available in the Node API during the fallback period and become unavailable after Rust cutover.
 - Use `apps/api/src/index.ts`, route/controller/middleware/service/logic files, and `apps/api/tests/*.test.ts` as the contract evidence. Use the Node API only as a temporary black-box comparison target.
 - Do not inspect, copy, or use `packages/*` code or data as Rust source, seed data, or code-generation input.
+- Rust built-in provider seeds and provider-specific model identifiers require independent provenance recorded beside their definitions; use the provider's official documentation or public catalog for provider facts. The Node API and this contract may establish SRouter compatibility behavior and metadata, but are not independent sources for upstream catalog data.
 - The request and response schema definitions imported from `@srouter/types` are outside the allowed source boundary. This document records visible fields and observable outcomes; it does not infer fields that the controller and API tests do not expose.
 
 ## Listeners and top-level routes
@@ -108,7 +109,7 @@ The OAuth listener also mounts `/v1/messages`, `/v1/chat/completions`, `/v1/chat
 
 ### Providers in the Rust build
 
-The Rust catalog serves a single driver (`opencode_zen`). Where the rows above describe Node, the Rust build differs as follows.
+The Rust provider registry contains the built-in drivers. Live model catalogs are shared by their adapters and refreshed after connection writes; they are cleared on a forced refresh when the last connection is gone. Where the rows above describe Node, the Rust build differs as follows.
 
 - **One write route.** `PATCH /v1/providers/{provider_id}` replaces Node's `PATCH /v1/providers/:providerId/enabled`, `POST /v1/providers/:providerId/hidden-models`, and `DELETE /v1/providers/:providerId/hidden-models/:modelId`. Every field is optional and applied in one transaction: `enabled` (boolean), plus the model-id lists `hide`, `restore`, `favorite`, and `unfavorite`. A request that names no field, a non-boolean `enabled`, or a list entry that is not a non-empty string returns `400` with `Invalid payload`; an unknown provider returns `400` with `Provider '<id>' not found`. The response is the provider detail entry read back after the write.
 - **Idempotent writes.** Hiding an already hidden model keeps its single override row, restoring a model that is not hidden succeeds without changing anything, and favoriting or unfavoriting repeats safely. Model ids are stored lowercased and matched case-insensitively, so a row written elsewhere with different casing is still found.

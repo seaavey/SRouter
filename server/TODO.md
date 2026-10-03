@@ -267,18 +267,21 @@ Everything below is still Node-only.
       the hidden list, favorites and `allowed_models`. Independent provenance for every constant
       is recorded in the `qoder/types.rs` module doc; protocol analysis and decisions live in
       `docs/superpowers/plans/2026-09-30-rust-provider-qoder.md`.
-- [ ] Round-robin/selection policy in the registry itself, if the driver set grows past one.
+- [x] Bare model ids advertised by multiple drivers rotate deterministically across matching
+      adapters in `ProviderRegistry::resolve`; provider-prefixed requests remain pinned to the
+      requested driver. Per-model selection state is shared across registry clones.
 - [x] `GET /v1/providers/{providerId}/hidden-models` — Node returns `{models:[...]}`. Rust folded
       this into the detail payload; the route is not served. Either implement the route for parity or
       get the deviation explicitly approved, like the tunnel exclusion. Same call for
       `/v1/favorites` (`GET` API-key, `POST` admin `201`, `DELETE /{modelId}` `404`)
       (`apps/api/src/controllers/favorites.controller.ts`, web calls both — `favorites.ts`,
       `favorites` mutations today only work through the provider PATCH).
-- [ ] Catalog provenance: record an allowed independent source for every built-in provider entry
+- [x] Catalog provenance: record an allowed independent source for every built-in provider entry
       and model list (`docs/api-v1-contract.md` "Scope"). The `qoder` entry is recorded, and its
       models are read from upstream; `features/providers/qoder/types.rs` keeps only the alias table
-      for requests before the first fetch or under a retired name. `opencode_zen` still needs its
-      own record.
+      for requests before the first fetch or under a retired name. `opencode_zen` sources are
+      recorded in `features/providers/opencode/types.rs`; its seven seeded ids were checked against
+      OpenCode's public catalog and remain an intentional subset.
 - [x] Cline provider registered: WorkOS device-flow auth, lazy token refresh, OpenAI-compatible
       chat, and a connection-gated live `/api/v1/models` catalog. No Cline model is seeded.
 - [x] Cline provenance: protocol details are sourced from the official Cline binary, official
@@ -318,9 +321,10 @@ Everything below is still Node-only.
 - [x] Model-registry warmup after the main listener starts (`warmModelRegistry` in Node): the live
       catalogs (`qoder`, Cline, and dynamic Codex) are warmed in a background task spawned at boot
       (`server/src/main.rs`).
-- [ ] Registry lifecycle on write: Node refreshes the live registry after connection
-      create/delete; Rust writes rows but never rebuilds `ProviderRegistry`. `qoder` needs no
-      rebuild: the device-flow connection force-refreshes the catalog in place.
+- [x] Registry lifecycle for live model catalogs: successful Qoder, Cline, Codex, and Grok Web
+      connection writes force-refresh their existing shared catalog; a forced refresh after the
+      last connection is removed clears its cached models. No registry rebuild is needed because
+      adapters read credentials from the database and retain catalog state in shared handles.
 
 ---
 

@@ -28,13 +28,18 @@ fn opencode_zen_metadata_matches_the_node_api_provider() {
 #[test]
 fn opencode_zen_exposes_verified_free_models() {
     let ids: Vec<&str> = OPENCODE_ZEN_MODELS.iter().map(|m| m.id).collect();
-    assert!(ids.contains(&"space-bunny-free"));
-    assert!(ids.contains(&"nemotron-3.5-lightning-free"));
-    assert!(ids.contains(&"nemotron-3-ultra-free"));
-    assert!(ids.contains(&"mimo-v2.5-free"));
-    assert!(ids.contains(&"mimo-v2.6-flash-free"));
-    assert!(ids.contains(&"big-pickle"));
-    assert!(ids.contains(&"longcat-2.5-preview-free"));
+    assert_eq!(
+        ids,
+        [
+            "space-bunny-free",
+            "nemotron-3.5-lightning-free",
+            "nemotron-3-ultra-free",
+            "mimo-v2.5-free",
+            "mimo-v2.6-flash-free",
+            "big-pickle",
+            "longcat-2.5-preview-free"
+        ]
+    );
 }
 
 #[test]

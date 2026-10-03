@@ -135,8 +135,13 @@ impl CodexExecutor {
         let Some(database) = self.database.as_ref() else {
             return;
         };
-        if !matches!(load_codex_credentials(database).await, Ok(Some(_))) {
-            return;
+        match load_codex_credentials(database).await {
+            Ok(Some(_)) => {}
+            Ok(None) => {
+                *write_catalog(&self.catalog) = CodexCatalog::empty();
+                return;
+            }
+            Err(_) => return,
         }
 
         if self.catalog_is_empty() {

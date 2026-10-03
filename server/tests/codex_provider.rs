@@ -117,6 +117,34 @@ async fn codex_models_appear_only_for_a_connected_account() {
 }
 
 #[tokio::test]
+async fn codex_models_disappear_after_the_last_connection_is_removed_and_registry_refreshes() {
+    let database = TestDatabase::new().expect("temporary database");
+    connect_codex(&database, Some(now_ms() + 86_400_000)).await;
+    let fake = FakeCodexUpstream::start().await;
+    let app = app(&database, &fake).await;
+
+    assert!(
+        catalog_ids(&app)
+            .await
+            .contains(&"openai_codex/gpt-6.1-sol".to_owned())
+    );
+
+    let db = database.connect().await.expect("temporary database");
+    let deleted = sqlx::query("DELETE FROM providers WHERE id = 'codex-account'")
+        .execute(db.sqlite_pool().expect("sqlite pool"))
+        .await
+        .unwrap();
+    assert_eq!(deleted.rows_affected(), 1);
+
+    let models = catalog_ids(&app).await;
+    assert!(
+        models.iter().all(|id| !id.starts_with("openai_codex/")),
+        "deleted account must be absent from catalog: {models:?}"
+    );
+    assert_eq!(fake.models_requests(), 1);
+}
+
+#[tokio::test]
 async fn codex_stream_translates_responses_events_and_carries_the_session_headers() {
     let database = TestDatabase::new().expect("temporary database");
     connect_codex(&database, Some(now_ms() + 86_400_000)).await;

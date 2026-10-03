@@ -2,6 +2,7 @@
 //! it. Registration covers the provider base id and its aliases.
 
 use std::collections::{HashMap, HashSet};
+use std::sync::{Arc, Mutex};
 
 use crate::error::APIError;
 use crate::features::providers::adapter::ProviderAdapter;
@@ -33,6 +34,7 @@ pub struct ResolvedModel {
 #[derive(Clone, Default)]
 pub struct ProviderRegistry {
     adapters: HashMap<String, ProviderAdapter>,
+    selection_indices: Arc<Mutex<HashMap<String, usize>>>,
 }
 
 impl ProviderRegistry {
@@ -167,15 +169,36 @@ impl ProviderRegistry {
             });
         }
 
-        self.adapters
+        let mut matches: Vec<&ProviderAdapter> = self
+            .adapters
             .values()
-            .find(|adapter| {
+            .filter(|adapter| {
                 adapter.models().iter().any(|id| {
                     id.as_str() == model || (model.contains('.') && model.replace('.', "-") == *id)
                 })
             })
+            .collect();
+        matches.sort_by_key(|adapter| adapter.id());
+        matches.dedup_by_key(|adapter| adapter.id());
+
+        if matches.is_empty() {
+            return None;
+        }
+
+        let index = if matches.len() == 1 {
+            0
+        } else {
+            let mut selection_indices = self.selection_indices.lock().unwrap();
+            let next = selection_indices.entry(model.to_owned()).or_default();
+            let index = *next;
+            *next = next.wrapping_add(1);
+            index
+        };
+
+        matches
+            .get(index % matches.len())
             .map(|adapter| ResolvedModel {
-                adapter: adapter.clone(),
+                adapter: (*adapter).clone(),
                 model: model.to_owned(),
             })
     }
@@ -246,10 +269,78 @@ mod tests {
     use std::collections::HashSet;
 
     use super::ProviderRegistry;
+    use crate::error::APIError;
+    use crate::features::gateway::model::ChatCompletionRequest;
+    use crate::features::providers::adapter::{ProviderAdapter, ProviderStream};
     use crate::features::providers::cline;
     use crate::features::providers::cline::ClineExecutor;
     use crate::features::providers::cline::catalog::write_catalog;
+    use crate::features::providers::executor::{BoxFuture, ProviderExecutor};
     use crate::features::providers::opencode;
+    use serde_json::Value;
+
+    struct TestExecutor {
+        id: &'static str,
+        models: &'static [&'static str],
+    }
+
+    impl ProviderExecutor for TestExecutor {
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+
+        fn id(&self) -> &'static str {
+            self.id
+        }
+
+        fn keys(&self) -> &'static [&'static str] {
+            match self.id {
+                "alpha" => &["alpha"],
+                "beta" => &["beta"],
+                _ => &[],
+            }
+        }
+
+        fn alias(&self) -> &'static str {
+            self.id
+        }
+
+        fn models(&self) -> Vec<String> {
+            self.models
+                .iter()
+                .map(|model| (*model).to_owned())
+                .collect()
+        }
+
+        fn chat_completion<'a>(
+            &'a self,
+            _model: &'a str,
+            _request: &'a ChatCompletionRequest,
+        ) -> BoxFuture<'a, Result<Value, APIError>> {
+            Box::pin(async { Err(APIError::new(500, "unused test executor")) })
+        }
+
+        fn chat_completion_stream<'a>(
+            &'a self,
+            _model: &'a str,
+            _request: &'a ChatCompletionRequest,
+        ) -> BoxFuture<'a, Result<ProviderStream, APIError>> {
+            Box::pin(async { Err(APIError::new(500, "unused test executor")) })
+        }
+    }
+
+    fn registry_with_duplicate_model() -> ProviderRegistry {
+        let mut registry = ProviderRegistry::new();
+        registry.register(ProviderAdapter::new(TestExecutor {
+            id: "alpha",
+            models: &["shared-model"],
+        }));
+        registry.register(ProviderAdapter::new(TestExecutor {
+            id: "beta",
+            models: &["shared-model"],
+        }));
+        registry
+    }
 
     fn registry_with_opencode() -> ProviderRegistry {
         let mut registry = ProviderRegistry::new();
@@ -278,6 +369,45 @@ mod tests {
         let resolved = registry.resolve("space-bunny-free").expect("bare model");
 
         assert_eq!(resolved.model, "space-bunny-free");
+    }
+
+    #[test]
+    fn bare_model_selection_rotates_across_matching_drivers() {
+        let registry = registry_with_duplicate_model();
+
+        let selected = (0..4)
+            .map(|_| registry.resolve("shared-model").unwrap().adapter.id())
+            .collect::<Vec<_>>();
+
+        assert_eq!(selected, ["alpha", "beta", "alpha", "beta"]);
+    }
+
+    #[test]
+    fn prefixed_model_selection_stays_pinned_to_its_driver() {
+        let registry = registry_with_duplicate_model();
+
+        for _ in 0..3 {
+            assert_eq!(
+                registry.resolve("beta/shared-model").unwrap().adapter.id(),
+                "beta"
+            );
+        }
+        assert_eq!(
+            registry.resolve("shared-model").unwrap().adapter.id(),
+            "alpha"
+        );
+    }
+
+    #[test]
+    fn model_selection_state_is_shared_by_registry_clones() {
+        let registry = registry_with_duplicate_model();
+        let clone = registry.clone();
+
+        assert_eq!(
+            registry.resolve("shared-model").unwrap().adapter.id(),
+            "alpha"
+        );
+        assert_eq!(clone.resolve("shared-model").unwrap().adapter.id(), "beta");
     }
 
     #[test]

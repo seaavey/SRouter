@@ -23,7 +23,7 @@ use srouter_server::infrastructure::database::providers::{
 use support::codex_fake::{FakeCodexUpstream, codex_registry};
 use support::{
     FakeClineUpstream, FakeQoderUpstream, TestDatabase, cline_state, json_request_with_headers,
-    qoder_state, sqlx_security_state, test_config, with_loopback_client,
+    qoder_catalog_body, qoder_state, sqlx_security_state, test_config, with_loopback_client,
 };
 use tower::ServiceExt;
 
@@ -189,6 +189,35 @@ async fn poll_stays_pending_until_the_browser_approves() {
     assert_eq!(credentials.user_id, "user-fixture");
     assert_eq!(credentials.email, "seaavey@example.com");
     assert!(credentials.is_expired(srouter_server::clock::now_ms() + 86_401_000));
+}
+
+#[tokio::test]
+async fn a_new_qoder_connection_refreshes_the_live_model_catalog_in_place() {
+    let database = TestDatabase::new().unwrap();
+    let fake = FakeQoderUpstream::start().await;
+    fake.with(|state| state.model_catalog = qoder_catalog_body());
+    let app = app(&database, &fake).await;
+    let login = start_login(&app).await;
+    let state = login["state"].as_str().expect("state").to_owned();
+
+    fake.with(|state| state.approve_device = true);
+    assert_eq!(poll(&app, &state).await["status"], "ok");
+    assert_eq!(fake.model_list_requests(), 1);
+
+    let response = app.oneshot(admin_get("/v1/models")).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let models = json_body(response).await["data"]
+        .as_array()
+        .unwrap()
+        .clone();
+
+    assert!(models.iter().any(|model| model["id"] == "qd/qmodel"));
+    assert!(models.iter().any(|model| model["id"] == "qd/qwen-plus"));
+    assert_eq!(
+        fake.model_list_requests(),
+        1,
+        "the first list uses the refreshed snapshot"
+    );
 }
 
 #[tokio::test]
@@ -495,6 +524,18 @@ async fn cline_device_and_poll_connect_a_workos_device_account() {
         .expect("Cline connection stored");
     assert_eq!(credentials.access_token, "workos:cline-access");
     assert_eq!(credentials.refresh_token.as_deref(), Some("cline-refresh"));
+    let catalog = app.oneshot(admin_get("/v1/models")).await.unwrap();
+    assert_eq!(catalog.status(), StatusCode::OK);
+    let ids: Vec<String> = json_body(catalog).await["data"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|model| model["id"].as_str().map(str::to_owned))
+        .collect();
+    assert!(ids.contains(&"cline/anthropic/claude-sonnet-5.5".to_owned()));
+    assert!(ids.contains(&"cline/cline-free/deepseek-v4.1-flash".to_owned()));
+    assert_eq!(fake.with(|fake| fake.model_list_requests), 1);
+    assert_eq!(fake.with(|fake| fake.recommended_requests), 1);
     let raw = sqlx::query_scalar::<_, String>("SELECT credentials FROM providers WHERE id = ?")
         .bind("user-1")
         .fetch_one(db.sqlite_pool().expect("sqlite pool"))
@@ -1019,6 +1060,16 @@ async fn openai_token_import_stores_a_connection() {
         Some("imported-refresh")
     );
     assert_eq!(credentials.account_id.as_deref(), Some("acct-imported"));
+
+    let catalog = app.oneshot(admin_get("/v1/models")).await.unwrap();
+    assert_eq!(catalog.status(), StatusCode::OK);
+    let models = json_body(catalog).await["data"].as_array().unwrap().clone();
+    assert!(
+        models
+            .iter()
+            .any(|model| model["id"] == "openai_codex/gpt-6.1-sol")
+    );
+    assert_eq!(fake.models_requests(), 1);
 }
 
 #[tokio::test]

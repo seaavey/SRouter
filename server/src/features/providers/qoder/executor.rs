@@ -134,8 +134,16 @@ impl QoderExecutor {
     /// snapshot holds models the fetch runs in the background and no request
     /// pays for it.
     pub async fn maybe_refresh(&self, force: bool) {
-        if self.database.is_none() {
+        let Some(database) = self.database.as_ref() else {
             return;
+        };
+        match load_qoder_credentials(database).await {
+            Ok(Some(_)) => {}
+            Ok(None) => {
+                *write_catalog(&self.catalog) = QoderCatalog::empty();
+                return;
+            }
+            Err(_) => return,
         }
 
         // An empty snapshot queues for the fetch even when the retry window says

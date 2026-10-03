@@ -436,7 +436,12 @@ async fn the_live_catalog_replaces_the_empty_snapshot_and_stops_refreshing_withi
         })
     });
     executor.maybe_refresh(true).await;
-    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    for _ in 0..100 {
+        if fake.model_list_requests() == 2 {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    }
     assert_eq!(
         fake.model_list_requests(),
         2,
@@ -447,6 +452,39 @@ async fn the_live_catalog_replaces_the_empty_snapshot_and_stops_refreshing_withi
         vec!["brand-new-model", "nova-plus"],
         "a replaced snapshot drops the name the upstream stopped using"
     );
+}
+
+#[tokio::test]
+async fn removing_a_qoder_connection_clears_its_registry_catalog() {
+    let database = TestDatabase::new().unwrap();
+    connect_qoder(&database).await;
+    let fake = FakeQoderUpstream::start().await;
+    fake.with(|state| state.model_catalog = qoder_catalog_body());
+    let app = app(&database, &fake).await;
+    let before = catalog_ids(app.clone().oneshot(models_request()).await.unwrap()).await;
+    assert!(before.iter().any(|id| id == "qd/qmodel"));
+
+    let app_database = database.connect().await.expect("temporary database");
+    sqlx::query("DELETE FROM providers WHERE id = 'qoder_1'")
+        .execute(app_database.sqlite_pool().unwrap())
+        .await
+        .unwrap();
+
+    let after = catalog_ids(
+        app.oneshot(with_loopback_client(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/v1/models?force=true")
+                .body(Body::empty())
+                .unwrap(),
+        ))
+        .await
+        .unwrap(),
+    )
+    .await;
+
+    assert!(after.iter().all(|id| !id.starts_with("qd/")));
+    assert_eq!(fake.model_list_requests(), 1);
 }
 
 #[tokio::test]

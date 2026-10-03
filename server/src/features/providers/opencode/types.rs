@@ -1,4 +1,16 @@
 //! OpenCode Zen provider types, constants, and metadata.
+//!
+//! Provenance, independent of `packages/*`:
+//! - `https://opencode.ai/docs/zen/` identifies OpenCode Zen, documents its API
+//!   endpoints, and lists the model names and ids offered through Zen.
+//! - `https://opencode.ai/zen/v1/models` is the provider's live public model
+//!   catalog. The seven ids in `OPENCODE_ZEN_MODELS` were checked against this
+//!   endpoint on 2026-10-03; the seed is an intentional subset, not a snapshot
+//!   of every model returned by the endpoint.
+//! - `https://opencode.ai/zen` is the provider's product page and web URL.
+//! - `docs/api-v1-contract.md` and the `apps/api` route/controller/tests are
+//!   the allowed sources for SRouter-facing metadata and compatibility behavior;
+//!   provider-specific catalog facts above come from OpenCode's own sources.
 
 use crate::features::providers::model::{ModelDefinition, ProviderMetadata};
 
