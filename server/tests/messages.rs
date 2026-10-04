@@ -503,3 +503,63 @@ async fn token_saver_compresses_the_translated_anthropic_request() {
         serde_json::json!("hello\n\nsame repeated line (x3)")
     );
 }
+
+#[tokio::test]
+async fn mid_stream_failure_emits_an_error_event_and_logs_the_failure_status() {
+    // Client-cancellation billing (server/TODO.md §6): an in-stream upstream
+    // failure after partial output surfaces as an Anthropic `error` event
+    // (Node's controller writes it and closes) and the request log carries the
+    // failure status with zero usage — mirroring Node's
+    // `does not bill a stream that errors after partial output without usage`.
+    let test_db = TestDatabase::new().expect("test db");
+    let database = test_db.connect().await.expect("db connect");
+    let (_upstream, state) = app_state_with_fake_upstream().await;
+    let app = create_router(state.with_database(database.clone()));
+    let body = serde_json::json!({
+        "model": "opencode_zen/space-bunny-error",
+        "messages": [{ "role": "user", "content": "fail mid stream" }],
+        "max_tokens": 1024,
+        "stream": true
+    });
+
+    let response = app
+        .oneshot(message_request("/v1/messages", body))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let stream_body = text_body(response).await;
+
+    // Partial output first, then the error event — and the stream ends there:
+    // no `message_stop` after a failure (Node closes right after the error).
+    assert!(stream_body.contains("content_block_delta"), "{stream_body}");
+    assert!(stream_body.contains("partial output"), "{stream_body}");
+    assert!(stream_body.contains("event: error"), "{stream_body}");
+    assert!(
+        stream_body.contains("\"type\":\"api_error\""),
+        "{stream_body}"
+    );
+    assert!(!stream_body.contains("message_stop"), "{stream_body}");
+
+    let row = sqlx::query(
+        "SELECT status_code, prompt_tokens, completion_tokens, total_tokens FROM request_logs",
+    )
+    .fetch_one(database.sqlite_pool().unwrap())
+    .await
+    .expect("stream log row");
+    assert_eq!(
+        sqlx::Row::try_get::<i64, _>(&row, "status_code").unwrap(),
+        500
+    );
+    assert_eq!(
+        sqlx::Row::try_get::<i64, _>(&row, "prompt_tokens").unwrap(),
+        0
+    );
+    assert_eq!(
+        sqlx::Row::try_get::<i64, _>(&row, "completion_tokens").unwrap(),
+        0
+    );
+    assert_eq!(
+        sqlx::Row::try_get::<i64, _>(&row, "total_tokens").unwrap(),
+        0
+    );
+}

@@ -210,6 +210,35 @@ pub(crate) fn observe_usage(json: &Value, total: &mut UsageBreakdown) {
     }
 }
 
+/// Recognises an in-stream failure payload. `encode_stream` turns upstream
+/// read errors and stalls into `data: {"error": {...}}` (a standard envelope),
+/// and an upstream body can carry its own `error` key. Returns the status the
+/// gateway should log and the message to record: the mapped status for known
+/// error types, `500` otherwise — the same default Node's stream handlers use.
+pub(crate) fn stream_error_payload(json: &Value) -> Option<(u16, String)> {
+    let error = json.get("error")?;
+    let (error_type, message) = match error {
+        Value::String(message) => (None, message.clone()),
+        Value::Object(object) => (
+            object.get("type").and_then(Value::as_str),
+            object
+                .get("message")
+                .and_then(Value::as_str)
+                .unwrap_or(constants::common::INTERNAL_SERVER_ERROR)
+                .to_owned(),
+        ),
+        _ => (None, constants::common::INTERNAL_SERVER_ERROR.to_owned()),
+    };
+    let status = match error_type {
+        Some("invalid_request_error") => 400,
+        Some("authentication_error") => 401,
+        Some("permission_error") => 403,
+        Some("rate_limit_error") => 429,
+        _ => 500,
+    };
+    Some((status, message))
+}
+
 /// True when the delta carries non-empty text or reasoning content. Reasoning
 /// arrives under one of several provider-specific keys.
 fn delta_has_text(delta: &Value) -> bool {

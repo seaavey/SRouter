@@ -7,7 +7,7 @@ use axum::{
     body::{Body, to_bytes},
     http::{Request, StatusCode, Version, header},
 };
-use futures_util::future::BoxFuture;
+use futures_util::{StreamExt, future::BoxFuture};
 use srouter_server::app::create_router;
 use srouter_server::features::api_keys::{
     APIKey, APIKeyRepository, CreateAPIKeyInput, CreatedAPIKey, UpdateAPIKeyInput,
@@ -1373,4 +1373,88 @@ async fn an_upstream_failure_releases_the_reservation() {
     assert_eq!(record.reservations, vec![("key-1".to_owned(), 4096)]);
     assert_eq!(record.settlements, vec![("key-1".to_owned(), 4096, 0)]);
     assert!(record.increments.is_empty());
+}
+
+// Client-cancellation billing (server/TODO.md §6). The Node oracle is
+// `apps/api/tests/api-keys-usage-deduction.test.ts`
+// ("does not bill a stream that errors after partial output without usage"):
+// a failure after partial output bills nothing; a completed stream settles to
+// the usage it reported. A disconnect bills exactly the usage observed before
+// the gateway cancelled the upstream (Node itself drains instead — probe16).
+
+#[tokio::test]
+async fn a_mid_stream_failure_after_partial_output_bills_nothing() {
+    let (_upstream, repository, app) = keyed_app(true).await;
+    let body = serde_json::json!({
+        "model": "opencode_zen/space-bunny-error",
+        "messages": [ { "role": "user", "content": "Hello" } ],
+        "stream": true
+    });
+
+    let response = app.oneshot(keyed_chat_request(body)).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+
+    // The client sees the partial output and then the in-stream failure
+    // payload — the failure is never swallowed behind a normal `[DONE]`.
+    let text = text_body(response).await;
+    assert!(text.contains("partial output"), "text: {text}");
+    assert!(text.contains("\"type\":\"api_error\""), "text: {text}");
+    assert!(!text.contains("[DONE]"), "text: {text}");
+
+    let record = repository.record();
+    assert_eq!(record.reservations, vec![("key-1".to_owned(), 4096)]);
+    // Released in full: zero usage billed, zero increments (Node parity).
+    assert_eq!(record.settlements, vec![("key-1".to_owned(), 4096, 0)]);
+    assert!(
+        record.increments.is_empty(),
+        "a failed stream must not bill usage: {:?}",
+        record.increments
+    );
+}
+
+#[tokio::test]
+async fn a_client_disconnect_bills_only_the_observed_usage() {
+    let (_upstream, repository, app) = keyed_app(true).await;
+    let body = serde_json::json!({
+        "model": "opencode_zen/space-bunny-hang",
+        "messages": [ { "role": "user", "content": "Hello" } ],
+        "stream": true
+    });
+
+    let response = app.oneshot(keyed_chat_request(body)).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+
+    // The first chunk carries usage {11 prompt, 3 completion}; read it, then
+    // disconnect by dropping the response body mid-stall.
+    let mut frames = response.into_body().into_data_stream();
+    let first = frames
+        .next()
+        .await
+        .expect("first body frame")
+        .expect("first body frame ok");
+    let first = String::from_utf8(first.to_vec()).expect("utf-8 frame");
+    assert!(first.contains("first chunk"), "frame: {first}");
+    drop(frames);
+
+    // The gateway settles the reservation to the usage it observed before the
+    // disconnect — not to the upstream response it never waited for, and not
+    // a full release: cancellation bills partial output.
+    let settled = tokio::time::timeout(std::time::Duration::from_secs(10), async {
+        loop {
+            if repository.record().settlements == vec![("key-1".to_owned(), 4096, 14)] {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        }
+    })
+    .await;
+    assert!(
+        settled.is_ok(),
+        "reservation never settled after the disconnect: {:?}",
+        repository.record().settlements
+    );
+    let record = repository.record();
+    assert_eq!(record.reservations, vec![("key-1".to_owned(), 4096)]);
+    assert_eq!(record.settlements, vec![("key-1".to_owned(), 4096, 14)]);
+    assert_eq!(record.increments, vec![("key-1".to_owned(), 0, 0.0)]);
 }

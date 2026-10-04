@@ -16,7 +16,7 @@ use crate::features::api_keys::{APIPrincipal, ensure_model_allowed_any};
 use crate::features::gateway::interception::{
     MAX_INTERCEPT_DEPTH, StreamTurn, assembled_to_tool_call, assistant_tool_message,
     attach_search_results, body_error_to_api_error, log_request, observe_usage, read_json_body,
-    run_buffered_interception, stream_log_status, unresolved_provider_id,
+    run_buffered_interception, stream_error_payload, stream_log_status, unresolved_provider_id,
 };
 use crate::features::gateway::interceptor::should_intercept_tool_call;
 use crate::features::gateway::model::{
@@ -202,8 +202,37 @@ async fn run_streaming_interception_loop(
         let mut line_buffer = String::new();
         let mut turn = StreamTurn::default();
         let mut streamed_directly = false;
+        let mut stream_failure: Option<(u16, String)> = None;
+        let mut failure_payload: Option<Value> = None;
 
-        while let Some(bytes) = stream.next().await {
+        // The client disconnect races the upstream read: once the response
+        // body is dropped, `tx.closed()` wins the select, this function
+        // returns, and dropping `stream` cancels the in-flight upstream
+        // request instead of draining it the way Node does. Billing records
+        // only the usage observed before the disconnect (partial output).
+        'read: loop {
+            let bytes = tokio::select! {
+                biased;
+                _ = tx.closed() => {
+                    log_request(
+                        &state,
+                        &context,
+                        resolved.adapter.id(),
+                        &chat_request.model,
+                        Some(&resolved.model),
+                        200,
+                        &stream_usage,
+                        None,
+                    )
+                    .await;
+                    return;
+                }
+                next = stream.next() => match next {
+                    Some(bytes) => bytes,
+                    None => break 'read,
+                },
+            };
+
             if streamed_directly {
                 if let Ok(text) = std::str::from_utf8(&bytes) {
                     line_buffer.push_str(text);
@@ -214,6 +243,9 @@ async fn run_streaming_interception_loop(
                             && let Ok(json) = serde_json::from_str::<Value>(data.trim())
                         {
                             observe_usage(&json, &mut stream_usage);
+                            if let Some(failure) = stream_error_payload(&json) {
+                                stream_failure = Some(failure);
+                            }
                         }
                     }
                 }
@@ -230,6 +262,11 @@ async fn run_streaming_interception_loop(
                     )
                     .await;
                     return;
+                }
+                // The failure payload itself is forwarded verbatim above; stop
+                // reading so nothing after the failure reaches the client.
+                if stream_failure.is_some() {
+                    break 'read;
                 }
                 continue;
             }
@@ -256,6 +293,12 @@ async fn run_streaming_interception_loop(
                     };
                     observe_usage(&json, &mut stream_usage);
 
+                    if let Some(failure) = stream_error_payload(&json) {
+                        stream_failure = Some(failure);
+                        failure_payload = Some(json.clone());
+                        break 'read;
+                    }
+
                     if turn.observe_delta(&json) {
                         streamed_directly = true;
                         for buffered in buffered_bytes.drain(..) {
@@ -277,6 +320,36 @@ async fn run_streaming_interception_loop(
                     }
                 }
             }
+        }
+
+        // A stream that fails after partial output bills nothing (Node's
+        // `does not bill a stream that errors after partial output`): the log
+        // row carries the failure status with zero usage, and `log_request`
+        // releases any reservation instead of settling it.
+        if let Some((status, message)) = stream_failure.take() {
+            if !streamed_directly
+                && let Some(json) = failure_payload.take()
+                && let Ok(payload) = serde_json::to_string(&json)
+            {
+                // Nothing was client-visible yet, so — like Node, where the
+                // generator never yielded — only the failure payload is sent
+                // and the buffered output is discarded.
+                let _ = tx
+                    .send(Ok(Bytes::from(format!("data: {payload}\n\n"))))
+                    .await;
+            }
+            log_request(
+                &state,
+                &context,
+                resolved.adapter.id(),
+                &chat_request.model,
+                Some(&resolved.model),
+                status,
+                &UsageBreakdown::default(),
+                Some(&message),
+            )
+            .await;
+            return;
         }
 
         if streamed_directly {

@@ -424,9 +424,29 @@ codebuddy-cn, qoder`) → validated token import, `201`.
       Covered by 25 pure-function tests in the module's `tests` block frozen against probes
       `probe3`–`probe15`, plus `server/tests/messages.rs` (13 integration tests), and
       `apps/api/tests/opencode-compat.test.ts` passes as the black-box oracle (1/1).
-- [ ] Client-cancellation semantics: disconnect cancels the upstream request, no full-response
+- [x] Client-cancellation semantics: disconnect cancels the upstream request, no full-response
       buffering, and partial-output billing rules
       (`apps/api/tests/` streaming cases, `docs/api-v1-contract.md` "Streaming").
+      Both stream loops (`chat.rs`, `messages.rs`) now race `tx.closed()` against
+      `stream.next()`: when the client drops the response body the task returns at once and
+      dropping the upstream stream cancels the in-flight request (Node, probed as probe16,
+      instead keeps draining the generator after a disconnect — a deliberate Rust deviation
+      required by the migration plan's "verify client disconnect cancels the upstream request").
+      No full-response buffering was already true and is now pinned: forwarded chunks arrive
+      while the fake upstream is still inside a 600-second stall.
+      Partial-output billing rules: (1) an in-stream failure after partial output bills
+      nothing — the log row carries the failure status with zero usage and any reservation is
+      released (`stream_error_payload` decodes `{"error":...}` frames; messages surfaces them
+      as an `event: error`, chat forwards the envelope verbatim, neither emits `message_stop`
+      or `[DONE]` after a failure), mirroring Node's
+      `api-keys-usage-deduction.test.ts` "does not bill a stream that errors after partial
+      output without usage"; (2) a disconnect settles the reservation to the usage observed
+      before the cancel (partial output), never to the response it never waited for.
+      Covered by `server/tests/client_cancellation.rs` (delivery-before-completion and
+      upstream cancellation via a drop-guarded fake body), two billing tests in
+      `server/tests/chat_completions.rs`, and the `mid_stream_failure_*` case in
+      `server/tests/messages.rs`; Node oracle tests
+      `api-keys-usage-deduction.test.ts` (3/3) and `messages.test.ts` (3/3) pass.
 - [x] `/v1/v1/*` alias covers every gateway path (`/chat/completions`, `/chat/completion`, `/chat`,
       `/messages`, `/messages/count_tokens`, `/images/generations`, `/models`, `/models/{model}`)
       and stays absent for provider/auth/keys/logs/settings routes. Covered by `server/tests/csrf.rs`,

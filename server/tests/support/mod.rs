@@ -96,6 +96,13 @@ pub struct FakeUpstreamState {
     pub last_chat_body: serde_json::Value,
     pub image_requests: usize,
     pub last_image_body: serde_json::Value,
+    /// Chunks the `space-bunny-hang` response body has produced so far.
+    pub stream_chunks_sent: usize,
+    /// Set when a response body is dropped before it finished: the gateway
+    /// cancelled the upstream (client disconnect), it did not drain it.
+    pub stream_cancelled: bool,
+    /// Set when a response body runs to its natural end.
+    pub stream_finished: bool,
 }
 
 type SharedFakeUpstreamState = Arc<StdMutex<FakeUpstreamState>>;
@@ -168,6 +175,37 @@ impl FakeUpstream {
 impl Drop for FakeUpstream {
     fn drop(&mut self) {
         self.task.abort();
+    }
+}
+
+/// Wraps a streaming response body so a test can see whether the gateway
+/// dropped the body while it was still open (client-disconnect cancellation)
+/// or only after the body had finished naturally. The inner stream is boxed
+/// because `unfold` streams are not `Unpin`.
+struct GuardedStream {
+    inner: std::pin::Pin<
+        Box<dyn futures_util::Stream<Item = Result<Vec<u8>, std::convert::Infallible>> + Send>,
+    >,
+    state: SharedFakeUpstreamState,
+}
+
+impl futures_util::Stream for GuardedStream {
+    type Item = Result<Vec<u8>, std::convert::Infallible>;
+
+    fn poll_next(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Option<Self::Item>> {
+        self.inner.as_mut().poll_next(cx)
+    }
+}
+
+impl Drop for GuardedStream {
+    fn drop(&mut self) {
+        let mut guard = self.state.lock().expect("fake upstream state");
+        if !guard.stream_finished {
+            guard.stream_cancelled = true;
+        }
     }
 }
 
@@ -1660,6 +1698,116 @@ async fn fake_chat_completion(
                 .header(header::CONTENT_TYPE, "text/event-stream")
                 .body(Body::from_stream(stream))
                 .expect("fragmented fake SSE response");
+        }
+
+        // Emits one chunk (carrying usage) and then stalls for ten minutes:
+        // the gateway must forward that chunk to the client immediately (no
+        // full-response buffering) and, on client disconnect, drop this body
+        // instead of sitting out the stall (upstream cancellation).
+        if model == "space-bunny-hang" {
+            let stream_state = state.clone();
+            let stream = futures_util::stream::unfold(0u8, move |step| {
+                let stream_state = stream_state.clone();
+                async move {
+                    match step {
+                        0 => {
+                            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+                            stream_state
+                                .lock()
+                                .expect("fake upstream state")
+                                .stream_chunks_sent += 1;
+                            let chunk = concat!(
+                                "data: {\"id\":\"chatcmpl-hang\",\"object\":\"chat.completion.chunk\",",
+                                "\"created\":1,\"model\":\"space-bunny-hang\",\"choices\":",
+                                "[{\"index\":0,\"delta\":{\"content\":\"first chunk\"},",
+                                "\"finish_reason\":null}],",
+                                "\"usage\":{\"prompt_tokens\":11,\"completion_tokens\":3,",
+                                "\"total_tokens\":14}}\n\n"
+                            );
+                            Some((
+                                Ok::<_, std::convert::Infallible>(chunk.as_bytes().to_vec()),
+                                1u8,
+                            ))
+                        }
+                        1 => {
+                            // Long enough that a gateway which never cancels
+                            // would hold the request open for the whole test.
+                            tokio::time::sleep(std::time::Duration::from_secs(600)).await;
+                            stream_state
+                                .lock()
+                                .expect("fake upstream state")
+                                .stream_chunks_sent += 1;
+                            let chunk = concat!(
+                                "data: {\"id\":\"chatcmpl-hang\",\"object\":\"chat.completion.chunk\",",
+                                "\"created\":1,\"model\":\"space-bunny-hang\",\"choices\":",
+                                "[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}\n\n",
+                                "data: [DONE]\n\n"
+                            );
+                            Some((Ok(chunk.as_bytes().to_vec()), 2u8))
+                        }
+                        _ => {
+                            stream_state
+                                .lock()
+                                .expect("fake upstream state")
+                                .stream_finished = true;
+                            None
+                        }
+                    }
+                }
+            });
+
+            return Response::builder()
+                .status(StatusCode::OK)
+                .header(header::CONTENT_TYPE, "text/event-stream")
+                .body(Body::from_stream(GuardedStream {
+                    inner: Box::pin(stream),
+                    state: state.clone(),
+                }))
+                .expect("hanging fake SSE response");
+        }
+
+        // Emits one chunk and then breaks the connection mid-body:
+        // `encode_stream` turns the read failure into an in-stream
+        // `data: {"error": ...}` payload the gateway must surface and bill
+        // as a failure (zero usage), the way Node's stream handlers do.
+        if model == "space-bunny-error" {
+            let stream_state = state.clone();
+            let stream = futures_util::stream::unfold(0u8, move |step| {
+                let stream_state = stream_state.clone();
+                async move {
+                    match step {
+                        0 => {
+                            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+                            stream_state
+                                .lock()
+                                .expect("fake upstream state")
+                                .stream_chunks_sent += 1;
+                            let chunk = concat!(
+                                "data: {\"id\":\"chatcmpl-error\",",
+                                "\"object\":\"chat.completion.chunk\",\"created\":1,",
+                                "\"model\":\"space-bunny-error\",\"choices\":",
+                                "[{\"index\":0,\"delta\":{\"content\":\"partial output\"},",
+                                "\"finish_reason\":null}]}\n\n"
+                            );
+                            Some((Ok::<_, std::io::Error>(chunk.as_bytes().to_vec()), 1u8))
+                        }
+                        1 => {
+                            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+                            Some((
+                                Err(std::io::Error::other("injected mid-stream failure")),
+                                2u8,
+                            ))
+                        }
+                        _ => None,
+                    }
+                }
+            });
+
+            return Response::builder()
+                .status(StatusCode::OK)
+                .header(header::CONTENT_TYPE, "text/event-stream")
+                .body(Body::from_stream(stream))
+                .expect("breaking fake SSE response");
         }
 
         if model.contains("search") {

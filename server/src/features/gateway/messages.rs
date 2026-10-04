@@ -21,7 +21,7 @@ use crate::features::api_keys::{APIPrincipal, ensure_model_allowed_any};
 use crate::features::gateway::interception::{
     BodyError, MAX_INTERCEPT_DEPTH, StreamTurn, assembled_to_tool_call, assistant_tool_message,
     attach_search_results, log_request, log_stream_success, observe_usage, read_json_body,
-    run_buffered_interception, stream_log_status, unresolved_provider_id,
+    run_buffered_interception, stream_error_payload, stream_log_status, unresolved_provider_id,
 };
 use crate::features::gateway::interceptor::should_intercept_tool_call;
 use crate::features::gateway::model::{ChatCompletionRequest, ToolCall};
@@ -259,8 +259,33 @@ async fn run_anthropic_streaming_interception_loop(
         let mut line_buffer = String::new();
         let mut turn = StreamTurn::default();
         let mut streamed_directly = false;
+        let mut stream_failure: Option<(u16, String)> = None;
 
-        while let Some(bytes) = stream.next().await {
+        // The client disconnect races the upstream read: once the response
+        // body is dropped, `tx.closed()` wins the select, this function
+        // returns, and dropping `stream` cancels the in-flight upstream
+        // request instead of draining it the way Node does. Billing records
+        // only the usage observed before the disconnect (partial output).
+        'read: loop {
+            let bytes = tokio::select! {
+                biased;
+                _ = tx.closed() => {
+                    log_stream_success(
+                        &state,
+                        &context,
+                        &resolved,
+                        &chat_request.model,
+                        &stream_usage,
+                    )
+                    .await;
+                    return;
+                }
+                next = stream.next() => match next {
+                    Some(bytes) => bytes,
+                    None => break 'read,
+                },
+            };
+
             let Ok(text) = std::str::from_utf8(&bytes) else {
                 continue;
             };
@@ -281,6 +306,21 @@ async fn run_anthropic_streaming_interception_loop(
                     continue;
                 };
                 observe_usage(&json, &mut stream_usage);
+
+                // An in-stream failure becomes an Anthropic `error` event,
+                // after whatever partial output was already streamed (Node's
+                // controller writes the error event and closes the stream);
+                // the frame itself never reaches the translator.
+                if let Some((status, message)) = stream_error_payload(&json) {
+                    let _ = tx
+                        .send(Ok(anthropic_error_event_bytes(
+                            anthropic_error_type(status),
+                            &message,
+                        )))
+                        .await;
+                    stream_failure = Some((status, message));
+                    break 'read;
+                }
 
                 if streamed_directly {
                     for event in translator.feed_chunk(&json) {
@@ -320,6 +360,26 @@ async fn run_anthropic_streaming_interception_loop(
                     }
                 }
             }
+        }
+
+        // A stream that fails after partial output bills nothing (Node's
+        // `does not bill a stream that errors after partial output`): the log
+        // row carries the failure status with zero usage, and `log_request`
+        // releases any reservation instead of settling it. No `message_stop`
+        // follows the error event — Node closes right after it.
+        if let Some((status, message)) = stream_failure.take() {
+            log_request(
+                &state,
+                &context,
+                resolved.adapter.id(),
+                &chat_request.model,
+                Some(&resolved.model),
+                status,
+                &UsageBreakdown::default(),
+                Some(&message),
+            )
+            .await;
+            return;
         }
 
         if streamed_directly {
