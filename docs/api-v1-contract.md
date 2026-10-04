@@ -139,11 +139,13 @@ The settings routes deviate from the route rows above by owner decision; the row
 
 ## Compatibility aliases and retired routes
 
-The main listener mounts these compatibility paths under `/v1/v1`: `/chat/completions`, `/chat/completion`, `/messages`, `/models`, and `/models/:model`. They use the same route handlers and feature middleware as their `/v1` counterparts. The OAuth listener exposes only its `/v1` mounts, not `/v1/v1`.
+The main listener mounts these compatibility paths under `/v1/v1`: `/chat/completions`, `/chat/completion`, `/chat`, `/messages`, `/messages/count_tokens`, `/images/generations`, `/models`, and `/models/:model`. They use the same route handlers and feature middleware as their `/v1` counterparts. The OAuth listener exposes only its `/v1` mounts, not `/v1/v1`.
 
 `opencode-compat.test.ts` also assembles the route modules at `/` in a test-only Hono app. The production `index.ts` mounts them at `/v1` and `/v1/v1`; the test's root mounts do not add production root-level chat or model routes.
 
 Rust intentionally has no `/v1/tunnel/*` routes. The legacy-only routes are `GET /v1/tunnel/status`, `GET /v1/tunnel/events`, `GET /v1/tunnel/install`, `POST /v1/tunnel/start`, `POST /v1/tunnel/stop`, `POST /v1/tunnel/install`, and `PUT /v1/tunnel/config`. They require an admin session in the Node API. `tunnel-auth.test.ts` is not a Rust parity requirement.
+
+Rust intentionally has no `/v1/settings/fallbacks` routes (owner ruling 2026-10-04). The legacy-only routes are `GET /v1/settings/fallbacks`, `POST /v1/settings/fallbacks`, `PUT|PATCH /v1/settings/fallbacks/:id`, and `DELETE /v1/settings/fallbacks/:id`. Gateway handlers execute model requests directly without fallback retry cascades, keeping `fallback_occurred = false`. `fallbacks-*.test.ts` and `fallback-policy.test.ts` are not Rust parity requirements.
 
 ## Shared HTTP behavior
 

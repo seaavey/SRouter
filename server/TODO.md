@@ -397,19 +397,21 @@ codebuddy-cn, qoder`) → validated token import, `201`.
       accounting in `request_logs`, and API key usage increment.
       Legacy evidence: `apps/api/tests/images-route.test.ts`, `images-fallback.test.ts`.
       Covered by `server/tests/images.rs` (11 tests).
-- [ ] Fallback policy: `/v1/settings/fallbacks` CRUD (`GET` API-key, `POST` admin `201`, `PUT/PATCH`
-      admin, `DELETE` admin `404`) **and** its execution in the gateway
-      (`apps/api/src/logic/fallbackRunner.ts`, `fallback.policy.ts`, `fallbacks-cascade.test.ts`).
-      Rust structs already carry `fallback_occurred` / `fallback_path` / `fallback_reason` fields but
-      they are hard-coded `false`/`None` (`features/gateway/chat.rs:120`, `messages.rs:158`).
+- [x] Owner ruling 2026-10-04: Fallback policy (`/v1/settings/fallbacks` CRUD and gateway cascade
+      execution) is deliberately dropped and excluded from the Rust build. Gateway handlers
+      (`chat.rs`, `messages.rs`, `images.rs`) keep `fallback_occurred = false`, `fallback_path = None`,
+      and `fallback_reason = None` without multi-model retry loops. The `fallback_rules` DB table
+      is preserved across migrations for data safety without active routes.
 - [ ] Protocol translation module (`features/gateway/translation.rs` in the plan): OpenAI ⇄ Anthropic
       request/response mapping, tool calls, usage extraction, malformed payload handling;
       pure-function tests plus `apps/api/tests/opencode-compat.test.ts` as the black-box oracle.
 - [ ] Client-cancellation semantics: disconnect cancels the upstream request, no full-response
       buffering, and partial-output billing rules
       (`apps/api/tests/` streaming cases, `docs/api-v1-contract.md` "Streaming").
-- [ ] `/v1/v1/*` alias must cover every gateway path once images/fallbacks land, and must stay
-      absent for provider/auth/keys/logs/settings routes.
+- [x] `/v1/v1/*` alias covers every gateway path (`/chat/completions`, `/chat/completion`, `/chat`,
+      `/messages`, `/messages/count_tokens`, `/images/generations`, `/models`, `/models/{model}`)
+      and stays absent for provider/auth/keys/logs/settings routes. Covered by `server/tests/csrf.rs`,
+      `images.rs`, `models.rs`, and `providers.rs`.
 - [x] Token Saver: always-on compression of noisy tool output (ANSI, whitespace, diff metadata,
       repeated log lines) plus one fixed terse-output directive, applied once per top-level
       chat/messages request before model resolution. No settings row, no toggle, no threshold;
