@@ -402,9 +402,28 @@ codebuddy-cn, qoder`) → validated token import, `201`.
       (`chat.rs`, `messages.rs`, `images.rs`) keep `fallback_occurred = false`, `fallback_path = None`,
       and `fallback_reason = None` without multi-model retry loops. The `fallback_rules` DB table
       is preserved across migrations for data safety without active routes.
-- [ ] Protocol translation module (`features/gateway/translation.rs` in the plan): OpenAI ⇄ Anthropic
-      request/response mapping, tool calls, usage extraction, malformed payload handling;
-      pure-function tests plus `apps/api/tests/opencode-compat.test.ts` as the black-box oracle.
+- [x] Protocol translation module (`features/gateway/translation.rs` in the plan, landed as
+      `server/src/features/gateway/translation.rs`): OpenAI ⇄ Anthropic request/response mapping,
+      tool calls, usage extraction, malformed payload handling.
+      Request: system (string or blocks, joined with `\n\n`, `cache_control` dropped), string
+      content keeps `role`, block content folds non-assistant into `user`/`tool`, assistant blocks
+      collapse to one `\n`-joined string (`null` when only tool calls), `tool_choice`
+      `auto`→`auto`/`any`→`required`/`tool`→`{"type":"function","function":{...}}` (nameless
+      dropped), `thinking` `enabled|adaptive`→`reasoning:{effort:"high"}` / `disabled`→
+      `reasoning_effort:"none"` (`budget_tokens` never forwarded), OpenAI-only fields (`top_k`,
+      `metadata`, `n`, `user`, penalties, `stream_options`, `response_format`) dropped (probed
+      key set). Response: `content` array collapses to one `\n`-joined text block, `finish_reason`
+      `tool_calls|function_call`→`tool_use` / `length`→`max_tokens` / everything else (`stop`,
+      `stop_sequence`, `content_filter`, null)→`end_turn`, usage = exactly `input_tokens` +
+      `output_tokens`, `msg_` id (prefix stripped, uuid fallback). Stream: `message_start` reads
+      `prompt_tokens` before emitting, `output_tokens` counts deltas (never `completion_tokens`),
+      empty stream emits only `message_delta`+`message_stop` (no backfill). Validation:
+      `validate_anthropic_request` reproduces the probed Zod messages — union failures
+      (content/system/tool_result blocks) collapse to `Invalid input`, scalars keep their
+      `Expected ..., received ...` / enum texts, `Required`, `Missing required field '...'`.
+      Covered by 25 pure-function tests in the module's `tests` block frozen against probes
+      `probe3`–`probe15`, plus `server/tests/messages.rs` (13 integration tests), and
+      `apps/api/tests/opencode-compat.test.ts` passes as the black-box oracle (1/1).
 - [ ] Client-cancellation semantics: disconnect cancels the upstream request, no full-response
       buffering, and partial-output billing rules
       (`apps/api/tests/` streaming cases, `docs/api-v1-contract.md` "Streaming").

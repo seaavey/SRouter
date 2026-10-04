@@ -18,11 +18,6 @@ use serde_json::Value;
 
 use crate::constants;
 use crate::features::api_keys::{APIPrincipal, ensure_model_allowed_any};
-use crate::features::gateway::anthropic::{
-    AnthropicMessageRequest, AnthropicStreamTranslator, AnthropicThinking, anthropic_error,
-    anthropic_error_event_bytes, anthropic_to_openai_request, estimate_tokens,
-    openai_to_anthropic_response,
-};
 use crate::features::gateway::interception::{
     BodyError, MAX_INTERCEPT_DEPTH, StreamTurn, assembled_to_tool_call, assistant_tool_message,
     attach_search_results, log_request, log_stream_success, observe_usage, read_json_body,
@@ -31,6 +26,12 @@ use crate::features::gateway::interception::{
 use crate::features::gateway::interceptor::should_intercept_tool_call;
 use crate::features::gateway::model::{ChatCompletionRequest, ToolCall};
 use crate::features::gateway::token_saver::apply_to_request;
+use crate::features::gateway::translation::{
+    AnthropicMessageRequest, AnthropicStreamTranslator, AnthropicThinking, anthropic_error,
+    anthropic_error_event_bytes, anthropic_error_type, anthropic_error_typed,
+    anthropic_to_openai_request, estimate_tokens, openai_to_anthropic_response,
+    validate_anthropic_request,
+};
 use crate::features::gateway::usage::UsageBreakdown;
 use crate::features::gateway::{ReceiverStream, RequestLogContext};
 use crate::state::AppState;
@@ -47,26 +48,10 @@ pub async fn create_message(
         Err(error) => return error.into_response(),
     };
 
-    let body = match read_json_body(request).await {
-        Ok(body) => body,
-        Err(error) => return anthropic_body_error(error),
+    let anthropic_req = match read_anthropic_request(request).await {
+        Ok(request) => request,
+        Err(response) => return *response,
     };
-
-    if body.get("model").is_none() {
-        return anthropic_error(400, constants::gateway::MODEL_REQUIRED);
-    }
-    if body.get("messages").is_none() {
-        return anthropic_error(400, constants::gateway::MESSAGES_REQUIRED);
-    }
-
-    let anthropic_req: AnthropicMessageRequest = match serde_json::from_value(body) {
-        Ok(req) => req,
-        Err(err) => return anthropic_error(400, constants::gateway::invalid_request_body(&err)),
-    };
-
-    if anthropic_req.messages.is_empty() {
-        return anthropic_error(400, constants::gateway::MESSAGES_EMPTY);
-    }
 
     // Enforce model allowlist for this API key, against every name the requested
     // model answers to.
@@ -78,9 +63,11 @@ pub async fn create_message(
         return anthropic_error(403, err.message());
     }
 
+    // Node counts anything that is not `disabled` as enabled, so `adaptive`
+    // opens the thinking stream too.
     let is_thinking_enabled = match &anthropic_req.thinking {
         Some(AnthropicThinking::Disabled) => false,
-        Some(AnthropicThinking::Enabled { .. }) => true,
+        Some(AnthropicThinking::Enabled { .. } | AnthropicThinking::Adaptive { .. }) => true,
         None => false,
     };
 
@@ -127,21 +114,9 @@ pub async fn count_tokens(
     principal: Option<Extension<APIPrincipal>>,
     request: Request,
 ) -> Response {
-    let body = match read_json_body(request).await {
-        Ok(body) => body,
-        Err(error) => return anthropic_body_error(error),
-    };
-
-    if body.get("model").is_none() {
-        return anthropic_error(400, constants::gateway::MODEL_REQUIRED);
-    }
-    if body.get("messages").is_none() {
-        return anthropic_error(400, constants::gateway::MESSAGES_REQUIRED);
-    }
-
-    let anthropic_req: AnthropicMessageRequest = match serde_json::from_value(body) {
-        Ok(req) => req,
-        Err(err) => return anthropic_error(400, constants::gateway::invalid_request_body(&err)),
+    let anthropic_req = match read_anthropic_request(request).await {
+        Ok(request) => request,
+        Err(response) => return *response,
     };
 
     let api_key = principal.as_ref().and_then(|ext| ext.0.api_key.as_ref());
@@ -163,13 +138,53 @@ pub async fn count_tokens(
         .into_response()
 }
 
+/// Reads and validates a messages-route body, mapping every failure onto the
+/// Anthropic envelope: Node's `MessagesController` parse step (any parse
+/// failure, `null`, or a scalar becomes `Invalid JSON request body`), then
+/// its schema step, then deserialization. The error is boxed because
+/// `axum::response::Response` is 128 bytes (clippy `result_large_err`).
+async fn read_anthropic_request(
+    request: Request,
+) -> Result<AnthropicMessageRequest, Box<Response>> {
+    let body = read_json_body(request)
+        .await
+        .map_err(|error| Box::new(anthropic_body_error(error)))?;
+    match &body {
+        Value::Object(_) => {}
+        Value::Array(_) => {
+            return Err(Box::new(anthropic_error(
+                400,
+                constants::gateway::anthropic::expected("object", "array"),
+            )));
+        }
+        _ => {
+            return Err(Box::new(anthropic_error(
+                400,
+                constants::gateway::anthropic::INVALID_JSON_BODY,
+            )));
+        }
+    }
+    validate_anthropic_request(&body).map_err(|message| Box::new(anthropic_error(400, message)))?;
+    serde_json::from_value(body).map_err(|error| {
+        Box::new(anthropic_error(
+            400,
+            constants::gateway::invalid_request_body(&error),
+        ))
+    })
+}
+
 /// Maps a body failure onto the Anthropic error envelope; the chat routes map
-/// the same failure onto the OpenAI envelope instead.
+/// the same failure onto the OpenAI envelope instead. Empty and malformed
+/// bodies share Node's text, and the `413` pins `invalid_request_error` the
+/// way `MessagesController` passes it by hand.
 fn anthropic_body_error(error: BodyError) -> Response {
     match error {
-        BodyError::TooLarge => anthropic_error(413, constants::json::TOO_LARGE),
-        BodyError::Empty => anthropic_error(400, constants::json::EMPTY_BODY),
-        BodyError::Malformed => anthropic_error(400, constants::json::MALFORMED_VERIFY),
+        BodyError::TooLarge => {
+            anthropic_error_typed(413, "invalid_request_error", constants::json::TOO_LARGE)
+        }
+        BodyError::Empty | BodyError::Malformed => {
+            anthropic_error(400, constants::gateway::anthropic::INVALID_JSON_BODY)
+        }
     }
 }
 
@@ -190,7 +205,10 @@ async fn run_anthropic_streaming_interception_loop(
             None => {
                 let message = constants::gateway::model_not_registered(&original_model);
                 let _ = tx
-                    .send(Ok(anthropic_error_event_bytes("not_found_error", &message)))
+                    .send(Ok(anthropic_error_event_bytes(
+                        anthropic_error_type(404),
+                        &message,
+                    )))
                     .await;
                 let provider_id = unresolved_provider_id(&chat_request.model).to_owned();
                 log_request(
@@ -217,7 +235,7 @@ async fn run_anthropic_streaming_interception_loop(
             Err(error) => {
                 let _ = tx
                     .send(Ok(anthropic_error_event_bytes(
-                        "api_error",
+                        anthropic_error_type(error.status()),
                         error.message(),
                     )))
                     .await;
@@ -247,7 +265,6 @@ async fn run_anthropic_streaming_interception_loop(
                 continue;
             };
             line_buffer.push_str(text);
-
             while let Some(pos) = line_buffer.find('\n') {
                 let line = line_buffer[..pos].trim_end_matches('\r').to_owned();
                 line_buffer.drain(..=pos);

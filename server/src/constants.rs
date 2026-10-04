@@ -297,6 +297,38 @@ pub mod gateway {
             format!("Number must be less than or equal to {max}")
         }
     }
+
+    /// Rejection copy for the Anthropic messages route. Every string is
+    /// frozen against the Node `AnthropicMessageRequestSchema` failures,
+    /// probed black-box through `apps/api` (`MessagesController`), because
+    /// the schema itself lives in `packages/*` and cannot be read.
+    pub mod anthropic {
+        /// The body failed to parse, or parsed to null/a scalar rather than
+        /// an object (`MessagesController` rejects both with this text).
+        pub const INVALID_JSON_BODY: &str = "Invalid JSON request body";
+        pub const MODEL_FIELD: &str = "Missing required field 'model'";
+        pub const MESSAGES_FIELD: &str = "Missing required field 'messages'";
+        /// A required key reported by the schema.
+        pub const REQUIRED: &str = "Required";
+        /// A union member (content block, system entry, tool_result content)
+        /// failed to match any variant.
+        pub const INVALID_INPUT: &str = "Invalid input";
+        pub const NUMBER_GREATER_THAN_ZERO: &str = "Number must be greater than 0";
+        pub const NUMBER_AT_LEAST_ZERO: &str = "Number must be greater than or equal to 0";
+        pub const NUMBER_AT_MOST_ONE: &str = "Number must be less than or equal to 1";
+        pub const TOOLS_MAX_128: &str = "Array must contain at most 128 element(s)";
+        pub const ROLE_ENUM: &str = "'user' | 'assistant' | 'system'";
+        pub const TOOL_CHOICE_ENUM: &str = "'auto' | 'any' | 'tool'";
+        pub const THINKING_ENUM: &str = "'enabled' | 'disabled' | 'adaptive'";
+
+        pub fn expected(expected: &str, received: &str) -> String {
+            format!("Expected {expected}, received {received}")
+        }
+
+        pub fn enum_value(expected: &str, received: &str) -> String {
+            format!("Invalid enum value. Expected {expected}, received {received}")
+        }
+    }
 }
 
 /// Provider registry, connections, and upstream adapters.

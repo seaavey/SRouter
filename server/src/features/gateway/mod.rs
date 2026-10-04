@@ -12,7 +12,6 @@ use crate::features::api_keys::APIPrincipal;
 use crate::http::middleware::client_address::client_address;
 use crate::infrastructure::database::request_logs::generate_log_id;
 
-pub mod anthropic;
 pub mod chat;
 pub mod images;
 pub mod interception;
@@ -24,6 +23,7 @@ pub mod routes;
 pub mod search;
 pub mod sse;
 pub mod token_saver;
+pub mod translation;
 pub mod usage;
 
 pub use images::{ImageGenerationRequest, create_image};

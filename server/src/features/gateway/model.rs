@@ -252,8 +252,13 @@ pub struct ToolChoiceFunction {
     pub name: String,
 }
 
+/// A named function selector. The `type` discriminator is required: Node's
+/// schema rejects a named selector without it (probed `400 Invalid input`)
+/// and the upstream body always carries `{"type":"function", ...}` (probed).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ToolChoiceNamed {
+    #[serde(rename = "type")]
+    pub kind: ToolKind,
     pub function: ToolChoiceFunction,
 }
 
