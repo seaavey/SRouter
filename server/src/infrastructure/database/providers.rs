@@ -491,6 +491,54 @@ pub struct QoderConnectionWrite {
     pub organization_id: String,
 }
 
+pub struct CodeBuddyConnectionWrite {
+    pub id: String,
+    pub provider_id: String,
+    pub name: String,
+    pub access_token: String,
+    pub refresh_token: Option<String>,
+    pub token_expires_at: Option<i64>,
+    pub base_url: String,
+}
+
+pub async fn upsert_codebuddy_connection(
+    database: &AppDatabase,
+    write: &CodeBuddyConnectionWrite,
+) -> Result<(), APIError> {
+    let pool = write_pool(database)?;
+    let credentials = serde_json::json!({
+        "access_token": write.access_token,
+        "refresh_token": write.refresh_token,
+        "token_expires_at": write.token_expires_at,
+        "last_refreshed_at": now_ms(),
+    });
+
+    sqlx::query(
+        "INSERT INTO providers
+         (id, provider_id, name, category, protocol, enabled, credentials, meta, base_url, created_at)
+         VALUES (?, ?, ?, 'oauth', 'openai', 1, ?, '{}', ?, ?)
+         ON CONFLICT(id) DO UPDATE SET
+           name = excluded.name, credentials = excluded.credentials, base_url = excluded.base_url,
+           enabled = 1",
+    )
+    .bind(&write.id)
+    .bind(&write.provider_id)
+    .bind(&write.name)
+    .bind(credentials.to_string())
+    .bind(&write.base_url)
+    .bind(now_ms())
+    .execute(pool)
+    .await
+    .map_err(|error| {
+        APIError::new(
+            500,
+            constants::database::with_context("store the CodeBuddy connection", error),
+        )
+    })?;
+
+    Ok(())
+}
+
 /// Loads the credentials of the newest Qoder connection. This build writes the
 /// JSON layout; the camelCase spellings are accepted as well so a row written by
 /// the Node build still reads (plan decision D2).

@@ -448,6 +448,12 @@ pub mod providers {
         }
     }
 
+    pub mod codebuddy {
+        pub const MISSING_STATE: &str = "Missing state parameter";
+        pub const SESSION_EXPIRED: &str = "Session expired or not found";
+        pub const EMPTY_TOKEN: &str = "CodeBuddy token response returned no access token";
+    }
+
     /// Messages of the `cline` provider: the WorkOS device flow, the credential
     /// load, and the lazy refresh. Every string a client can see lives here.
     pub mod cline {

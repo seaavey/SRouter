@@ -21,6 +21,7 @@ use axum::{
 use futures_util::future::BoxFuture;
 use srouter_server::features::admin_auth::AdminSessionStore;
 use srouter_server::features::api_keys::{APIKeyRecord, APIKeyStore};
+use srouter_server::features::provider_auth::CodeBuddyAuthEndpoints;
 use srouter_server::features::providers::cline::{self, ClineEndpoints};
 use srouter_server::features::providers::codex::{self, CodexEndpoints};
 use srouter_server::features::providers::grok_web::{self, GrokWebEndpoints};
@@ -375,6 +376,257 @@ impl Drop for FakeQoderUpstream {
     fn drop(&mut self) {
         self.task.abort();
     }
+}
+
+#[derive(Default)]
+struct FakeCodeBuddyState {
+    global_approved: bool,
+    cn_approved: bool,
+    global_state: String,
+    cn_state: String,
+    global_state_requests: usize,
+    cn_state_requests: usize,
+    global_poll_requests: usize,
+    cn_poll_requests: usize,
+    global_platform: String,
+    cn_platform: String,
+    global_state_query: String,
+    cn_state_query: String,
+    cn_ioa: String,
+    cn_origin: String,
+}
+
+type SharedCodeBuddyState = Arc<StdMutex<FakeCodeBuddyState>>;
+
+pub struct FakeCodeBuddyUpstream {
+    base_url: String,
+    state: SharedCodeBuddyState,
+    task: JoinHandle<()>,
+}
+
+impl FakeCodeBuddyUpstream {
+    pub async fn start() -> Self {
+        let state = Arc::new(StdMutex::new(FakeCodeBuddyState {
+            global_state: "fixture-state-global".to_owned(),
+            cn_state: "fixture-state-cn".to_owned(),
+            ..FakeCodeBuddyState::default()
+        }));
+        let router = Router::new()
+            .route("/global/state", post(codebuddy_global_state))
+            .route("/global/token", get(codebuddy_token))
+            .route("/cn/state", post(codebuddy_cn_state))
+            .route("/cn/token", get(codebuddy_token))
+            .with_state(state.clone());
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind the fake CodeBuddy upstream");
+        let address = listener
+            .local_addr()
+            .expect("fake CodeBuddy upstream address");
+        let task = tokio::spawn(async move {
+            let _ = axum::serve(listener, router).await;
+        });
+
+        Self {
+            base_url: format!("http://{address}"),
+            state,
+            task,
+        }
+    }
+
+    pub fn endpoints(&self) -> CodeBuddyAuthEndpoints {
+        CodeBuddyAuthEndpoints {
+            global_state_url: format!("{}/global/state?platform=ide", self.base_url),
+            global_token_url: format!("{}/global/token", self.base_url),
+            cn_state_url: format!("{}/cn/state?platform=CLI&ioa=1", self.base_url),
+            cn_token_url: format!("{}/cn/token", self.base_url),
+            global_origin: "https://www.codebuddy.ai".to_owned(),
+            global_domain: "www.codebuddy.ai".to_owned(),
+            cn_origin: "https://www.codebuddy.cn".to_owned(),
+            cn_domain: "www.codebuddy.cn".to_owned(),
+        }
+    }
+
+    pub fn approve(&self, provider: &str) {
+        let mut state = self.state.lock().expect("fake CodeBuddy state");
+        match provider {
+            "global" => state.global_approved = true,
+            "cn" => state.cn_approved = true,
+            _ => panic!("unknown CodeBuddy fixture provider"),
+        }
+    }
+
+    pub fn state_requests(&self) -> usize {
+        let state = self.state.lock().expect("fake CodeBuddy state");
+        state.global_state_requests + state.cn_state_requests
+    }
+
+    pub fn last_state(&self, provider: &str) -> String {
+        let state = self.state.lock().expect("fake CodeBuddy state");
+        match provider {
+            "global" => state.global_state.clone(),
+            "cn" => state.cn_state.clone(),
+            _ => panic!("unknown CodeBuddy fixture provider"),
+        }
+    }
+
+    pub fn last_platform(&self, provider: &str) -> String {
+        let state = self.state.lock().expect("fake CodeBuddy state");
+        match provider {
+            "global" => state.global_platform.clone(),
+            "cn" => state.cn_platform.clone(),
+            _ => panic!("unknown CodeBuddy fixture provider"),
+        }
+    }
+
+    pub fn last_state_query(&self, provider: &str) -> String {
+        let state = self.state.lock().expect("fake CodeBuddy state");
+        match provider {
+            "global" => state.global_state_query.clone(),
+            "cn" => state.cn_state_query.clone(),
+            _ => panic!("unknown CodeBuddy fixture provider"),
+        }
+    }
+
+    pub fn last_ioa(&self, provider: &str) -> String {
+        let _ = provider;
+        self.state
+            .lock()
+            .expect("fake CodeBuddy state")
+            .cn_ioa
+            .clone()
+    }
+
+    pub fn last_origin(&self, provider: &str) -> String {
+        let _ = provider;
+        self.state
+            .lock()
+            .expect("fake CodeBuddy state")
+            .cn_origin
+            .clone()
+    }
+
+    pub fn authorize_url(&self, provider: &str) -> String {
+        let state = self.state.lock().expect("fake CodeBuddy state");
+        match provider {
+            "global" => format!(
+                "https://www.codebuddy.ai/login?platform={}&state={}",
+                state.global_platform, state.global_state
+            ),
+            "cn" => format!(
+                "https://copilot.tencent.com/login?platform={}&state={}",
+                state.cn_platform, state.cn_state
+            ),
+            _ => panic!("unknown CodeBuddy fixture provider"),
+        }
+    }
+}
+
+impl Drop for FakeCodeBuddyUpstream {
+    fn drop(&mut self) {
+        self.task.abort();
+    }
+}
+
+async fn codebuddy_global_state(
+    State(state): State<SharedCodeBuddyState>,
+    headers: HeaderMap,
+    axum::extract::RawQuery(query): axum::extract::RawQuery,
+    body: Bytes,
+) -> Response {
+    codebuddy_state(state, headers, query.as_deref(), body, false).await
+}
+
+async fn codebuddy_cn_state(
+    State(state): State<SharedCodeBuddyState>,
+    headers: HeaderMap,
+    axum::extract::RawQuery(query): axum::extract::RawQuery,
+    body: Bytes,
+) -> Response {
+    codebuddy_state(state, headers, query.as_deref(), body, true).await
+}
+
+async fn codebuddy_state(
+    state: SharedCodeBuddyState,
+    headers: HeaderMap,
+    raw_query: Option<&str>,
+    body: Bytes,
+    cn: bool,
+) -> Response {
+    assert_eq!(
+        serde_json::from_slice::<serde_json::Value>(&body).unwrap(),
+        serde_json::json!({})
+    );
+    let mut state = state.lock().expect("fake CodeBuddy state");
+    let query: HashMap<String, String> =
+        url::form_urlencoded::parse(raw_query.unwrap_or_default().as_bytes())
+            .into_owned()
+            .collect();
+    if cn {
+        state.cn_state_requests += 1;
+        state.cn_platform = query.get("platform").cloned().unwrap_or_default();
+        state.cn_ioa = query.get("ioa").cloned().unwrap_or_default();
+        state.cn_state_query = raw_query.unwrap_or_default().to_owned();
+        state.cn_origin = header_text(&headers, "origin");
+        Json(serde_json::json!({
+            "code": 0,
+            "data": {"state": state.cn_state, "authUrl": format!(
+                "https://copilot.tencent.com/login?platform={}&state={}",
+                state.cn_platform, state.cn_state
+            )}
+        }))
+        .into_response()
+    } else {
+        state.global_state_requests += 1;
+        state.global_platform = query.get("platform").cloned().unwrap_or_default();
+        state.global_state_query = raw_query.unwrap_or_default().to_owned();
+        Json(serde_json::json!({
+            "code": 0,
+            "data": {"state": state.global_state, "authUrl": format!(
+                "https://www.codebuddy.ai/login?platform={}&state={}",
+                state.global_platform, state.global_state
+            )}
+        }))
+        .into_response()
+    }
+}
+
+async fn codebuddy_token(
+    State(state): State<SharedCodeBuddyState>,
+    axum::extract::RawQuery(query): axum::extract::RawQuery,
+) -> Response {
+    let query: HashMap<String, String> =
+        url::form_urlencoded::parse(query.as_deref().unwrap_or_default().as_bytes())
+            .into_owned()
+            .collect();
+    let state_token = query.get("state").map(String::as_str).unwrap_or_default();
+    let mut state = state.lock().expect("fake CodeBuddy state");
+    let (cn, approved) = if state_token == state.global_state {
+        state.global_poll_requests += 1;
+        (false, state.global_approved)
+    } else {
+        state.cn_poll_requests += 1;
+        (true, state.cn_approved)
+    };
+    if !approved {
+        return Json(serde_json::json!({"code": 11217, "msg": "11217:login ing..."}))
+            .into_response();
+    }
+
+    let (provider_id, token) = if cn {
+        ("codebuddy-cn", "fixture-codebuddy-cn-access")
+    } else {
+        ("codebuddy", "fixture-codebuddy-access")
+    };
+    Json(serde_json::json!({
+        "code": 0,
+        "data": {
+            "accessToken": token,
+            "refreshToken": format!("fixture-{provider_id}-refresh"),
+            "expiresIn": 86400
+        }
+    }))
+    .into_response()
 }
 
 /// State recorded by the Cline and WorkOS fake endpoints.

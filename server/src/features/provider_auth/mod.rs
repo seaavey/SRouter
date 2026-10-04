@@ -2,6 +2,7 @@
 //! JSON-body helpers every device or callback route shares.
 
 mod cline;
+mod codebuddy;
 mod grok_web;
 mod openai;
 mod qoder;
@@ -20,6 +21,10 @@ use crate::constants;
 use crate::error::APIError;
 
 pub use cline::create_cline_login_router;
+pub use codebuddy::{
+    CodeBuddyAuthEndpoints, create_codebuddy_login_router,
+    create_codebuddy_login_router_with_endpoints,
+};
 pub use grok_web::create_grok_web_login_router;
 pub use openai::{
     create_openai_callback_pages_router, create_openai_callback_router, create_openai_login_router,
