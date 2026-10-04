@@ -11,8 +11,8 @@ use srouter_server::features::providers::{OPENCODE_ZEN_MODELS, ProviderRegistry}
 use srouter_server::infrastructure::database::catalog_flags::favorite_model_ids;
 use support::{
     FAKE_QODER_ADVERTISED, FakeClineUpstream, FakeQoderUpstream, api_key_record, connect_cline,
-    connect_qoder, qoder_catalog_body, qoder_registry, security_state, with_loopback_client,
-    with_remote_client,
+    connect_qoder, qoder_catalog_body, qoder_registry, qoder_state, security_state,
+    with_loopback_client, with_remote_client,
 };
 use tower::ServiceExt;
 
@@ -664,4 +664,132 @@ async fn a_qoder_favorite_shows_on_every_name_of_the_model() {
         .await
         .unwrap();
     assert_eq!(json_body(single).await["favorite"], serde_json::json!(true));
+}
+
+/// A revalidation directive starts a fresh fetch without holding the response:
+/// from here on every fake fetch sleeps past the latency budget, so an
+/// implementation that waited would fail the timing assertion, while the
+/// follow-up polls prove the background refresh still landed. `no-cache` and
+/// `no-store` are the two directives the contract names.
+#[tokio::test]
+async fn no_cache_and_no_store_revalidate_the_catalog_without_blocking() {
+    let database = support::TestDatabase::new().unwrap();
+    let app_database = database.connect().await.unwrap();
+    connect_qoder(&database).await;
+    let fake = FakeQoderUpstream::start().await;
+    fake.with(|state| state.model_catalog = qoder_catalog_body());
+    let app = app_with_live_qoder(app_database, &fake);
+
+    let served = catalog_ids(&app).await;
+    assert_eq!(
+        served.len(),
+        OPENCODE_ZEN_MODELS.len() + FAKE_QODER_ADVERTISED.len(),
+        "the first request fills the catalog: {served:?}"
+    );
+    assert_eq!(fake.model_list_requests(), 1);
+    fake.with(|state| state.slow_model_list = true);
+
+    for (position, directive) in ["no-cache", "no-store"].into_iter().enumerate() {
+        let started = std::time::Instant::now();
+        let response = app
+            .clone()
+            .oneshot(with_loopback_client(
+                Request::builder()
+                    .method("GET")
+                    .uri("/v1/models")
+                    .header(header::CACHE_CONTROL, directive)
+                    .body(Body::empty())
+                    .unwrap(),
+            ))
+            .await
+            .unwrap();
+        let elapsed = started.elapsed();
+
+        assert_eq!(response.status(), StatusCode::OK, "{directive}");
+        assert!(
+            elapsed < std::time::Duration::from_millis(150),
+            "a {directive} request waited for the slow fetch: {elapsed:?}"
+        );
+        assert_eq!(
+            json_body(response).await["data"].as_array().unwrap().len(),
+            served.len(),
+            "{directive} still serves the snapshot it already has"
+        );
+
+        let wanted = position + 2;
+        for _ in 0..200 {
+            if fake.model_list_requests() >= wanted {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+        assert_eq!(
+            fake.model_list_requests(),
+            wanted,
+            "{directive} must revalidate the catalog in the background"
+        );
+    }
+}
+
+/// The allowlist is a property of the model, not of one spelling of its id:
+/// an entry under either name serves the whole Qoder name pair, and every
+/// other model stays out — on the list route and on the single route.
+#[tokio::test]
+async fn an_allowlist_entry_under_one_qoder_name_lists_both_names() {
+    const KEY: &str = "sr-live-test";
+    let database = support::TestDatabase::new().unwrap();
+    let app_database = database.connect().await.unwrap();
+    connect_qoder(&database).await;
+    let fake = FakeQoderUpstream::start().await;
+    fake.with(|state| state.model_catalog = qoder_catalog_body());
+
+    let mut record = api_key_record("key_1");
+    record.allowed_models = Some(vec![String::from("qd/qwen3.7-max")]);
+    let security = security_state(false, vec![(KEY.to_owned(), record)], vec![]);
+    let app = create_router(qoder_state(app_database, security, &fake));
+
+    let keyed = |uri: &str| {
+        with_remote_client(
+            Request::builder()
+                .method("GET")
+                .uri(uri)
+                .header("x-api-key", KEY)
+                .body(Body::empty())
+                .unwrap(),
+            "203.0.113.7",
+        )
+    };
+
+    let listed = app.clone().oneshot(keyed("/v1/models")).await.unwrap();
+    assert_eq!(listed.status(), StatusCode::OK);
+    let mut ids: Vec<String> = json_body(listed).await["data"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|entry| entry["id"].as_str().unwrap().to_owned())
+        .collect();
+    ids.sort();
+
+    assert_eq!(
+        ids,
+        vec![
+            String::from("qd/qmodel_latest"),
+            String::from("qd/qwen3.7-max")
+        ],
+        "the allowed name and its sibling, and nothing else: {ids:?}"
+    );
+
+    let sibling = app
+        .clone()
+        .oneshot(keyed("/v1/models/qd%2Fqmodel_latest"))
+        .await
+        .unwrap();
+    assert_eq!(sibling.status(), StatusCode::OK);
+
+    let refused = app.oneshot(keyed("/v1/models/qd%2Fauto")).await.unwrap();
+    assert_eq!(refused.status(), StatusCode::FORBIDDEN);
+    assert_eq!(
+        json_body(refused).await["error"]["code"],
+        "model_not_allowed"
+    );
 }

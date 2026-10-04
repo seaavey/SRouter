@@ -461,12 +461,17 @@ codebuddy-cn, qoder`) → validated token import, `201`.
 
 ## 7. Catalog: models, pricing, quota
 
-- [~] `GET /v1/models` with `Cache-Control: public, max-age=60, stale-while-revalidate=300`,
-  `refresh`/`force` params, `no-cache`/`no-store` revalidation, allowlist filtering, hidden and
-  disabled-provider filtering, favorite flag (`features/gateway/models.rs`). A filter applies to the
-  model, so a Qoder name pair shares one verdict: `model_id_variants` expands a request or a stored
-  hidden/favorite id into every id that reaches the same upstream key, and `names_of` expands the
-  sets read from the database.
+- [x] `GET /v1/models` with `Cache-Control: public, max-age=60, stale-while-revalidate=300`,
+      `refresh`/`force` params, `no-cache`/`no-store` revalidation, allowlist filtering, hidden and
+      disabled-provider filtering, favorite flag (`features/gateway/models.rs`). A filter applies to the
+      model, so a Qoder name pair shares one verdict: `model_id_variants` expands a request or a stored
+      hidden/favorite id into every id that reaches the same upstream key, and `names_of` expands the
+      sets read from the database. Closed 2026-10-04: the two clauses that lacked Rust evidence are now
+      pinned in `server/tests/models.rs` — `no_cache_and_no_store_revalidate_the_catalog_without_blocking`
+      (the background fetch runs behind a 300 ms fake while the response answers in under 150 ms, the
+      geometry of the Node fixture in `apps/api/tests/models-endpoint.test.ts`) and
+      `an_allowlist_entry_under_one_qoder_name_lists_both_names` (one allowlist entry under either name
+      serves the whole Qoder pair, on the list and the single route).
 - [ ] `/v1/models` response shape: `ModelObject` carries `{id, object, owned_by}` only, so upstream
       metadata that `model/list` does return (`display_name`, `is_vl`, `format`, `max_input_tokens`,
       `price_factor`, `is_free`) is parsed away today. Adding it is a contract change and needs a

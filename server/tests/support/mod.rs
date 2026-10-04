@@ -856,7 +856,9 @@ async fn qoder_model_list(State(state): State<SharedQoderState>, headers: Header
         (guard.model_catalog.clone(), guard.slow_model_list)
     };
     if slow {
-        tokio::time::sleep(std::time::Duration::from_millis(150)).await;
+        // Long enough that a request paying for this fetch fails a <150 ms
+        // latency assertion, matching the Node fixture's geometry.
+        tokio::time::sleep(std::time::Duration::from_millis(300)).await;
     }
 
     Json(catalog).into_response()
