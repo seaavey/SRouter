@@ -5,11 +5,12 @@ use serde_json::Value;
 
 use crate::constants;
 use crate::error::APIError;
+use crate::features::gateway::images::ImageGenerationRequest;
 use crate::features::gateway::model::{ChatCompletionRequest, ChatContent, ChatMessage};
 use crate::features::gateway::usage::UsageBreakdown;
 use crate::features::providers::adapter::{
-    ProviderAdapter, ProviderStream, encode_stream, upstream_error, upstream_status_error,
-    upstream_stream_status_error,
+    ProviderAdapter, ProviderStream, encode_stream, forward_image_generation, upstream_error,
+    upstream_status_error, upstream_stream_status_error,
 };
 use crate::features::providers::executor::{BoxFuture, ProviderExecutor};
 use crate::features::providers::model::ModelDefinition;
@@ -486,6 +487,15 @@ impl ProviderExecutor for OpenCodeExecutor {
         Box::pin(
             async move { OpenCodeExecutor::chat_completion_stream(self, model, request).await },
         )
+    }
+
+    fn generate_image<'a>(
+        &'a self,
+        model: &'a str,
+        request: &'a ImageGenerationRequest,
+    ) -> BoxFuture<'a, Result<Value, APIError>> {
+        let url = format!("{}/images/generations", self.base_url.trim_end_matches('/'));
+        Box::pin(async move { forward_image_generation(&self.client, &url, model, request).await })
     }
 }
 

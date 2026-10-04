@@ -26,6 +26,7 @@ pub mod code {
     /// Body and JSON parsing.
     pub const INVALID_JSON: &str = "invalid_json";
     pub const REQUEST_TOO_LARGE: &str = "request_too_large";
+    pub const INVALID_PAYLOAD: &str = "invalid_payload";
 
     /// API-key authentication and accounting.
     pub const INVALID_API_KEY: &str = "invalid_api_key";
@@ -37,6 +38,7 @@ pub mod code {
 
     /// Model catalog.
     pub const MODEL_NOT_FOUND: &str = "model_not_found";
+    pub const MODEL_NOT_SUPPORTED: &str = "model_not_supported";
 
     /// Rate limiting.
     pub const RATE_LIMIT_EXCEEDED: &str = "rate_limit_exceeded";
@@ -237,6 +239,7 @@ pub mod middleware {
 pub mod gateway {
     pub const MODEL_REQUIRED: &str = "Missing required parameter 'model'";
     pub const MESSAGES_REQUIRED: &str = "Missing required parameter 'messages'";
+    pub const PROMPT_REQUIRED: &str = "Missing required parameter 'prompt'";
     pub const MODEL_ID_REQUIRED: &str = "Model ID parameter is required";
     pub const MESSAGES_EMPTY: &str = "messages: at least 1 message is required";
     pub const COULD_NOT_BUILD_STREAM: &str = "Could not build the stream response";
@@ -247,6 +250,16 @@ pub mod gateway {
 
     pub fn model_not_found(model: &str) -> String {
         format!("Model '{model}' not found")
+    }
+
+    pub fn model_not_supported_image(model: &str) -> String {
+        format!(
+            "Model '{model}' does not support image generation. Output modalities do not include 'image'."
+        )
+    }
+
+    pub fn model_not_supported_image_edit(model: &str) -> String {
+        format!("Model '{model}' does not support image editing / image-to-image input.")
     }
 
     pub fn invalid_request_body(error: impl std::fmt::Display) -> String {

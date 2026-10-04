@@ -11,6 +11,7 @@ use serde_json::Value;
 
 use crate::constants;
 use crate::error::APIError;
+use crate::features::gateway::images::ImageGenerationRequest;
 use crate::features::gateway::model::ChatCompletionRequest;
 use crate::features::gateway::sse;
 use crate::features::providers::executor::{BoxFuture, ProviderExecutor};
@@ -96,6 +97,15 @@ impl ProviderAdapter {
         request: &ChatCompletionRequest,
     ) -> Result<ProviderStream, APIError> {
         self.0.chat_completion_stream(model, request).await
+    }
+
+    /// Performs an image generation request.
+    pub async fn generate_image(
+        &self,
+        model: &str,
+        request: &ImageGenerationRequest,
+    ) -> Result<Value, APIError> {
+        self.0.generate_image(model, request).await
     }
 }
 
@@ -218,6 +228,51 @@ impl OpenAIAdapter {
 
         Ok(body)
     }
+
+    /// The upstream images generations endpoint, normalized to a single slash.
+    pub fn images_generations_url(&self) -> String {
+        format!("{}/images/generations", self.base_url.trim_end_matches('/'))
+    }
+
+    pub async fn generate_image(
+        &self,
+        model: &str,
+        request: &ImageGenerationRequest,
+    ) -> Result<Value, APIError> {
+        forward_image_generation(&self.client, &self.images_generations_url(), model, request).await
+    }
+}
+
+/// Helper to forward an OpenAI-compatible image generation request upstream.
+pub async fn forward_image_generation(
+    client: &UpstreamClient,
+    url: &str,
+    model: &str,
+    request: &ImageGenerationRequest,
+) -> Result<Value, APIError> {
+    let mut body = serde_json::to_value(request).map_err(|error| {
+        APIError::new(500, constants::providers::could_not_build_request(&error))
+    })?;
+    body["model"] = Value::String(model.to_owned());
+
+    let response = client
+        .raw()
+        .post(url)
+        .timeout(client.request_timeout())
+        .json(&body)
+        .send()
+        .await
+        .map_err(upstream_error)?;
+
+    let status = response.status();
+    if !status.is_success() {
+        let detail = response.text().await.unwrap_or_default();
+        return Err(upstream_status_error(status, &detail));
+    }
+
+    response.json::<Value>().await.map_err(|error| {
+        APIError::new(500, constants::providers::could_not_decode_response(&error))
+    })
 }
 
 impl ProviderExecutor for OpenAIAdapter {
@@ -255,6 +310,14 @@ impl ProviderExecutor for OpenAIAdapter {
         request: &'a ChatCompletionRequest,
     ) -> BoxFuture<'a, Result<ProviderStream, APIError>> {
         Box::pin(async move { OpenAIAdapter::chat_completion_stream(self, model, request).await })
+    }
+
+    fn generate_image<'a>(
+        &'a self,
+        model: &'a str,
+        request: &'a ImageGenerationRequest,
+    ) -> BoxFuture<'a, Result<Value, APIError>> {
+        Box::pin(async move { OpenAIAdapter::generate_image(self, model, request).await })
     }
 }
 

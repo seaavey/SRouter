@@ -17,9 +17,12 @@ pub mod adapters {
     pub use super::opencode as opencode_zen;
 }
 
-pub use adapter::{OpenAIAdapter, OpenAIExecutor, ProviderAdapter, ProviderStream};
+pub use adapter::{
+    OpenAIAdapter, OpenAIExecutor, ProviderAdapter, ProviderStream, forward_image_generation,
+};
 pub use cline::{CLINE_KEYS, CLINE_PROVIDER};
 pub use codex::{CODEX_KEYS, CODEX_PROVIDER};
+pub use executor::ProviderExecutor;
 pub use grok_web::{GROK_WEB_KEYS, GROK_WEB_PROVIDER};
 pub use model::{ModelDefinition, ModelObject, ProviderMetadata};
 pub use opencode::{

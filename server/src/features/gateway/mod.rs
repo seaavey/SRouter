@@ -14,6 +14,7 @@ use crate::infrastructure::database::request_logs::generate_log_id;
 
 pub mod anthropic;
 pub mod chat;
+pub mod images;
 pub mod interception;
 pub mod interceptor;
 pub mod messages;
@@ -25,6 +26,7 @@ pub mod sse;
 pub mod token_saver;
 pub mod usage;
 
+pub use images::{ImageGenerationRequest, create_image};
 pub use routes::{create_gateway_router, create_models_router};
 
 #[derive(Clone)]

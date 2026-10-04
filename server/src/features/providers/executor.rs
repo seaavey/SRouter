@@ -16,7 +16,9 @@ use std::any::Any;
 pub use futures_util::future::BoxFuture;
 use serde_json::Value;
 
+use crate::constants;
 use crate::error::APIError;
+use crate::features::gateway::images::ImageGenerationRequest;
 use crate::features::gateway::model::ChatCompletionRequest;
 use crate::features::providers::adapter::ProviderStream;
 
@@ -74,4 +76,19 @@ pub trait ProviderExecutor: Send + Sync {
         model: &'a str,
         request: &'a ChatCompletionRequest,
     ) -> BoxFuture<'a, Result<ProviderStream, APIError>>;
+
+    /// A buffered image generation request, returning the upstream JSON body.
+    fn generate_image<'a>(
+        &'a self,
+        model: &'a str,
+        _request: &'a ImageGenerationRequest,
+    ) -> BoxFuture<'a, Result<Value, APIError>> {
+        Box::pin(async move {
+            Err(
+                APIError::new(400, constants::gateway::model_not_supported_image(model))
+                    .with_code(constants::code::MODEL_NOT_SUPPORTED)
+                    .with_param("model"),
+            )
+        })
+    }
 }

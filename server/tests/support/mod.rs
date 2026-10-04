@@ -94,6 +94,8 @@ impl Drop for TestDatabase {
 pub struct FakeUpstreamState {
     pub chat_requests: usize,
     pub last_chat_body: serde_json::Value,
+    pub image_requests: usize,
+    pub last_image_body: serde_json::Value,
 }
 
 type SharedFakeUpstreamState = Arc<StdMutex<FakeUpstreamState>>;
@@ -111,6 +113,7 @@ impl FakeUpstream {
         let state: SharedFakeUpstreamState = Arc::new(StdMutex::new(FakeUpstreamState::default()));
         let router = Router::new()
             .route("/v1/chat/completions", post(fake_chat_completion))
+            .route("/v1/images/generations", post(fake_image_generation))
             .with_state(state.clone());
         let listener = TcpListener::bind("127.0.0.1:0")
             .await
@@ -149,6 +152,16 @@ impl FakeUpstream {
     /// The body of the most recent chat request the gateway forwarded.
     pub fn last_chat_body(&self) -> serde_json::Value {
         self.with(|state| state.last_chat_body.clone())
+    }
+
+    /// Recorded image requests.
+    pub fn image_requests(&self) -> usize {
+        self.with(|state| state.image_requests)
+    }
+
+    /// The body of the most recent image request the gateway forwarded.
+    pub fn last_image_body(&self) -> serde_json::Value {
+        self.with(|state| state.last_image_body.clone())
     }
 }
 
@@ -1503,6 +1516,34 @@ pub fn json_request_with_headers(
     builder
         .body(Body::from(serde_json::to_vec(&body).expect("request body")))
         .expect("request")
+}
+
+async fn fake_image_generation(
+    State(state): State<SharedFakeUpstreamState>,
+    Json(payload): Json<serde_json::Value>,
+) -> Response {
+    {
+        let mut guard = state.lock().expect("fake upstream state");
+        guard.image_requests += 1;
+        guard.last_image_body = payload.clone();
+    }
+
+    let prompt = payload
+        .get("prompt")
+        .and_then(|value| value.as_str())
+        .unwrap_or("")
+        .to_owned();
+
+    Json(serde_json::json!({
+        "created": 1725408000,
+        "data": [
+            {
+                "url": "https://example.com/mock-generated.png",
+                "revised_prompt": format!("Revised: {prompt}")
+            }
+        ]
+    }))
+    .into_response()
 }
 
 async fn fake_chat_completion(

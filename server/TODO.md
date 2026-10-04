@@ -389,9 +389,14 @@ codebuddy-cn, qoder`) → validated token import, `201`.
 - [x] Streamed chat and Messages requests write one request-log row after output completes, on
       upstream/model errors, and on client disconnect; successful rows include accumulated SSE usage
       (`features/gateway/chat.rs`, `messages.rs`, `server/tests/chat_completions.rs`, `messages.rs`).
-- [ ] `POST /v1/images/generations` — validated image-generation JSON (`prompt`, `model`), API-key
+- [x] `POST /v1/images/generations` — validated image-generation JSON (`prompt`, `model`), API-key
       auth + rate limit + model access, provider image output, unsupported image model → `400`.
+      Mounted under `/v1` and `/v1/v1` compat alias. Enforces prompt requirement, `n` bound (1..=10),
+      capability checks (`is_image_generation_supported` and image editing input checks), allowlist filtering,
+      provider resolution and delegation via `ProviderExecutor::generate_image`, zero-token request log
+      accounting in `request_logs`, and API key usage increment.
       Legacy evidence: `apps/api/tests/images-route.test.ts`, `images-fallback.test.ts`.
+      Covered by `server/tests/images.rs` (11 tests).
 - [ ] Fallback policy: `/v1/settings/fallbacks` CRUD (`GET` API-key, `POST` admin `201`, `PUT/PATCH`
       admin, `DELETE` admin `404`) **and** its execution in the gateway
       (`apps/api/src/logic/fallbackRunner.ts`, `fallback.policy.ts`, `fallbacks-cascade.test.ts`).
