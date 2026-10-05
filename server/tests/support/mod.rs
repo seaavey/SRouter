@@ -1773,6 +1773,20 @@ async fn grok_ws_session(
             // Close cleanly before response.done; the executor must not report success.
             tx.send(WsMessage::Close(None)).await?;
         }
+        // Streams the emulated tool-call envelope split across chunks, as the
+        // real model emits its JSON reply.
+        "tool_json" => {
+            tx.send(WsMessage::Text(
+                chunk(r#"{"tool_calls":[{"name":"get_weather","#).into(),
+            ))
+            .await?;
+            tx.send(WsMessage::Text(
+                chunk(r#""arguments":{"city":"Jakarta"}}]}"#).into(),
+            ))
+            .await?;
+            tx.send(WsMessage::Text(done("completed", None).into()))
+                .await?;
+        }
         _ => {
             tx.send(WsMessage::Text(chunk("Hello").into())).await?;
             tx.send(WsMessage::Text(chunk(" world").into())).await?;

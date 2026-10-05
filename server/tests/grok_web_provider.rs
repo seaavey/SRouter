@@ -799,3 +799,141 @@ async fn connect_requires_an_admin_session() {
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
     assert_eq!(fake.page_requests(), 0);
 }
+
+fn chat_body_with_tools(
+    model: &str,
+    stream: bool,
+    tool_choice: serde_json::Value,
+) -> serde_json::Value {
+    serde_json::json!({
+        "model": model,
+        "messages": [{ "role": "user", "content": "Weather in Jakarta?" }],
+        "tools": [{
+            "type": "function",
+            "function": {
+                "name": "get_weather",
+                "description": "Get current weather for a city",
+                "parameters": {
+                    "type": "object",
+                    "properties": { "city": { "type": "string" } },
+                    "required": ["city"]
+                }
+            }
+        }],
+        "tool_choice": tool_choice,
+        "stream": stream
+    })
+}
+
+#[tokio::test]
+async fn non_stream_chat_emits_tool_calls_for_a_tool_envelope() {
+    let database = TestDatabase::new().expect("temporary database");
+    connect_grok_web(&database).await;
+    let fake = FakeGrokUpstream::start().await;
+    fake.with(|state| state.ws_mode = "tool_json".to_owned());
+    let app = app(&database, &fake).await;
+
+    let response = app
+        .oneshot(chat_request(chat_body_with_tools(
+            "grok-web/fast",
+            false,
+            serde_json::json!("auto"),
+        )))
+        .await
+        .expect("gateway response");
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = json_body(response).await;
+
+    assert_eq!(body["choices"][0]["finish_reason"], "tool_calls");
+    assert!(body["choices"][0]["message"]["content"].is_null());
+    let call = &body["choices"][0]["message"]["tool_calls"][0];
+    assert_eq!(call["type"], "function");
+    assert_eq!(call["function"]["name"], "get_weather");
+    assert_eq!(call["function"]["arguments"], r#"{"city":"Jakarta"}"#);
+    assert!(
+        call["id"].as_str().unwrap_or_default().starts_with("call_"),
+        "call: {call}"
+    );
+
+    // The emulated contract reached the upstream prompt.
+    let prompt = fake.with(|state| state.last_prompt.clone());
+    assert!(prompt.contains("get_weather"), "prompt: {prompt}");
+    assert!(prompt.contains("tool_calls"), "prompt: {prompt}");
+}
+
+#[tokio::test]
+async fn stream_chat_emits_tool_calls_for_a_tool_envelope() {
+    let database = TestDatabase::new().expect("temporary database");
+    connect_grok_web(&database).await;
+    let fake = FakeGrokUpstream::start().await;
+    fake.with(|state| state.ws_mode = "tool_json".to_owned());
+    let app = app(&database, &fake).await;
+
+    let response = app
+        .oneshot(chat_request(chat_body_with_tools(
+            "grok-web/fast",
+            true,
+            serde_json::json!("auto"),
+        )))
+        .await
+        .expect("gateway response");
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = text_body(response).await;
+
+    let frames: Vec<serde_json::Value> = body
+        .lines()
+        .filter_map(|line| line.strip_prefix("data: "))
+        .filter(|data| *data != "[DONE]")
+        .map(|data| serde_json::from_str(data).expect("frame json"))
+        .collect();
+
+    assert!(
+        frames.iter().any(|frame| {
+            frame["choices"][0]["delta"]["tool_calls"][0]["function"]["name"] == "get_weather"
+        }),
+        "a tool-call delta must be emitted: {body}"
+    );
+    assert!(
+        frames
+            .iter()
+            .any(|frame| frame["choices"][0]["finish_reason"] == "tool_calls"),
+        "the finish reason must be tool_calls: {body}"
+    );
+    assert!(
+        !frames.iter().any(|frame| {
+            frame["choices"][0]["delta"]["content"]
+                .as_str()
+                .is_some_and(|content| content.contains("tool_calls"))
+        }),
+        "the envelope must not leak as content: {body}"
+    );
+    assert_eq!(body.matches("data: [DONE]").count(), 1);
+}
+
+#[tokio::test]
+async fn tool_choice_none_keeps_the_tool_contract_out_of_the_prompt() {
+    let database = TestDatabase::new().expect("temporary database");
+    connect_grok_web(&database).await;
+    let fake = FakeGrokUpstream::start().await;
+    let app = app(&database, &fake).await;
+
+    let response = app
+        .oneshot(chat_request(chat_body_with_tools(
+            "grok-web/fast",
+            false,
+            serde_json::json!("none"),
+        )))
+        .await
+        .expect("gateway response");
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = json_body(response).await;
+
+    assert_eq!(body["choices"][0]["finish_reason"], "stop");
+    assert_eq!(body["choices"][0]["message"]["content"], "Hello world");
+
+    let prompt = fake.with(|state| state.last_prompt.clone());
+    assert!(
+        !prompt.contains("get_weather"),
+        "no tool contract without an active tool: {prompt}"
+    );
+}

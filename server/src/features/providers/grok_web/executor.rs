@@ -32,7 +32,9 @@ use super::types::{
 use crate::clock::now_ms;
 use crate::constants;
 use crate::error::APIError;
-use crate::features::gateway::model::{ChatCompletionRequest, ChatContent, ChatMessage, ChatRole};
+use crate::features::gateway::model::{
+    ChatCompletionRequest, ChatContent, ChatMessage, ChatRole, ToolCall, ToolChoice, ToolChoiceMode,
+};
 use crate::features::gateway::sse;
 use crate::features::gateway::usage::UsageBreakdown;
 use crate::features::providers::adapter::{ProviderAdapter, ProviderStream};
@@ -220,7 +222,7 @@ impl GrokWebExecutor {
         request: &ChatCompletionRequest,
     ) -> Result<Value, APIError> {
         let model_id = resolve_model(model)?;
-        let prompt = flatten_messages(&request.messages)?;
+        let prompt = build_prompt(request)?;
 
         let mut session = self.establish(&model_id, &prompt).await?;
         let mut content = String::new();
@@ -266,12 +268,26 @@ impl GrokWebExecutor {
             }
         }
 
+        let prompt_tokens = estimate_tokens(&prompt);
+
+        // Tools are emulated through the text channel: a reply that parses as
+        // the tool envelope becomes `tool_calls` instead of content.
+        if tools_active(request)
+            && let Some(calls) = parse_tool_calls(&content)
+        {
+            return Ok(tool_call_response(
+                &model_id,
+                &calls,
+                prompt_tokens,
+                &reasoning,
+            ));
+        }
+
         let mut message = json!({ "role": "assistant", "content": content });
         if !reasoning.is_empty() {
             message["reasoning_content"] = Value::String(reasoning);
         }
 
-        let prompt_tokens = estimate_prompt_tokens(&request.messages);
         let completion_tokens = (content.chars().count() / 4).max(1) as i64;
         let usage = UsageBreakdown {
             prompt_tokens,
@@ -300,7 +316,7 @@ impl GrokWebExecutor {
         request: &ChatCompletionRequest,
     ) -> Result<ProviderStream, APIError> {
         let model_id = resolve_model(model)?;
-        let prompt = flatten_messages(&request.messages)?;
+        let prompt = build_prompt(request)?;
 
         // Everything up to `response.create` happens before the first byte is
         // yielded, so a failed handshake surfaces as `Err` and the gateway
@@ -328,8 +344,12 @@ impl GrokWebExecutor {
             pending,
             finished: false,
             idle_timeout: self.idle_timeout,
-            prompt_tokens: estimate_prompt_tokens(&request.messages),
+            prompt_tokens: estimate_tokens(&prompt),
             completion_chars: 0,
+            // With tools the reply is buffered: it is only known to be a tool
+            // envelope or plain text once the turn completes.
+            tool_mode: tools_active(request),
+            buffer: String::new(),
         };
 
         Ok(Box::pin(futures_util::stream::unfold(
@@ -406,15 +426,21 @@ impl GrokWebExecutor {
                             };
                             match classify_value(&value) {
                                 WsFrame::Text(token) => {
-                                    state.completion_chars += token.chars().count();
-                                    state.pending.push_back(encode_frame(
-                                        &state.id,
-                                        state.created,
-                                        &state.model,
-                                        json!({ "content": token }),
-                                        None,
-                                        None,
-                                    ));
+                                    if state.tool_mode {
+                                        // Buffered: a tool envelope is only
+                                        // recognisable once the turn completes.
+                                        state.buffer.push_str(&token);
+                                    } else {
+                                        state.completion_chars += token.chars().count();
+                                        state.pending.push_back(encode_frame(
+                                            &state.id,
+                                            state.created,
+                                            &state.model,
+                                            json!({ "content": token }),
+                                            None,
+                                            None,
+                                        ));
+                                    }
                                 }
                                 WsFrame::Reasoning(token) => {
                                     state.pending.push_back(encode_frame(
@@ -427,22 +453,70 @@ impl GrokWebExecutor {
                                     ));
                                 }
                                 WsFrame::Completed => {
-                                    let completion_tokens =
-                                        (state.completion_chars / 4).max(1) as i64;
+                                    let output_chars = if state.tool_mode {
+                                        state.buffer.chars().count()
+                                    } else {
+                                        state.completion_chars
+                                    };
+                                    let completion_tokens = (output_chars / 4).max(1) as i64;
                                     let usage = UsageBreakdown {
                                         prompt_tokens: state.prompt_tokens,
                                         completion_tokens,
                                         total_tokens: state.prompt_tokens + completion_tokens,
                                         ..Default::default()
                                     };
-                                    state.pending.push_back(encode_frame(
-                                        &state.id,
-                                        state.created,
-                                        &state.model,
-                                        json!({}),
-                                        Some("stop"),
-                                        Some(usage.to_openai_json()),
-                                    ));
+
+                                    if state.tool_mode {
+                                        match parse_tool_calls(&state.buffer) {
+                                            Some(calls) => {
+                                                state.pending.push_back(encode_frame(
+                                                    &state.id,
+                                                    state.created,
+                                                    &state.model,
+                                                    tool_calls_delta(&calls),
+                                                    None,
+                                                    None,
+                                                ));
+                                                state.pending.push_back(encode_frame(
+                                                    &state.id,
+                                                    state.created,
+                                                    &state.model,
+                                                    json!({}),
+                                                    Some("tool_calls"),
+                                                    Some(usage.to_openai_json()),
+                                                ));
+                                            }
+                                            None => {
+                                                let text = std::mem::take(&mut state.buffer);
+                                                state.pending.push_back(encode_frame(
+                                                    &state.id,
+                                                    state.created,
+                                                    &state.model,
+                                                    json!({ "content": text }),
+                                                    None,
+                                                    None,
+                                                ));
+                                                state.pending.push_back(encode_frame(
+                                                    &state.id,
+                                                    state.created,
+                                                    &state.model,
+                                                    json!({}),
+                                                    Some("stop"),
+                                                    Some(usage.to_openai_json()),
+                                                ));
+                                            }
+                                        }
+                                    } else {
+                                        state.pending.push_back(encode_frame(
+                                            &state.id,
+                                            state.created,
+                                            &state.model,
+                                            json!({}),
+                                            Some("stop"),
+                                            Some(usage.to_openai_json()),
+                                        ));
+                                    }
+
                                     state
                                         .pending
                                         .push_back(Bytes::from_static(b"data: [DONE]\n\n"));
@@ -491,6 +565,10 @@ struct TranslateState {
     idle_timeout: Duration,
     prompt_tokens: i64,
     completion_chars: usize,
+    /// When set, assistant text is accumulated in `buffer` instead of streamed,
+    /// so a completed turn can be re-read as a tool envelope or as text.
+    tool_mode: bool,
+    buffer: String,
 }
 
 impl GrokWebExecutor {
@@ -779,11 +857,260 @@ fn chunk_id() -> String {
     format!("chatcmpl-{}", hex::encode(bytes))
 }
 
+/// One function call the model asked for, decoded from its emulated JSON reply.
+struct ParsedToolCall {
+    name: String,
+    arguments: String,
+}
+
+/// Whether the request carries at least one function tool that may be used.
+/// `tool_choice: "none"` turns the whole mechanism off.
+fn tools_active(request: &ChatCompletionRequest) -> bool {
+    !matches!(
+        request.tool_choice,
+        Some(ToolChoice::Mode(ToolChoiceMode::None))
+    ) && request
+        .tools
+        .as_ref()
+        .is_some_and(|tools| !tools.is_empty())
+}
+
+/// The system section that teaches the model the emulated tool contract, or
+/// `None` when the request carries no usable tools.
+///
+/// The grok.com WebSocket carries text only — its native tools are
+/// connector/MCP toolsets the account has registered, with no request field for
+/// arbitrary functions — so tools are declared in the prompt and the model's
+/// JSON reply is parsed back into OpenAI `tool_calls`.
+fn tool_instruction(request: &ChatCompletionRequest) -> Option<String> {
+    if !tools_active(request) {
+        return None;
+    }
+    let tools = request.tools.as_ref()?;
+
+    let mut section = String::from(
+        "You can call functions to fetch data you do not already know. Available functions:",
+    );
+    for tool in tools {
+        let function = &tool.function;
+        section.push_str("\n- ");
+        section.push_str(&function.name);
+        if let Some(description) = function
+            .description
+            .as_deref()
+            .filter(|text| !text.trim().is_empty())
+        {
+            section.push_str(": ");
+            section.push_str(description.trim());
+        }
+        if let Some(parameters) = &function.parameters {
+            section.push_str("\n  parameters (JSON Schema): ");
+            section.push_str(&serde_json::to_string(parameters).unwrap_or_default());
+        }
+    }
+
+    section.push_str("\n\n");
+    section.push_str(&tool_directive(request));
+    section.push_str(
+        "\nWhen you call functions, reply with ONLY a JSON object (no prose, no markdown) in exactly this shape: \
+         {\"tool_calls\":[{\"name\":\"<function name>\",\"arguments\":{<arguments>}}]}. \
+         The caller runs each function and sends the results back; never invent a result.",
+    );
+    Some(section)
+}
+
+/// The `tool_choice`-dependent instruction sentence.
+fn tool_directive(request: &ChatCompletionRequest) -> String {
+    match &request.tool_choice {
+        Some(ToolChoice::Mode(ToolChoiceMode::Required)) => {
+            "You MUST call at least one function now.".to_owned()
+        }
+        Some(ToolChoice::Named(named)) => {
+            format!("You MUST call the function `{}` now.", named.function.name)
+        }
+        _ => "Call a function when it is needed; otherwise answer normally.".to_owned(),
+    }
+}
+
+/// The full prompt: the flattened conversation, prefixed with the tool contract
+/// when the request carries tools.
+fn build_prompt(request: &ChatCompletionRequest) -> Result<String, APIError> {
+    let base = flatten_messages(&request.messages)?;
+    Ok(match tool_instruction(request) {
+        Some(section) => format!("{section}\n\n{base}"),
+        None => base,
+    })
+}
+
+/// Rough token estimate (chars / 4) used because the upstream reports no usage.
+fn estimate_tokens(text: &str) -> i64 {
+    (text.chars().count() / 4).max(1) as i64
+}
+
+/// Decodes an emulated tool-call envelope from the assistant text. Accepts the
+/// JSON alone, inside a ```json fence, or as the first balanced object in prose.
+/// Anything without a non-empty, well-formed `tool_calls` array yields `None`.
+fn parse_tool_calls(content: &str) -> Option<Vec<ParsedToolCall>> {
+    let candidate = extract_first_object(content)?;
+    let value: Value = serde_json::from_str(candidate).ok()?;
+    let calls = value.get("tool_calls")?.as_array()?;
+    if calls.is_empty() {
+        return None;
+    }
+
+    let mut parsed = Vec::with_capacity(calls.len());
+    for call in calls {
+        let name = call.get("name").and_then(Value::as_str)?.trim();
+        if name.is_empty() {
+            return None;
+        }
+        let arguments = match call.get("arguments") {
+            Some(Value::String(text)) => text.clone(),
+            Some(value) => serde_json::to_string(value).ok()?,
+            None => "{}".to_owned(),
+        };
+        parsed.push(ParsedToolCall {
+            name: name.to_owned(),
+            arguments,
+        });
+    }
+    Some(parsed)
+}
+
+/// Returns the first balanced `{...}` object in `text`, ignoring braces inside
+/// string literals. `None` when the text has no complete object.
+fn extract_first_object(text: &str) -> Option<&str> {
+    let start = text.find('{')?;
+    let mut depth = 0usize;
+    let mut in_string = false;
+    let mut escaped = false;
+
+    for (offset, byte) in text.as_bytes()[start..].iter().enumerate() {
+        let index = start + offset;
+        if in_string {
+            if escaped {
+                escaped = false;
+            } else if *byte == b'\\' {
+                escaped = true;
+            } else if *byte == b'"' {
+                in_string = false;
+            }
+            continue;
+        }
+        match *byte {
+            b'"' => in_string = true,
+            b'{' => depth += 1,
+            b'}' => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(&text[start..=index]);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+fn tool_call_id() -> String {
+    let mut bytes = [0u8; 12];
+    let _ = getrandom::fill(&mut bytes);
+    format!("call_{}", hex::encode(bytes))
+}
+
+/// The OpenAI `tool_calls` delta for a streaming frame.
+fn tool_calls_delta(calls: &[ParsedToolCall]) -> Value {
+    let entries: Vec<Value> = calls
+        .iter()
+        .enumerate()
+        .map(|(index, call)| {
+            json!({
+                "index": index,
+                "id": tool_call_id(),
+                "type": "function",
+                "function": { "name": call.name, "arguments": call.arguments }
+            })
+        })
+        .collect();
+    json!({ "tool_calls": entries })
+}
+
+/// A non-streaming completion whose only choice is a set of tool calls.
+fn tool_call_response(
+    model: &str,
+    calls: &[ParsedToolCall],
+    prompt_tokens: i64,
+    reasoning: &str,
+) -> Value {
+    let tool_calls: Vec<Value> = calls
+        .iter()
+        .map(|call| {
+            json!({
+                "id": tool_call_id(),
+                "type": "function",
+                "function": { "name": call.name, "arguments": call.arguments }
+            })
+        })
+        .collect();
+    let call_chars: usize = calls
+        .iter()
+        .map(|call| call.name.chars().count() + call.arguments.chars().count())
+        .sum();
+    let completion_tokens = (call_chars / 4).max(1) as i64;
+    let usage = UsageBreakdown {
+        prompt_tokens,
+        completion_tokens,
+        total_tokens: prompt_tokens + completion_tokens,
+        ..Default::default()
+    };
+
+    let mut message = json!({
+        "role": "assistant",
+        "content": Value::Null,
+        "tool_calls": tool_calls
+    });
+    if !reasoning.is_empty() {
+        message["reasoning_content"] = Value::String(reasoning.to_owned());
+    }
+
+    json!({
+        "id": chunk_id(),
+        "object": "chat.completion",
+        "created": now_ms() / 1000,
+        "model": model,
+        "choices": [{ "index": 0, "message": message, "finish_reason": "tool_calls" }],
+        "usage": usage.to_openai_json()
+    })
+}
+
+/// Renders prior assistant tool calls back into the emulated envelope so a
+/// follow-up turn shows the model the call it made before the results arrived.
+fn render_calls_envelope(calls: &[ToolCall]) -> String {
+    let rendered: Vec<Value> = calls
+        .iter()
+        .map(|call| {
+            let arguments = serde_json::from_str::<Value>(&call.function.arguments)
+                .unwrap_or_else(|_| Value::String(call.function.arguments.clone()));
+            json!({ "name": call.function.name, "arguments": arguments })
+        })
+        .collect();
+    json!({ "tool_calls": rendered }).to_string()
+}
+
 /// Collapses the OpenAI message list into the single text prompt the WebSocket
 /// protocol accepts: every turn except the last user message is prefixed with
 /// its role, mirroring the reference `parseOpenAIMessages`. Empty turns are
 /// dropped; a prompt that ends up empty is a `400`.
 fn flatten_messages(messages: &[ChatMessage]) -> Result<String, APIError> {
+    // A `role: "tool"` turn answers a call by id; the id→name map lets the
+    // flattened turn carry the function name the model recognises.
+    let names: std::collections::HashMap<&str, &str> = messages
+        .iter()
+        .filter_map(|message| message.tool_calls.as_deref())
+        .flatten()
+        .map(|call| (call.id.as_str(), call.function.name.as_str()))
+        .collect();
+
     let mut turns: Vec<(&str, String)> = Vec::new();
 
     for message in messages {
@@ -795,30 +1122,29 @@ fn flatten_messages(messages: &[ChatMessage]) -> Result<String, APIError> {
             ChatRole::Function => "function",
         };
 
-        let text = match &message.content {
-            ChatContent::Text(text) => text.clone(),
-            ChatContent::Parts(parts) => {
-                let mut text = String::new();
-                for part in parts {
-                    if part.kind == crate::features::gateway::model::ContentPartType::ImageUrl {
-                        // Dropping an image silently would let the model answer
-                        // a prompt it never saw; the protocol carries text only.
-                        return Err(APIError::new(
-                            400,
-                            constants::providers::grok_web::UNSUPPORTED_CONTENT,
-                        ));
-                    }
-                    if let Some(part_text) = &part.text {
-                        if !text.is_empty() {
-                            text.push(' ');
-                        }
-                        text.push_str(part_text);
-                    }
-                }
-                text
+        let mut text = content_text(&message.content)?;
+
+        if role == "assistant" {
+            if let Some(calls) = message
+                .tool_calls
+                .as_deref()
+                .filter(|calls| !calls.is_empty())
+            {
+                let envelope = render_calls_envelope(calls);
+                text = if text.trim().is_empty() {
+                    envelope
+                } else {
+                    format!("{text}\n{envelope}")
+                };
             }
-            ChatContent::Null => String::new(),
-        };
+        } else if role == "tool" && !text.trim().is_empty() {
+            let label = message
+                .tool_call_id
+                .as_deref()
+                .and_then(|id| names.get(id).copied())
+                .unwrap_or("result");
+            text = format!("tool result ({label}): {text}");
+        }
 
         if !text.trim().is_empty() {
             turns.push((role, text));
@@ -852,6 +1178,34 @@ fn flatten_messages(messages: &[ChatMessage]) -> Result<String, APIError> {
     Ok(prompt)
 }
 
+/// Extracts a message's text, rejecting image parts (the transport is
+/// text-only; dropping one silently would let the model answer a prompt it
+/// never saw).
+fn content_text(content: &ChatContent) -> Result<String, APIError> {
+    match content {
+        ChatContent::Text(text) => Ok(text.clone()),
+        ChatContent::Parts(parts) => {
+            let mut text = String::new();
+            for part in parts {
+                if part.kind == crate::features::gateway::model::ContentPartType::ImageUrl {
+                    return Err(APIError::new(
+                        400,
+                        constants::providers::grok_web::UNSUPPORTED_CONTENT,
+                    ));
+                }
+                if let Some(part_text) = &part.text {
+                    if !text.is_empty() {
+                        text.push(' ');
+                    }
+                    text.push_str(part_text);
+                }
+            }
+            Ok(text)
+        }
+        ChatContent::Null => Ok(String::new()),
+    }
+}
+
 /// Validates a requested model against the advertised list. The registry's
 /// prefix path resolves any `<provider>/<model>` without checking, and the
 /// upstream accepts any `session.model` before failing at `response.done`, so
@@ -862,26 +1216,6 @@ fn resolve_model(model: &str) -> Result<String, APIError> {
         .find(|candidate| model.eq_ignore_ascii_case(candidate.id))
         .map(|candidate| candidate.id.to_owned())
         .ok_or_else(|| APIError::new(404, constants::gateway::model_not_registered(model)))
-}
-
-/// Rough token estimate (chars / 4) used because the upstream reports no
-/// usage. Same heuristic as the OpenCode executor.
-fn estimate_prompt_tokens(messages: &[ChatMessage]) -> i64 {
-    let mut total_chars = 0;
-    for message in messages {
-        match &message.content {
-            ChatContent::Text(text) => total_chars += text.chars().count(),
-            ChatContent::Parts(parts) => {
-                for part in parts {
-                    if let Some(text) = &part.text {
-                        total_chars += text.chars().count();
-                    }
-                }
-            }
-            ChatContent::Null => {}
-        }
-    }
-    (total_chars / 4).max(1) as i64
 }
 
 impl ProviderExecutor for GrokWebExecutor {
@@ -1126,5 +1460,152 @@ mod tests {
         assert_eq!(value["object"], "chat.completion.chunk");
         assert_eq!(value["model"], "fast");
         assert_eq!(value["choices"][0]["delta"]["content"], "hi");
+    }
+
+    fn request_with_tools(value: Value) -> ChatCompletionRequest {
+        serde_json::from_value(value).expect("request parses")
+    }
+
+    #[test]
+    fn parse_tool_calls_accepts_bare_fenced_and_embedded_envelopes() {
+        let bare = r#"{"tool_calls":[{"name":"get_weather","arguments":{"city":"Jakarta"}}]}"#;
+
+        let parsed = parse_tool_calls(bare).expect("bare parses");
+        assert_eq!(parsed.len(), 1);
+        assert_eq!(parsed[0].name, "get_weather");
+        assert_eq!(parsed[0].arguments, r#"{"city":"Jakarta"}"#);
+
+        let fenced = format!("```json\n{bare}\n```");
+        assert_eq!(parse_tool_calls(&fenced).expect("fenced parses").len(), 1);
+
+        let embedded = format!("Sure.\n{bare}\nDone.");
+        assert_eq!(
+            parse_tool_calls(&embedded).expect("embedded parses")[0].name,
+            "get_weather"
+        );
+
+        let string_arguments = r#"{"tool_calls":[{"name":"lookup","arguments":"{\"q\":\"x\"}"}]}"#;
+        assert_eq!(
+            parse_tool_calls(string_arguments).expect("string args")[0].arguments,
+            r#"{"q":"x"}"#
+        );
+    }
+
+    #[test]
+    fn parse_tool_calls_rejects_prose_malformed_and_empty_lists() {
+        assert!(parse_tool_calls("The weather is fine.").is_none());
+        assert!(parse_tool_calls(r#"{"tool_calls":[]}"#).is_none());
+        assert!(parse_tool_calls(r#"{"tool_calls":[{"arguments":{}}]}"#).is_none());
+        assert!(parse_tool_calls(r#"{"tool_calls":[{"name":"   "}]}"#).is_none());
+        assert!(parse_tool_calls("{not json}").is_none());
+    }
+
+    #[test]
+    fn extract_first_object_ignores_braces_inside_strings() {
+        assert_eq!(
+            extract_first_object(r#"prefix {"a":"}"} suffix"#),
+            Some(r#"{"a":"}"}"#)
+        );
+        assert!(extract_first_object("no object here").is_none());
+    }
+
+    #[test]
+    fn tool_instruction_lists_the_tools_and_honours_tool_choice() {
+        let auto = request_with_tools(serde_json::json!({
+            "model": "grok-web/fast",
+            "messages": [{ "role": "user", "content": "hi" }],
+            "tools": [{ "type": "function", "function": {
+                "name": "get_weather", "description": "Weather", "parameters": { "type": "object" }
+            }}],
+            "tool_choice": "auto"
+        }));
+        let section = tool_instruction(&auto).expect("section");
+        assert!(section.contains("get_weather"));
+        assert!(section.contains("Call a function when it is needed"));
+        assert!(section.contains("tool_calls"));
+
+        let required = request_with_tools(serde_json::json!({
+            "model": "grok-web/fast",
+            "messages": [{ "role": "user", "content": "hi" }],
+            "tools": [{ "type": "function", "function": { "name": "get_weather" } }],
+            "tool_choice": "required"
+        }));
+        assert!(
+            tool_instruction(&required)
+                .expect("section")
+                .contains("MUST call at least one")
+        );
+
+        let named = request_with_tools(serde_json::json!({
+            "model": "grok-web/fast",
+            "messages": [{ "role": "user", "content": "hi" }],
+            "tools": [{ "type": "function", "function": { "name": "get_weather" } }],
+            "tool_choice": { "type": "function", "function": { "name": "get_weather" } }
+        }));
+        assert!(
+            tool_instruction(&named)
+                .expect("section")
+                .contains("`get_weather`")
+        );
+
+        let none = request_with_tools(serde_json::json!({
+            "model": "grok-web/fast",
+            "messages": [{ "role": "user", "content": "hi" }],
+            "tools": [{ "type": "function", "function": { "name": "get_weather" } }],
+            "tool_choice": "none"
+        }));
+        assert!(tool_instruction(&none).is_none());
+        assert!(!tools_active(&none));
+
+        let without_tools = request_with_tools(serde_json::json!({
+            "model": "grok-web/fast",
+            "messages": [{ "role": "user", "content": "hi" }]
+        }));
+        assert!(!tools_active(&without_tools));
+        assert!(tool_instruction(&without_tools).is_none());
+    }
+
+    #[test]
+    fn assistant_tool_calls_and_results_flatten_back_into_the_prompt() {
+        use crate::features::gateway::model::{ToolCallFunction, ToolCallKind};
+
+        let messages = vec![
+            message(
+                ChatRole::User,
+                ChatContent::Text("Weather in Jakarta?".to_owned()),
+            ),
+            ChatMessage {
+                role: ChatRole::Assistant,
+                content: ChatContent::Null,
+                name: None,
+                tool_calls: Some(vec![ToolCall {
+                    id: "call-1".to_owned(),
+                    kind: ToolCallKind::Function,
+                    function: ToolCallFunction {
+                        name: "get_weather".to_owned(),
+                        arguments: r#"{"city":"Jakarta"}"#.to_owned(),
+                    },
+                }]),
+                tool_call_id: None,
+                cache_control: None,
+            },
+            ChatMessage {
+                role: ChatRole::Tool,
+                content: ChatContent::Text(r#"{"temp_c":32}"#.to_owned()),
+                name: None,
+                tool_calls: None,
+                tool_call_id: Some("call-1".to_owned()),
+                cache_control: None,
+            },
+            message(ChatRole::User, ChatContent::Text("And Bandung?".to_owned())),
+        ];
+
+        let prompt = flatten_messages(&messages).expect("prompt");
+        assert!(prompt.contains("assistant: {"));
+        assert!(prompt.contains("\"tool_calls\""));
+        assert!(prompt.contains("get_weather"));
+        assert!(prompt.contains(r#"{"city":"Jakarta"}"#));
+        assert!(prompt.contains(r#"tool result (get_weather): {"temp_c":32}"#));
+        assert!(prompt.ends_with("And Bandung?"));
     }
 }
