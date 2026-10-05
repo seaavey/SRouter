@@ -406,8 +406,12 @@ async fn a_400_walks_the_pro_cascade() {
     assert_eq!(response.status(), StatusCode::OK);
     assert_eq!(
         fake.with(|state| state.requested_models.clone()),
-        vec!["gemini-pro-agent".to_owned(), "gemini-pro-agent".to_owned()],
-        "the Node double-parse re-sends gemini-pro-agent on the second attempt"
+        vec![
+            "gemini-pro-agent".to_owned(),
+            "gemini-pro-agent".to_owned(),
+            "gemini-3-pro".to_owned()
+        ],
+        "the Node double-parse re-sends gemini-pro-agent, then the chain ends on gemini-3-pro"
     );
 }
 
@@ -471,6 +475,10 @@ async fn expired_credentials_refresh_against_the_fake_and_persist() {
     let form = fake.with(|state| state.last_token_form.clone());
     assert!(form.contains("grant_type=refresh_token"), "{form}");
     assert!(form.contains("refresh_token=1%2F%2Fold-refresh"), "{form}");
+    assert!(
+        form.contains("client_secret="),
+        "the refresh grant requires the embedded client secret too: {form}"
+    );
     assert_eq!(
         fake.with(|state| state.last_authorization.clone()),
         "Bearer ya29.refreshed",
@@ -485,5 +493,46 @@ async fn expired_credentials_refresh_against_the_fake_and_persist() {
     assert_eq!(
         credentials.refresh_token.as_deref(),
         Some("1//rotated-refresh")
+    );
+}
+
+#[tokio::test]
+async fn a_transient_project_lookup_uses_a_generated_fallback_without_persisting_it() {
+    let database = TestDatabase::new().expect("temporary database");
+    connect_antigravity(&database).await;
+    let fake = FakeAntigravityUpstream::start().await;
+    // An empty `cloudaicompanionProject` makes `loadCodeAssist` resolve nothing.
+    fake.with(|state| state.project_id = String::new());
+    let app = app(&database, &fake).await;
+
+    let response = app
+        .oneshot(post(
+            "/v1/chat/completions",
+            chat_body("antigravity/gemini-3.7-flash-high", false),
+        ))
+        .await
+        .expect("gateway response");
+    assert_eq!(response.status(), StatusCode::OK);
+
+    assert!(fake.code_assist_requests() >= 1);
+    let project = fake.with(|state| state.last_chat_body["project"].clone());
+    let project = project.as_str().expect("the fallback project is a string");
+    let parts: Vec<&str> = project.split('-').collect();
+    assert_eq!(
+        parts.len(),
+        3,
+        "the fallback keeps the {{adj}}-{{noun}}-{{hex}} shape: {project}"
+    );
+    assert!(!parts[0].is_empty(), "{project}");
+    assert_eq!(parts[2].len(), 5, "{project}");
+
+    let app_database = database.connect().await.expect("temporary database");
+    let credentials = load_antigravity_credentials(&app_database)
+        .await
+        .expect("credentials read")
+        .expect("the connection is still stored");
+    assert_eq!(
+        credentials.project_id, None,
+        "a generated fallback must not be pinned to the connection"
     );
 }

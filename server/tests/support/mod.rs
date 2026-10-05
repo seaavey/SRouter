@@ -1998,7 +1998,9 @@ async fn antigravity_chat(
         (guard.chat_mode.clone(), guard.chat_requests)
     };
 
-    if mode == "cascade_400" && attempt == 1 {
+    // Fail the first two candidates so the pro chain is walked to its third
+    // attempt, proving the executor did not drop the terminal `gemini-3-pro`.
+    if mode == "cascade_400" && attempt <= 2 {
         return (StatusCode::BAD_REQUEST, "bad request").into_response();
     }
     if mode == "quota_429" && attempt == 1 {
