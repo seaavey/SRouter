@@ -1,11 +1,14 @@
 //! Tests for the OpenCode Zen provider types and executor.
 
+use serde_json::json;
+
 use crate::features::providers::opencode::executor::{
-    adapter, adapter_with_base_url, generate_opencode_session_id,
+    BufferedCompletion, adapter, adapter_with_base_url, generate_opencode_session_id,
 };
 use crate::features::providers::opencode::types::{
     OPENCODE_ZEN_BASE_URL, OPENCODE_ZEN_KEYS, OPENCODE_ZEN_MODELS, OPENCODE_ZEN_PROVIDER,
 };
+use crate::protocol::model::ChatCompletionRequest;
 
 #[test]
 fn opencode_zen_metadata_matches_the_node_api_provider() {
@@ -119,5 +122,74 @@ fn opencode_session_id_generator_matches_format() {
     assert!(
         b62_part.chars().all(|c| c.is_ascii_alphanumeric()),
         "suffix must be base62 alphanumeric"
+    );
+}
+
+fn request() -> ChatCompletionRequest {
+    serde_json::from_value(json!({
+        "model": "nemotron-3-ultra-free",
+        "messages": [{ "role": "user", "content": "Say ok" }]
+    }))
+    .expect("request must deserialize")
+}
+
+/// Zen reports upstream failures as `data: {"error":…}` frames inside an HTTP
+/// 200 stream. The buffered path must surface them instead of answering 200
+/// with empty content (the Nemotron "overloaded" case).
+#[test]
+fn buffered_completion_surfaces_an_upstream_error_frame() {
+    let mut aggregator = BufferedCompletion::new("chatcmpl-test".to_owned(), 0);
+    let error = aggregator
+        .accept(&json!({
+            "error": {
+                "type": "server_error",
+                "message": "Streaming response failed: [503] Upstream error from Nvidia: Service temporarily overloaded"
+            }
+        }))
+        .expect_err("an upstream error frame must abort the fold");
+
+    assert_eq!(error.status(), 500);
+    assert!(error.message().contains("Service temporarily overloaded"));
+}
+
+#[test]
+fn buffered_completion_uses_reasoning_when_content_is_empty() {
+    let mut aggregator = BufferedCompletion::new("chatcmpl-test".to_owned(), 0);
+    aggregator
+        .accept(&json!({
+            "choices": [{ "delta": { "reasoning_content": "let me think" }, "finish_reason": null }]
+        }))
+        .unwrap();
+    aggregator
+        .accept(&json!({ "choices": [{ "delta": {}, "finish_reason": "stop" }] }))
+        .unwrap();
+
+    let response = aggregator.finish("nemotron-3-ultra-free", &request());
+    assert_eq!(response["choices"][0]["message"]["content"], "let me think");
+    assert_eq!(
+        response["choices"][0]["message"]["reasoning_content"],
+        "let me think"
+    );
+}
+
+#[test]
+fn buffered_completion_keeps_content_and_reasoning_separate() {
+    let mut aggregator = BufferedCompletion::new("chatcmpl-test".to_owned(), 0);
+    aggregator
+        .accept(&json!({
+            "choices": [{ "delta": { "reasoning": "why " }, "finish_reason": null }]
+        }))
+        .unwrap();
+    aggregator
+        .accept(&json!({
+            "choices": [{ "delta": { "content": "ok" }, "finish_reason": "stop" }]
+        }))
+        .unwrap();
+
+    let response = aggregator.finish("nemotron-3-ultra-free", &request());
+    assert_eq!(response["choices"][0]["message"]["content"], "ok");
+    assert_eq!(
+        response["choices"][0]["message"]["reasoning_content"],
+        "why "
     );
 }

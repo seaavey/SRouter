@@ -14,7 +14,7 @@ use crate::features::providers::model::ModelDefinition;
 use crate::features::providers::opencode::types::{
     OPENCODE_ZEN_BASE_URL, OPENCODE_ZEN_KEYS, OPENCODE_ZEN_MODELS, OPENCODE_ZEN_PROVIDER,
 };
-use crate::features::providers::wire::random_hex;
+use crate::features::providers::wire::{random_hex, stream_error_message};
 use crate::infrastructure::upstream::UpstreamClient;
 use crate::protocol::image::ImageGenerationRequest;
 use crate::protocol::model::{ChatCompletionRequest, ChatContent, ChatMessage};
@@ -158,17 +158,10 @@ impl OpenCodeExecutor {
         }
 
         let mut stream = response.bytes_stream();
-        let mut full_content = String::new();
-        let mut chunk_id = format!("chatcmpl-{}", random_hex(16));
-        let mut created_ts = crate::clock::now_ms() / 1000;
-        let mut upstream_usage: Option<Value> = None;
-        let mut finish_reason: Option<String> = None;
-        // Tool calls stream in fragments: the id/name arrive once, arguments
-        // accumulate per index, so they are reassembled before the response.
-        let mut tool_calls: std::collections::BTreeMap<usize, Value> =
-            std::collections::BTreeMap::new();
-        let mut arguments: std::collections::BTreeMap<usize, String> =
-            std::collections::BTreeMap::new();
+        let mut aggregator = BufferedCompletion::new(
+            format!("chatcmpl-{}", random_hex(16)),
+            crate::clock::now_ms() / 1000,
+        );
 
         // Upstream SSE arrives fragmented across TCP chunks, so `data:` lines
         // must be reassembled across reads instead of parsed per network chunk.
@@ -187,92 +180,13 @@ impl OpenCodeExecutor {
                         continue;
                     }
                     if let Ok(val) = serde_json::from_str::<Value>(json_str) {
-                        if let Some(id) = val.get("id").and_then(|v| v.as_str()) {
-                            chunk_id = id.to_owned();
-                        }
-                        if let Some(created) = val.get("created").and_then(|v| v.as_i64()) {
-                            created_ts = created;
-                        }
-                        if let Some(content) = val["choices"][0]["delta"]["content"].as_str() {
-                            full_content.push_str(content);
-                        }
-                        if let Some(reason) = val["choices"][0]["finish_reason"].as_str() {
-                            finish_reason = Some(reason.to_owned());
-                        }
-                        if let Some(items) = val["choices"][0]["delta"]["tool_calls"].as_array() {
-                            for item in items {
-                                let index = item.get("index").and_then(|v| v.as_u64()).unwrap_or(0)
-                                    as usize;
-                                let entry = tool_calls.entry(index).or_insert_with(|| {
-                                    serde_json::json!({
-                                        "index": index,
-                                        "type": "function",
-                                        "function": { "name": "", "arguments": "" }
-                                    })
-                                });
-                                if let Some(id) = item.get("id").and_then(|v| v.as_str()) {
-                                    entry["id"] = Value::String(id.to_owned());
-                                }
-                                if let Some(name) = item["function"]["name"].as_str() {
-                                    entry["function"]["name"] = Value::String(name.to_owned());
-                                }
-                                if let Some(args) = item["function"]["arguments"].as_str() {
-                                    arguments.entry(index).or_default().push_str(args);
-                                }
-                            }
-                        }
-                        if let Some(usage) = val.get("usage") {
-                            upstream_usage = Some(usage.clone());
-                        }
+                        aggregator.accept(&val)?;
                     }
                 }
             }
         }
 
-        for (index, args) in arguments {
-            if let Some(entry) = tool_calls.get_mut(&index) {
-                entry["function"]["arguments"] = Value::String(args);
-            }
-        }
-
-        let usage = if let Some(u) = upstream_usage {
-            UsageBreakdown::from_value(&u).to_openai_json()
-        } else {
-            let prompt_tokens = estimate_prompt_tokens(&request.messages);
-            let completion_tokens = (full_content.chars().count() / 4).max(1) as i64;
-            let total_tokens = prompt_tokens + completion_tokens;
-            UsageBreakdown {
-                prompt_tokens,
-                completion_tokens,
-                total_tokens,
-                ..Default::default()
-            }
-            .to_openai_json()
-        };
-
-        let tool_calls_list: Vec<Value> = tool_calls.into_values().collect();
-        let has_tool_calls = !tool_calls_list.is_empty();
-        let mut message = serde_json::json!({
-            "role": "assistant",
-            "content": full_content
-        });
-        if has_tool_calls {
-            message["tool_calls"] = Value::Array(tool_calls_list);
-        }
-
-        Ok(serde_json::json!({
-            "id": chunk_id,
-            "object": "chat.completion",
-            "created": created_ts,
-            "model": model,
-            "choices": [{
-                "index": 0,
-                "message": message,
-                "finish_reason": finish_reason
-                    .unwrap_or_else(|| if has_tool_calls { "tool_calls".to_owned() } else { "stop".to_owned() })
-            }],
-            "usage": usage
-        }))
+        Ok(aggregator.finish(model, request))
     }
 
     pub async fn chat_completion_stream(
@@ -443,6 +357,154 @@ fn estimate_prompt_tokens(messages: &[ChatMessage]) -> i64 {
         }
     }
     (total_chars / 4).max(1) as i64
+}
+
+/// Folds an upstream OpenAI-shaped SSE stream into one non-streaming
+/// `chat.completion` body. Mirrors the aggregator the other providers use:
+/// an upstream error frame aborts the fold instead of producing an empty
+/// `200`, a reasoning-only model surfaces its reasoning as the answer, and
+/// tool-call fragments are reassembled by index.
+pub(crate) struct BufferedCompletion {
+    id: String,
+    created: i64,
+    content: String,
+    reasoning: String,
+    finish_reason: Option<String>,
+    usage: Option<Value>,
+    tool_calls: std::collections::BTreeMap<usize, Value>,
+    arguments: std::collections::BTreeMap<usize, String>,
+}
+
+impl BufferedCompletion {
+    pub(crate) fn new(id: String, created: i64) -> Self {
+        Self {
+            id,
+            created,
+            content: String::new(),
+            reasoning: String::new(),
+            finish_reason: None,
+            usage: None,
+            tool_calls: std::collections::BTreeMap::new(),
+            arguments: std::collections::BTreeMap::new(),
+        }
+    }
+
+    pub(crate) fn accept(&mut self, val: &Value) -> Result<(), APIError> {
+        // Zen streams failures inside an HTTP 200 body as `data: {"error":…}`;
+        // without this the fold would finish on empty content and answer `200`.
+        if let Some(message) = stream_error_message(val, "OpenCode Zen stream failed") {
+            return Err(APIError::new(500, message));
+        }
+
+        if let Some(id) = val.get("id").and_then(|v| v.as_str()) {
+            self.id = id.to_owned();
+        }
+        if let Some(created) = val.get("created").and_then(|v| v.as_i64()) {
+            self.created = created;
+        }
+
+        let choice = &val["choices"][0];
+        let delta = &choice["delta"];
+        if let Some(content) = delta["content"].as_str() {
+            self.content.push_str(content);
+        }
+        if let Some(reasoning) = delta["reasoning_content"]
+            .as_str()
+            .or_else(|| delta["reasoning"].as_str())
+        {
+            self.reasoning.push_str(reasoning);
+        }
+        if let Some(reason) = choice["finish_reason"].as_str() {
+            self.finish_reason = Some(reason.to_owned());
+        }
+
+        // Tool calls stream in fragments: the id/name arrive once, arguments
+        // accumulate per index, so they are reassembled before the response.
+        if let Some(items) = delta["tool_calls"].as_array() {
+            for item in items {
+                let index = item.get("index").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
+                let entry = self.tool_calls.entry(index).or_insert_with(|| {
+                    serde_json::json!({
+                        "index": index,
+                        "type": "function",
+                        "function": { "name": "", "arguments": "" }
+                    })
+                });
+                if let Some(id) = item.get("id").and_then(|v| v.as_str()) {
+                    entry["id"] = Value::String(id.to_owned());
+                }
+                if let Some(name) = item["function"]["name"].as_str() {
+                    entry["function"]["name"] = Value::String(name.to_owned());
+                }
+                if let Some(args) = item["function"]["arguments"].as_str() {
+                    self.arguments.entry(index).or_default().push_str(args);
+                }
+            }
+        }
+
+        if let Some(usage) = val.get("usage") {
+            self.usage = Some(usage.clone());
+        }
+
+        Ok(())
+    }
+
+    pub(crate) fn finish(mut self, model: &str, request: &ChatCompletionRequest) -> Value {
+        for (index, args) in self.arguments {
+            if let Some(entry) = self.tool_calls.get_mut(&index) {
+                entry["function"]["arguments"] = Value::String(args);
+            }
+        }
+
+        let usage = if let Some(u) = self.usage {
+            UsageBreakdown::from_value(&u).to_openai_json()
+        } else {
+            let prompt_tokens = estimate_prompt_tokens(&request.messages);
+            let completion_tokens = (self.content.chars().count() / 4).max(1) as i64;
+            let total_tokens = prompt_tokens + completion_tokens;
+            UsageBreakdown {
+                prompt_tokens,
+                completion_tokens,
+                total_tokens,
+                ..Default::default()
+            }
+            .to_openai_json()
+        };
+
+        let tool_calls_list: Vec<Value> = self.tool_calls.into_values().collect();
+        let has_tool_calls = !tool_calls_list.is_empty();
+
+        // A reasoning-only model can finish with no visible content; its
+        // reasoning is then the only answer the caller can be given.
+        let mut message = serde_json::json!({
+            "role": "assistant",
+            "content": if self.content.is_empty() && !self.reasoning.is_empty() {
+                self.reasoning.clone()
+            } else {
+                self.content.clone()
+            }
+        });
+        if !self.reasoning.is_empty() {
+            message["reasoning_content"] = Value::String(std::mem::take(&mut self.reasoning));
+        }
+        if has_tool_calls {
+            message["tool_calls"] = Value::Array(tool_calls_list);
+        }
+
+        serde_json::json!({
+            "id": self.id,
+            "object": "chat.completion",
+            "created": self.created,
+            "model": model,
+            "choices": [{
+                "index": 0,
+                "message": message,
+                "finish_reason": self.finish_reason
+                    .unwrap_or_else(|| if has_tool_calls { "tool_calls".to_owned() } else { "stop".to_owned() })
+            }],
+            "usage": usage
+        })
+    }
 }
 
 impl ProviderExecutor for OpenCodeExecutor {
