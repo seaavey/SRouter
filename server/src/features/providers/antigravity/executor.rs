@@ -123,8 +123,12 @@ impl AntigravityExecutor {
         let mut last_error = None;
 
         for (index, candidate) in candidates.iter().enumerate() {
+            // The Node oracle re-parses every candidate inside `buildRequest`, so
+            // the wire model is the mapped one (the pro chain's raw id maps back
+            // to `gemini-pro-agent`). The cascade control flow is unchanged.
+            let wire_model = super::translate::parse_model_name(candidate);
             match self
-                .send_candidate(candidate, request, &project_id, &credentials.access_token)
+                .send_candidate(&wire_model, request, &project_id, &credentials.access_token)
                 .await
             {
                 Ok(response) => {

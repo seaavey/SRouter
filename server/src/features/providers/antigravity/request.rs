@@ -171,8 +171,12 @@ impl AntigravityExecutor {
     }
 
     /// Fetches a remote image through the SSRF guard as `(mimeType, base64)`. A
-    /// blocked host, a failed fetch, or a non-image answer drops the image,
-    /// exactly as the oracle's async builder does.
+    /// blocked host, a failed fetch, a redirect, or a non-image answer drops the
+    /// image, exactly as the oracle's async builder does.
+    ///
+    /// The fetch uses a redirect-disabled client so the host check on the
+    /// initial URL is the only hop; a `3xx` to an internal target is a
+    /// non-success drop, not a followed request.
     async fn fetch_remote_image(&self, url: String) -> Option<InlineImage> {
         let parsed = url::Url::parse(&url).ok()?;
         let host = parsed.host_str()?;
@@ -181,9 +185,12 @@ impl AntigravityExecutor {
             return None;
         }
 
-        let response = self
-            .client
-            .raw()
+        let client = reqwest::Client::builder()
+            .redirect(reqwest::redirect::Policy::none())
+            .connect_timeout(IMAGE_FETCH_TIMEOUT)
+            .build()
+            .ok()?;
+        let response = client
             .get(&url)
             .timeout(IMAGE_FETCH_TIMEOUT)
             .send()

@@ -1,7 +1,7 @@
 //! Unit tests for the Antigravity pure and delegated pieces: header selection,
 //! the retry parser, the refresh window, the fallback project id, and the
-//! catalog snapshot flip. The fake-upstream integration tests live in
-//! `tests/antigravity_provider.rs`.
+//! catalog snapshot flip. The fake-upstream integration tests are added in
+//! Task 6 (`tests/antigravity_provider.rs`), not here.
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -152,6 +152,34 @@ fn the_fallback_project_id_has_the_oracle_shape() {
             "{project_id}"
         );
     }
+}
+
+#[test]
+fn cascade_candidates_map_to_the_node_wire_sequence() {
+    use super::translate::{model_fallbacks, parse_model_name};
+
+    // The executor re-parses every candidate, mirroring `buildRequest`. The pro
+    // chain's raw id therefore maps back to `gemini-pro-agent`, so attempt 2
+    // sends the same wire model as attempt 1 (the Node double-send quirk).
+    let wire: Vec<String> = model_fallbacks("gemini-3.1-pro-high")
+        .iter()
+        .map(|candidate| parse_model_name(candidate))
+        .collect();
+    assert_eq!(
+        wire,
+        vec![
+            "gemini-pro-agent".to_owned(),
+            "gemini-pro-agent".to_owned(),
+            "gemini-3-pro".to_owned(),
+        ]
+    );
+
+    // A flash candidate is already the wire name; re-parsing is idempotent.
+    let flash: Vec<String> = model_fallbacks("gemini-3.7-flash-high")
+        .iter()
+        .map(|candidate| parse_model_name(candidate))
+        .collect();
+    assert_eq!(flash, vec!["gemini-3.7-flash-tiered".to_owned()]);
 }
 
 /// A unique temporary SQLite database removed when the value is dropped.

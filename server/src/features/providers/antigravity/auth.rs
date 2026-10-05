@@ -169,8 +169,9 @@ impl AntigravityExecutor {
     }
 
     /// The CloudCode project id for the envelope: the stored id, else a
-    /// `loadCodeAssist` lookup for a `ya29.` token, else a generated fallback.
-    /// The resolved id is persisted so the lookup runs once (D5).
+    /// `loadCodeAssist` lookup for a `ya29.` token. Only a resolved id is
+    /// persisted (D5), so the lookup runs once; when the call fails a generated
+    /// fallback is returned for this request only, and the next request retries.
     pub(super) async fn ensure_project_id(
         &self,
         credentials: &AntigravityCredentials,
@@ -183,10 +184,9 @@ impl AntigravityExecutor {
             return Ok(project_id.to_owned());
         }
 
-        let project_id = self
-            .load_code_assist(credentials)
-            .await
-            .unwrap_or_else(generate_fallback_project_id);
+        let Some(project_id) = self.load_code_assist(credentials).await else {
+            return Ok(generate_fallback_project_id());
+        };
 
         if let Some(database) = self.database.as_ref() {
             let _ = update_antigravity_project_id(database, &credentials.id, &project_id).await;
