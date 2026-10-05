@@ -403,6 +403,9 @@ pub struct FakeCodeBuddyState {
     pub config_failure: bool,
     pub chat_mode: String,
     pub model_catalog: serde_json::Value,
+    /// Path to a fixture `product.json`, so tests exercise the vendor catalog
+    /// without depending on an installed CodeBuddy package.
+    pub product_json_path: Option<std::path::PathBuf>,
     pub last_config_authorization: String,
     pub last_authorization: String,
     pub last_user_agent: String,
@@ -477,6 +480,7 @@ impl FakeCodeBuddyUpstream {
             chat_url: format!("{}/chat", self.base_url),
             config_url: format!("{}/config", self.base_url),
             domain: None,
+            product_json_path: self.with(|state| state.product_json_path.clone()),
         }
     }
 
@@ -487,6 +491,7 @@ impl FakeCodeBuddyUpstream {
             chat_url: format!("{}/cn/chat", self.base_url),
             config_url: format!("{}/cn/config", self.base_url),
             domain: Some("www.codebuddy.cn"),
+            product_json_path: self.with(|state| state.product_json_path.clone()),
         }
     }
 

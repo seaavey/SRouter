@@ -62,8 +62,39 @@ impl CodeBuddyExecutor {
         self.refresh_catalog().await
     }
 
-    /// Replaces the snapshot only when upstream returns a usable model list.
+    /// Replaces the snapshot with the official package's `product.json` model
+    /// list, plus any models a live enterprise `/v3/config` adds. A missing
+    /// `product.json` or a failed config fetch never clears a snapshot that
+    /// already landed.
     pub async fn refresh_catalog(&self) -> Result<(), APIError> {
+        let mut models =
+            super::product::load_product_models(self.endpoints.product_json_path.as_deref())
+                .unwrap_or_default();
+
+        if let Ok(live) = self.fetch_live_models().await {
+            models.extend(live);
+        }
+
+        if models.is_empty() {
+            return Ok(());
+        }
+
+        models.sort();
+        models.dedup();
+
+        let now = now_ms();
+        let mut catalog = write_catalog(&self.catalog);
+        catalog.models = models;
+        catalog.fetched_at_ms = now;
+        catalog.attempted_at_ms = now;
+
+        Ok(())
+    }
+
+    /// The live enterprise model list. Best-effort: a personal account's config
+    /// has no `models` array, and a network/credential failure is not fatal to
+    /// the `product.json` baseline.
+    async fn fetch_live_models(&self) -> Result<Vec<String>, APIError> {
         let credentials = self.credentials().await?;
         let mut headers = self.base_headers();
         headers.insert("Accept", "application/json".to_owned());
@@ -88,10 +119,7 @@ impl CodeBuddyExecutor {
         let payload = response.json::<Value>().await.map_err(|error| {
             APIError::new(500, constants::providers::could_not_decode_response(&error))
         })?;
-        if let Some(catalog) = CodeBuddyCatalog::parse_config(&payload) {
-            *write_catalog(&self.catalog) = catalog;
-        }
 
-        Ok(())
+        Ok(CodeBuddyCatalog::parse_live(&payload).unwrap_or_default())
     }
 }

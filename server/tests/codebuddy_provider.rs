@@ -151,6 +151,69 @@ async fn codebuddy_cn_connection_advertises_only_the_cn_catalog() {
 }
 
 #[tokio::test]
+async fn codebuddy_product_json_supplies_the_personal_account_catalog() {
+    let database = TestDatabase::new().expect("temporary database");
+    let fake = FakeCodeBuddyUpstream::start().await;
+
+    // A personal account has no `models` in /v3/config; the vendor list comes
+    // from the installed package's product.json, which the fixture stands in for.
+    let product_path = std::env::temp_dir().join(format!(
+        "srouter-codebuddy-product-{}.json",
+        std::process::id()
+    ));
+    std::fs::write(
+        &product_path,
+        r#"{"models":[{"id":"hy4-preview"},{"id":"kimi-k3"},{"id":"deepseek-v4.1-flash"}]}"#,
+    )
+    .expect("fixture product.json");
+    fake.with(|state| state.product_json_path = Some(product_path.clone()));
+
+    let app = app(&database, &fake).await;
+
+    // No connection: the vendor list must stay hidden.
+    let ids = model_ids(
+        &json_body(
+            app.clone()
+                .oneshot(models_request())
+                .await
+                .expect("models response"),
+        )
+        .await,
+    );
+    assert!(
+        !ids.iter().any(|id| id.starts_with("codebuddy/")),
+        "the vendor catalog must be gated on a connection: {ids:?}"
+    );
+
+    // With the global connection, the vendor ids and the live config ids merge.
+    connect_codebuddy(&database, "codebuddy").await;
+    let ids = model_ids(
+        &json_body(
+            app.oneshot(models_request())
+                .await
+                .expect("models response"),
+        )
+        .await,
+    );
+    for expected in [
+        "codebuddy/hy4-preview",
+        "codebuddy/kimi-k3",
+        "codebuddy/gpt-5.6-astra",
+    ] {
+        assert!(
+            ids.contains(&expected.to_owned()),
+            "missing {expected}: {ids:?}"
+        );
+    }
+    assert!(
+        !ids.iter().any(|id| id.starts_with("codebuddy-cn/")),
+        "the China adapter must not advertise without its own connection: {ids:?}"
+    );
+
+    let _ = std::fs::remove_file(&product_path);
+}
+
+#[tokio::test]
 async fn codebuddy_config_failure_leaves_the_catalog_empty() {
     let database = TestDatabase::new().expect("temporary database");
     connect_codebuddy(&database, "codebuddy").await;

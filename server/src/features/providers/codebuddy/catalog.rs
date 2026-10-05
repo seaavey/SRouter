@@ -1,37 +1,36 @@
-//! CodeBuddy model catalog: the live snapshot read from `GET /v3/config`.
+//! CodeBuddy model catalog: the official package's `product.json` list, with a
+//! live enterprise `/v3/config` merged on top.
 //!
-//! CodeBuddy has no `/models` endpoint; the client reads the product
-//! configuration and takes `data.models[]` as the catalog. The snapshot starts
-//! empty and is replaced in place. A failed or malformed fetch never empties one
-//! that already landed, so nothing is advertised that upstream has not
-//! confirmed — there is deliberately no hardcoded fallback list.
-//!
-//! A personal account's config carries no `models` array (verified live on
-//! 2026-10-04: it returns `productFeatures` instead), so the catalog stays empty
-//! and the models are used by explicit id. Only an enterprise/cloud config
-//! supplies a `models` array to merge in.
+//! CodeBuddy has no `/models` endpoint and its live product config carries a
+//! `models` array only for enterprise deployments; a personal account returns
+//! `productFeatures` instead (verified live on 2026-10-05). The personal model
+//! list therefore comes from the official client package's `product.json` (see
+//! [`super::product`]), read at refresh time rather than hardcoded here. The
+//! snapshot starts empty and is replaced in place. A failed or malformed fetch
+//! never empties one that already landed, so nothing is advertised that the
+//! vendor has not published.
 
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use serde_json::Value;
 
-use crate::clock::now_ms;
-
 /// How long one fetch stays fresh. `0` marks a snapshot that has never been
 /// filled, so the first request after boot is always due to fill it.
 pub const CATALOG_TTL_MS: i64 = 5 * 60 * 1000;
 
-/// How long a failed attempt on an unfilled snapshot is worth holding off. The
-/// config GET can wait out its own timeout, and without this window every
-/// request on an install that has no working catalog queues behind a fresh one.
+/// How long a failed attempt on a snapshot that never landed is worth holding
+/// off. The config GET can wait out its own timeout, and without this window
+/// every request on an install that has no working catalog queues behind a
+/// fresh one.
 pub const CATALOG_RETRY_MS: i64 = 30 * 1000;
 
-/// The advertised model ids of the last answer upstream confirmed.
+/// The advertised model ids of the last refresh.
 #[derive(Debug)]
 pub struct CodeBuddyCatalog {
     pub fetched_at_ms: i64,
-    /// When the last fetch was started, whether or not it succeeded. Only an
-    /// unfilled snapshot obeys it; a filled one is governed by `CATALOG_TTL_MS`.
+    /// When the last refresh was started, whether or not it landed. Only a
+    /// snapshot that never landed obeys it; a filled one is governed by
+    /// `CATALOG_TTL_MS`.
     pub attempted_at_ms: i64,
     pub models: Vec<String>,
 }
@@ -55,41 +54,40 @@ impl CodeBuddyCatalog {
         Arc::new(RwLock::new(Self::empty()))
     }
 
-    /// Parses the `data.models` array of the product-config payload. A
-    /// non-zero `code`, a missing/non-array `models`, or an all-blank list
-    /// yields `None` so the caller keeps the current snapshot.
-    pub fn parse_config(value: &Value) -> Option<Self> {
-        if let Some(code) = value.get("code").and_then(Value::as_i64)
+    /// Parses the `data.models` array of a live product-config payload. A
+    /// non-zero `code` or a non-object payload yields `None` so the caller keeps
+    /// the current snapshot. A valid envelope with no `models` array (the
+    /// personal-account shape) yields `Some(empty)` so the caller can still
+    /// settle on the `product.json` list without retrying every request.
+    pub fn parse_live(value: &Value) -> Option<Vec<String>> {
+        let object = value.as_object()?;
+        if let Some(code) = object.get("code").and_then(Value::as_i64)
             && code != 0
         {
             return None;
         }
 
-        let entries = value.get("data")?.get("models")?.as_array()?;
-        let mut models: Vec<String> = entries
-            .iter()
-            .filter_map(|entry| entry.get("id")?.as_str())
-            .map(str::trim)
-            .filter(|id| !id.is_empty())
-            .map(str::to_owned)
-            .collect();
-
-        if models.is_empty() {
-            return None;
-        }
+        let mut models: Vec<String> = object
+            .get("data")
+            .and_then(|data| data.get("models"))
+            .and_then(Value::as_array)
+            .map(|entries| {
+                entries
+                    .iter()
+                    .filter_map(|entry| entry.get("id")?.as_str())
+                    .map(str::trim)
+                    .filter(|id| !id.is_empty())
+                    .map(str::to_owned)
+                    .collect()
+            })
+            .unwrap_or_default();
 
         // Sorting and deduplicating keep the advertised list identical across
         // refreshes, so a reshuffle cannot look like a model appearing.
         models.sort();
         models.dedup();
 
-        let fetched_at_ms = now_ms();
-
-        Some(Self {
-            fetched_at_ms,
-            attempted_at_ms: fetched_at_ms,
-            models,
-        })
+        Some(models)
     }
 
     /// Whether nothing has been advertised yet, which is what makes a caller
@@ -98,18 +96,19 @@ impl CodeBuddyCatalog {
         self.models.is_empty()
     }
 
-    /// Whether a fetch is worth starting now. `force` ignores every gate; an
-    /// unfilled snapshot obeys the retry window; a filled one the TTL.
+    /// Whether a fetch is worth starting now. `force` ignores every gate; a
+    /// snapshot that has never landed a refresh obeys the retry window; a
+    /// filled one the TTL.
     pub fn refresh_is_due(&self, force: bool, now_ms: i64) -> bool {
         if force {
             return true;
         }
 
-        if self.models.is_empty() {
+        if self.fetched_at_ms == 0 {
             return now_ms - self.attempted_at_ms >= CATALOG_RETRY_MS;
         }
 
-        self.fetched_at_ms == 0 || now_ms - self.fetched_at_ms >= CATALOG_TTL_MS
+        now_ms - self.fetched_at_ms >= CATALOG_TTL_MS
     }
 }
 
@@ -163,25 +162,24 @@ mod tests {
 
     #[test]
     fn a_filled_snapshot_obeys_the_ttl_not_the_retry_window() {
-        let parsed = CodeBuddyCatalog::parse_config(&json!({
-            "code": 0,
-            "data": {"models": [{"id": "gpt-5.6-astra"}]}
-        }))
-        .expect("catalog parses");
+        let mut catalog = CodeBuddyCatalog::empty();
+        catalog.models = vec!["gpt-5.6-astra".to_owned()];
+        catalog.fetched_at_ms = 1_000;
+        catalog.attempted_at_ms = 1_000;
 
-        assert!(!parsed.is_empty());
-        assert!(!parsed.refresh_is_due(false, parsed.fetched_at_ms));
+        assert!(!catalog.is_empty());
+        assert!(!catalog.refresh_is_due(false, 1_000));
         assert!(
-            !parsed.refresh_is_due(false, parsed.fetched_at_ms + CATALOG_TTL_MS - 1),
+            !catalog.refresh_is_due(false, 1_000 + CATALOG_TTL_MS - 1),
             "a fresh snapshot owes nothing before the TTL runs out"
         );
-        assert!(parsed.refresh_is_due(false, parsed.fetched_at_ms + CATALOG_TTL_MS));
-        assert!(parsed.refresh_is_due(true, parsed.fetched_at_ms));
+        assert!(catalog.refresh_is_due(false, 1_000 + CATALOG_TTL_MS));
+        assert!(catalog.refresh_is_due(true, 1_000));
     }
 
     #[test]
-    fn parses_the_data_models_ids_in_a_stable_order() {
-        let parsed = CodeBuddyCatalog::parse_config(&json!({
+    fn parses_the_live_data_models_ids_in_a_stable_order() {
+        let models = CodeBuddyCatalog::parse_live(&json!({
             "code": 0,
             "data": {
                 "models": [
@@ -193,54 +191,52 @@ mod tests {
         }))
         .expect("catalog parses");
 
-        assert_eq!(parsed.models, vec!["deepseek-v4.1-flash", "gpt-6-astra"]);
-        assert_eq!(parsed.attempted_at_ms, parsed.fetched_at_ms);
+        assert_eq!(models, vec!["deepseek-v4.1-flash", "gpt-6-astra"]);
     }
 
     #[test]
-    fn a_null_models_array_keeps_the_current_snapshot() {
-        assert!(
-            CodeBuddyCatalog::parse_config(&json!({
+    fn a_valid_envelope_without_a_models_array_is_empty_not_an_error() {
+        assert_eq!(
+            CodeBuddyCatalog::parse_live(&json!({
                 "code": 0,
-                "data": {"models": null}
-            }))
-            .is_none(),
-            "the unauthenticated payload must not empty an existing catalog"
+                "data": {"enterpriseId": "", "productFeatures": {}}
+            })),
+            Some(Vec::new()),
+            "the personal-account shape must settle without clearing the product.json list"
+        );
+        assert_eq!(
+            CodeBuddyCatalog::parse_live(&json!({"code": 0, "data": {"models": null}})),
+            Some(Vec::new())
         );
     }
 
     #[test]
     fn an_empty_id_never_becomes_a_model() {
-        let parsed = CodeBuddyCatalog::parse_config(&json!({
+        let models = CodeBuddyCatalog::parse_live(&json!({
             "code": 0,
             "data": {"models": [{"id": ""}, {"id": "   "}, {"id": " glm-5.3 "}, {"name": "no-id"}]}
         }))
         .expect("catalog parses");
 
-        assert_eq!(parsed.models, vec!["glm-5.3"]);
-        assert!(
-            CodeBuddyCatalog::parse_config(&json!({"code": 0, "data": {"models": [{"id": ""}]}}))
-                .is_none(),
-            "a response without a usable id must keep the current snapshot"
-        );
+        assert_eq!(models, vec!["glm-5.3"]);
     }
 
     #[test]
     fn a_non_zero_code_or_bad_shape_yields_none() {
         assert!(
-            CodeBuddyCatalog::parse_config(&json!({
+            CodeBuddyCatalog::parse_live(&json!({
                 "code": 11217,
                 "data": {"models": [{"id": "gpt-5.6-astra"}]}
             }))
             .is_none(),
             "an error envelope is not a catalog"
         );
-        assert!(
-            CodeBuddyCatalog::parse_config(&json!({"data": {"models": [{"id": "x"}]}})).is_some(),
+        assert_eq!(
+            CodeBuddyCatalog::parse_live(&json!({"data": {"models": [{"id": "x"}]}})),
+            Some(vec!["x".to_owned()]),
             "a payload without a code field is still read"
         );
-        assert!(CodeBuddyCatalog::parse_config(&json!({"data": {}})).is_none());
-        assert!(CodeBuddyCatalog::parse_config(&json!({"data": "nope"})).is_none());
-        assert!(CodeBuddyCatalog::parse_config(&json!(null)).is_none());
+        assert!(CodeBuddyCatalog::parse_live(&json!("nope")).is_none());
+        assert!(CodeBuddyCatalog::parse_live(&json!(null)).is_none());
     }
 }

@@ -7,6 +7,8 @@
 //! - live probe on 2026-10-04: the product-config endpoint is `GET {base}/v3/config`
 //!   (`/v2/config`, `/config/models`, `/v2/models` are all 404)
 
+use std::path::PathBuf;
+
 use crate::features::providers::model::ProviderMetadata;
 
 /// Chat endpoint of the global flavor. The Node oracle stores the full
@@ -73,6 +75,10 @@ pub struct CodeBuddyEndpoints {
     /// `X-Domain` header value, set for the China flavor only (the Node oracle
     /// sends no `X-Domain` for the global flavor).
     pub domain: Option<&'static str>,
+    /// The official package's `product.json`, the source of the personal-account
+    /// model list. `None` (tests, or no installed package) skips it and leaves
+    /// only the live enterprise config.
+    pub product_json_path: Option<PathBuf>,
 }
 
 impl Default for CodeBuddyEndpoints {
@@ -81,6 +87,7 @@ impl Default for CodeBuddyEndpoints {
             chat_url: CODEBUDDY_CHAT_URL.to_owned(),
             config_url: CODEBUDDY_CONFIG_URL.to_owned(),
             domain: None,
+            product_json_path: super::product::resolve_product_json_path(),
         }
     }
 }
@@ -92,6 +99,7 @@ impl CodeBuddyEndpoints {
             chat_url: CODEBUDDY_CN_CHAT_URL.to_owned(),
             config_url: CODEBUDDY_CN_CONFIG_URL.to_owned(),
             domain: Some("www.codebuddy.cn"),
+            product_json_path: super::product::resolve_product_json_path(),
         }
     }
 }
