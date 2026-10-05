@@ -109,6 +109,39 @@ fn parse_antigravity_credentials(raw: &str) -> Option<AntigravityCredentials> {
     })
 }
 
+/// Builds the credentials JSON for a fresh connection. The canonical expiry key
+/// is `token_expires_at` (the parser reads it first, and qoder/codex write it); a
+/// second `expires_at` key would shadow a refreshed value on a migrated row.
+fn connection_credentials(write: &AntigravityConnectionWrite, refreshed_at_ms: i64) -> Value {
+    serde_json::json!({
+        "access_token": write.access_token,
+        "refresh_token": write.refresh_token,
+        "token_expires_at": write.expires_at,
+        "project_id": write.project_id,
+        "last_refreshed_at": refreshed_at_ms,
+    })
+}
+
+/// Merges rotated tokens into an existing credentials object, preserving every
+/// other key (the project id above all). Writes the canonical `token_expires_at`
+/// so a migrated row's stale value is overwritten rather than shadowed.
+fn merge_rotated_tokens(
+    mut credentials: Value,
+    access_token: &str,
+    refresh_token: &str,
+    expires_at_ms: Option<i64>,
+    refreshed_at_ms: i64,
+) -> Value {
+    credentials["access_token"] = Value::String(access_token.to_owned());
+    credentials["refresh_token"] = Value::String(refresh_token.to_owned());
+    credentials["token_expires_at"] = match expires_at_ms {
+        Some(expires_at) => Value::from(expires_at),
+        None => Value::Null,
+    };
+    credentials["last_refreshed_at"] = Value::from(refreshed_at_ms);
+    credentials
+}
+
 /// Writes or refreshes one Antigravity connection. The id is the primary key,
 /// so a repeated callback for the same account updates the token in place.
 pub async fn upsert_antigravity_connection(
@@ -116,13 +149,7 @@ pub async fn upsert_antigravity_connection(
     write: &AntigravityConnectionWrite,
 ) -> Result<(), APIError> {
     let pool = database.sqlite_required(constants::database::PROVIDERS_UNSUPPORTED)?;
-    let credentials = serde_json::json!({
-        "access_token": write.access_token,
-        "refresh_token": write.refresh_token,
-        "expires_at": write.expires_at,
-        "project_id": write.project_id,
-        "last_refreshed_at": now_ms(),
-    });
+    let credentials = connection_credentials(write, now_ms());
 
     sqlx::query(
         "INSERT INTO providers \
@@ -170,17 +197,16 @@ pub async fn update_antigravity_tokens(
             )
         })?;
 
-    let mut credentials: Value = current
-        .and_then(|raw| serde_json::from_str::<Value>(&raw).ok())
-        .filter(Value::is_object)
-        .unwrap_or_else(|| Value::Object(serde_json::Map::new()));
-    credentials["access_token"] = Value::String(access_token.to_owned());
-    credentials["refresh_token"] = Value::String(refresh_token.to_owned());
-    credentials["expires_at"] = match expires_at_ms {
-        Some(expires_at) => Value::from(expires_at),
-        None => Value::Null,
-    };
-    credentials["last_refreshed_at"] = Value::from(refreshed_at_ms);
+    let credentials = merge_rotated_tokens(
+        current
+            .and_then(|raw| serde_json::from_str::<Value>(&raw).ok())
+            .filter(Value::is_object)
+            .unwrap_or_else(|| Value::Object(serde_json::Map::new())),
+        access_token,
+        refresh_token,
+        expires_at_ms,
+        refreshed_at_ms,
+    );
 
     sqlx::query(
         "UPDATE providers
@@ -203,7 +229,10 @@ pub async fn update_antigravity_tokens(
 
 #[cfg(test)]
 mod tests {
-    use super::parse_antigravity_credentials;
+    use super::{
+        AntigravityConnectionWrite, connection_credentials, merge_rotated_tokens,
+        parse_antigravity_credentials,
+    };
 
     #[test]
     fn parse_accepts_snake_case_credentials() {
@@ -254,5 +283,53 @@ mod tests {
     fn parse_rejects_a_missing_access_token() {
         assert!(parse_antigravity_credentials(r#"{"refresh_token": "1//only"}"#).is_none());
         assert!(parse_antigravity_credentials("not json").is_none());
+    }
+
+    /// A migrated Node row keeps `token_expires_at`; a refresh that wrote a second
+    /// `expires_at` key must not shadow the canonical one.
+    #[test]
+    fn parse_reads_the_canonical_token_expires_at_key_when_both_are_present() {
+        let raw = r#"{
+            "access_token": "ya29.token",
+            "token_expires_at": 1700000000000,
+            "expires_at": 1800000000000
+        }"#;
+
+        let credentials = parse_antigravity_credentials(raw).expect("parse");
+
+        assert_eq!(credentials.expires_at, Some(1_700_000_000_000));
+    }
+
+    #[test]
+    fn writers_emit_the_canonical_token_expires_at_key() {
+        let write = AntigravityConnectionWrite {
+            id: "antigravity_1".to_owned(),
+            name: "account@example.com".to_owned(),
+            access_token: "ya29.fresh".to_owned(),
+            refresh_token: Some("1//fresh".to_owned()),
+            expires_at: Some(1_700_000_000_000),
+            project_id: Some("project".to_owned()),
+        };
+
+        let fresh = connection_credentials(&write, 1_700_000_000_001);
+        assert_eq!(fresh["token_expires_at"], 1_700_000_000_000_i64);
+        assert!(fresh.get("expires_at").is_none());
+
+        let migrated = serde_json::json!({
+            "access_token": "ya29.stale",
+            "token_expires_at": 1,
+            "project_id": "project",
+        });
+        let rotated = merge_rotated_tokens(
+            migrated,
+            "ya29.fresh",
+            "1//fresh",
+            Some(1_700_000_000_000),
+            1_700_000_000_001,
+        );
+
+        assert_eq!(rotated["token_expires_at"], 1_700_000_000_000_i64);
+        assert!(rotated.get("expires_at").is_none());
+        assert_eq!(rotated["project_id"], "project");
     }
 }
