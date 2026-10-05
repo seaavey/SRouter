@@ -4,7 +4,7 @@
 
 **Goal:** Add the Antigravity inference executor to the Rust gateway (`server/`): `/v1/auth/antigravity/{login,callback,token}` serves the Google OAuth PKCE flow and token import, and `AntigravityExecutor` serves `/v1/chat/completions` (stream + non-stream aggregation) through Google's CloudCode IDE envelope, advertising a static 17-model catalog that is gated on an existing connection.
 
-**Architecture:** One provider module (`features/providers/antigravity/`) owning protocol constants, the static catalog, and the Gemini⇄OpenAI translation, plus one auth module (`features/provider_auth/antigravity.rs`) mirroring the OpenAI/Qoder PKCE pattern. The executor reads its connection from the `providers` row at request time (the static-registry pattern Cline/Codex/CodeBuddy established), bootstraps a Google project id once via `loadCodeAssist`, and reuses the existing background token sweeper (`main.rs`) by implementing `sweep_tokens`. No new table, no migration: `providers.credentials` and `oauth_sessions` already exist.
+**Architecture:** One provider module (`features/providers/antigravity/`) owning protocol constants, the static catalog, and the Gemini⇄OpenAI translation, plus one auth module (`features/provider_auth/antigravity.rs`) mirroring the OpenAI/Qoder PKCE pattern. The executor reads its connection from the `providers` row at request time (the static-registry pattern Cline/Codex/CodeBuddy established), bootstraps a Google project id once via `loadCodeAssist`, and reuses the existing background token sweeper (`main.rs`) by implementing `sweep_tokens`. No new table, no migration: `providers.credentials` and `oauth_sessions` already exist. The provider module follows the canonical submodule contract (`types`/`auth`/`request`/`translate`/`refresh`/`executor`/`tests`, one concern per file — see `.local/CONVENTIONS.md` §2), so the pure translation/request logic is unit-testable without the network.
 
 **Tech Stack:** Rust edition 2024 (stable), axum 0.8, sqlx 0.9 (SQLite), reqwest 0.13 (rustls), serde/serde_json, tokio 1. No new crates (sha2/base64/uuid/getrandom already present for PKCE).
 
@@ -76,30 +76,35 @@ Gated exactly like Node `listModels`: no connection → empty list (no `antigrav
 
 ## File Structure
 
-| File                                                     | Responsibility                                                                                                    |
-| -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `server/src/features/providers/antigravity/mod.rs`       | module wiring + re-exports                                                                                        |
-| `server/src/features/providers/antigravity/types.rs`     | `ANTIGRAVITY_PROVIDER`, 17-id static catalog, OAuth/endpoint constants, provenance doc, unit tests                |
-| `server/src/features/providers/antigravity/translate.rs` | envelope + requestId, contents/tools builders, schema cleanup, Gemini SSE → OpenAI chunks, accumulate, unit tests |
-| `server/src/features/providers/antigravity/executor.rs`  | credential load, project bootstrap, headers, stream/non-stream, 400-cascade, credits retry, `sweep_tokens`        |
-| `server/src/features/provider_auth/antigravity.rs`       | `create_antigravity_login_router[_with_endpoints]`, callback, token import                                        |
-| `server/src/features/providers/mod.rs`                   | modify: `pub mod antigravity;` + re-exports, `ANTIGRAVITY_PROVIDER` appended to `SEED_PROVIDERS`                  |
-| `server/src/features/providers/registry.rs`              | modify: register the adapter, `antigravity_endpoints()` accessor                                                  |
-| `server/src/infrastructure/database/providers.rs`        | modify: `AntigravityCredentials`, load/upsert/update-token helpers                                                |
-| `server/src/constants.rs`                                | modify: `providers::antigravity` messages (`NOT_CONNECTED`, success/import texts)                                 |
-| `server/src/app.rs`                                      | modify: mount login (admin), `/v1` callback (public), root browser callback page                                  |
-| `server/tests/support/mod.rs`                            | modify: `FakeAntigravityUpstream`, `antigravity_registry`, connect helper                                         |
-| `server/tests/antigravity_auth.rs`                       | new: login URL params, callback semantics, token import, admin guards                                             |
-| `server/tests/antigravity_provider.rs`                   | new: gating, envelope, translation, streaming, aggregation, retries, refresh                                      |
-| `server/tests/providers.rs`                              | modify: seed `total` 7 → 8 (two assertions)                                                                       |
-| `server/TODO.md`                                         | modify: split the combined rows, mark the landed Antigravity parts                                                |
+| File                                                                      | Responsibility                                                                                                 |
+| ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `server/src/features/providers/antigravity/mod.rs`                        | module wiring + re-exports                                                                                     |
+| `server/src/features/providers/antigravity/types.rs`                      | `ANTIGRAVITY_PROVIDER`, 17-id static catalog, OAuth/endpoint constants, `AntigravityEndpoints`, provenance doc |
+| `server/src/features/providers/antigravity/auth.rs`                       | credential load/parse, `token_refresh_is_due`, token refresh, `loadCodeAssist` project bootstrap               |
+| `server/src/features/providers/antigravity/request.rs`                    | request/header builders, model alias + fallback chain + output cap (pure)                                      |
+| `server/src/features/providers/antigravity/translate.rs`                  | envelope + requestId, contents/tools, schema cleanup, Gemini SSE → OpenAI chunks, accumulate (pure)            |
+| `server/src/features/providers/antigravity/refresh.rs`                    | catalog snapshot policy: `maybe_refresh` flips it on/off from the connection                                   |
+| `server/src/features/providers/antigravity/executor.rs`                   | thin: struct + `new`/accessors + `impl ProviderExecutor` + `sweep_tokens`; delegates to the modules above      |
+| `server/src/features/providers/antigravity/tests.rs`                      | unit tests for the pure modules, declared `#[cfg(test)] mod tests;` from `mod.rs`                              |
+| `server/src/features/provider_auth/antigravity.rs`                        | `create_antigravity_login_router[_with_endpoints]`, callback, token import                                     |
+| `server/src/features/providers/mod.rs`                                    | modify: `pub mod antigravity;` + re-exports, `ANTIGRAVITY_PROVIDER` appended to `SEED_PROVIDERS`               |
+| `server/src/features/providers/registry.rs`                               | modify: register the adapter, `antigravity_endpoints()` accessor                                               |
+| `server/src/infrastructure/database/providers/credentials/antigravity.rs` | new: `AntigravityCredentials`, `load_antigravity_credentials`, `upsert_antigravity_connection`, token update   |
+| `server/src/infrastructure/database/providers/credentials/mod.rs`         | modify: `mod antigravity;` + re-export                                                                         |
+| `server/src/constants.rs`                                                 | modify: `providers::antigravity` messages (`NOT_CONNECTED`, success/import texts)                              |
+| `server/src/app.rs`                                                       | modify: mount login (admin), `/v1` callback (public), root browser callback page                               |
+| `server/tests/support/mod.rs`                                             | modify: `FakeAntigravityUpstream`, `antigravity_registry`, connect helper                                      |
+| `server/tests/antigravity_auth.rs`                                        | new: login URL params, callback semantics, token import, admin guards                                          |
+| `server/tests/antigravity_provider.rs`                                    | new: gating, envelope, translation, streaming, aggregation, retries, refresh                                   |
+| `server/tests/providers.rs`                                               | modify: seed `total` 7 → 8 (two assertions)                                                                    |
+| `server/TODO.md`                                                          | modify: split the combined rows, mark the landed Antigravity parts                                             |
 
 ---
 
-### Task 1: types, catalog, and credential storage
+### Task 1: types, endpoints, and credential storage
 
 - [ ] `types.rs`: `ANTIGRAVITY_PROVIDER` (id `antigravity`, category `oauth`, protocol `openai`, base `https://daily-cloudcode-pa.googleapis.com`, `requires_oauth: true`, status message), `ANTIGRAVITY_MODEL_IDS` (17), OAuth constants (client id/secret from `packages/constants`, authorize/token/loadCodeAssist/chat URLs), `AntigravityEndpoints { chat_url, token_url, code_assist_url }` with `Default`. Module doc names the four provenance sources and the D3/D5/D7 deviations.
-- [ ] `infrastructure/database/providers.rs`: `AntigravityCredentials { access_token, refresh_token, expires_at, project_id }` + `load_antigravity_credentials` (newest enabled row) + `upsert_antigravity_connection` (mirrors `upsert_qoder_connection`) + token-update helper.
+- [ ] `infrastructure/database/providers/credentials/antigravity.rs` (+ `mod antigravity;` re-export in `credentials/mod.rs`): `AntigravityCredentials { access_token, refresh_token, expires_at, project_id }` + `load_antigravity_credentials` (newest enabled row) + `upsert_antigravity_connection` (mirrors `upsert_qoder_connection`) + token-update helper.
 - [ ] Unit tests: credentials parse (snake/camel fallbacks), model-id list contents (`gemini-3.7-flash-high` present).
 
 ### Task 2: OAuth routes
@@ -122,9 +127,9 @@ Gated exactly like Node `listModels`: no connection → empty list (no `antigrav
     - `gemini_stream_to_openai_chunks` (state: first `assistant` role delta, text → `content`, thought parts → `reasoning_content`, `functionCall` → `tool_calls` with generated ids, `finishReason` mapping, `usageMetadata` → `usage`) and `accumulate_chunks` (content, reasoning, per-index tool calls, last non-null finish, last usage).
 - [ ] Unit tests: requestId matches the oracle regex; every alias row maps as specified; caps; schema cleanup drops the unsupported keys; role remap; chunk conversion for a text frame, a thought frame, a `functionCall` frame, and an `usageMetadata` frame; accumulation shape.
 
-### Task 4: executor
+### Task 4: executor (thin; delegates to `auth`/`request`/`translate`/`refresh`)
 
-- [ ] `AntigravityExecutor { endpoints, database, client, catalog: Arc<RwLock<..>>, refresh_locks }` implementing `ProviderExecutor`:
+- [ ] `AntigravityExecutor { endpoints, database, client, catalog: Arc<RwLock<..>>, refresh_locks }` implementing `ProviderExecutor`. Credential refresh and `loadCodeAssist` bootstrap live in `auth.rs`, request/header building in `request.rs`, frame translation in `translate.rs`, catalog policy in `refresh.rs`; the executor only wires them:
     - `models()` from the snapshot; `maybe_refresh` flips the snapshot on/off based on `load_antigravity_credentials` (D2), and runs the D5 project bootstrap when a `ya29.` token lacks a project id.
     - `chat_completion_stream`: ensure fresh token (`token_refresh_is_due` + D6 refresh against the injectable token URL), build envelope, `POST {chat_url}/v1internal:streamGenerateContent?alt=sse`, translate frames, re-frame `data: …\n\n`, end with one `[DONE]`; 400 → next cascade candidate; 429/quota → one `GOOGLE_ONE_AI` retry; non-2xx → typed error with retry hint.
     - `chat_completion`: run the stream and accumulate (D8).
