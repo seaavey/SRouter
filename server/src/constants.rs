@@ -392,6 +392,28 @@ pub mod providers {
             "no database is configured; the OAuth session cannot be stored";
     }
 
+    /// Messages of the `antigravity` OAuth routes: starting the Google PKCE
+    /// flow, the callback exchange, and importing a token. Wording is frozen
+    /// against `apps/api/src/services/authHandlers.ts` (`AuthHandlers.Antigravity`).
+    pub mod antigravity {
+        pub const OAUTH_SUCCESS: &str = "Login Antigravity OAuth Berhasil!";
+        pub const TOKEN_IMPORT_SUCCESS: &str =
+            "Antigravity Access Token registered and saved directly to SQLite database!";
+        pub const MISSING_ACCESS_TOKEN: &str = "Missing required 'accessToken' parameter";
+        pub const INVALID_JSON_BODY: &str = "Invalid JSON body";
+        pub const EMPTY_TOKEN_RESPONSE: &str =
+            "Antigravity token exchange returned no access token";
+        pub const NOT_CONNECTED: &str = "No active Antigravity connection found. Connect the Antigravity account in the Providers tab.";
+
+        pub fn exchange_failed(status: u16) -> String {
+            format!("Antigravity token exchange failed ({status})")
+        }
+
+        pub fn exchange_transport_failed(error: impl std::fmt::Display) -> String {
+            format!("Antigravity token exchange failed: {error}")
+        }
+    }
+
     /// Messages of the `openai_codex` OAuth routes: starting the authorization
     /// code flow and importing a token. Wording is frozen against
     /// `apps/api/src/services/authHandlers.ts` (`AuthHandlers.OpenAI`).

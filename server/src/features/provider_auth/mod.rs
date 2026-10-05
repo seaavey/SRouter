@@ -1,6 +1,7 @@
 //! Provider authentication routes under `/v1/auth/*`, plus the small query and
 //! JSON-body helpers every device or callback route shares.
 
+mod antigravity;
 mod cline;
 mod codebuddy;
 mod grok_web;
@@ -22,6 +23,11 @@ use crate::error::APIError;
 use crate::infrastructure::database::AppDatabase;
 use crate::state::AppState;
 
+pub use antigravity::{
+    create_antigravity_callback_pages_router,
+    create_antigravity_callback_pages_router_with_endpoints, create_antigravity_callback_router,
+    create_antigravity_callback_router_with_endpoints, create_antigravity_login_router,
+};
 pub use cline::create_cline_login_router;
 pub use codebuddy::{
     CodeBuddyAuthEndpoints, create_codebuddy_login_router,
