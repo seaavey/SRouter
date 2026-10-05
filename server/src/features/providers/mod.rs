@@ -16,6 +16,7 @@ pub mod registry;
 mod wire;
 
 pub use adapter::{OpenAIAdapter, ProviderAdapter, ProviderStream, forward_image_generation};
+pub use antigravity::{ANTIGRAVITY_KEYS, ANTIGRAVITY_PROVIDER};
 pub use cline::{CLINE_KEYS, CLINE_PROVIDER};
 pub use codebuddy::{
     CODEBUDDY_CN_KEYS, CODEBUDDY_CN_PROVIDER, CODEBUDDY_KEYS, CODEBUDDY_PROVIDER, Flavor,
@@ -40,5 +41,6 @@ pub const SEED_PROVIDERS: &[ProviderMetadata] = &[
     CODEX_PROVIDER,
     CODEBUDDY_PROVIDER,
     CODEBUDDY_CN_PROVIDER,
+    ANTIGRAVITY_PROVIDER,
 ];
 pub use registry::{ProviderRegistry, ResolvedModel};

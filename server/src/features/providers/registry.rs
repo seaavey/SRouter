@@ -509,6 +509,18 @@ mod tests {
     }
 
     #[test]
+    fn the_default_registry_advertises_no_antigravity_model() {
+        let registry = ProviderRegistry::with_defaults().expect("default registry");
+        let models = registry.list_models();
+
+        assert_eq!(models.len(), opencode::OPENCODE_ZEN_MODELS.len());
+        assert!(
+            !models.iter().any(|entry| entry.owned_by == "antigravity"),
+            "the antigravity catalog is gated on an existing connection"
+        );
+    }
+
+    #[test]
     fn an_adapter_with_one_name_per_model_answers_with_the_id_it_was_given() {
         let registry = registry_with_opencode();
 
