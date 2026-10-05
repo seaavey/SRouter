@@ -1,5 +1,5 @@
 use axum::response::sse::Event;
-use srouter_server::features::gateway::sse::{ReasoningEvent, ReasoningStreamParser, to_sse_event};
+use srouter_server::protocol::sse::{ReasoningEvent, ReasoningStreamParser, to_sse_event};
 
 #[test]
 fn test_parser_lifecycle_emits_start_delta_end() {

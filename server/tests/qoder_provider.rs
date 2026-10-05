@@ -436,8 +436,12 @@ async fn the_live_catalog_replaces_the_empty_snapshot_and_stops_refreshing_withi
         })
     });
     executor.maybe_refresh(true).await;
-    for _ in 0..100 {
-        if fake.model_list_requests() == 2 {
+    // The forced refresh runs off the request path, and the upstream request
+    // counter ticks before the executor rewrites its snapshot, so wait for the
+    // catalog a client would actually read instead of racing the write.
+    let expected = vec!["brand-new-model".to_owned(), "nova-plus".to_owned()];
+    for _ in 0..200 {
+        if executor.models() == expected {
             break;
         }
         tokio::time::sleep(std::time::Duration::from_millis(10)).await;
@@ -449,7 +453,7 @@ async fn the_live_catalog_replaces_the_empty_snapshot_and_stops_refreshing_withi
     );
     assert_eq!(
         executor.models(),
-        vec!["brand-new-model", "nova-plus"],
+        expected,
         "a replaced snapshot drops the name the upstream stopped using"
     );
 }

@@ -10,17 +10,11 @@ pub mod management;
 pub mod model;
 pub mod opencode;
 pub mod qoder;
+pub mod quota;
 pub mod registry;
+mod wire;
 
-/// Backward-compatibility alias for `adapters::opencode_zen`.
-pub mod adapters {
-    pub use super::adapter::*;
-    pub use super::opencode as opencode_zen;
-}
-
-pub use adapter::{
-    OpenAIAdapter, OpenAIExecutor, ProviderAdapter, ProviderStream, forward_image_generation,
-};
+pub use adapter::{OpenAIAdapter, ProviderAdapter, ProviderStream, forward_image_generation};
 pub use cline::{CLINE_KEYS, CLINE_PROVIDER};
 pub use codebuddy::{
     CODEBUDDY_CN_KEYS, CODEBUDDY_CN_PROVIDER, CODEBUDDY_KEYS, CODEBUDDY_PROVIDER, Flavor,
@@ -33,6 +27,7 @@ pub use opencode::{
     OPENCODE_ZEN_BASE_URL, OPENCODE_ZEN_KEYS, OPENCODE_ZEN_MODELS, OPENCODE_ZEN_PROVIDER,
 };
 pub use qoder::{QODER_KEYS, QODER_PROVIDER};
+pub use quota::{LiveModelQuotaItem, ProviderQuotaAccount};
 
 /// Every driver the build knows about, in catalog order. The read routes serve
 /// this list so the Providers page can reach a driver that has no connection yet.

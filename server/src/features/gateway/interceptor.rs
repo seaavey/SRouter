@@ -4,8 +4,8 @@
 
 use serde_json::Value;
 
-use crate::features::gateway::model::ToolDefinition;
 use crate::features::gateway::search::{SearchService, WebSearchResponse};
+use crate::protocol::model::ToolDefinition;
 
 /// Tool names recognized as search tools eligible for server-side interception.
 pub const INTERCEPTED_SEARCH_TOOLS: &[&str] = &[
@@ -110,7 +110,7 @@ pub async fn execute_intercepted_search(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::features::gateway::model::{ToolFunction, ToolKind};
+    use crate::protocol::model::{ToolFunction, ToolKind};
 
     fn client_tool(name: &str) -> ToolDefinition {
         ToolDefinition {

@@ -11,12 +11,12 @@ use axum::extract::{RawQuery, State};
 use axum::response::{IntoResponse, Redirect, Response};
 use axum::routing::get;
 use axum::{Json, Router};
-use serde::Serialize;
 use serde_json::Value;
 
 use super::{
-    ConnectedProvider, PollFailure, PollResponse, Protocol, error_page, parse_callback,
-    pkce_challenge, pkce_verifier, query_params, state_from_body, success_page,
+    CallbackResponse, ConnectedProvider, LoginResponse, PollFailure, PollResponse, Protocol,
+    account_suffix, error_page, parse_callback, pkce_challenge, pkce_verifier, query_params,
+    require_database, state_from_body, success_page,
 };
 use crate::clock::now_ms;
 use crate::constants;
@@ -62,33 +62,16 @@ pub fn create_qoder_callback_pages_router() -> Router<AppState> {
     )
 }
 
-/// What `GET /v1/auth/qoder/login` answers with. The field names are the ones
-/// the web client reads, so they stay camelCase.
-#[derive(Serialize)]
-struct LoginResponse {
-    #[serde(rename = "authorizeUrl")]
-    authorize_url: String,
-    state: String,
-    #[serde(rename = "codeVerifier")]
-    code_verifier: String,
-    #[serde(rename = "redirectUri")]
-    redirect_uri: String,
-}
-
-#[derive(Serialize)]
-struct CallbackResponse {
-    success: bool,
-    message: &'static str,
-    provider: ConnectedProvider,
-}
-
 /// Starts a login: a session row plus the URL the browser opens.
 async fn login(
     State(state): State<AppState>,
     RawQuery(query): RawQuery,
 ) -> Result<Response, APIError> {
     let params = query_params(query.as_deref());
-    let database = require_database(&state)?;
+    let database = require_database(
+        &state,
+        constants::database::OAUTH_SESSIONS_DATABASE_REQUIRED,
+    )?;
     cleanup_expired_sessions(database, now_ms() - SESSION_TTL_MS).await?;
 
     let code_verifier = pkce_verifier();
@@ -133,7 +116,10 @@ async fn poll(
         .cloned()
         .or_else(|| state_from_body(&body))
         .ok_or_else(|| APIError::new(400, constants::providers::qoder::MISSING_STATE))?;
-    let database = require_database(&state)?;
+    let database = require_database(
+        &state,
+        constants::database::OAUTH_SESSIONS_DATABASE_REQUIRED,
+    )?;
 
     let Some(session) = claim_session(database, &state_token).await? else {
         return Ok(Json(PollResponse::pending(Some(
@@ -202,7 +188,7 @@ async fn complete_callback(
     body: &[u8],
 ) -> Result<ConnectedProvider, APIError> {
     let parsed = parse_callback(query, body)?;
-    let database = require_database(state)?;
+    let database = require_database(state, constants::database::OAUTH_SESSIONS_DATABASE_REQUIRED)?;
 
     let session = claim_session(database, &parsed.state)
         .await?
@@ -430,22 +416,8 @@ fn token_expiry_ms(body: &Value) -> i64 {
     }
 }
 
-/// The last four digits of the timestamp, used to label an unnamed account.
-fn account_suffix(timestamp: i64) -> String {
-    let digits = timestamp.to_string();
-
-    digits[digits.len().saturating_sub(4)..].to_owned()
-}
-
 fn qoder_endpoints(state: &AppState) -> QoderEndpoints {
     state.providers.qoder_endpoints().unwrap_or_default()
-}
-
-fn require_database(state: &AppState) -> Result<&AppDatabase, APIError> {
-    state
-        .database
-        .as_ref()
-        .ok_or_else(|| APIError::new(500, constants::database::OAUTH_SESSIONS_DATABASE_REQUIRED))
 }
 
 #[cfg(test)]

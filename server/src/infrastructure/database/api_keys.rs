@@ -19,6 +19,8 @@ use crate::features::api_keys::repository::APIKeyRepository;
 use crate::features::api_keys::store::APIKeyStore;
 use crate::infrastructure::database::AppDatabase;
 
+use super::row::text;
+
 const KEY_COLUMNS: &str = "id, key_prefix, name, enabled, rate_limit, quota_limit, usage_tokens, \
                            credit_limit, usage_cost, allowed_models, created_at";
 
@@ -34,7 +36,8 @@ impl SQLxAPIKeyStore {
     }
 
     fn pool(&self) -> Result<&SqlitePool, APIError> {
-        self.database.sqlite_pool().ok_or_else(postgres_unsupported)
+        self.database
+            .sqlite_required(constants::database::API_KEYS_UNSUPPORTED)
     }
 }
 
@@ -388,17 +391,8 @@ fn auth_record_from_row(row: &SqliteRow) -> APIKeyRecord {
     }
 }
 
-fn text(row: &SqliteRow, column: &str) -> Result<String, APIError> {
-    row.try_get::<String, _>(column)
-        .map_err(|error| APIError::new(500, constants::database::column_unreadable(column, &error)))
-}
-
 fn u32_from(row: &SqliteRow, column: &str) -> u32 {
     u32::try_from(row.try_get::<i64, _>(column).unwrap_or(0).max(0)).unwrap_or(u32::MAX)
-}
-
-fn postgres_unsupported() -> APIError {
-    APIError::new(500, constants::database::API_KEYS_UNSUPPORTED)
 }
 
 fn sql_error(context: &'static str) -> impl FnOnce(sqlx::Error) -> APIError {

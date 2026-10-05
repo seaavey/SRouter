@@ -13,8 +13,7 @@ use serde_json::{Value, json};
 use crate::clock::now_ms;
 use crate::constants;
 use crate::error::APIError;
-use crate::http::middleware::client_address::{client_address, is_loopback_address};
-use crate::http::middleware::cookies::cookie_value;
+use crate::request::{client_address, cookie_value, is_loopback_address};
 use crate::state::AppState;
 
 use super::password::{hash_admin_password, validate_admin_password, verify_admin_password};

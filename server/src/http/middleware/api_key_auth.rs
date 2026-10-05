@@ -13,8 +13,7 @@ use crate::features::admin_auth::{ADMIN_SESSION_COOKIE, hash_session_token};
 use crate::features::api_keys::{APIKeyRecord, APIPrincipal, AuthSource};
 use crate::state::AppState;
 
-use super::client_address::{client_address, is_loopback_address};
-use super::cookies::cookie_value;
+use crate::request::{client_address, cookie_value, is_loopback_address};
 
 /// Authorizes a gateway request, attaching `APIPrincipal` to the extensions of
 /// everything it lets through.

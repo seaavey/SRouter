@@ -18,9 +18,9 @@ use serde_json::Value;
 
 use crate::constants;
 use crate::error::APIError;
-use crate::features::gateway::images::ImageGenerationRequest;
-use crate::features::gateway::model::ChatCompletionRequest;
 use crate::features::providers::adapter::ProviderStream;
+use crate::protocol::image::ImageGenerationRequest;
+use crate::protocol::model::ChatCompletionRequest;
 
 pub trait ProviderExecutor: Send + Sync {
     /// Lets the registry recover a concrete driver (for its endpoint accessors)

@@ -17,8 +17,9 @@
 //! `apps/api/src/services/authHandlers.ts` (`AuthHandlers.OpenAI`).
 
 use super::{
-    ConnectedProvider, Protocol, default_callback_uri, error_page, parse_callback, pkce_challenge,
-    pkce_verifier, query_params, resolve_callback_url, success_page, text_field,
+    CallbackResponse, ConnectedProvider, LoginResponse, Protocol, default_callback_uri, error_page,
+    parse_callback, pkce_challenge, pkce_verifier, query_params, require_database,
+    resolve_callback_url, success_page, text_field,
 };
 use crate::clock::now_ms;
 use crate::constants;
@@ -74,26 +75,6 @@ pub fn create_openai_callback_pages_router() -> Router<AppState> {
         )
 }
 
-/// What `GET /v1/auth/openai/login` answers with. The field names are the ones
-/// the web client reads, so they stay camelCase.
-#[derive(Serialize)]
-struct LoginResponse {
-    #[serde(rename = "authorizeUrl")]
-    authorize_url: String,
-    state: String,
-    #[serde(rename = "codeVerifier")]
-    code_verifier: String,
-    #[serde(rename = "redirectUri")]
-    redirect_uri: String,
-}
-
-#[derive(Serialize)]
-struct CallbackResponse {
-    success: bool,
-    message: &'static str,
-    provider: ConnectedProvider,
-}
-
 #[derive(Serialize)]
 struct TokenImportResponse {
     success: bool,
@@ -107,7 +88,7 @@ async fn login(
     RawQuery(query): RawQuery,
 ) -> Result<Response, APIError> {
     let params = query_params(query.as_deref());
-    let database = require_database(&state)?;
+    let database = require_database(&state, constants::providers::oauth::DATABASE_REQUIRED)?;
     cleanup_expired_sessions(database, now_ms() - SESSION_TTL_MS).await?;
 
     let client_id = params
@@ -191,7 +172,7 @@ async fn complete_callback(
     body: &[u8],
 ) -> Result<ConnectedProvider, APIError> {
     let parsed = parse_callback(query, body)?;
-    let database = require_database(state)?;
+    let database = require_database(state, constants::providers::oauth::DATABASE_REQUIRED)?;
 
     let session = claim_session(database, &parsed.state)
         .await?
@@ -232,7 +213,7 @@ async fn complete_callback(
 /// Imports a token the operator pasted: validated JSON, a stored connection,
 /// and `201`.
 async fn import_token(State(state): State<AppState>, body: Bytes) -> Result<Response, APIError> {
-    let database = require_database(&state)?;
+    let database = require_database(&state, constants::providers::oauth::DATABASE_REQUIRED)?;
     let payload: Value = serde_json::from_slice(&body)
         .map_err(|_| APIError::new(400, constants::providers::openai::INVALID_JSON_BODY))?;
     if !payload.is_object() {
@@ -490,13 +471,6 @@ fn account_suffix(timestamp: i64) -> String {
 
 fn codex_endpoints(state: &AppState) -> CodexEndpoints {
     state.providers.codex_endpoints().unwrap_or_default()
-}
-
-fn require_database(state: &AppState) -> Result<&AppDatabase, APIError> {
-    state
-        .database
-        .as_ref()
-        .ok_or_else(|| APIError::new(500, constants::providers::oauth::DATABASE_REQUIRED))
 }
 
 #[cfg(test)]

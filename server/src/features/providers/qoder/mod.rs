@@ -6,5 +6,14 @@ pub mod cosy;
 pub mod executor;
 pub mod types;
 
+mod auth;
+mod refresh;
+mod request;
+mod state;
+mod translate;
+
+#[cfg(test)]
+mod tests;
+
 pub use executor::{QoderExecutor, adapter, adapter_with_endpoints};
 pub use types::{QODER_KEYS, QODER_PROVIDER, QoderEndpoints};

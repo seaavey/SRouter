@@ -13,7 +13,7 @@ use crate::features::admin_auth::{ADMIN_SESSION_COOKIE, hash_session_token};
 use crate::features::api_keys::{APIPrincipal, AuthSource};
 use crate::state::AppState;
 
-use super::cookies::cookie_value;
+use crate::request::cookie_value;
 
 /// Rejects the request with the frozen `401 authentication_required` envelope
 /// unless the admin cookie resolves to a live session.

@@ -5,9 +5,6 @@ use serde_json::Value;
 
 use crate::constants;
 use crate::error::APIError;
-use crate::features::gateway::images::ImageGenerationRequest;
-use crate::features::gateway::model::{ChatCompletionRequest, ChatContent, ChatMessage};
-use crate::features::gateway::usage::UsageBreakdown;
 use crate::features::providers::adapter::{
     ProviderAdapter, ProviderStream, encode_stream, forward_image_generation, upstream_error,
     upstream_status_error, upstream_stream_status_error,
@@ -17,7 +14,11 @@ use crate::features::providers::model::ModelDefinition;
 use crate::features::providers::opencode::types::{
     OPENCODE_ZEN_BASE_URL, OPENCODE_ZEN_KEYS, OPENCODE_ZEN_MODELS, OPENCODE_ZEN_PROVIDER,
 };
+use crate::features::providers::wire::random_hex;
 use crate::infrastructure::upstream::UpstreamClient;
+use crate::protocol::image::ImageGenerationRequest;
+use crate::protocol::model::{ChatCompletionRequest, ChatContent, ChatMessage};
+use crate::protocol::usage::UsageBreakdown;
 
 const OPENCODE_HARNESS_PREFIX: &str = include_str!("harness.txt");
 const OPENCODE_TOOLS_RAW: &str = include_str!("tools.json");
@@ -444,12 +445,6 @@ fn estimate_prompt_tokens(messages: &[ChatMessage]) -> i64 {
     (total_chars / 4).max(1) as i64
 }
 
-fn random_hex(len: usize) -> String {
-    let mut bytes = vec![0u8; len];
-    let _ = getrandom::fill(&mut bytes);
-    hex::encode(bytes)
-}
-
 impl ProviderExecutor for OpenCodeExecutor {
     fn as_any(&self) -> &dyn std::any::Any {
         self
@@ -516,6 +511,3 @@ pub fn adapter_with_base_url(base_url: impl Into<String>) -> Result<ProviderAdap
         client,
     )))
 }
-
-pub use adapter as opencode_executor;
-pub use adapter_with_base_url as opencode_executor_with_base_url;

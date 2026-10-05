@@ -274,13 +274,13 @@ mod tests {
 
     use super::ProviderRegistry;
     use crate::error::APIError;
-    use crate::features::gateway::model::ChatCompletionRequest;
     use crate::features::providers::adapter::{ProviderAdapter, ProviderStream};
     use crate::features::providers::cline;
     use crate::features::providers::cline::ClineExecutor;
     use crate::features::providers::cline::catalog::write_catalog;
     use crate::features::providers::executor::{BoxFuture, ProviderExecutor};
     use crate::features::providers::opencode;
+    use crate::protocol::model::ChatCompletionRequest;
     use serde_json::Value;
 
     struct TestExecutor {

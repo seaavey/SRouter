@@ -2,9 +2,9 @@ use std::convert::Infallible;
 
 use axum::{
     Json,
-    body::{Body, Bytes},
+    body::Bytes,
     extract::{Extension, Request, State},
-    http::{StatusCode, Version, header},
+    http::Version,
     response::{IntoResponse, Response},
 };
 use futures_util::{Stream, StreamExt};
@@ -14,18 +14,15 @@ use crate::constants;
 use crate::error::APIError;
 use crate::features::api_keys::{APIPrincipal, ensure_model_allowed_any};
 use crate::features::gateway::interception::{
-    MAX_INTERCEPT_DEPTH, StreamTurn, assembled_to_tool_call, assistant_tool_message,
-    attach_search_results, body_error_to_api_error, log_request, observe_usage, read_json_body,
-    run_buffered_interception, stream_error_payload, stream_log_status, unresolved_provider_id,
+    MAX_INTERCEPT_DEPTH, StreamTurn, body_error_to_api_error, log_request, observe_usage,
+    read_json_body, run_buffered_interception, stream_error_payload, stream_log_status,
+    try_intercept, unresolved_provider_id,
 };
-use crate::features::gateway::interceptor::should_intercept_tool_call;
-use crate::features::gateway::model::{
-    ChatCompletionRequest, ChatRole, ToolCall, parse_chat_completion_request,
-};
-use crate::features::gateway::sse;
 use crate::features::gateway::token_saver::apply_to_request;
-use crate::features::gateway::usage::UsageBreakdown;
 use crate::features::gateway::{ReceiverStream, RequestLogContext};
+use crate::protocol::model::{ChatCompletionRequest, ChatRole, parse_chat_completion_request};
+use crate::protocol::sse;
+use crate::protocol::usage::UsageBreakdown;
 use crate::state::AppState;
 
 /// Default per-request token budget reserved on an API key when the request
@@ -199,7 +196,7 @@ async fn run_streaming_interception_loop(
         };
 
         let mut buffered_bytes: Vec<Bytes> = Vec::new();
-        let mut line_buffer = String::new();
+        let mut decoder = sse::SseDataDecoder::new();
         let mut turn = StreamTurn::default();
         let mut streamed_directly = false;
         let mut stream_failure: Option<(u16, String)> = None;
@@ -234,19 +231,10 @@ async fn run_streaming_interception_loop(
             };
 
             if streamed_directly {
-                if let Ok(text) = std::str::from_utf8(&bytes) {
-                    line_buffer.push_str(text);
-                    while let Some(pos) = line_buffer.find('\n') {
-                        let line = line_buffer[..pos].trim_end_matches('\r').to_owned();
-                        line_buffer.drain(..=pos);
-                        if let Some(data) = line.strip_prefix("data:")
-                            && let Ok(json) = serde_json::from_str::<Value>(data.trim())
-                        {
-                            observe_usage(&json, &mut stream_usage);
-                            if let Some(failure) = stream_error_payload(&json) {
-                                stream_failure = Some(failure);
-                            }
-                        }
+                for json in decoder.push(&bytes) {
+                    observe_usage(&json, &mut stream_usage);
+                    if let Some(failure) = stream_error_payload(&json) {
+                        stream_failure = Some(failure);
                     }
                 }
                 if tx.send(Ok(bytes)).await.is_err() {
@@ -273,49 +261,31 @@ async fn run_streaming_interception_loop(
 
             buffered_bytes.push(bytes.clone());
 
-            if let Ok(text) = std::str::from_utf8(&bytes) {
-                line_buffer.push_str(text);
+            for json in decoder.push(&bytes) {
+                observe_usage(&json, &mut stream_usage);
 
-                while let Some(pos) = line_buffer.find('\n') {
-                    let line = line_buffer[..pos].trim_end_matches('\r').to_owned();
-                    line_buffer.drain(..=pos);
+                if let Some(failure) = stream_error_payload(&json) {
+                    stream_failure = Some(failure);
+                    failure_payload = Some(json);
+                    break 'read;
+                }
 
-                    let Some(data) = line.strip_prefix("data:") else {
-                        continue;
-                    };
-                    let data = data.trim();
-                    if data.is_empty() || data == "[DONE]" {
-                        continue;
-                    }
-
-                    let Ok(json) = serde_json::from_str::<Value>(data) else {
-                        continue;
-                    };
-                    observe_usage(&json, &mut stream_usage);
-
-                    if let Some(failure) = stream_error_payload(&json) {
-                        stream_failure = Some(failure);
-                        failure_payload = Some(json.clone());
-                        break 'read;
-                    }
-
-                    if turn.observe_delta(&json) {
-                        streamed_directly = true;
-                        for buffered in buffered_bytes.drain(..) {
-                            if tx.send(Ok(buffered)).await.is_err() {
-                                log_request(
-                                    &state,
-                                    &context,
-                                    resolved.adapter.id(),
-                                    &chat_request.model,
-                                    Some(&resolved.model),
-                                    200,
-                                    &stream_usage,
-                                    None,
-                                )
-                                .await;
-                                return;
-                            }
+                if turn.observe_delta(&json) {
+                    streamed_directly = true;
+                    for buffered in buffered_bytes.drain(..) {
+                        if tx.send(Ok(buffered)).await.is_err() {
+                            log_request(
+                                &state,
+                                &context,
+                                resolved.adapter.id(),
+                                &chat_request.model,
+                                Some(&resolved.model),
+                                200,
+                                &stream_usage,
+                                None,
+                            )
+                            .await;
+                            return;
                         }
                     }
                 }
@@ -367,26 +337,7 @@ async fn run_streaming_interception_loop(
             return;
         }
 
-        let calls: Vec<ToolCall> = turn
-            .assembled()
-            .iter()
-            .map(assembled_to_tool_call)
-            .collect();
-        let interceptable: Vec<ToolCall> = calls
-            .iter()
-            .filter(|call| {
-                should_intercept_tool_call(&call.function.name, chat_request.tools.as_deref())
-            })
-            .cloned()
-            .collect();
-
-        if !interceptable.is_empty() && current_depth < MAX_INTERCEPT_DEPTH {
-            chat_request
-                .messages
-                .push(assistant_tool_message(turn.content(), calls));
-            attach_search_results(&state, &mut chat_request, interceptable).await;
-
-            current_depth += 1;
+        if try_intercept(&state, &mut chat_request, &turn, &mut current_depth).await {
             continue;
         }
 
@@ -443,27 +394,6 @@ fn stream_response<S>(events: S, version: Version) -> Result<Response, APIError>
 where
     S: Stream<Item = Result<Bytes, Infallible>> + Send + 'static,
 {
-    let mut builder = Response::builder()
-        .status(StatusCode::OK)
-        .header(
-            header::CONTENT_TYPE,
-            constants::headers::value::EVENT_STREAM,
-        )
-        .header(
-            header::CACHE_CONTROL,
-            constants::headers::value::SSE_CACHE_CONTROL,
-        )
-        .header(
-            constants::headers::name::X_ACCEL_BUFFERING,
-            constants::headers::value::ACCEL_BUFFERING_OFF,
-        );
-
-    // `Connection` is a HTTP/1.x hop-by-hop header; HTTP/2 forbids it.
-    if version == Version::HTTP_10 || version == Version::HTTP_11 {
-        builder = builder.header(header::CONNECTION, constants::headers::value::KEEP_ALIVE);
-    }
-
-    builder
-        .body(Body::from_stream(events))
+    sse::sse_response(events, version)
         .map_err(|error| APIError::new(500, constants::gateway::could_not_build_stream(&error)))
 }

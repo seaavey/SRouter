@@ -12,12 +12,12 @@ use serde::Serialize;
 use serde_json::Value;
 
 use super::{
-    ConnectedProvider, PollFailure, PollResponse, Protocol, query_params, state_from_body,
+    ConnectedProvider, PollFailure, PollResponse, Protocol, account_suffix, query_params,
+    require_database, state_from_body,
 };
 use crate::clock::now_ms;
 use crate::constants;
 use crate::error::APIError;
-use crate::infrastructure::database::AppDatabase;
 use crate::infrastructure::database::oauth_sessions::{
     SESSION_TTL_MS, claim_session, cleanup_expired_sessions, delete_session, release_session,
     save_session,
@@ -171,7 +171,7 @@ async fn login(
     state: &AppState,
     query: Option<&str>,
 ) -> Result<Response, APIError> {
-    let database = require_database(state)?;
+    let database = require_database(state, constants::database::OAUTH_SESSIONS_DATABASE_REQUIRED)?;
     cleanup_expired_sessions(database, now_ms() - SESSION_TTL_MS).await?;
     let authorization = request_authorization(flavor, endpoints)
         .await
@@ -226,7 +226,7 @@ async fn poll(
         .cloned()
         .or_else(|| state_from_body(body))
         .ok_or_else(|| APIError::new(400, constants::providers::codebuddy::MISSING_STATE))?;
-    let database = require_database(state)?;
+    let database = require_database(state, constants::database::OAUTH_SESSIONS_DATABASE_REQUIRED)?;
     let Some(_) = claim_session(database, &state_token).await? else {
         return Ok(Json(PollResponse::pending(Some(
             constants::providers::codebuddy::SESSION_EXPIRED.to_owned(),
@@ -470,15 +470,4 @@ fn non_empty_string(value: &Value, key: &str) -> Option<String> {
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(str::to_owned)
-}
-
-fn account_suffix(timestamp: i64) -> String {
-    timestamp.to_string()[timestamp.to_string().len().saturating_sub(4)..].to_owned()
-}
-
-fn require_database(state: &AppState) -> Result<&AppDatabase, APIError> {
-    state
-        .database
-        .as_ref()
-        .ok_or_else(|| APIError::new(500, constants::database::OAUTH_SESSIONS_DATABASE_REQUIRED))
 }

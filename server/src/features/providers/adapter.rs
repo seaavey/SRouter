@@ -11,12 +11,12 @@ use serde_json::Value;
 
 use crate::constants;
 use crate::error::APIError;
-use crate::features::gateway::images::ImageGenerationRequest;
-use crate::features::gateway::model::ChatCompletionRequest;
-use crate::features::gateway::sse;
 use crate::features::providers::executor::{BoxFuture, ProviderExecutor};
 use crate::features::providers::model::ModelDefinition;
 use crate::infrastructure::upstream::{STREAM_IDLE_TIMEOUT, UpstreamClient};
+use crate::protocol::image::ImageGenerationRequest;
+use crate::protocol::model::ChatCompletionRequest;
+use crate::protocol::sse;
 
 /// A provider stream of raw SSE bytes. Upstream failures are already encoded
 /// as in-stream error events, so the stream itself never yields an error.
@@ -118,8 +118,6 @@ pub struct OpenAIAdapter {
     models: &'static [ModelDefinition],
     client: UpstreamClient,
 }
-
-pub type OpenAIExecutor = OpenAIAdapter;
 
 impl OpenAIAdapter {
     pub fn new(

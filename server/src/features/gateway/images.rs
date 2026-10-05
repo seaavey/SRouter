@@ -10,7 +10,6 @@ use axum::{
     extract::{Extension, Request, State},
     response::{IntoResponse, Response},
 };
-use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::constants;
@@ -20,32 +19,9 @@ use crate::features::gateway::RequestLogContext;
 use crate::features::gateway::interception::{
     body_error_to_api_error, log_request, read_json_body,
 };
-use crate::features::gateway::usage::UsageBreakdown;
+use crate::protocol::image::ImageGenerationRequest;
+use crate::protocol::usage::UsageBreakdown;
 use crate::state::AppState;
-
-/// OpenAI-compatible image generation request.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ImageGenerationRequest {
-    pub prompt: String,
-    #[serde(default)]
-    pub model: Option<String>,
-    #[serde(default)]
-    pub n: Option<u32>,
-    #[serde(default)]
-    pub quality: Option<String>,
-    #[serde(default)]
-    pub response_format: Option<String>,
-    #[serde(default)]
-    pub size: Option<String>,
-    #[serde(default)]
-    pub style: Option<String>,
-    #[serde(default)]
-    pub user: Option<String>,
-    #[serde(default)]
-    pub image: Option<Value>,
-    #[serde(default)]
-    pub images: Option<Value>,
-}
 
 const TEXT_ONLY_PATTERNS: &[&str] = &[
     "chat", "gpt-4o", "gpt-4-", "gpt-3.5", "claude", "deepseek", "qwen", "llama", "mistral",

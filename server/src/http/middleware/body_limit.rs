@@ -6,9 +6,7 @@ use axum::response::{IntoResponse, Response};
 
 use crate::constants;
 use crate::error::APIError;
-
-/// Max accepted request body in bytes (25 MB). Matches Node MAX_BODY_BYTES.
-pub const MAX_BODY_BYTES: u64 = 25 * 1024 * 1024;
+use crate::request::MAX_BODY_BYTES;
 
 /// Rejects oversized bodies from the Content-Length header before the body is buffered.
 /// Mirrors `apps/api/src/middleware/BodyLimit.ts`.

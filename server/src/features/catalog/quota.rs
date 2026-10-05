@@ -20,6 +20,7 @@ use tokio::sync::{Mutex, RwLock};
 use crate::error::APIError;
 pub use crate::features::providers::codex::quota::CODEX_USAGE_URL;
 use crate::features::providers::codex::quota::fetch_codex_quota;
+pub use crate::features::providers::quota::{LiveModelQuotaItem, ProviderQuotaAccount};
 use crate::infrastructure::database::AppDatabase;
 use crate::infrastructure::database::providers::{
     ProviderForQuota, list_providers_for_quota, matches_base_id,
@@ -35,36 +36,6 @@ pub struct QuotaResponse {
     pub object: &'static str,
     pub total_accounts: usize,
     pub providers: Vec<ProviderQuotaAccount>,
-}
-
-/// An account's quota overview.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ProviderQuotaAccount {
-    pub id: String,
-    pub provider: String,
-    pub account: String,
-    pub enabled: bool,
-    pub quota_type: &'static str,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub total_quotas: Option<usize>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub quotas: Option<Vec<LiveModelQuotaItem>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub usage_metrics: Option<Vec<serde_json::Value>>,
-}
-
-/// A specific rate-limit window or model quota entry.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LiveModelQuotaItem {
-    pub name: String,
-    pub used: u32,
-    pub limit: u32,
-    pub percentage: String,
-    pub percentage_value: u32,
-    pub reset_in: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub reset_time: Option<String>,
-    pub status: &'static str,
 }
 
 #[derive(Debug, Deserialize)]

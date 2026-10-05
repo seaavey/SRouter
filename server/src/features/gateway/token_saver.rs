@@ -3,7 +3,7 @@
 //! prompt. The pipeline is pure; callers invoke [`apply_to_request`] once per
 //! top-level request.
 
-use crate::features::gateway::model::{
+use crate::protocol::model::{
     ChatCompletionRequest, ChatContent, ChatMessage, ChatRole, ContentPart, ContentPartType,
 };
 

@@ -5,8 +5,8 @@
 //! - `docs/api-v1-contract.md` row 94.
 
 use crate::error::APIError;
-use crate::features::catalog::quota::{LiveModelQuotaItem, ProviderQuotaAccount};
 use crate::features::providers::codex::types::{CODEX_ORIGINATOR, CODEX_USER_AGENT};
+use crate::features::providers::quota::{LiveModelQuotaItem, ProviderQuotaAccount};
 use crate::infrastructure::database::providers::ProviderForQuota;
 
 /// Default upstream usage endpoint for OpenAI Codex.

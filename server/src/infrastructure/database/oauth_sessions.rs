@@ -7,7 +7,7 @@
 //! stored. Rows older than [`SESSION_TTL_MS`] are refused on claim, and every
 //! login sweeps the stale ones.
 
-use sqlx::{Row, SqlitePool, sqlite::SqliteRow};
+use sqlx::{Row, sqlite::SqliteRow};
 
 use crate::clock::now_ms;
 use crate::constants;
@@ -40,7 +40,7 @@ pub async fn save_session(
     client_id: &str,
     redirect_uri: &str,
 ) -> Result<(), APIError> {
-    let pool = write_pool(database)?;
+    let pool = database.sqlite_required(constants::database::OAUTH_SESSIONS_UNSUPPORTED)?;
 
     sqlx::query(
         "INSERT INTO oauth_sessions (state, code_verifier, device_code, client_id, redirect_uri, created_at, claimed_at) \
@@ -71,7 +71,7 @@ pub async fn save_device_session(
     device_code: &str,
     client_id: &str,
 ) -> Result<(), APIError> {
-    let pool = write_pool(database)?;
+    let pool = database.sqlite_required(constants::database::OAUTH_SESSIONS_UNSUPPORTED)?;
 
     sqlx::query(
         "INSERT INTO oauth_sessions (state, code_verifier, device_code, client_id, redirect_uri, created_at, claimed_at) \
@@ -99,7 +99,7 @@ pub async fn claim_session(
     database: &AppDatabase,
     state: &str,
 ) -> Result<Option<OAuthSession>, APIError> {
-    let pool = write_pool(database)?;
+    let pool = database.sqlite_required(constants::database::OAUTH_SESSIONS_UNSUPPORTED)?;
     let now = now_ms();
     let cutoff = now - SESSION_TTL_MS;
 
@@ -143,7 +143,7 @@ pub async fn claim_session(
 
 /// Returns the session to the pool so the next poll can claim it again.
 pub async fn release_session(database: &AppDatabase, state: &str) -> Result<(), APIError> {
-    let pool = write_pool(database)?;
+    let pool = database.sqlite_required(constants::database::OAUTH_SESSIONS_UNSUPPORTED)?;
 
     sqlx::query("UPDATE oauth_sessions SET claimed_at = NULL WHERE state = ?")
         .bind(state)
@@ -161,7 +161,7 @@ pub async fn release_session(database: &AppDatabase, state: &str) -> Result<(), 
 
 /// Consumes the session once its tokens are stored.
 pub async fn delete_session(database: &AppDatabase, state: &str) -> Result<(), APIError> {
-    let pool = write_pool(database)?;
+    let pool = database.sqlite_required(constants::database::OAUTH_SESSIONS_UNSUPPORTED)?;
 
     sqlx::query("DELETE FROM oauth_sessions WHERE state = ?")
         .bind(state)
@@ -182,7 +182,7 @@ pub async fn cleanup_expired_sessions(
     database: &AppDatabase,
     older_than_ms: i64,
 ) -> Result<(), APIError> {
-    let pool = write_pool(database)?;
+    let pool = database.sqlite_required(constants::database::OAUTH_SESSIONS_UNSUPPORTED)?;
 
     sqlx::query("DELETE FROM oauth_sessions WHERE created_at < ?")
         .bind(older_than_ms)
@@ -233,12 +233,4 @@ fn session_from_row(row: &SqliteRow) -> Result<OAuthSession, APIError> {
                 )
             })?,
     })
-}
-
-/// The pool a write runs on. Postgres has no carrier for these rows yet, so the
-/// write fails loudly instead of pretending the session was stored.
-fn write_pool(database: &AppDatabase) -> Result<&SqlitePool, APIError> {
-    database
-        .sqlite_pool()
-        .ok_or_else(|| APIError::new(500, constants::database::OAUTH_SESSIONS_UNSUPPORTED))
 }

@@ -8,6 +8,14 @@ pub mod catalog;
 pub mod executor;
 pub mod types;
 
+mod auth;
+mod refresh;
+mod request;
+mod translate;
+
+#[cfg(test)]
+mod tests;
+
 pub use executor::{CodeBuddyExecutor, adapter, adapter_with_endpoints};
 pub use types::{
     CODEBUDDY_CN_KEYS, CODEBUDDY_CN_PROVIDER, CODEBUDDY_KEYS, CODEBUDDY_PROVIDER, Flavor,

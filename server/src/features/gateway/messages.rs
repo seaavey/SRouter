@@ -8,9 +8,9 @@ use std::convert::Infallible;
 
 use axum::{
     Json,
-    body::{Body, Bytes},
+    body::Bytes,
     extract::{Extension, Request, State},
-    http::{StatusCode, Version, header},
+    http::{StatusCode, Version},
     response::{IntoResponse, Response},
 };
 use futures_util::StreamExt;
@@ -19,12 +19,10 @@ use serde_json::Value;
 use crate::constants;
 use crate::features::api_keys::{APIPrincipal, ensure_model_allowed_any};
 use crate::features::gateway::interception::{
-    BodyError, MAX_INTERCEPT_DEPTH, StreamTurn, assembled_to_tool_call, assistant_tool_message,
-    attach_search_results, log_request, log_stream_success, observe_usage, read_json_body,
-    run_buffered_interception, stream_error_payload, stream_log_status, unresolved_provider_id,
+    BodyError, MAX_INTERCEPT_DEPTH, StreamTurn, log_request, log_stream_success, observe_usage,
+    read_json_body, run_buffered_interception, stream_error_payload, stream_log_status,
+    try_intercept, unresolved_provider_id,
 };
-use crate::features::gateway::interceptor::should_intercept_tool_call;
-use crate::features::gateway::model::{ChatCompletionRequest, ToolCall};
 use crate::features::gateway::token_saver::apply_to_request;
 use crate::features::gateway::translation::{
     AnthropicMessageRequest, AnthropicStreamTranslator, AnthropicThinking, anthropic_error,
@@ -32,8 +30,10 @@ use crate::features::gateway::translation::{
     anthropic_to_openai_request, estimate_tokens, openai_to_anthropic_response,
     validate_anthropic_request,
 };
-use crate::features::gateway::usage::UsageBreakdown;
 use crate::features::gateway::{ReceiverStream, RequestLogContext};
+use crate::protocol::model::ChatCompletionRequest;
+use crate::protocol::sse;
+use crate::protocol::usage::UsageBreakdown;
 use crate::state::AppState;
 
 /// Handles `POST /v1/messages`.
@@ -256,7 +256,7 @@ async fn run_anthropic_streaming_interception_loop(
 
         let mut translator = AnthropicStreamTranslator::new(&original_model, is_thinking_enabled);
         let mut buffered_chunks: Vec<Value> = Vec::new();
-        let mut line_buffer = String::new();
+        let mut decoder = sse::SseDataDecoder::new();
         let mut turn = StreamTurn::default();
         let mut streamed_directly = false;
         let mut stream_failure: Option<(u16, String)> = None;
@@ -286,25 +286,7 @@ async fn run_anthropic_streaming_interception_loop(
                 },
             };
 
-            let Ok(text) = std::str::from_utf8(&bytes) else {
-                continue;
-            };
-            line_buffer.push_str(text);
-            while let Some(pos) = line_buffer.find('\n') {
-                let line = line_buffer[..pos].trim_end_matches('\r').to_owned();
-                line_buffer.drain(..=pos);
-
-                let Some(data) = line.strip_prefix("data:") else {
-                    continue;
-                };
-                let data = data.trim();
-                if data.is_empty() || data == "[DONE]" {
-                    continue;
-                }
-
-                let Ok(json) = serde_json::from_str::<Value>(data) else {
-                    continue;
-                };
+            for json in decoder.push(&bytes) {
                 observe_usage(&json, &mut stream_usage);
 
                 // An in-stream failure becomes an Anthropic `error` event,
@@ -407,26 +389,7 @@ async fn run_anthropic_streaming_interception_loop(
             return;
         }
 
-        let calls: Vec<ToolCall> = turn
-            .assembled()
-            .iter()
-            .map(assembled_to_tool_call)
-            .collect();
-        let interceptable: Vec<ToolCall> = calls
-            .iter()
-            .filter(|call| {
-                should_intercept_tool_call(&call.function.name, chat_request.tools.as_deref())
-            })
-            .cloned()
-            .collect();
-
-        if !interceptable.is_empty() && current_depth < MAX_INTERCEPT_DEPTH {
-            chat_request
-                .messages
-                .push(assistant_tool_message(turn.content(), calls));
-            attach_search_results(&state, &mut chat_request, interceptable).await;
-
-            current_depth += 1;
+        if try_intercept(&state, &mut chat_request, &turn, &mut current_depth).await {
             continue;
         }
 
@@ -495,26 +458,6 @@ fn stream_anthropic_message(
 
     let events = ReceiverStream(rx);
 
-    let mut builder = Response::builder()
-        .status(StatusCode::OK)
-        .header(
-            header::CONTENT_TYPE,
-            constants::headers::value::EVENT_STREAM,
-        )
-        .header(
-            header::CACHE_CONTROL,
-            constants::headers::value::SSE_CACHE_CONTROL,
-        )
-        .header(
-            constants::headers::name::X_ACCEL_BUFFERING,
-            constants::headers::value::ACCEL_BUFFERING_OFF,
-        );
-
-    if version == Version::HTTP_10 || version == Version::HTTP_11 {
-        builder = builder.header(header::CONNECTION, constants::headers::value::KEEP_ALIVE);
-    }
-
-    builder
-        .body(Body::from_stream(events))
+    sse::sse_response(events, version)
         .unwrap_or_else(|_| anthropic_error(500, constants::gateway::COULD_NOT_BUILD_STREAM))
 }

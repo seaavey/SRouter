@@ -15,7 +15,7 @@ use crate::error::APIError;
 use crate::features::api_keys::APIPrincipal;
 use crate::state::AppState;
 
-use super::client_address::client_address;
+use crate::request::client_address;
 
 /// Requests per 60-second window; a key with `rate_limit = 0` is unlimited.
 const WINDOW_MS: i64 = 60_000;

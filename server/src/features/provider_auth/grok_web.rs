@@ -16,13 +16,12 @@ use axum::routing::post;
 use axum::{Json, Router};
 use serde_json::Value;
 
-use super::{ConnectedProvider, Protocol, text_field};
+use super::{ConnectedProvider, Protocol, require_database, text_field};
 use crate::clock::now_ms;
 use crate::constants;
 use crate::error::APIError;
 use crate::features::providers::grok_web::executor::{probe_client, probe_uid};
 use crate::features::providers::grok_web::types::GROK_WEB_PROVIDER;
-use crate::infrastructure::database::AppDatabase;
 use crate::infrastructure::database::providers::{
     GrokWebConnectionWrite, upsert_grok_web_connection,
 };
@@ -56,7 +55,7 @@ async fn connect(
     let sso = extract_sso(&posted);
     validate_sso(&sso)?;
 
-    let database = require_database(&state)?;
+    let database = require_database(&state, constants::providers::grok_web::DATABASE_REQUIRED)?;
     let endpoints = state.providers.grok_web_endpoints().unwrap_or_default();
 
     let client = probe_client()?;
@@ -219,13 +218,6 @@ fn invalid_cookie_payload() -> APIError {
 
 fn invalid_cookie_value() -> APIError {
     APIError::new(400, constants::providers::grok_web::COOKIE_VALUE_INVALID)
-}
-
-fn require_database(state: &AppState) -> Result<&AppDatabase, APIError> {
-    state
-        .database
-        .as_ref()
-        .ok_or_else(|| APIError::new(500, constants::providers::grok_web::DATABASE_REQUIRED))
 }
 
 #[cfg(test)]

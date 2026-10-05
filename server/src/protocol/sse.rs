@@ -1,6 +1,12 @@
-use axum::body::Bytes;
+use std::convert::Infallible;
+
+use axum::body::{Body, Bytes};
+use axum::http::{StatusCode, Version, header};
+use axum::response::Response;
 use axum::response::sse::Event;
+use futures_util::Stream;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 use crate::constants;
 use crate::error::APIError;
@@ -90,4 +96,76 @@ pub fn error_event_bytes(error: &APIError) -> Bytes {
     });
 
     Bytes::from(format!("data: {payload}\n\n"))
+}
+
+/// Splits upstream SSE bytes into the JSON `data:` payloads they carry,
+/// buffering partial lines across reads. Non-`data:` lines, the empty payload,
+/// and the `[DONE]` sentinel are skipped; a payload that is not JSON is
+/// dropped, matching the Node reader. Shared by the chat and messages streaming
+/// loops, which differ only in what they do with each payload.
+#[derive(Default)]
+pub struct SseDataDecoder {
+    line_buffer: String,
+}
+
+impl SseDataDecoder {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Feeds one upstream read and returns every JSON payload it completed.
+    pub fn push(&mut self, bytes: &[u8]) -> Vec<Value> {
+        let Ok(text) = std::str::from_utf8(bytes) else {
+            return Vec::new();
+        };
+        self.line_buffer.push_str(text);
+
+        let mut payloads = Vec::new();
+        while let Some(pos) = self.line_buffer.find('\n') {
+            let line = self.line_buffer[..pos].trim_end_matches('\r').to_owned();
+            self.line_buffer.drain(..=pos);
+
+            let Some(data) = line.strip_prefix("data:") else {
+                continue;
+            };
+            let data = data.trim();
+            if data.is_empty() || data == "[DONE]" {
+                continue;
+            }
+            if let Ok(json) = serde_json::from_str::<Value>(data) {
+                payloads.push(json);
+            }
+        }
+        payloads
+    }
+}
+
+/// Builds the frozen SSE response: event-stream content type, no-cache, and the
+/// proxy-buffering opt-out, plus `Connection: keep-alive` on HTTP/1.x only
+/// (HTTP/2 forbids the hop-by-hop header). Shared by the chat and messages
+/// streaming routes.
+pub fn sse_response<S>(events: S, version: Version) -> Result<Response, axum::http::Error>
+where
+    S: Stream<Item = Result<Bytes, Infallible>> + Send + 'static,
+{
+    let mut builder = Response::builder()
+        .status(StatusCode::OK)
+        .header(
+            header::CONTENT_TYPE,
+            constants::headers::value::EVENT_STREAM,
+        )
+        .header(
+            header::CACHE_CONTROL,
+            constants::headers::value::SSE_CACHE_CONTROL,
+        )
+        .header(
+            constants::headers::name::X_ACCEL_BUFFERING,
+            constants::headers::value::ACCEL_BUFFERING_OFF,
+        );
+
+    if version == Version::HTTP_10 || version == Version::HTTP_11 {
+        builder = builder.header(header::CONNECTION, constants::headers::value::KEEP_ALIVE);
+    }
+
+    builder.body(Body::from_stream(events))
 }

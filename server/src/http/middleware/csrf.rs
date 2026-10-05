@@ -13,8 +13,8 @@ use axum::response::{IntoResponse, Response};
 use crate::constants;
 use crate::error::APIError;
 use crate::features::admin_auth::ADMIN_SESSION_COOKIE;
-use crate::http::middleware::cookies::cookie_value;
 use crate::http::middleware::cors::get_allowed_origin;
+use crate::request::cookie_value;
 use crate::state::AppState;
 
 fn is_unsafe_method(method: &Method) -> bool {

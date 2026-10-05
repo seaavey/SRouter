@@ -13,5 +13,13 @@
 pub mod executor;
 pub mod types;
 
+mod auth;
+mod request;
+mod translate;
+mod transport;
+
+#[cfg(test)]
+mod tests;
+
 pub use executor::{GrokWebExecutor, adapter, adapter_with_endpoints};
 pub use types::{GROK_WEB_KEYS, GROK_WEB_PROVIDER, GrokWebEndpoints};

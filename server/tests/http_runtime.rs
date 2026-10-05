@@ -1,3 +1,5 @@
+mod support;
+
 use std::collections::HashMap;
 
 use axum::{
@@ -22,7 +24,13 @@ const FROZEN_HEADERS: [(&str, &str); 6] = [
 ];
 
 fn test_app() -> Router {
-    let environment = HashMap::from([("HOME".to_owned(), "/tmp/srouter-test-home".to_owned())]);
+    let environment = HashMap::from([
+        ("HOME".to_owned(), "/tmp/srouter-test-home".to_owned()),
+        (
+            "WEB_DIST_PATH".to_owned(),
+            support::NO_DASHBOARD_WEB_DIST.to_owned(),
+        ),
+    ]);
     let config = APIConfig::from_env_map(&environment).unwrap();
 
     create_router(AppState::new(config).expect("application state"))

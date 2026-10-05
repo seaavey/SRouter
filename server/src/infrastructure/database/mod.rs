@@ -10,6 +10,7 @@ pub mod oauth_sessions;
 mod postgres;
 pub mod providers;
 pub mod request_logs;
+mod row;
 pub mod settings;
 mod sqlite;
 
@@ -62,11 +63,11 @@ impl AppDatabase {
         }
     }
 
-    /// Returns the PostgreSQL pool when the PostgreSQL backend is active.
-    pub fn postgres_pool(&self) -> Option<&PgPool> {
-        match self {
-            Self::Postgres(pool) => Some(pool),
-            Self::Sqlite(_) => None,
-        }
+    /// Returns the SQLite pool for a write, or an error naming the feature that
+    /// cannot run on the active backend. A store that cannot persist its row
+    /// fails loudly instead of pretending the change landed.
+    pub fn sqlite_required(&self, message: &str) -> Result<&SqlitePool, APIError> {
+        self.sqlite_pool()
+            .ok_or_else(|| APIError::new(500, message))
     }
 }

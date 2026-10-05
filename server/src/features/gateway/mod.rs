@@ -9,24 +9,21 @@ use futures_util::Stream;
 use crate::clock;
 use crate::error::APIError;
 use crate::features::api_keys::APIPrincipal;
-use crate::http::middleware::client_address::client_address;
 use crate::infrastructure::database::request_logs::generate_log_id;
+use crate::request::client_address;
 
 pub mod chat;
 pub mod images;
 pub mod interception;
 pub mod interceptor;
 pub mod messages;
-pub mod model;
 pub mod models;
 pub mod routes;
 pub mod search;
-pub mod sse;
 pub mod token_saver;
 pub mod translation;
-pub mod usage;
 
-pub use images::{ImageGenerationRequest, create_image};
+pub use images::create_image;
 pub use routes::{create_gateway_router, create_models_router};
 
 #[derive(Clone)]

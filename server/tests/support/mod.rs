@@ -1839,9 +1839,19 @@ pub fn grok_web_state(
     AppState::with_security(test_config(), providers, security).with_database(database)
 }
 
+/// `WEB_DIST_PATH` sentinel that never holds an `index.html`, so tests exercise
+/// the API-only router even on a machine that has `apps/web/dist` built. Without
+/// it the dashboard auto-discovery (Node parity) mounts the SPA fallback and
+/// swallows unmatched routes and `/`. Tests that need the dashboard point
+/// `WEB_DIST_PATH` at a real dist themselves (see `static_files.rs`).
+pub const NO_DASHBOARD_WEB_DIST: &str = "/tmp/srouter-test-home/no-such-web-dist";
+
 /// Configuration pointing at the default temporary home used by state helpers.
 pub fn test_config() -> APIConfig {
-    let environment = HashMap::from([("HOME".to_owned(), "/tmp/srouter-test-home".to_owned())]);
+    let environment = HashMap::from([
+        ("HOME".to_owned(), "/tmp/srouter-test-home".to_owned()),
+        ("WEB_DIST_PATH".to_owned(), NO_DASHBOARD_WEB_DIST.to_owned()),
+    ]);
     APIConfig::from_env_map(&environment).expect("test configuration")
 }
 
@@ -1851,6 +1861,7 @@ pub fn production_config() -> APIConfig {
     let environment = HashMap::from([
         ("HOME".to_owned(), "/tmp/srouter-test-home".to_owned()),
         ("NODE_ENV".to_owned(), "production".to_owned()),
+        ("WEB_DIST_PATH".to_owned(), NO_DASHBOARD_WEB_DIST.to_owned()),
     ]);
 
     APIConfig::from_env_map(&environment).expect("production test configuration")
@@ -1862,6 +1873,7 @@ pub fn test_secure_config() -> APIConfig {
     let environment = HashMap::from([
         ("HOME".to_owned(), "/tmp/srouter-test-home".to_owned()),
         ("SROUTER_SECURE_COOKIES".to_owned(), "true".to_owned()),
+        ("WEB_DIST_PATH".to_owned(), NO_DASHBOARD_WEB_DIST.to_owned()),
     ]);
     APIConfig::from_env_map(&environment).expect("test configuration")
 }

@@ -19,6 +19,8 @@ use serde_json::Value;
 use crate::config::APIConfig;
 use crate::constants;
 use crate::error::APIError;
+use crate::infrastructure::database::AppDatabase;
+use crate::state::AppState;
 
 pub use cline::create_cline_login_router;
 pub use codebuddy::{
@@ -190,6 +192,45 @@ fn pkce_challenge(code_verifier: &str) -> String {
     use sha2::{Digest, Sha256};
 
     URL_SAFE_NO_PAD.encode(Sha256::digest(code_verifier.as_bytes()))
+}
+
+/// The database a provider-auth route needs. A process without one answers 500
+/// with the provider's own message.
+fn require_database<'a>(state: &'a AppState, message: &str) -> Result<&'a AppDatabase, APIError> {
+    state
+        .database
+        .as_ref()
+        .ok_or_else(|| APIError::new(500, message))
+}
+
+/// The last four digits of a millisecond timestamp, which label a freshly
+/// created account.
+fn account_suffix(timestamp: i64) -> String {
+    let digits = timestamp.to_string();
+
+    digits[digits.len().saturating_sub(4)..].to_owned()
+}
+
+/// The login answer of an authorization-code provider: the browser URL plus the
+/// PKCE material the client echoes back on the callback. The field names are
+/// the ones the web client reads, so they stay camelCase.
+#[derive(Serialize)]
+struct LoginResponse {
+    #[serde(rename = "authorizeUrl")]
+    authorize_url: String,
+    state: String,
+    #[serde(rename = "codeVerifier")]
+    code_verifier: String,
+    #[serde(rename = "redirectUri")]
+    redirect_uri: String,
+}
+
+/// The JSON answer a finished callback returns.
+#[derive(Serialize)]
+struct CallbackResponse {
+    success: bool,
+    message: &'static str,
+    provider: ConnectedProvider,
 }
 
 /// The `code` and `state` of a finished redirect, however the client carried
