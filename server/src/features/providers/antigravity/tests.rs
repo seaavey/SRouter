@@ -16,7 +16,10 @@ use crate::infrastructure::upstream::UpstreamClient;
 
 use super::auth::{generate_fallback_project_id, token_refresh_is_due};
 use super::executor::AntigravityExecutor;
-use super::request::{parse_retry_from_error_message, provider_error};
+use super::request::{
+    IMAGE_MAX_BYTES, image_cap_exceeded, parse_retry_from_error_message, provider_error,
+    resolve_image_target,
+};
 use super::types::{ANTIGRAVITY_MODEL_IDS, AntigravityEndpoints};
 
 const MINUTE_MS: i64 = 60 * 1000;
@@ -180,6 +183,44 @@ fn cascade_candidates_map_to_the_node_wire_sequence() {
         .map(|candidate| parse_model_name(candidate))
         .collect();
     assert_eq!(flash, vec!["gemini-3.7-flash-tiered".to_owned()]);
+}
+
+#[test]
+fn an_oversized_image_body_is_dropped_by_the_cap() {
+    // A body exactly at the cap passes; one byte over is dropped.
+    assert!(!image_cap_exceeded(IMAGE_MAX_BYTES - 1, 1));
+    assert!(image_cap_exceeded(IMAGE_MAX_BYTES, 1));
+    // A declared `Content-Length` over the cap is rejected before any read.
+    assert!(image_cap_exceeded(IMAGE_MAX_BYTES + 1, 0));
+    // A hostile length cannot wrap the comparison into a pass.
+    assert!(image_cap_exceeded(u64::MAX, 1));
+}
+
+#[test]
+fn the_image_target_resolution_fails_closed_and_pins_the_address() {
+    use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+    use url::Host;
+
+    // A literal public address is allowed and needs no DNS pin.
+    let (domain, addresses) =
+        resolve_image_target(Host::Ipv4(Ipv4Addr::new(1, 1, 1, 1)), 443).expect("public host");
+    assert!(domain.is_none(), "a literal IP is not pinned");
+    assert_eq!(
+        addresses,
+        vec![SocketAddr::new(IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)), 443)]
+    );
+
+    // Literal loopback addresses are blocked.
+    assert!(resolve_image_target(Host::Ipv4(Ipv4Addr::LOCALHOST), 80).is_none());
+    assert!(resolve_image_target(Host::Ipv6(Ipv6Addr::LOCALHOST), 80).is_none());
+
+    // A domain resolving to loopback is blocked even though the URL host is not
+    // an address literal.
+    assert!(resolve_image_target(Host::Domain("localhost"), 80).is_none());
+
+    // An unresolvable host fails closed instead of fetching an unvalidated
+    // address.
+    assert!(resolve_image_target(Host::Domain("no-such-host.invalid"), 80).is_none());
 }
 
 /// A unique temporary SQLite database removed when the value is dropped.

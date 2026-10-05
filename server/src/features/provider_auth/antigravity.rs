@@ -236,15 +236,24 @@ async fn complete_callback(
         }
     };
 
-    delete_session(database, &parsed.state).await?;
-
     let timestamp = now_ms();
     let id = format!("antigravity_{timestamp}");
     let name = tokens
         .email
         .clone()
         .unwrap_or_else(|| unnamed_account(timestamp));
-    store_connection(state, database, &tokens, id, name).await
+    // Store before consuming the session: a failed write releases the claim so
+    // the operator can retry the login, instead of losing the OAuth state.
+    let provider = match store_connection(state, database, &tokens, id, name).await {
+        Ok(provider) => provider,
+        Err(error) => {
+            release_session(database, &parsed.state).await?;
+            return Err(error);
+        }
+    };
+    delete_session(database, &parsed.state).await?;
+
+    Ok(provider)
 }
 
 /// Imports a token the operator pasted: validated JSON, a stored connection,

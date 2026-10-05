@@ -190,6 +190,48 @@ async fn callback_exchanges_the_code_and_stores_the_connection() {
 }
 
 #[tokio::test]
+async fn a_failed_store_releases_the_session_for_retry() {
+    use sqlx::Row;
+
+    let database = TestDatabase::new().unwrap();
+    let fake = FakeAntigravityUpstream::start().await;
+    let app = app(&database, &fake).await;
+    let login = app
+        .clone()
+        .oneshot(admin_get("/v1/auth/antigravity/login?format=json"))
+        .await
+        .unwrap();
+    let state = json_body(login).await["state"].as_str().unwrap().to_owned();
+
+    // Break the connection write so the callback fails after the exchange.
+    let app_database = database.connect().await.expect("temporary database");
+    sqlx::query("DROP TABLE providers")
+        .execute(app_database.sqlite_pool().unwrap())
+        .await
+        .expect("providers table dropped");
+
+    let response = app
+        .clone()
+        .oneshot(public_get(&format!(
+            "/v1/auth/antigravity/callback?code=code-1&state={state}"
+        )))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+
+    // The session survives the failure and is released, so the operator can
+    // retry instead of losing the OAuth state.
+    let row = sqlx::query("SELECT claimed_at FROM oauth_sessions WHERE state = ?")
+        .bind(&state)
+        .fetch_optional(app_database.sqlite_pool().unwrap())
+        .await
+        .expect("session read")
+        .expect("the session is not deleted when the store fails");
+    let claimed_at: Option<i64> = row.try_get("claimed_at").expect("claimed_at column");
+    assert_eq!(claimed_at, None, "the session is released for a retry");
+}
+
+#[tokio::test]
 async fn callback_rejects_missing_params_and_unknown_state() {
     let database = TestDatabase::new().unwrap();
     let fake = FakeAntigravityUpstream::start().await;

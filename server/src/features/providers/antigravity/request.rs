@@ -9,6 +9,7 @@
 //! `base_url` is not honored.
 
 use std::collections::{BTreeMap, VecDeque};
+use std::net::{IpAddr, SocketAddr, ToSocketAddrs};
 use std::pin::Pin;
 use std::time::Duration;
 
@@ -37,6 +38,9 @@ const IDE_USER_AGENT: &str = "antigravity/ide/2.1.1 darwin/arm64";
 const GOOG_API_CLIENT: &str = "gl-node/18.0.0 gd/1.0.0";
 /// Bound on a remote image fetch, mirroring the oracle's 10s abort.
 const IMAGE_FETCH_TIMEOUT: Duration = Duration::from_secs(10);
+/// Largest remote image body the fetcher will buffer. The URL is caller
+/// supplied, so an unbounded read would let one key pressure gateway memory.
+pub(super) const IMAGE_MAX_BYTES: u64 = 20 * 1024 * 1024;
 
 pub(super) struct PreparedRequest {
     url: String,
@@ -171,27 +175,32 @@ impl AntigravityExecutor {
     }
 
     /// Fetches a remote image through the SSRF guard as `(mimeType, base64)`. A
-    /// blocked host, a failed fetch, a redirect, or a non-image answer drops the
-    /// image, exactly as the oracle's async builder does.
+    /// blocked host, a failed fetch, a redirect, a non-image answer, or a body
+    /// over [`IMAGE_MAX_BYTES`] drops the image, exactly as the oracle's async
+    /// builder does.
     ///
     /// The fetch uses a redirect-disabled client so the host check on the
     /// initial URL is the only hop; a `3xx` to an internal target is a
     /// non-success drop, not a followed request.
+    ///
+    /// The host is resolved here, once, and the client is pinned to the
+    /// validated addresses, so reqwest cannot re-resolve to a different
+    /// (rebinding) target after the check.
     async fn fetch_remote_image(&self, url: String) -> Option<InlineImage> {
         let parsed = url::Url::parse(&url).ok()?;
-        let host = parsed.host_str()?;
         let port = parsed.port_or_known_default()?;
-        if ssrf::is_blocked_host(host, port) {
-            return None;
-        }
+        let (domain, addresses) = resolve_image_target(parsed.host()?, port)?;
 
-        let client = reqwest::Client::builder()
+        let mut builder = reqwest::Client::builder()
             .redirect(reqwest::redirect::Policy::none())
-            .connect_timeout(IMAGE_FETCH_TIMEOUT)
-            .build()
-            .ok()?;
-        let response = client
-            .get(&url)
+            .connect_timeout(IMAGE_FETCH_TIMEOUT);
+        if let Some(domain) = domain {
+            builder = builder.resolve_to_addrs(&domain, &addresses);
+        }
+        let client = builder.build().ok()?;
+
+        let mut response = client
+            .get(parsed)
             .timeout(IMAGE_FETCH_TIMEOUT)
             .send()
             .await
@@ -208,10 +217,69 @@ impl AntigravityExecutor {
             .filter(|value| !value.is_empty())
             .unwrap_or("image/png")
             .to_owned();
-        let bytes = response.bytes().await.ok()?;
+
+        // Reject an over-large declared body before reading it, then keep the
+        // accumulated bytes under the same cap so a chunked or absent
+        // `Content-Length` cannot slip past.
+        if response
+            .content_length()
+            .is_some_and(|length| image_cap_exceeded(length, 0))
+        {
+            return None;
+        }
+        let mut bytes = Vec::new();
+        loop {
+            let Some(chunk) = response.chunk().await.ok()? else {
+                break;
+            };
+            if image_cap_exceeded(bytes.len() as u64, chunk.len()) {
+                return None;
+            }
+            bytes.extend_from_slice(&chunk);
+        }
 
         Some((mime_type, STANDARD.encode(&bytes)))
     }
+}
+
+/// Resolves and validates the host of a remote image URL exactly once. Returns
+/// the domain to pin (absent for a literal IP, which needs no resolution) and
+/// the addresses it resolved to, or `None` when any address is blocked or the
+/// host cannot be resolved. Fails closed: a resolution failure drops the image
+/// rather than fetching an unvalidated address.
+///
+/// The address predicate is the shared [`ssrf::is_blocked_address`]; this
+/// wrapper is local to the image path so the shared helper's behavior stays
+/// unchanged for its other consumers.
+pub(super) fn resolve_image_target(
+    host: url::Host<&str>,
+    port: u16,
+) -> Option<(Option<String>, Vec<SocketAddr>)> {
+    let allow = |address: IpAddr| !ssrf::is_blocked_address(address);
+
+    match host {
+        url::Host::Domain(domain) => {
+            let addresses: Vec<SocketAddr> = (domain, port).to_socket_addrs().ok()?.collect();
+            if addresses.is_empty() || addresses.iter().any(|address| !allow(address.ip())) {
+                return None;
+            }
+            Some((Some(domain.to_owned()), addresses))
+        }
+        url::Host::Ipv4(address) => {
+            let address = SocketAddr::new(IpAddr::V4(address), port);
+            allow(address.ip()).then(|| (None, vec![address]))
+        }
+        url::Host::Ipv6(address) => {
+            let address = SocketAddr::new(IpAddr::V6(address), port);
+            allow(address.ip()).then(|| (None, vec![address]))
+        }
+    }
+}
+
+/// Whether a body of `accumulated` bytes plus a `chunk` of the given size would
+/// exceed [`IMAGE_MAX_BYTES`]. Saturating so a hostile length cannot wrap.
+pub(super) fn image_cap_exceeded(accumulated: u64, chunk: usize) -> bool {
+    accumulated.saturating_add(chunk as u64) > IMAGE_MAX_BYTES
 }
 
 /// Builds the typed provider error, with the `Retry-After` hint the oracle
