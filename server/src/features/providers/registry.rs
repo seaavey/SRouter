@@ -9,6 +9,8 @@ use crate::features::providers::adapter::ProviderAdapter;
 use crate::features::providers::cline;
 use crate::features::providers::cline::ClineExecutor;
 use crate::features::providers::cline::types::ClineEndpoints;
+use crate::features::providers::codebuddy;
+use crate::features::providers::codebuddy::Flavor;
 use crate::features::providers::codex;
 use crate::features::providers::codex::CodexExecutor;
 use crate::features::providers::codex::types::CodexEndpoints;
@@ -80,6 +82,8 @@ impl ProviderRegistry {
         registry.register(qoder::adapter(database.clone())?);
         registry.register(cline::adapter(database.clone())?);
         registry.register(grok_web::adapter(database.clone())?);
+        registry.register(codebuddy::adapter(Flavor::Global, database.clone())?);
+        registry.register(codebuddy::adapter(Flavor::China, database.clone())?);
         registry.register(codex::adapter(database)?);
 
         Ok(registry)

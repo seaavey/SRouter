@@ -23,6 +23,7 @@ use srouter_server::features::admin_auth::AdminSessionStore;
 use srouter_server::features::api_keys::{APIKeyRecord, APIKeyStore};
 use srouter_server::features::provider_auth::CodeBuddyAuthEndpoints;
 use srouter_server::features::providers::cline::{self, ClineEndpoints};
+use srouter_server::features::providers::codebuddy::{self, Flavor, types::CodeBuddyEndpoints};
 use srouter_server::features::providers::codex::{self, CodexEndpoints};
 use srouter_server::features::providers::grok_web::{self, GrokWebEndpoints};
 use srouter_server::features::providers::qoder::{self, QoderEndpoints};
@@ -31,9 +32,9 @@ use srouter_server::infrastructure::database::AppDatabase;
 use srouter_server::infrastructure::database::admin_auth::SQLxAdminAuthStore;
 use srouter_server::infrastructure::database::api_keys::SQLxAPIKeyStore;
 use srouter_server::infrastructure::database::providers::{
-    ClineConnectionWrite, CodexConnectionWrite, GrokWebConnectionWrite, QoderConnectionWrite,
-    upsert_cline_connection, upsert_codex_connection, upsert_grok_web_connection,
-    upsert_qoder_connection,
+    ClineConnectionWrite, CodeBuddyConnectionWrite, CodexConnectionWrite, GrokWebConnectionWrite,
+    QoderConnectionWrite, upsert_cline_connection, upsert_codebuddy_connection,
+    upsert_codex_connection, upsert_grok_web_connection, upsert_qoder_connection,
 };
 use srouter_server::{APIConfig, APIError, AppState, SecurityState};
 use tokio::net::TcpListener;
@@ -379,21 +380,33 @@ impl Drop for FakeQoderUpstream {
 }
 
 #[derive(Default)]
-struct FakeCodeBuddyState {
-    global_approved: bool,
-    cn_approved: bool,
-    global_state: String,
-    cn_state: String,
-    global_state_requests: usize,
-    cn_state_requests: usize,
-    global_poll_requests: usize,
-    cn_poll_requests: usize,
-    global_platform: String,
-    cn_platform: String,
-    global_state_query: String,
-    cn_state_query: String,
-    cn_ioa: String,
-    cn_origin: String,
+pub struct FakeCodeBuddyState {
+    pub global_approved: bool,
+    pub cn_approved: bool,
+    pub global_state: String,
+    pub cn_state: String,
+    pub global_state_requests: usize,
+    pub cn_state_requests: usize,
+    pub global_poll_requests: usize,
+    pub cn_poll_requests: usize,
+    pub global_platform: String,
+    pub cn_platform: String,
+    pub global_state_query: String,
+    pub cn_state_query: String,
+    pub cn_ioa: String,
+    pub cn_origin: String,
+    // Inference legs.
+    pub config_requests: usize,
+    pub chat_requests: usize,
+    pub config_failure: bool,
+    pub chat_mode: String,
+    pub model_catalog: serde_json::Value,
+    pub last_config_authorization: String,
+    pub last_authorization: String,
+    pub last_user_agent: String,
+    pub last_ide_type: String,
+    pub last_domain: String,
+    pub last_chat_body: serde_json::Value,
 }
 
 type SharedCodeBuddyState = Arc<StdMutex<FakeCodeBuddyState>>;
@@ -409,6 +422,11 @@ impl FakeCodeBuddyUpstream {
         let state = Arc::new(StdMutex::new(FakeCodeBuddyState {
             global_state: "fixture-state-global".to_owned(),
             cn_state: "fixture-state-cn".to_owned(),
+            chat_mode: "default".to_owned(),
+            model_catalog: serde_json::json!([
+                { "id": "gpt-5.6-astra", "name": "GPT-5.6 Astra" },
+                { "id": "deepseek-v4.1-flash", "name": "DeepSeek V4.1 Flash" }
+            ]),
             ..FakeCodeBuddyState::default()
         }));
         let router = Router::new()
@@ -416,6 +434,10 @@ impl FakeCodeBuddyUpstream {
             .route("/global/token", get(codebuddy_token))
             .route("/cn/state", post(codebuddy_cn_state))
             .route("/cn/token", get(codebuddy_token))
+            .route("/config", get(codebuddy_config))
+            .route("/cn/config", get(codebuddy_config))
+            .route("/chat", post(codebuddy_chat))
+            .route("/cn/chat", post(codebuddy_chat))
             .with_state(state.clone());
         let listener = TcpListener::bind("127.0.0.1:0")
             .await
@@ -445,6 +467,41 @@ impl FakeCodeBuddyUpstream {
             cn_origin: "https://www.codebuddy.cn".to_owned(),
             cn_domain: "www.codebuddy.cn".to_owned(),
         }
+    }
+
+    /// The inference endpoints of the global flavor, pointing at this fake.
+    pub fn inference_endpoints(&self) -> CodeBuddyEndpoints {
+        CodeBuddyEndpoints {
+            chat_url: format!("{}/chat", self.base_url),
+            config_url: format!("{}/config", self.base_url),
+            domain: None,
+        }
+    }
+
+    /// The inference endpoints of the China flavor: separate routes and the
+    /// `X-Domain` header the flavor always carries.
+    pub fn cn_inference_endpoints(&self) -> CodeBuddyEndpoints {
+        CodeBuddyEndpoints {
+            chat_url: format!("{}/cn/chat", self.base_url),
+            config_url: format!("{}/cn/config", self.base_url),
+            domain: Some("www.codebuddy.cn"),
+        }
+    }
+
+    pub fn with<F, R>(&self, edit: F) -> R
+    where
+        F: FnOnce(&mut FakeCodeBuddyState) -> R,
+    {
+        let mut state = self.state.lock().expect("fake CodeBuddy state");
+        edit(&mut state)
+    }
+
+    pub fn config_requests(&self) -> usize {
+        self.with(|state| state.config_requests)
+    }
+
+    pub fn chat_requests(&self) -> usize {
+        self.with(|state| state.chat_requests)
     }
 
     pub fn approve(&self, provider: &str) {
@@ -534,7 +591,7 @@ async fn codebuddy_global_state(
     axum::extract::RawQuery(query): axum::extract::RawQuery,
     body: Bytes,
 ) -> Response {
-    codebuddy_state(state, headers, query.as_deref(), body, false).await
+    codebuddy_oauth_state(state, headers, query.as_deref(), body, false).await
 }
 
 async fn codebuddy_cn_state(
@@ -543,10 +600,10 @@ async fn codebuddy_cn_state(
     axum::extract::RawQuery(query): axum::extract::RawQuery,
     body: Bytes,
 ) -> Response {
-    codebuddy_state(state, headers, query.as_deref(), body, true).await
+    codebuddy_oauth_state(state, headers, query.as_deref(), body, true).await
 }
 
-async fn codebuddy_state(
+async fn codebuddy_oauth_state(
     state: SharedCodeBuddyState,
     headers: HeaderMap,
     raw_query: Option<&str>,
@@ -627,6 +684,92 @@ async fn codebuddy_token(
         }
     }))
     .into_response()
+}
+
+/// The product-config leg: the live model catalog the executor reads.
+async fn codebuddy_config(
+    State(state): State<SharedCodeBuddyState>,
+    headers: HeaderMap,
+) -> Response {
+    let (failure, catalog) = {
+        let mut guard = state.lock().expect("fake CodeBuddy state");
+        guard.config_requests += 1;
+        guard.last_config_authorization = header_text(&headers, "authorization");
+        (guard.config_failure, guard.model_catalog.clone())
+    };
+    if failure {
+        return (StatusCode::INTERNAL_SERVER_ERROR, "config unavailable").into_response();
+    }
+    Json(serde_json::json!({ "code": 0, "data": { "models": catalog } })).into_response()
+}
+
+/// The chat leg. `chat_mode` selects the stream shape a test wants to exercise.
+async fn codebuddy_chat(
+    State(state): State<SharedCodeBuddyState>,
+    headers: HeaderMap,
+    Json(payload): Json<serde_json::Value>,
+) -> Response {
+    let mode = {
+        let mut guard = state.lock().expect("fake CodeBuddy state");
+        guard.chat_requests += 1;
+        guard.last_authorization = header_text(&headers, "authorization");
+        guard.last_user_agent = header_text(&headers, "user-agent");
+        guard.last_ide_type = header_text(&headers, "x-ide-type");
+        guard.last_domain = header_text(&headers, "x-domain");
+        guard.last_chat_body = payload;
+        guard.chat_mode.clone()
+    };
+
+    let body = match mode.as_str() {
+        // Raw NDJSON lines with no `data:` framing and no `[DONE]`: the
+        // adapter must re-frame each line and terminate the stream itself.
+        "ndjson" => concat!(
+            "{\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Hello\"},\"finish_reason\":null}]}\n",
+            "{\"choices\":[{\"index\":0,\"delta\":{\"content\":\" world\"},\"finish_reason\":null}]}\n",
+            "{\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":5,\"completion_tokens\":7,\"total_tokens\":12}}\n"
+        )
+        .to_owned(),
+        "root_error" => codebuddy_sse_body(&[serde_json::json!({"error": {"message": "boom"}})]),
+        "aggregate" => codebuddy_sse_body(&[
+            serde_json::json!({"choices":[{"index":0,"delta":{"reasoning_content":"think "},"finish_reason":null}]}),
+            serde_json::json!({"choices":[{"index":0,"delta":{"content":"answer","tool_calls":[{"index":0,"id":"call-1","type":"function","function":{"name":"lookup","arguments":"{\"q\":"}}]},"finish_reason":null}]}),
+            serde_json::json!({"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"\"weather\"}"}}]},"finish_reason":null}]}),
+            serde_json::json!({"choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":8,"completion_tokens":9,"total_tokens":17}}),
+        ]),
+        _ => codebuddy_sse_body(&[
+            serde_json::json!({"choices":[{"index":0,"delta":{"content":"Hello"},"finish_reason":null}]}),
+            serde_json::json!({"choices":[{"index":0,"delta":{"content":" world"},"finish_reason":null}]}),
+            serde_json::json!({"choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":5,"completion_tokens":7,"total_tokens":12}}),
+        ]),
+    };
+
+    let body = if mode == "fragmented" {
+        let pieces: Vec<Result<Bytes, std::io::Error>> = body
+            .as_bytes()
+            .chunks(17)
+            .map(|piece| Ok(Bytes::copy_from_slice(piece)))
+            .collect();
+        Body::from_stream(futures_util::stream::iter(pieces))
+    } else {
+        Body::from(body)
+    };
+
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, "text/event-stream")
+        .body(body)
+        .expect("fake CodeBuddy stream")
+}
+
+fn codebuddy_sse_body(chunks: &[serde_json::Value]) -> String {
+    let mut sse = String::new();
+    for chunk in chunks {
+        sse.push_str("data: ");
+        sse.push_str(&chunk.to_string());
+        sse.push_str("\n\n");
+    }
+    sse.push_str("data: [DONE]\n\n");
+    sse
 }
 
 /// State recorded by the Cline and WorkOS fake endpoints.
@@ -1272,6 +1415,67 @@ pub fn cline_state(
     fake: &FakeClineUpstream,
 ) -> AppState {
     let providers = cline_registry(Some(database.clone()), fake);
+    AppState::with_security(test_config(), providers, security).with_database(database)
+}
+
+/// Stores a fake CodeBuddy connection for the given flavor's `provider_id`.
+pub async fn connect_codebuddy(database: &TestDatabase, provider_id: &str) {
+    let app_database = database.connect().await.expect("temporary database");
+    let (token, base_url) = match provider_id {
+        "codebuddy-cn" => (
+            "fixture-codebuddy-cn-access",
+            "https://copilot.tencent.com/v2/chat/completions",
+        ),
+        _ => (
+            "fixture-codebuddy-access",
+            "https://www.codebuddy.ai/v2/chat/completions",
+        ),
+    };
+    upsert_codebuddy_connection(
+        &app_database,
+        &CodeBuddyConnectionWrite {
+            id: format!("{provider_id}_fixture"),
+            provider_id: provider_id.to_owned(),
+            name: format!("CodeBuddy fixture ({provider_id})"),
+            access_token: token.to_owned(),
+            refresh_token: Some(format!("fixture-{provider_id}-refresh")),
+            token_expires_at: Some(srouter_server::clock::now_ms() + 86_400_000),
+            base_url: base_url.to_owned(),
+        },
+    )
+    .await
+    .expect("CodeBuddy connection stored");
+}
+
+/// A registry whose two CodeBuddy adapters point at the fake upstream.
+pub fn codebuddy_registry(
+    database: Option<AppDatabase>,
+    fake: &FakeCodeBuddyUpstream,
+) -> ProviderRegistry {
+    let mut providers = ProviderRegistry::new();
+    providers.register(opencode::adapter().expect("opencode_zen adapter"));
+    providers.register(
+        codebuddy::adapter_with_endpoints(
+            Flavor::Global,
+            fake.inference_endpoints(),
+            database.clone(),
+        )
+        .expect("codebuddy adapter"),
+    );
+    providers.register(
+        codebuddy::adapter_with_endpoints(Flavor::China, fake.cn_inference_endpoints(), database)
+            .expect("codebuddy cn adapter"),
+    );
+    providers
+}
+
+/// Application state wired to the fake CodeBuddy upstream and the given database.
+pub fn codebuddy_state(
+    database: AppDatabase,
+    security: SecurityState,
+    fake: &FakeCodeBuddyUpstream,
+) -> AppState {
+    let providers = codebuddy_registry(Some(database.clone()), fake);
     AppState::with_security(test_config(), providers, security).with_database(database)
 }
 

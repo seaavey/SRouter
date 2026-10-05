@@ -2,6 +2,7 @@
 
 pub mod adapter;
 pub mod cline;
+pub mod codebuddy;
 pub mod codex;
 pub mod executor;
 pub mod grok_web;
@@ -21,6 +22,9 @@ pub use adapter::{
     OpenAIAdapter, OpenAIExecutor, ProviderAdapter, ProviderStream, forward_image_generation,
 };
 pub use cline::{CLINE_KEYS, CLINE_PROVIDER};
+pub use codebuddy::{
+    CODEBUDDY_CN_KEYS, CODEBUDDY_CN_PROVIDER, CODEBUDDY_KEYS, CODEBUDDY_PROVIDER, Flavor,
+};
 pub use codex::{CODEX_KEYS, CODEX_PROVIDER};
 pub use executor::ProviderExecutor;
 pub use grok_web::{GROK_WEB_KEYS, GROK_WEB_PROVIDER};
@@ -38,5 +42,7 @@ pub const SEED_PROVIDERS: &[ProviderMetadata] = &[
     CLINE_PROVIDER,
     GROK_WEB_PROVIDER,
     CODEX_PROVIDER,
+    CODEBUDDY_PROVIDER,
+    CODEBUDDY_CN_PROVIDER,
 ];
 pub use registry::{ProviderRegistry, ResolvedModel};

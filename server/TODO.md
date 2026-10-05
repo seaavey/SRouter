@@ -340,10 +340,10 @@ Qoder, Cline, and OpenAI routes exist in Rust. Source of truth for the route lis
 - [~] Privileged routes: `openai` landed (`features/provider_auth/openai.rs`):
   `GET /v1/auth/openai/login` (supports `client_id`, `redirect_uri`, `prompt`,
   `format=json`) and `POST /v1/auth/openai/token` (validated token import, `201`), both
-  admin-guarded. `GET /v1/auth/{codebuddy,codebuddy-cn}/login` and `/poll` (`GET`, `POST`) are implemented as a verified OAuth-only flow: the state comes from CodeBuddy and the connection is persisted only after its token poll returns a non-empty access token. There is deliberately no `/token` route or inference executor in this slice (user scope). Still open:
+  admin-guarded. `GET /v1/auth/{codebuddy,codebuddy-cn}/login` and `/poll` (`GET`, `POST`) are implemented as a verified OAuth-only flow: the state comes from CodeBuddy and the connection is persisted only after its token poll returns a non-empty access token. The inference executor landed (`features/providers/codebuddy/`): one `CodeBuddyExecutor` parameterized by `Flavor { Global, China }` serves chat (stream + non-stream aggregation) for both flavors, with models read live from `GET /v3/config` and gated on the flavor's exact `provider_id` connection. There is deliberately no `/token` route (user scope) and no token refresh (the login token is valid ~1 year). Still open:
   `/v1/auth/{antigravity,claude}/login` and every other `/token` route
   (`antigravity, commandcode, anthropic, atria, claude, tokenrouter, qoder`) → validated import, `201`.
-  Tests: `server/tests/codebuddy_auth.rs` (fake upstream only).
+  Tests: `server/tests/codebuddy_auth.rs`, `server/tests/codebuddy_provider.rs` (fake upstream only).
 - [x] `qoder` privileged routes: `GET /v1/auth/qoder/login` (supports `client_id`, `redirect_uri`,
       `format=json`, otherwise redirects to the device URL) and `/v1/auth/qoder/poll` (GET, POST,
       `state` from query or JSON body) in `features/provider_auth/qoder.rs`, mounted behind

@@ -452,6 +452,9 @@ pub mod providers {
         pub const MISSING_STATE: &str = "Missing state parameter";
         pub const SESSION_EXPIRED: &str = "Session expired or not found";
         pub const EMPTY_TOKEN: &str = "CodeBuddy token response returned no access token";
+        pub const NOT_CONNECTED: &str = "No active CodeBuddy connection found. Connect the CodeBuddy account in the Providers tab.";
+        pub const DATABASE_REQUIRED: &str =
+            "no database is configured; the CodeBuddy connection cannot be read";
     }
 
     /// Messages of the `cline` provider: the WorkOS device flow, the credential

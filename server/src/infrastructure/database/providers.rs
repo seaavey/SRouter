@@ -539,6 +539,68 @@ pub async fn upsert_codebuddy_connection(
     Ok(())
 }
 
+/// Credential store for CodeBuddy: the OAuth session behind `codebuddy` /
+/// `codebuddy-cn`. Only the access token is needed for inference; refresh is
+/// deferred, so the rest of the stored row is left unread.
+#[derive(Clone, Debug)]
+pub struct CodeBuddyCredentials {
+    pub access_token: String,
+}
+
+/// Loads the access token of the newest enabled connection whose `provider_id`
+/// matches exactly. `codebuddy` is a prefix of `codebuddy-cn`, so an exact match
+/// is what keeps the two flavors apart (a `matches_base_id` test would not).
+pub async fn load_codebuddy_credentials(
+    database: &AppDatabase,
+    provider_id: &str,
+) -> Result<Option<CodeBuddyCredentials>, APIError> {
+    let Some(pool) = database.sqlite_pool() else {
+        return Ok(None);
+    };
+
+    let rows = sqlx::query(
+        "SELECT credentials FROM providers
+         WHERE provider_id = ? AND enabled = 1
+         ORDER BY created_at DESC
+         LIMIT 1",
+    )
+    .bind(provider_id)
+    .fetch_all(pool)
+    .await
+    .map_err(|error| {
+        APIError::new(
+            500,
+            constants::database::with_context("read CodeBuddy credentials", error),
+        )
+    })?;
+
+    for row in &rows {
+        let raw = row.try_get::<String, _>("credentials").map_err(|error| {
+            APIError::new(
+                500,
+                constants::database::column_unreadable("credentials", &error),
+            )
+        })?;
+
+        if let Some(credentials) = parse_codebuddy_credentials(&raw) {
+            return Ok(Some(credentials));
+        }
+    }
+
+    Ok(None)
+}
+
+/// Parses a CodeBuddy credentials JSON row. Malformed JSON or a missing access
+/// token yields `None`, which the executor reports as "not connected".
+fn parse_codebuddy_credentials(raw: &str) -> Option<CodeBuddyCredentials> {
+    let value: Value = serde_json::from_str(raw).ok()?;
+    let object = value.as_object()?;
+
+    Some(CodeBuddyCredentials {
+        access_token: credential_string(object, &["access_token", "accessToken"])?,
+    })
+}
+
 /// Loads the credentials of the newest Qoder connection. This build writes the
 /// JSON layout; the camelCase spellings are accepted as well so a row written by
 /// the Node build still reads (plan decision D2).
