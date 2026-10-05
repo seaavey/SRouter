@@ -2,6 +2,7 @@
 //! one module with its credential shape, its parser, and the load/upsert/update
 //! queries that read and write the `providers.credentials` column.
 
+mod antigravity;
 mod cline;
 mod codebuddy;
 mod codex;
@@ -10,6 +11,10 @@ mod qoder;
 
 use serde_json::Value;
 
+pub use antigravity::{
+    AntigravityConnectionWrite, AntigravityCredentials, load_antigravity_credentials,
+    update_antigravity_tokens, upsert_antigravity_connection,
+};
 pub use cline::{
     ClineConnectionWrite, ClineCredentials, load_cline_credentials, update_cline_tokens,
     upsert_cline_connection,

@@ -14,10 +14,12 @@ pub use connections::{
     list_providers_for_quota, provider_enabled, provider_exists,
 };
 pub use credentials::{
-    ClineConnectionWrite, ClineCredentials, CodeBuddyConnectionWrite, CodeBuddyCredentials,
-    CodexConnectionWrite, CodexCredentials, GrokWebConnectionWrite, GrokWebCredentials,
-    QoderConnectionWrite, QoderCredentials, load_cline_credentials, load_codebuddy_credentials,
-    load_codex_credentials, load_grok_web_credentials, load_qoder_credentials, update_cline_tokens,
-    update_codex_tokens, upsert_cline_connection, upsert_codebuddy_connection,
+    AntigravityConnectionWrite, AntigravityCredentials, ClineConnectionWrite, ClineCredentials,
+    CodeBuddyConnectionWrite, CodeBuddyCredentials, CodexConnectionWrite, CodexCredentials,
+    GrokWebConnectionWrite, GrokWebCredentials, QoderConnectionWrite, QoderCredentials,
+    load_antigravity_credentials, load_cline_credentials, load_codebuddy_credentials,
+    load_codex_credentials, load_grok_web_credentials, load_qoder_credentials,
+    update_antigravity_tokens, update_cline_tokens, update_codex_tokens,
+    upsert_antigravity_connection, upsert_cline_connection, upsert_codebuddy_connection,
     upsert_codex_connection, upsert_grok_web_connection, upsert_qoder_connection,
 };
