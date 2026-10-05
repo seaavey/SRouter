@@ -22,6 +22,7 @@ use futures_util::future::BoxFuture;
 use srouter_server::features::admin_auth::AdminSessionStore;
 use srouter_server::features::api_keys::{APIKeyRecord, APIKeyStore};
 use srouter_server::features::provider_auth::CodeBuddyAuthEndpoints;
+use srouter_server::features::providers::antigravity::{self, AntigravityEndpoints};
 use srouter_server::features::providers::cline::{self, ClineEndpoints};
 use srouter_server::features::providers::codebuddy::{self, Flavor, types::CodeBuddyEndpoints};
 use srouter_server::features::providers::codex::{self, CodexEndpoints};
@@ -32,8 +33,9 @@ use srouter_server::infrastructure::database::AppDatabase;
 use srouter_server::infrastructure::database::admin_auth::SQLxAdminAuthStore;
 use srouter_server::infrastructure::database::api_keys::SQLxAPIKeyStore;
 use srouter_server::infrastructure::database::providers::{
-    ClineConnectionWrite, CodeBuddyConnectionWrite, CodexConnectionWrite, GrokWebConnectionWrite,
-    QoderConnectionWrite, upsert_cline_connection, upsert_codebuddy_connection,
+    AntigravityConnectionWrite, ClineConnectionWrite, CodeBuddyConnectionWrite,
+    CodexConnectionWrite, GrokWebConnectionWrite, QoderConnectionWrite,
+    upsert_antigravity_connection, upsert_cline_connection, upsert_codebuddy_connection,
     upsert_codex_connection, upsert_grok_web_connection, upsert_qoder_connection,
 };
 use srouter_server::{APIConfig, APIError, AppState, SecurityState};
@@ -1835,6 +1837,294 @@ pub fn grok_web_state(
     fake: &FakeGrokUpstream,
 ) -> AppState {
     let providers = grok_web_registry(Some(database.clone()), fake);
+
+    AppState::with_security(test_config(), providers, security).with_database(database)
+}
+
+/// What the fake Antigravity upstream remembers about the calls it served.
+#[derive(Debug)]
+pub struct FakeAntigravityState {
+    /// `default`, `cascade_400`, or `quota_429`.
+    pub chat_mode: String,
+    /// The `cloudaicompanionProject` the `loadCodeAssist` leg resolves. An empty
+    /// value answers without a project, exercising the generated fallback.
+    pub project_id: String,
+    /// The access token a `refresh_token` grant rotates to.
+    pub refresh_access_token: String,
+    /// The refresh token a `refresh_token` grant rotates to.
+    pub refresh_token: String,
+    pub chat_requests: usize,
+    pub token_requests: usize,
+    pub code_assist_requests: usize,
+    pub last_authorization: String,
+    pub last_user_agent: String,
+    pub last_goog_api_client: String,
+    pub last_chat_query: String,
+    pub last_chat_body: serde_json::Value,
+    /// The wire model of every chat request, in order, so a cascade is visible.
+    pub requested_models: Vec<String>,
+    /// The `enabledCreditTypes` of every chat request, in order (`null` when absent).
+    pub credit_types: Vec<serde_json::Value>,
+    pub last_token_form: String,
+    pub last_code_assist_authorization: String,
+}
+
+impl Default for FakeAntigravityState {
+    fn default() -> Self {
+        Self {
+            chat_mode: "default".to_owned(),
+            project_id: "cloudcode-project-1".to_owned(),
+            refresh_access_token: "ya29.refreshed".to_owned(),
+            refresh_token: "1//rotated-refresh".to_owned(),
+            chat_requests: 0,
+            token_requests: 0,
+            code_assist_requests: 0,
+            last_authorization: String::new(),
+            last_user_agent: String::new(),
+            last_goog_api_client: String::new(),
+            last_chat_query: String::new(),
+            last_chat_body: serde_json::Value::Null,
+            requested_models: Vec::new(),
+            credit_types: Vec::new(),
+            last_token_form: String::new(),
+            last_code_assist_authorization: String::new(),
+        }
+    }
+}
+
+type SharedAntigravityState = Arc<StdMutex<FakeAntigravityState>>;
+
+/// A local stand-in for the Antigravity CloudCode IDE host: the Gemini SSE chat
+/// leg, the Google OAuth token leg, and the `loadCodeAssist` bootstrap leg,
+/// served on a random loopback port and aborted when dropped.
+pub struct FakeAntigravityUpstream {
+    base_url: String,
+    state: SharedAntigravityState,
+    task: JoinHandle<()>,
+}
+
+impl FakeAntigravityUpstream {
+    pub async fn start() -> Self {
+        let state: SharedAntigravityState =
+            Arc::new(StdMutex::new(FakeAntigravityState::default()));
+        let router = Router::new()
+            .route("/v1internal:streamGenerateContent", post(antigravity_chat))
+            .route("/v1internal:loadCodeAssist", post(antigravity_code_assist))
+            .route("/token", post(antigravity_token))
+            .with_state(state.clone());
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind the fake Antigravity upstream");
+        let address = listener
+            .local_addr()
+            .expect("fake Antigravity upstream address");
+        let task = tokio::spawn(async move {
+            let _ = axum::serve(listener, router).await;
+        });
+
+        Self {
+            base_url: format!("http://{address}"),
+            state,
+            task,
+        }
+    }
+
+    /// Endpoints pointing every Antigravity URL at this fake. The chat URL keeps
+    /// the full `?alt=sse` suffix the executor sends verbatim.
+    pub fn endpoints(&self) -> AntigravityEndpoints {
+        AntigravityEndpoints {
+            chat_url: format!("{}/v1internal:streamGenerateContent?alt=sse", self.base_url),
+            token_url: format!("{}/token", self.base_url),
+            code_assist_url: format!("{}/v1internal:loadCodeAssist", self.base_url),
+        }
+    }
+
+    /// Runs an edit against the recorded state.
+    pub fn with<F, R>(&self, edit: F) -> R
+    where
+        F: FnOnce(&mut FakeAntigravityState) -> R,
+    {
+        edit(&mut self.state.lock().expect("fake Antigravity state"))
+    }
+
+    pub fn chat_requests(&self) -> usize {
+        self.with(|state| state.chat_requests)
+    }
+
+    pub fn token_requests(&self) -> usize {
+        self.with(|state| state.token_requests)
+    }
+
+    pub fn code_assist_requests(&self) -> usize {
+        self.with(|state| state.code_assist_requests)
+    }
+}
+
+impl Drop for FakeAntigravityUpstream {
+    fn drop(&mut self) {
+        self.task.abort();
+    }
+}
+
+/// The chat leg: a Gemini `streamGenerateContent` SSE answer. `chat_mode`
+/// selects the failure a test wants to exercise; the default streams two text
+/// frames and a finish/usage frame.
+async fn antigravity_chat(
+    State(state): State<SharedAntigravityState>,
+    headers: HeaderMap,
+    axum::extract::RawQuery(query): axum::extract::RawQuery,
+    Json(payload): Json<serde_json::Value>,
+) -> Response {
+    let (mode, attempt) = {
+        let mut guard = state.lock().expect("fake Antigravity state");
+        guard.chat_requests += 1;
+        guard.last_authorization = header_text(&headers, "authorization");
+        guard.last_user_agent = header_text(&headers, "user-agent");
+        guard.last_goog_api_client = header_text(&headers, "x-goog-api-client");
+        guard.last_chat_query = query.unwrap_or_default();
+        guard.last_chat_body = payload.clone();
+        guard.requested_models.push(
+            payload
+                .get("model")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or_default()
+                .to_owned(),
+        );
+        let credits = payload
+            .get("enabledCreditTypes")
+            .cloned()
+            .unwrap_or(serde_json::Value::Null);
+        guard.credit_types.push(credits);
+        (guard.chat_mode.clone(), guard.chat_requests)
+    };
+
+    if mode == "cascade_400" && attempt == 1 {
+        return (StatusCode::BAD_REQUEST, "bad request").into_response();
+    }
+    if mode == "quota_429" && attempt == 1 {
+        return (
+            StatusCode::TOO_MANY_REQUESTS,
+            "RESOURCE_EXHAUSTED: quota exceeded",
+        )
+            .into_response();
+    }
+
+    let sse = concat!(
+        "data: {\"response\":{\"responseId\":\"resp-1\",\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"Hello\"}],\"role\":\"model\"}}]}}\n\n",
+        "data: {\"response\":{\"candidates\":[{\"content\":{\"parts\":[{\"text\":\" world\"}],\"role\":\"model\"}}]}}\n\n",
+        "data: {\"response\":{\"candidates\":[{\"content\":{\"parts\":[],\"role\":\"model\"},\"finishReason\":\"STOP\"}],\"usageMetadata\":{\"promptTokenCount\":5,\"candidatesTokenCount\":7,\"totalTokens\":12}}}\n\n"
+    );
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, "text/event-stream")
+        .body(Body::from(sse))
+        .expect("fake Antigravity stream")
+}
+
+/// The `loadCodeAssist` leg: answers the `cloudaicompanionProject` a test set,
+/// or an empty payload when it is blank.
+async fn antigravity_code_assist(
+    State(state): State<SharedAntigravityState>,
+    headers: HeaderMap,
+) -> Response {
+    let project = {
+        let mut guard = state.lock().expect("fake Antigravity state");
+        guard.code_assist_requests += 1;
+        guard.last_code_assist_authorization = header_text(&headers, "authorization");
+        guard.project_id.clone()
+    };
+    if project.is_empty() {
+        return Json(serde_json::json!({})).into_response();
+    }
+
+    Json(serde_json::json!({ "cloudaicompanionProject": project })).into_response()
+}
+
+/// The Google token leg: an `authorization_code` exchange and a `refresh_token`
+/// grant share this route, told apart by the form body.
+async fn antigravity_token(State(state): State<SharedAntigravityState>, body: String) -> Response {
+    let (access, refresh) = {
+        let mut guard = state.lock().expect("fake Antigravity state");
+        guard.token_requests += 1;
+        guard.last_token_form = body.clone();
+        (
+            guard.refresh_access_token.clone(),
+            guard.refresh_token.clone(),
+        )
+    };
+
+    if body.contains("grant_type=authorization_code") {
+        return Json(serde_json::json!({
+            "access_token": "ya29.exchanged",
+            "refresh_token": "1//exchanged",
+            "id_token": fake_antigravity_id_token("antigravity@example.com"),
+            "expires_in": 3600,
+            "token_type": "Bearer"
+        }))
+        .into_response();
+    }
+
+    Json(serde_json::json!({
+        "access_token": access,
+        "refresh_token": refresh,
+        "expires_in": 3600,
+        "token_type": "Bearer"
+    }))
+    .into_response()
+}
+
+/// An unsigned JWT whose payload carries the email claim the identity reader uses.
+fn fake_antigravity_id_token(email: &str) -> String {
+    use base64::Engine;
+    use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+
+    let payload = serde_json::json!({ "email": email }).to_string();
+
+    format!("header.{}.signature", URL_SAFE_NO_PAD.encode(payload))
+}
+
+/// Stores the fixture Antigravity connection. The CloudCode project id is left
+/// unset so the first use exercises the `loadCodeAssist` bootstrap (D5).
+pub async fn connect_antigravity(database: &TestDatabase) {
+    let app_database = database.connect().await.expect("temporary database");
+    upsert_antigravity_connection(
+        &app_database,
+        &AntigravityConnectionWrite {
+            id: "antigravity_fixture".to_owned(),
+            name: "Antigravity fixture".to_owned(),
+            access_token: "ya29.fixture-access".to_owned(),
+            refresh_token: Some("1//fixture-refresh".to_owned()),
+            expires_at: Some(srouter_server::clock::now_ms() + 86_400_000),
+            project_id: None,
+        },
+    )
+    .await
+    .expect("Antigravity connection stored");
+}
+
+/// A registry whose `antigravity` adapter points at the fake upstream and can
+/// read credentials from the given database.
+pub fn antigravity_registry(
+    database: Option<AppDatabase>,
+    fake: &FakeAntigravityUpstream,
+) -> ProviderRegistry {
+    let mut providers = ProviderRegistry::new();
+    providers.register(opencode::adapter().expect("opencode_zen adapter"));
+    providers.register(
+        antigravity::adapter_with_endpoints(fake.endpoints(), database)
+            .expect("antigravity adapter"),
+    );
+
+    providers
+}
+
+/// Application state wired to the fake Antigravity upstream and the given database.
+pub fn antigravity_state(
+    database: AppDatabase,
+    security: SecurityState,
+    fake: &FakeAntigravityUpstream,
+) -> AppState {
+    let providers = antigravity_registry(Some(database.clone()), fake);
 
     AppState::with_security(test_config(), providers, security).with_database(database)
 }
