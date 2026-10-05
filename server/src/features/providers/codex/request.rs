@@ -6,8 +6,8 @@ use serde_json::Value;
 use crate::constants;
 use crate::error::APIError;
 use crate::protocol::model::{
-    ChatCompletionRequest, ChatContent, ChatMessage, ChatRole, ResponseFormat, ToolChoice,
-    ToolChoiceMode,
+    ChatCompletionRequest, ChatContent, ChatMessage, ChatRole, ReasoningEffort, ResponseFormat,
+    ToolChoice, ToolChoiceMode,
 };
 
 /// Builds the Responses API body for one turn: the message transcript becomes
@@ -18,8 +18,11 @@ pub(super) fn upstream_body(
     model_key: &str,
     request: &ChatCompletionRequest,
 ) -> Result<Value, APIError> {
+    // A model id may carry its level as a suffix (`gpt-5.3-codex-high`); the
+    // suffix names the effort and never reaches upstream as part of the model.
+    let model = model_without_effort_suffix(model_key);
     let mut body = serde_json::json!({
-        "model": model_key,
+        "model": model,
         "input": input_items(&request.messages),
         "stream": true,
         "store": false,
@@ -55,16 +58,32 @@ pub(super) fn upstream_body(
         };
     }
 
-    // `none` disables reasoning on the chat schema; the Responses API has no
-    // such value, so the field is dropped and upstream runs its default.
+    // The level the caller asked for, or the model's own suffix, or the
+    // default. The flat `reasoning_effort` is the field the official clients
+    // send, so it outranks the nested one. An absent, empty, or unknown value is
+    // not a level: the suffix gets its turn and the default fills in last.
     let effort = request
-        .reasoning
-        .as_ref()
-        .and_then(|options| options.effort.as_deref())
-        .or(request.reasoning_effort.as_deref())
-        .filter(|effort| !effort.eq_ignore_ascii_case("none"));
-    if let Some(effort) = effort {
-        body["reasoning"] = serde_json::json!({ "effort": effort });
+        .reasoning_effort
+        .as_deref()
+        .or_else(|| {
+            request
+                .reasoning
+                .as_ref()
+                .and_then(|options| options.effort.as_deref())
+        })
+        .filter(|value| !value.trim().is_empty())
+        .and_then(ReasoningEffort::from_wire)
+        .or_else(|| effort_from_model_suffix(model_key).and_then(ReasoningEffort::from_wire))
+        .unwrap_or(ReasoningEffort::Low);
+    // The level is always sent, `none` included; only the encrypted trace is
+    // withheld when reasoning is off.
+    body["reasoning"] = serde_json::json!({
+        "effort": effort.as_str(),
+        "summary": "auto",
+    });
+    if !effort.is_disabled() {
+        // Codex rejects a reasoning turn that omits the encrypted trace.
+        body["include"] = serde_json::json!(["reasoning.encrypted_content"]);
     }
 
     if let Some(max_tokens) = request.max_tokens {
@@ -240,4 +259,19 @@ pub(super) fn strip_codex_prefix(model: &str) -> &str {
         .strip_prefix("openai_codex/")
         .or_else(|| model.strip_prefix("codex/"))
         .unwrap_or(model)
+}
+
+/// The model id without a trailing effort level (`gpt-5.3-codex-high` becomes
+/// `gpt-5.3-codex`). A suffix that is not a known level stays part of the id.
+pub(super) fn model_without_effort_suffix(model: &str) -> &str {
+    match model.rsplit_once('-') {
+        Some((base, suffix)) if ReasoningEffort::from_wire(suffix).is_some() => base,
+        _ => model,
+    }
+}
+
+/// The level a model id carries as a suffix, if it names one.
+pub(super) fn effort_from_model_suffix(model: &str) -> Option<&str> {
+    let (_, suffix) = model.rsplit_once('-')?;
+    ReasoningEffort::from_wire(suffix).map(|_| suffix)
 }

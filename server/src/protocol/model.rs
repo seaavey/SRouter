@@ -293,6 +293,57 @@ pub struct ReasoningOptions {
     pub summary: Option<String>,
 }
 
+/// The reasoning levels the OpenAI wire protocol accepts. Anything outside this
+/// set is not a level, so a caller can fall back instead of forwarding a value
+/// upstream would reject.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ReasoningEffort {
+    None,
+    Minimal,
+    Low,
+    Medium,
+    High,
+    Xhigh,
+}
+
+impl ReasoningEffort {
+    /// Every level, weakest first, in the order upstream documents them.
+    const ALL: [Self; 6] = [
+        Self::None,
+        Self::Minimal,
+        Self::Low,
+        Self::Medium,
+        Self::High,
+        Self::Xhigh,
+    ];
+
+    /// The wire spelling.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::None => "none",
+            Self::Minimal => "minimal",
+            Self::Low => "low",
+            Self::Medium => "medium",
+            Self::High => "high",
+            Self::Xhigh => "xhigh",
+        }
+    }
+
+    /// Reads a level off the wire, case-insensitively. An unknown value yields
+    /// `None` so the caller decides the fallback.
+    pub fn from_wire(value: &str) -> Option<Self> {
+        let value = value.trim();
+        Self::ALL
+            .into_iter()
+            .find(|level| level.as_str().eq_ignore_ascii_case(value))
+    }
+
+    /// Whether the level turns reasoning off.
+    pub fn is_disabled(self) -> bool {
+        self == Self::None
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ThinkingType {
@@ -579,4 +630,49 @@ fn check_positive_cap(value: u32, param: &str) -> Result<(), APIError> {
         ));
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ReasoningEffort;
+
+    #[test]
+    fn every_level_round_trips_through_the_wire_spelling() {
+        for level in ReasoningEffort::ALL {
+            assert_eq!(ReasoningEffort::from_wire(level.as_str()), Some(level));
+        }
+    }
+
+    #[test]
+    fn a_level_is_read_case_insensitively_and_trimmed() {
+        assert_eq!(
+            ReasoningEffort::from_wire("  HIGH "),
+            Some(ReasoningEffort::High)
+        );
+        assert_eq!(
+            ReasoningEffort::from_wire("XHigh"),
+            Some(ReasoningEffort::Xhigh)
+        );
+    }
+
+    #[test]
+    fn an_unknown_or_absent_level_is_not_a_level() {
+        assert_eq!(ReasoningEffort::from_wire("sok-ajaib"), None);
+        assert_eq!(ReasoningEffort::from_wire(""), None);
+        assert_eq!(ReasoningEffort::from_wire("  "), None);
+        assert_eq!(
+            ReasoningEffort::from_wire("medium"),
+            Some(ReasoningEffort::Medium)
+        );
+    }
+
+    #[test]
+    fn only_none_is_disabled() {
+        assert!(ReasoningEffort::None.is_disabled());
+        for level in ReasoningEffort::ALL {
+            if level != ReasoningEffort::None {
+                assert!(!level.is_disabled(), "{level:?}");
+            }
+        }
+    }
 }

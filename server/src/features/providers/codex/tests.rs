@@ -177,7 +177,7 @@ fn assistant_history_is_output_text_and_images_become_input_images() {
 }
 
 #[test]
-fn reasoning_none_and_unknown_response_formats_are_dropped() {
+fn reasoning_none_is_still_sent_but_asks_for_no_trace() {
     let request = parse(json!({
         "model": "openai_codex/gpt-6.1-sol",
         "messages": [{"role": "user", "content": "hi"}],
@@ -187,8 +187,116 @@ fn reasoning_none_and_unknown_response_formats_are_dropped() {
 
     let body = upstream_body("gpt-6.1-sol", &request).expect("body");
 
-    assert!(body.get("reasoning").is_none());
+    assert_eq!(
+        body["reasoning"]["effort"], "none",
+        "the level is always sent, `none` included"
+    );
+    assert_eq!(body["reasoning"]["summary"], "auto");
+    assert!(
+        body.get("include").is_none(),
+        "a turn with reasoning off asks for no encrypted trace"
+    );
     assert!(body.get("text").is_none());
+}
+
+#[test]
+fn a_request_without_an_effort_runs_at_the_default_level() {
+    let request = simple_request();
+
+    let body = upstream_body("gpt-6.1-sol", &request).expect("body");
+
+    assert_eq!(body["reasoning"]["effort"], "low");
+    assert_eq!(body["reasoning"]["summary"], "auto");
+    assert_eq!(body["include"][0], "reasoning.encrypted_content");
+}
+
+#[test]
+fn an_unknown_effort_falls_back_instead_of_reaching_upstream() {
+    let mut request = simple_request();
+    request.reasoning_effort = Some("sok-ajaib".to_owned());
+
+    let body = upstream_body("gpt-6.1-sol", &request).expect("body");
+
+    assert_eq!(body["reasoning"]["effort"], "low");
+}
+
+#[test]
+fn an_unknown_explicit_effort_lets_the_model_suffix_through() {
+    let mut request = simple_request();
+    request.reasoning_effort = Some("sok-ajaib".to_owned());
+
+    let body = upstream_body("gpt-5.3-codex-high", &request).expect("body");
+
+    assert_eq!(
+        body["reasoning"]["effort"], "high",
+        "an unusable explicit value must not shadow a real model level"
+    );
+}
+
+#[test]
+fn an_empty_explicit_effort_lets_the_model_suffix_through() {
+    let mut request = simple_request();
+    request.reasoning_effort = Some(String::new());
+
+    let body = upstream_body("gpt-5.3-codex-high", &request).expect("body");
+
+    assert_eq!(body["reasoning"]["effort"], "high");
+}
+
+#[test]
+fn a_reasoning_effort_outranks_the_nested_reasoning_effort() {
+    let mut request = simple_request();
+    request.reasoning_effort = Some("high".to_owned());
+    request.reasoning =
+        Some(serde_json::from_value(json!({"effort": "minimal"})).expect("reasoning options"));
+
+    let body = upstream_body("gpt-6.1-sol", &request).expect("body");
+
+    assert_eq!(
+        body["reasoning"]["effort"], "high",
+        "the flat field is the one the official clients send"
+    );
+}
+
+#[test]
+fn a_level_is_normalized_before_it_reaches_upstream() {
+    let mut request = simple_request();
+    request.reasoning_effort = Some("HIGH".to_owned());
+
+    let body = upstream_body("gpt-6.1-sol", &request).expect("body");
+
+    assert_eq!(body["reasoning"]["effort"], "high");
+}
+
+#[test]
+fn a_model_suffix_names_the_effort_and_leaves_the_model() {
+    let request = simple_request();
+
+    let body = upstream_body("gpt-5.3-codex-high", &request).expect("body");
+
+    assert_eq!(body["model"], "gpt-5.3-codex");
+    assert_eq!(body["reasoning"]["effort"], "high");
+}
+
+#[test]
+fn an_explicit_effort_outranks_the_model_suffix() {
+    let mut request = simple_request();
+    request.reasoning_effort = Some("medium".to_owned());
+
+    let body = upstream_body("gpt-5.3-codex-high", &request).expect("body");
+
+    assert_eq!(body["model"], "gpt-5.3-codex");
+    assert_eq!(body["reasoning"]["effort"], "medium");
+}
+
+#[test]
+fn a_model_suffix_that_is_not_a_level_stays_in_the_id() {
+    let request = simple_request();
+
+    let body = upstream_body("gpt-6-luna", &request).expect("body");
+
+    assert_eq!(body["model"], "gpt-6-luna");
+    assert_eq!(body["reasoning"]["effort"], "low");
 }
 
 #[test]

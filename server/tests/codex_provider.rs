@@ -267,6 +267,55 @@ async fn a_failed_responses_event_ends_the_stream_with_an_error_event() {
 }
 
 #[tokio::test]
+async fn the_upstream_body_carries_the_normalized_effort() {
+    let database = TestDatabase::new().expect("temporary database");
+    connect_codex(&database, Some(now_ms() + 86_400_000)).await;
+    let fake = FakeCodexUpstream::start().await;
+    let app = app(&database, &fake).await;
+
+    // No effort in the request: upstream must still see the default level and
+    // the encrypted trace Codex requires for a reasoning turn.
+    let response = app
+        .clone()
+        .oneshot(post_request(
+            "/v1/chat/completions",
+            chat_body("openai_codex/gpt-6.1-sol", true),
+        ))
+        .await
+        .expect("gateway response");
+    assert_eq!(response.status(), StatusCode::OK);
+    let _ = text_body(response).await;
+
+    let body = fake.with(|state| state.last_chat_body.clone());
+    assert_eq!(body["reasoning"]["effort"], "low");
+    assert_eq!(body["reasoning"]["summary"], "auto");
+    assert_eq!(body["include"][0], "reasoning.encrypted_content");
+}
+
+#[tokio::test]
+async fn a_requested_effort_reaches_upstream() {
+    let database = TestDatabase::new().expect("temporary database");
+    connect_codex(&database, Some(now_ms() + 86_400_000)).await;
+    let fake = FakeCodexUpstream::start().await;
+    let app = app(&database, &fake).await;
+
+    let mut body = chat_body("openai_codex/gpt-6.1-sol", true);
+    body["reasoning_effort"] = serde_json::json!("high");
+
+    let response = app
+        .clone()
+        .oneshot(post_request("/v1/chat/completions", body))
+        .await
+        .expect("gateway response");
+    assert_eq!(response.status(), StatusCode::OK);
+    let _ = text_body(response).await;
+
+    let upstream = fake.with(|state| state.last_chat_body.clone());
+    assert_eq!(upstream["reasoning"]["effort"], "high");
+    assert_eq!(upstream["reasoning"]["summary"], "auto");
+}
+
+#[tokio::test]
 async fn an_expired_token_is_refreshed_before_the_chat() {
     let database = TestDatabase::new().expect("temporary database");
     connect_codex(&database, Some(now_ms() - 1_000)).await;
