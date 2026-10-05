@@ -66,3 +66,27 @@ jobs:
 
             - name: Lint with clippy
               run: cargo clippy --manifest-path server/Cargo.toml --all-targets --all-features --locked -- -D warnings
+
+    rust-test:
+        name: Rust Test
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
+            - name: Install Rust toolchain
+              # `stable` matches server/rust-toolchain.toml.
+              uses: dtolnay/rust-toolchain@stable
+
+            - name: Cache cargo build
+              uses: Swatinem/rust-cache@v2
+              with:
+                  workspaces: server
+
+            # `--locked` fails the job if `server/Cargo.lock` is out of sync with
+            # `server/Cargo.toml`, so a dependency edit must update the lockfile.
+            # The suite uses disposable databases only (`server/tests/support`),
+            # never `~/.srouter/srouter.db` or a production `DATABASE_URL`.
+            - name: Run tests
+              run: cargo test --manifest-path server/Cargo.toml --locked

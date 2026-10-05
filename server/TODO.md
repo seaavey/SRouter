@@ -603,8 +603,10 @@ stale-while-revalidate=86400`, `refresh`/`force`/`no-cache` forcing a refresh.
       The crate is clippy-clean: no `allow` attributes were needed, and the long-standing warnings
       (`collapsible_if`, `manual_div_ceil`, `unnecessary_cast`, `new_without_default`,
       `assertions_on_constants`, `large_enum_variant`, `result_large_err`) are fixed at the source.
-- [ ] `.github/workflows/ci.yml`: still missing `cargo test --locked`, the OpenAPI export drift
-      check, and the PostgreSQL service job.
+- [~] `.github/workflows/ci.yml`: the `rust-test` job now runs
+  `cargo test --manifest-path server/Cargo.toml --locked` (766 tests), so the suite is guarded
+  on every push/PR and a `Cargo.toml` edit that skips `server/Cargo.lock` fails the job. Still
+  missing: the OpenAPI export drift check and the PostgreSQL service job.
 - [ ] `Dockerfile`: add a Rust builder stage and a Rust runtime target (binary, web dist, CA
       certificates, tzdata, non-Node health check), keeping the Node target selectable for rollback.
       Root `Dockerfile:21` still copies `apps/api/package.json` and `pnpm build` builds the Node API.
