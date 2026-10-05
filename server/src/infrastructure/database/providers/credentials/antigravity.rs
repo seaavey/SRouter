@@ -227,6 +227,48 @@ pub async fn update_antigravity_tokens(
     Ok(())
 }
 
+/// Writes the CloudCode project id resolved by `loadCodeAssist` (D5) into the
+/// connection row, keeping every other credential key. The bootstrap runs once:
+/// the executor sees the stored id on the next request.
+pub async fn update_antigravity_project_id(
+    database: &AppDatabase,
+    id: &str,
+    project_id: &str,
+) -> Result<(), APIError> {
+    let pool = database.sqlite_required(constants::database::PROVIDERS_UNSUPPORTED)?;
+
+    let current = sqlx::query_scalar::<_, String>("SELECT credentials FROM providers WHERE id = ?")
+        .bind(id)
+        .fetch_optional(pool)
+        .await
+        .map_err(|error| {
+            APIError::new(
+                500,
+                constants::database::with_context("read the Antigravity credentials", error),
+            )
+        })?;
+
+    let mut credentials = current
+        .and_then(|raw| serde_json::from_str::<Value>(&raw).ok())
+        .filter(Value::is_object)
+        .unwrap_or_else(|| Value::Object(serde_json::Map::new()));
+    credentials["project_id"] = Value::String(project_id.to_owned());
+
+    sqlx::query("UPDATE providers SET credentials = ? WHERE id = ?")
+        .bind(credentials.to_string())
+        .bind(id)
+        .execute(pool)
+        .await
+        .map_err(|error| {
+            APIError::new(
+                500,
+                constants::database::with_context("update the Antigravity project id", error),
+            )
+        })?;
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::{

@@ -6,6 +6,9 @@ use std::sync::{Arc, Mutex};
 
 use crate::error::APIError;
 use crate::features::providers::adapter::ProviderAdapter;
+use crate::features::providers::antigravity;
+use crate::features::providers::antigravity::AntigravityExecutor;
+use crate::features::providers::antigravity::types::AntigravityEndpoints;
 use crate::features::providers::cline;
 use crate::features::providers::cline::ClineExecutor;
 use crate::features::providers::cline::types::ClineEndpoints;
@@ -84,6 +87,7 @@ impl ProviderRegistry {
         registry.register(grok_web::adapter(database.clone())?);
         registry.register(codebuddy::adapter(Flavor::Global, database.clone())?);
         registry.register(codebuddy::adapter(Flavor::China, database.clone())?);
+        registry.register(antigravity::adapter(database.clone())?);
         registry.register(codex::adapter(database)?);
 
         Ok(registry)
@@ -122,6 +126,15 @@ impl ProviderRegistry {
         self.adapters
             .values()
             .find_map(|adapter| adapter.downcast_ref::<CodexExecutor>())
+            .map(|executor| executor.endpoints().clone())
+    }
+
+    /// The Antigravity endpoints in use, so the OAuth routes and tests talk to
+    /// the same hosts the executor does.
+    pub fn antigravity_endpoints(&self) -> Option<AntigravityEndpoints> {
+        self.adapters
+            .values()
+            .find_map(|adapter| adapter.downcast_ref::<AntigravityExecutor>())
             .map(|executor| executor.endpoints().clone())
     }
 

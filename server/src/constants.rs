@@ -404,6 +404,10 @@ pub mod providers {
         pub const EMPTY_TOKEN_RESPONSE: &str =
             "Antigravity token exchange returned no access token";
         pub const NOT_CONNECTED: &str = "No active Antigravity connection found. Connect the Antigravity account in the Providers tab.";
+        pub const DATABASE_REQUIRED: &str =
+            "no database is configured; the Antigravity connection cannot be read";
+        pub const TOKEN_EXPIRED: &str =
+            "The Antigravity token has expired; reconnect the Antigravity account.";
 
         pub fn exchange_failed(status: u16) -> String {
             format!("Antigravity token exchange failed ({status})")
@@ -411,6 +415,27 @@ pub mod providers {
 
         pub fn exchange_transport_failed(error: impl std::fmt::Display) -> String {
             format!("Antigravity token exchange failed: {error}")
+        }
+
+        pub fn refresh_failed(status: u16) -> String {
+            format!("Antigravity token refresh failed ({status})")
+        }
+
+        pub fn refresh_transport_failed(error: impl std::fmt::Display) -> String {
+            format!("Antigravity token refresh failed: {error}")
+        }
+
+        /// The typed upstream error the Node oracle raises, with the
+        /// `Retry-After` hint it appends when a quota message names a window.
+        pub fn provider_error(status: u16, detail: &str, retry_after_secs: Option<u64>) -> String {
+            match retry_after_secs {
+                Some(seconds) => {
+                    format!(
+                        "Antigravity Provider Error ({status}): {detail} [Retry-After: ~{seconds}s]"
+                    )
+                }
+                None => format!("Antigravity Provider Error ({status}): {detail}"),
+            }
         }
     }
 

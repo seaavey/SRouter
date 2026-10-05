@@ -13,7 +13,7 @@ use serde_json::Value;
 
 pub use antigravity::{
     AntigravityConnectionWrite, AntigravityCredentials, load_antigravity_credentials,
-    update_antigravity_tokens, upsert_antigravity_connection,
+    update_antigravity_project_id, update_antigravity_tokens, upsert_antigravity_connection,
 };
 pub use cline::{
     ClineConnectionWrite, ClineCredentials, load_cline_credentials, update_cline_tokens,
