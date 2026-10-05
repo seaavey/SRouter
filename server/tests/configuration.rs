@@ -17,8 +17,6 @@ fn defaults_use_frozen_listener_and_sqlite_values() {
     let config = config_from(&[("HOME", "/tmp/srouter-home")]).unwrap();
 
     assert_eq!(config.port, 3000);
-    assert_eq!(config.oauth_port, 1455);
-    assert_eq!(config.oauth_host, "0.0.0.0");
     assert_eq!(
         config.database_path,
         PathBuf::from("/tmp/srouter-home/.srouter/srouter.db")
@@ -37,8 +35,6 @@ fn defaults_use_frozen_listener_and_sqlite_values() {
 fn supported_environment_overrides_are_parsed_without_rewriting_database_url() {
     let config = config_from(&[
         ("PORT", "8080"),
-        ("OAUTH_PORT", "4445"),
-        ("OAUTH_HOST", "127.0.0.1"),
         ("SROUTER_PUBLIC_URL", "https://api.example.test"),
         (
             "SROUTER_CORS_ORIGINS",
@@ -56,8 +52,6 @@ fn supported_environment_overrides_are_parsed_without_rewriting_database_url() {
     .unwrap();
 
     assert_eq!(config.port, 8080);
-    assert_eq!(config.oauth_port, 4445);
-    assert_eq!(config.oauth_host, "127.0.0.1");
     assert_eq!(
         config.public_url.as_deref(),
         Some("https://api.example.test")
@@ -89,13 +83,11 @@ fn supported_environment_overrides_are_parsed_without_rewriting_database_url() {
 fn empty_optional_environment_overrides_use_unset_defaults() {
     let config = config_from(&[
         ("HOME", "/tmp/srouter-home"),
-        ("OAUTH_HOST", ""),
         ("SROUTER_ADMIN_PASSWORD", ""),
         ("DATABASE_URL", ""),
     ])
     .unwrap();
 
-    assert_eq!(config.oauth_host, "0.0.0.0");
     assert!(config.admin_password.is_none());
     assert!(config.database_url.is_none());
 }
@@ -106,14 +98,6 @@ fn invalid_listener_ports_return_the_environment_variable_name() {
     assert!(matches!(
         invalid_main_port,
         Err(ConfigError::InvalidPort { variable: "PORT" })
-    ));
-
-    let invalid_oauth_port = config_from(&[("HOME", "/tmp/srouter-home"), ("OAUTH_PORT", "65536")]);
-    assert!(matches!(
-        invalid_oauth_port,
-        Err(ConfigError::InvalidPort {
-            variable: "OAUTH_PORT"
-        })
     ));
 }
 

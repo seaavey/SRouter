@@ -7,8 +7,6 @@ const REDACTED: &str = "[REDACTED]";
 #[derive(Clone, PartialEq, Eq)]
 pub struct APIConfig {
     pub port: u16,
-    pub oauth_port: u16,
-    pub oauth_host: String,
     pub public_url: Option<String>,
     pub cors_origins: Vec<String>,
     pub admin_password: Option<String>,
@@ -26,7 +24,6 @@ pub struct APIConfig {
 impl APIConfig {
     pub fn from_env_map(environment: &HashMap<String, String>) -> Result<Self, ConfigError> {
         let port = parse_port(environment, "PORT", 3000)?;
-        let oauth_port = parse_port(environment, "OAUTH_PORT", 1455)?;
         let database_path = match environment.get("DATABASE_PATH") {
             Some(path) => PathBuf::from(path),
             None => {
@@ -72,12 +69,6 @@ impl APIConfig {
 
         Ok(Self {
             port,
-            oauth_port,
-            oauth_host: environment
-                .get("OAUTH_HOST")
-                .filter(|host| !host.is_empty())
-                .cloned()
-                .unwrap_or_else(|| "0.0.0.0".to_owned()),
             public_url,
             cors_origins: environment
                 .get("SROUTER_CORS_ORIGINS")
@@ -112,8 +103,6 @@ impl Debug for APIConfig {
         formatter
             .debug_struct("APIConfig")
             .field("port", &self.port)
-            .field("oauth_port", &self.oauth_port)
-            .field("oauth_host", &self.oauth_host)
             .field("public_url", &self.public_url.as_ref().map(|_| REDACTED))
             .field("cors_origins", &self.cors_origins)
             .field(
