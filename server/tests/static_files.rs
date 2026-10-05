@@ -77,6 +77,17 @@ fn get(uri: &str) -> Request<Body> {
     )
 }
 
+fn post(uri: &str) -> Request<Body> {
+    with_loopback_client(
+        Request::builder()
+            .method("POST")
+            .uri(uri)
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(Body::from("{}"))
+            .expect("request"),
+    )
+}
+
 async fn text(response: Response) -> String {
     let bytes = to_bytes(response.into_body(), 1_000_000).await.unwrap();
 
@@ -171,6 +182,42 @@ async fn health_and_v1_are_not_swallowed_by_the_static_fallback() {
     let v1 = app.oneshot(get("/v1")).await.unwrap();
     assert_eq!(v1.status(), StatusCode::OK);
     assert!(text(v1).await.contains("SRouter API"));
+}
+
+#[tokio::test]
+async fn unmatched_v1_paths_answer_json_404_instead_of_the_spa() {
+    let dist = WebDist::new();
+    dist.write("index.html", "<!doctype html><title>dashboard</title>");
+
+    let app = app(Some(dist.path().to_path_buf()));
+
+    let unmatched = app
+        .clone()
+        .oneshot(get("/v1/not-migrated-yet"))
+        .await
+        .unwrap();
+    assert_eq!(unmatched.status(), StatusCode::NOT_FOUND);
+    assert_eq!(
+        unmatched
+            .headers()
+            .get(header::CONTENT_TYPE)
+            .and_then(|value| value.to_str().ok()),
+        Some("application/json")
+    );
+    let body = text(unmatched).await;
+    assert!(body.contains("\"error\""), "{body}");
+    assert!(
+        !body.contains("<title>dashboard</title>"),
+        "the SPA shell must not swallow an unmatched API path: {body}"
+    );
+
+    // The compat alias root is not a gateway route either, and a non-GET method
+    // must not fall through to the GET-only static fallback.
+    let compat = app.clone().oneshot(get("/v1/v1")).await.unwrap();
+    assert_eq!(compat.status(), StatusCode::NOT_FOUND);
+
+    let posted = app.oneshot(post("/v1/not-migrated-yet")).await.unwrap();
+    assert_eq!(posted.status(), StatusCode::NOT_FOUND);
 }
 
 #[tokio::test]

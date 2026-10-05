@@ -3,6 +3,8 @@ use axum::middleware::{from_fn, from_fn_with_state};
 use axum::{Json, Router, routing::get};
 use serde::Serialize;
 
+use crate::constants;
+use crate::error::APIError;
 use crate::features::admin_auth::create_admin_router;
 use crate::features::api_keys::create_api_keys_router;
 use crate::features::catalog::create_quota_router;
@@ -53,6 +55,14 @@ async fn api_info() -> Json<ApiInfo> {
 
 async fn health() -> Json<HealthResponse> {
     Json(HealthResponse { status: "ok" })
+}
+
+/// The `/v1` nests own their fallback so an unmatched API path answers a JSON
+/// `404` instead of falling through to the dashboard SPA shell mounted at the
+/// root (`http/static_files.rs` documents this deviation from Node's global
+/// `GET *` catch-all).
+async fn route_not_found() -> APIError {
+    APIError::new(404, constants::common::NOT_FOUND)
 }
 
 /// Mounts feature routers here as their migration tasks land.
@@ -127,10 +137,12 @@ pub fn create_router(state: AppState) -> Router {
         .merge(quota_routes)
         .merge(settings_read_routes)
         .merge(settings_mgmt_routes)
+        .fallback(route_not_found)
         .layer(from_fn_with_state(state.clone(), csrf_origin_guard))
         .layer(from_fn(body_limit));
     let v1_compat_routes = gateway_routes
         .merge(models_routes)
+        .fallback(route_not_found)
         .layer(from_fn_with_state(state.clone(), csrf_origin_guard))
         .layer(from_fn(body_limit));
 

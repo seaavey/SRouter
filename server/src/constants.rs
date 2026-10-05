@@ -132,6 +132,9 @@ pub mod common {
     pub const INVALID_PAYLOAD: &str = "Invalid payload";
     /// Fallback message for an unexpected failure.
     pub const INTERNAL_SERVER_ERROR: &str = "Internal server error";
+    /// An unmatched route under `/v1`: the nest answers a JSON `404` instead of
+    /// letting the SPA fallback swallow it (`http/static_files.rs` deviation).
+    pub const NOT_FOUND: &str = "Not found";
 }
 
 /// Admin authentication and account lifecycle (`/v1/admin/*`).
