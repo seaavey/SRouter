@@ -570,18 +570,26 @@ stale-while-revalidate=86400`, `refresh`/`force`/`no-cache` forcing a refresh.
 
 ## 10. Persistence gaps
 
-- [x] SQLite schema v3 via `server/migrations/0002_v2_schema.sql`, `0003_request_logs.sql`;
-      PostgreSQL connection support in `infrastructure/database/postgres.rs`.
-- [ ] PostgreSQL parity for the newer repositories: `infrastructure/database/settings.rs` and the
-      request-log queries call `sqlite_pool()` and silently return defaults/500 when the process runs
-      on PostgreSQL. Either add the PostgreSQL statements or fail loudly at startup.
-      Also confirm PostgreSQL schema init actually runs at boot (`docs/api-v1-contract.md`
-      "SQLite is initialized before `boot()`...").
+- [x] SQLite schema v3 via `server/migrations/0002_v2_schema.sql`, `0003_request_logs.sql`.
+      PostgreSQL is refused at boot (owner ruling 2026-10-05): the backend has no schema carrier
+      and no repository statements, so a `DATABASE_URL` boot used to come up with no tables and
+      answer every request from empty defaults (settings/favorites/hidden/disabled returned
+      defaults, admin and request-log stores answered `500`). `AppDatabase::connect` now returns
+      `500` naming the backend before SQLite is touched, the unused `postgres` module and its
+      error constant are deleted, and `server/.env.example` records that `DATABASE_URL` is not
+      supported yet. Covered by `server/tests/database.rs`
+      (`a_configured_database_url_is_refused_before_any_sqlite_file_is_touched`).
+- [ ] PostgreSQL support, if it is wanted: add the schema carrier plus the missing statements
+      (`settings.rs`, `catalog_flags.rs`, `providers/connections.rs`, `request_logs/store.rs`,
+      `admin_auth.rs`), then relax the boot refusal. The defensive "reads empty / writes fail"
+      behavior is still pinned by `a_postgres_backend_reads_empty_and_refuses_provider_writes`
+      and `postgres_request_log_repository_fails_explicitly`.
 - [ ] Migration ownership check: the Rust migration files must stay forward-compatible with an
       existing user database (`docs/api-database-contract.md`); never drop or recreate user data.
 - [ ] Field/relation citations for every table Rust touches (plan Task 2 item still unchecked:
       "For every field/relation required by Rust, cite an allowed independent source").
-- [ ] Optional PostgreSQL integration test behind an isolated CI database URL (skip when unset).
+- [ ] Optional PostgreSQL integration test behind an isolated CI database URL (skip when unset);
+      it belongs with the "PostgreSQL support" item above.
 
 ## 11. Contract publication (OpenAPI → web types)
 

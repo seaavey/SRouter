@@ -634,6 +634,8 @@ pub mod logs {
 /// Persistence failures. Every one of these surfaces as a `500` envelope, so
 /// the text is client-visible even though the cause is internal.
 pub mod database {
+    pub const POSTGRES_UNSUPPORTED: &str = "the PostgreSQL backend is not supported yet: it has no schema carrier or repository \
+         statements; set DATABASE_PATH to use SQLite instead";
     pub const ADMIN_UNSUPPORTED: &str =
         "the PostgreSQL backend has no admin stores yet; schema v2 is SQLite-only";
     pub const API_KEYS_UNSUPPORTED: &str =
@@ -668,10 +670,6 @@ pub mod database {
 
     pub fn legacy_value_missing(column: impl std::fmt::Display) -> String {
         format!("a legacy row has no usable value in column '{column}'")
-    }
-
-    pub fn could_not_connect_to_postgres(error: impl std::fmt::Display) -> String {
-        format!("could not connect to PostgreSQL: {error}")
     }
 
     pub fn could_not_open_sqlite(error: impl std::fmt::Display) -> String {

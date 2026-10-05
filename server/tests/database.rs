@@ -33,7 +33,7 @@ async fn sqlite_database_opens_and_keeps_committed_data_across_reconnects() {
 }
 
 #[tokio::test]
-async fn configured_database_url_selects_the_postgres_backend() {
+async fn a_configured_database_url_is_refused_before_any_sqlite_file_is_touched() {
     let test_database = TestDatabase::new().expect("temporary database");
     let mut environment = std::collections::HashMap::from([
         (
@@ -45,15 +45,29 @@ async fn configured_database_url_selects_the_postgres_backend() {
             test_database.path().display().to_string(),
         ),
     ]);
-
-    // A malformed URL fails immediately and still proves backend selection: an
-    // error means the PostgreSQL branch ran instead of opening SQLite.
-    environment.insert("DATABASE_URL".to_owned(), "not-a-postgres-url".to_owned());
+    environment.insert(
+        "DATABASE_URL".to_owned(),
+        "postgresql://user:secret@db.example.test/srouter".to_owned(),
+    );
     let config = srouter_server::APIConfig::from_env_map(&environment).expect("configuration");
 
-    let result = srouter_server::AppDatabase::connect(&config).await;
+    let error = match srouter_server::AppDatabase::connect(&config).await {
+        Ok(_) => panic!("a PostgreSQL configuration must be refused at boot"),
+        Err(error) => error,
+    };
 
-    assert!(result.is_err(), "the PostgreSQL branch must be selected");
+    assert_eq!(error.status(), 500);
+    assert!(
+        error
+            .message()
+            .contains("PostgreSQL backend is not supported"),
+        "the refusal must name the backend: {}",
+        error.message()
+    );
+    assert!(
+        !test_database.path().exists(),
+        "the refusal must happen before SQLite is opened"
+    );
 }
 
 #[test]

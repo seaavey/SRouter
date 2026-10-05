@@ -896,6 +896,9 @@ async fn toggling_a_provider_matches_the_path_case_insensitively() {
 
 #[tokio::test]
 async fn a_postgres_backend_reads_empty_and_refuses_provider_writes() {
+    // The backend is constructed directly: `AppDatabase::connect` refuses a
+    // PostgreSQL configuration at boot, so this pins the defensive behavior of
+    // the repositories if one is ever handed a PostgreSQL handle.
     // Lazily connected: no server is ever contacted, but `sqlite_pool()` is
     // `None`, which is exactly the Postgres code path.
     let pool = sqlx::postgres::PgPoolOptions::new()

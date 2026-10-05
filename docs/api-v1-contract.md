@@ -137,6 +137,10 @@ The settings routes deviate from the route rows above by owner decision; the row
 - **Response shape.** `GET`, `POST`, and `PATCH /v1/settings` all return only `{require_api_key}`. The compatibility field `requireApiKey` and the `settings` map are not echoed, unlike Node's `{require_api_key, requireApiKey, settings}` (and Node's mutation response also carries `message`).
 - **Write acceptance.** `POST`/`PATCH` still accept a string-valued `settings` object and persist each entry as a key/value row, so data written by the web dashboard survives for later consumers; only the echo is omitted. Non-string values, a non-object `settings`, or a non-boolean `require_api_key` return `400` with `Invalid settings payload`, matching Node's Zod validation outcome.
 
+### Storage in the Rust build (owner ruling 2026-10-05)
+
+The Rust build is SQLite-only. A configured `DATABASE_URL` is refused at boot with `500` naming the backend, rather than starting a process whose repositories have no statements: the settings, catalog-flag, provider-connection, admin-auth, and request-log stores all read through `sqlite_pool()` and would otherwise answer from empty defaults or `500` at request time. The Node runtime keeps PostgreSQL support until cutover. `server/.env.example` and `server/TODO.md` §10 record the refusal and what PostgreSQL support would require.
+
 ## Compatibility aliases and retired routes
 
 The main listener mounts these compatibility paths under `/v1/v1`: `/chat/completions`, `/chat/completion`, `/chat`, `/messages`, `/messages/count_tokens`, `/images/generations`, `/models`, and `/models/:model`. They use the same route handlers and feature middleware as their `/v1` counterparts. The OAuth listener exposes only its `/v1` mounts, not `/v1/v1`.
