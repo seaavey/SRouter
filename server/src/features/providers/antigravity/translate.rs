@@ -2093,6 +2093,55 @@ mod tests {
     }
 
     #[test]
+    fn competitive_agent_prompts_are_stripped_case_insensitively() {
+        assert_eq!(
+            strip_competitive_agent_prompts("You are a Claude agent. Hello."),
+            "Hello."
+        );
+        assert_eq!(
+            strip_competitive_agent_prompts("BUILT ON ANTHROPIC'S CLAUDE AGENT SDK. Rest."),
+            "Rest."
+        );
+        assert_eq!(
+            strip_competitive_agent_prompts("You are Claude Code. Help me."),
+            "Help me."
+        );
+        assert_eq!(
+            strip_competitive_agent_prompts("You are an AI assistant created by Anthropic. Do X."),
+            "Do X."
+        );
+    }
+
+    #[test]
+    fn competitive_agent_prompt_matches_mid_string_and_eats_trailing_punctuation() {
+        assert_eq!(
+            strip_competitive_agent_prompts("Please note. You are a Claude agent. Continue."),
+            "Please note. Continue."
+        );
+        assert_eq!(
+            strip_competitive_agent_prompts("You are Claude Code, built by Anthropic. Help me."),
+            "Help me."
+        );
+    }
+
+    #[test]
+    fn a_competitive_prefix_does_not_match_without_a_word_boundary() {
+        assert_eq!(
+            strip_competitive_agent_prompts("you are claude codex"),
+            "you are claude codex"
+        );
+    }
+
+    #[test]
+    fn competitive_prompt_stripping_collapses_blank_lines() {
+        assert_eq!(strip_competitive_agent_prompts("a\n\n\n\nb"), "a\n\nb");
+        assert_eq!(
+            strip_competitive_agent_prompts("Hello\n\n\n\nYou are a Claude agent."),
+            "Hello\n\n"
+        );
+    }
+
+    #[test]
     fn stream_emits_role_then_text() {
         let mut state = GeminiStreamState::new("gemini-3.7-flash-high");
         let chunks = gemini_stream_to_openai_chunks(
