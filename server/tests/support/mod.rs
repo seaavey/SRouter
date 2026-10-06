@@ -248,6 +248,16 @@ pub struct FakeQoderState {
     /// Whether `model/list` answers slowly, to widen the window in which
     /// concurrent catalog fetchers would otherwise each start their own GET.
     pub slow_model_list: bool,
+    /// How many more chat requests answer `429` before the fake serves normally.
+    /// Drives the account-failover proof.
+    pub rate_limited_chats: usize,
+    /// The `Authorization` header of every chat request, in order, so a test can
+    /// see which account each attempt used.
+    pub chat_authorizations: Vec<String>,
+    /// The encoded body of every chat request, in order. The COSY signature
+    /// makes the header differ per request even for one account, so the decoded
+    /// `session_id` is what identifies the account that served an attempt.
+    pub chat_bodies: Vec<String>,
     pub chat_requests: usize,
     pub model_list_requests: usize,
     pub poll_requests: usize,
@@ -265,6 +275,9 @@ impl Default for FakeQoderState {
             approve_device: false,
             fragment_chat: false,
             slow_model_list: false,
+            rate_limited_chats: 0,
+            chat_authorizations: Vec::new(),
+            chat_bodies: Vec::new(),
             chat_requests: 0,
             model_list_requests: 0,
             poll_requests: 0,
@@ -790,6 +803,11 @@ pub struct FakeClineState {
     pub refresh_failure: bool,
     pub chat_mode: String,
     pub model_list_failure: bool,
+    /// How many more chat requests answer `429` before the fake serves normally.
+    pub rate_limited_chats: usize,
+    /// The `Authorization` header of every chat request, in order, so a test can
+    /// see which account each attempt used.
+    pub chat_authorizations: Vec<String>,
     pub device_requests: usize,
     pub authenticate_requests: usize,
     pub register_requests: usize,
@@ -819,6 +837,8 @@ impl Default for FakeClineState {
             refresh_failure: false,
             chat_mode: "default".to_owned(),
             model_list_failure: false,
+            rate_limited_chats: 0,
+            chat_authorizations: Vec::new(),
             device_requests: 0,
             authenticate_requests: 0,
             register_requests: 0,
@@ -1082,6 +1102,30 @@ async fn cline_chat(
     headers: HeaderMap,
     Json(payload): Json<serde_json::Value>,
 ) -> Response {
+    // Account-failover fixture: the first N attempts are rate limited so a
+    // client must walk to the next account, and every attempt's bearer is kept
+    // so a test can name the account it used.
+    let rate_limited = {
+        let mut state = state.lock().expect("fake Cline state");
+        state
+            .chat_authorizations
+            .push(header_text(&headers, "authorization"));
+
+        if state.rate_limited_chats > 0 {
+            state.rate_limited_chats -= 1;
+            true
+        } else {
+            false
+        }
+    };
+    if rate_limited {
+        return Response::builder()
+            .status(StatusCode::TOO_MANY_REQUESTS)
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(Body::from(r#"{"error":{"message":"rate limited"}}"#))
+            .expect("fake Cline rate limit response");
+    }
+
     let mode = {
         let mut state = state.lock().expect("fake Cline state");
         state.chat_requests += 1;
@@ -1208,12 +1252,31 @@ async fn qoder_chat(
     headers: HeaderMap,
     body: String,
 ) -> Response {
-    {
+    let rate_limited = {
         let mut guard = state.lock().expect("fake qoder state");
         guard.chat_requests += 1;
-        guard.last_encoded_body = body;
+        guard.last_encoded_body = body.clone();
         guard.last_model_key = header_text(&headers, "x-model-key");
         guard.last_sig_path = header_text(&headers, "cosy-sigpath");
+        guard
+            .chat_authorizations
+            .push(header_text(&headers, "authorization"));
+        guard.chat_bodies.push(body);
+
+        if guard.rate_limited_chats > 0 {
+            guard.rate_limited_chats -= 1;
+            true
+        } else {
+            false
+        }
+    };
+
+    if rate_limited {
+        return Response::builder()
+            .status(StatusCode::TOO_MANY_REQUESTS)
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(Body::from(r#"{"error":{"message":"rate limited"}}"#))
+            .expect("fake qoder rate limit response");
     }
 
     let chunks = [
@@ -1364,6 +1427,31 @@ pub async fn connect_qoder(database: &TestDatabase) {
     .expect("connection stored");
 }
 
+/// Stores a second Qoder connection beside the fixture one, so the rotation and
+/// failover tests have two accounts to walk. The short pause keeps `created_at`
+/// strictly later than the first row, which is the order rotation reads.
+pub async fn connect_second_qoder(database: &TestDatabase) {
+    tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+    let app_database = database.connect().await.expect("temporary database");
+
+    upsert_qoder_connection(
+        &app_database,
+        &QoderConnectionWrite {
+            id: "qoder_2".to_owned(),
+            name: "Qoder (Second Account)".to_owned(),
+            account_name: "Second Account".to_owned(),
+            access_token: "dt-second-token".to_owned(),
+            refresh_token: Some("rt-second-token".to_owned()),
+            token_expires_at: Some(srouter_server::clock::now_ms() + 86_400_000),
+            user_id: "user-second".to_owned(),
+            email: "second@example.com".to_owned(),
+            organization_id: "org-second".to_owned(),
+        },
+    )
+    .await
+    .expect("second connection stored");
+}
+
 /// A registry whose `qoder` adapter points at the fake upstream and can read
 /// credentials from the given database.
 pub fn qoder_registry(database: Option<AppDatabase>, fake: &FakeQoderUpstream) -> ProviderRegistry {
@@ -1405,6 +1493,28 @@ pub async fn connect_cline(database: &TestDatabase) {
     )
     .await
     .expect("Cline connection stored");
+}
+
+/// Stores a second Cline connection beside the fixture one, so the rotation and
+/// failover tests have two accounts to walk. The short pause keeps `created_at`
+/// strictly later than the first row, which is the order rotation reads.
+pub async fn connect_second_cline(database: &TestDatabase) {
+    tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+    let app_database = database.connect().await.expect("temporary database");
+
+    upsert_cline_connection(
+        &app_database,
+        &ClineConnectionWrite {
+            id: "user-2".to_owned(),
+            name: "Second Cline".to_owned(),
+            access_token: "workos:cline-second".to_owned(),
+            refresh_token: Some("cline-second-refresh".to_owned()),
+            token_expires_at: Some(srouter_server::clock::now_ms() + 86_400_000),
+            email: "second@example.com".to_owned(),
+        },
+    )
+    .await
+    .expect("second Cline connection stored");
 }
 
 /// A registry whose Cline adapter and WorkOS device flow share fake endpoints.

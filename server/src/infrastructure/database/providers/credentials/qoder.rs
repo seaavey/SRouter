@@ -14,6 +14,8 @@ use super::credential_string;
 /// a log line; it exists so the executor can sign one upstream request.
 #[derive(Clone, Debug)]
 pub struct QoderCredentials {
+    /// The `providers` row id this connection lives under.
+    pub id: String,
     pub access_token: String,
     pub refresh_token: Option<String>,
     /// Milliseconds since the Unix epoch, `None` when the upstream never said.
@@ -46,20 +48,21 @@ pub struct QoderConnectionWrite {
     pub organization_id: String,
 }
 
-/// Loads the credentials of the newest Qoder connection. This build writes the
-/// JSON layout; the camelCase spellings are accepted as well so a row written by
-/// the Node build still reads (plan decision D2).
+/// Loads the credentials of every enabled Qoder connection, newest first. This
+/// build writes the JSON layout; the camelCase spellings are accepted as well so
+/// a row written by the Node build still reads (plan decision D2).
 pub async fn load_qoder_credentials(
     database: &AppDatabase,
-) -> Result<Option<QoderCredentials>, APIError> {
+) -> Result<Vec<QoderCredentials>, APIError> {
     let Some(pool) = database.sqlite_pool() else {
-        return Ok(None);
+        return Ok(Vec::new());
     };
 
     let rows = sqlx::query(
-        "SELECT credentials FROM providers \
-         WHERE provider_id = 'qoder' OR provider_id LIKE 'qoder_%' OR provider_id LIKE 'qoder-%' \
-            OR id = 'qoder' OR id LIKE 'qoder_%' OR id LIKE 'qoder-%' \
+        "SELECT id, credentials FROM providers \
+         WHERE (provider_id = 'qoder' OR provider_id LIKE 'qoder_%' OR provider_id LIKE 'qoder-%' \
+            OR id = 'qoder' OR id LIKE 'qoder_%' OR id LIKE 'qoder-%') \
+           AND enabled = 1 \
          ORDER BY created_at DESC",
     )
     .fetch_all(&pool)
@@ -71,15 +74,17 @@ pub async fn load_qoder_credentials(
         )
     })?;
 
+    let mut connections = Vec::with_capacity(rows.len());
     for row in &rows {
         let raw = text(row, "credentials")?;
 
-        if let Some(credentials) = parse_qoder_credentials(&raw) {
-            return Ok(Some(credentials));
+        if let Some(mut credentials) = parse_qoder_credentials(&raw) {
+            credentials.id = text(row, "id")?;
+            connections.push(credentials);
         }
     }
 
-    Ok(None)
+    Ok(connections)
 }
 
 /// Writes or refreshes one Qoder connection. The id is the primary key, so a
@@ -158,6 +163,7 @@ fn parse_qoder_credentials(raw: &str) -> Option<QoderCredentials> {
         .unwrap_or_default();
 
     Some(QoderCredentials {
+        id: String::new(),
         access_token,
         refresh_token,
         token_expires_at,

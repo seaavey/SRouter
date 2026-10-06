@@ -18,8 +18,8 @@ use srouter_server::features::providers::qoder::{self, QoderExecutor};
 use srouter_server::infrastructure::database::AppDatabase;
 use support::{
     FAKE_QODER_ADVERTISED, FakeQoderUpstream, TestDatabase, api_key_record, connect_qoder,
-    json_request, json_request_with_headers, qoder_catalog_body, qoder_registry, qoder_state,
-    security_state, with_loopback_client, with_remote_client,
+    connect_second_qoder, json_request, json_request_with_headers, qoder_catalog_body,
+    qoder_registry, qoder_state, security_state, with_loopback_client, with_remote_client,
 };
 use tower::ServiceExt;
 
@@ -29,6 +29,34 @@ async fn app(database: &TestDatabase, fake: &FakeQoderUpstream) -> Router {
         srouter_server::SecurityState::unconfigured(),
         fake,
     ))
+}
+
+const SESSION_TOKEN: &str = "test-session-token";
+
+/// The same app with a fixture admin session and API-key auth switched off, so
+/// one router can serve both loopback chats and an admin-only write.
+async fn admin_app(database: &TestDatabase, fake: &FakeQoderUpstream) -> Router {
+    let security = support::security_state(
+        false,
+        vec![],
+        vec![srouter_server::features::admin_auth::hash_session_token(
+            SESSION_TOKEN,
+        )],
+    );
+
+    create_router(qoder_state(
+        database.connect().await.expect("temporary database"),
+        security,
+        fake,
+    ))
+}
+
+/// A mutation carrying the fixture admin-session cookie, the way the providers
+/// suite drives the admin-guarded routes.
+fn admin_request(method: &str, uri: &str, body: serde_json::Value) -> Request<Body> {
+    let cookie = format!("srouter_admin_session={SESSION_TOKEN}");
+
+    json_request_with_headers(method, uri, body, &[("cookie", cookie.as_str())])
 }
 
 fn chat_request(body: serde_json::Value) -> Request<Body> {
@@ -49,6 +77,13 @@ async fn body_text(response: Response) -> String {
     let bytes = to_bytes(response.into_body(), 1_048_576).await.unwrap();
 
     String::from_utf8(bytes.to_vec()).expect("utf8 body")
+}
+
+/// The JSON body of a response.
+async fn json_body(response: Response) -> serde_json::Value {
+    let bytes = to_bytes(response.into_body(), 65_536).await.unwrap();
+
+    serde_json::from_slice(&bytes).expect("json body")
 }
 
 /// The `id` values a `/v1/models` body advertises.
@@ -660,4 +695,185 @@ async fn a_bare_model_id_resolves_once_the_catalog_advertises_it() {
         "qoder",
         "the fetch filled the very catalog the registry serves from"
     );
+}
+
+/// Two connected accounts with the first chat answered `429`: the same request
+/// must succeed through the second account, and the rate-limited one must be
+/// skipped by the next request until its cooldown lapses.
+#[tokio::test]
+async fn a_rate_limited_account_fails_over_to_the_next_one() {
+    let database = TestDatabase::new().unwrap();
+    connect_qoder(&database).await;
+    connect_second_qoder(&database).await;
+    let fake = FakeQoderUpstream::start().await;
+    fake.with(|state| state.rate_limited_chats = 1);
+    let app = app(&database, &fake).await;
+
+    let response = app
+        .clone()
+        .oneshot(chat_request(serde_json::json!({
+            "model": "qd/auto",
+            "messages": [{ "role": "user", "content": "hi" }]
+        })))
+        .await
+        .unwrap();
+
+    assert_eq!(
+        response.status(),
+        StatusCode::OK,
+        "the client never sees the upstream 429"
+    );
+    let _ = body_text(response).await;
+
+    // The COSY signature makes the header differ per request even for one
+    // account, so the decoded `session_id` is what names the account.
+    let sessions = fake.with(|state| state.chat_bodies.clone());
+    assert_eq!(sessions.len(), 2, "the request was tried twice");
+    let first = session_id(&sessions[0]);
+    let second = session_id(&sessions[1]);
+    assert_ne!(first, second, "the second attempt used a different account");
+
+    // The rate-limited account stays cooling, so the next request goes straight
+    // to the surviving one.
+    let response = app
+        .oneshot(chat_request(serde_json::json!({
+            "model": "qd/auto",
+            "messages": [{ "role": "user", "content": "again" }]
+        })))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let sessions = fake.with(|state| state.chat_bodies.clone());
+    assert_eq!(sessions.len(), 3, "the cooling account was skipped");
+    assert_eq!(
+        session_id(&sessions[2]),
+        second,
+        "the surviving account served the follow-up"
+    );
+}
+
+/// With every account rate limited the request surfaces the upstream error
+/// instead of looping forever.
+#[tokio::test]
+async fn an_all_rate_limited_provider_reports_the_last_error() {
+    let database = TestDatabase::new().unwrap();
+    connect_qoder(&database).await;
+    connect_second_qoder(&database).await;
+    let fake = FakeQoderUpstream::start().await;
+    fake.with(|state| state.rate_limited_chats = 4);
+    let app = app(&database, &fake).await;
+
+    let response = app
+        .oneshot(chat_request(serde_json::json!({
+            "model": "qd/auto",
+            "messages": [{ "role": "user", "content": "hi" }]
+        })))
+        .await
+        .unwrap();
+
+    // A buffered request surfaces the provider failure as the gateway's error
+    // envelope, so the upstream 429 is what the client reads.
+    assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    let body = body_text(response).await;
+    assert!(
+        body.contains("429"),
+        "the upstream rate limit is reported, got: {body}"
+    );
+    assert_eq!(
+        fake.chat_requests(),
+        2,
+        "the loop is bounded by the account count, not unbounded"
+    );
+}
+
+/// Two connected accounts: with the flag on consecutive requests reach both
+/// accounts and wrap, with it off every request is pinned to one account. Which
+/// one of the two a disabled flag picks is pinned by the rotator unit tests
+/// (`rotation.rs::a_disabled_flag_pins_the_newest_ready_connection`); here the
+/// flag itself must reach the executor.
+#[tokio::test]
+async fn rotation_reaches_each_account_and_the_flag_pins_one() {
+    let database = TestDatabase::new().unwrap();
+    connect_qoder(&database).await;
+    connect_second_qoder(&database).await;
+    let fake = FakeQoderUpstream::start().await;
+    let app = admin_app(&database, &fake).await;
+
+    let mut rotated = Vec::new();
+    for _ in 0..4 {
+        rotated.push(chat_one(&app, &fake).await);
+    }
+
+    let accounts: Vec<String> = rotated.iter().map(|body| session_id(body)).collect();
+    assert_ne!(accounts[0], accounts[1], "rotation alternates accounts");
+    assert_eq!(accounts[0], accounts[2], "the walk wraps around");
+    assert_eq!(accounts[1], accounts[3]);
+
+    let disable = admin_request(
+        "PATCH",
+        "/v1/providers/qoder/round-robin",
+        serde_json::json!({ "enabled": false }),
+    );
+    let response = app.clone().oneshot(disable).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = json_body(response).await;
+    assert_eq!(body["roundRobin"], serde_json::json!(false));
+
+    let mut pinned: Option<String> = None;
+    for _ in 0..3 {
+        let body = chat_one(&app, &fake).await;
+        let session = session_id(&body);
+        match &pinned {
+            None => pinned = Some(session),
+            Some(expected) => assert_eq!(
+                &session, expected,
+                "with rotation off every request must use the same account"
+            ),
+        }
+    }
+    let pinned = pinned.expect("three requests ran");
+    assert!(
+        accounts.contains(&pinned),
+        "the pinned account is one of the two connected ones"
+    );
+
+    // The flag is live rather than sticky: turning it back on resumes rotation.
+    let enable = admin_request(
+        "PATCH",
+        "/v1/providers/qoder/round-robin",
+        serde_json::json!({ "enabled": true }),
+    );
+    let response = app.clone().oneshot(enable).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let first = session_id(&chat_one(&app, &fake).await);
+    let second = session_id(&chat_one(&app, &fake).await);
+    assert_ne!(first, second, "rotation resumes once the flag is back on");
+}
+
+/// One chat round trip, returning the signed body the fake upstream received.
+async fn chat_one(app: &Router, fake: &FakeQoderUpstream) -> String {
+    let response = app
+        .clone()
+        .oneshot(chat_request(serde_json::json!({
+            "model": "qd/auto",
+            "messages": [{ "role": "user", "content": "hi" }]
+        })))
+        .await
+        .expect("request");
+    assert_eq!(response.status(), StatusCode::OK);
+    let _ = body_text(response).await;
+
+    fake.with(|state| state.chat_bodies.last().cloned().expect("one chat body"))
+}
+
+/// The account name inside a signed chat body. The COSY `session_id` is derived
+/// from the account's `user_id`, so it names the connection without exposing a
+/// token (and unlike the `Authorization` header it does not change per request,
+/// because every request gets its own signature).
+fn session_id(encoded_body: &str) -> String {
+    let decoded = qoder::cosy::decode_body(encoded_body).expect("body decodes");
+    let body: serde_json::Value = serde_json::from_slice(&decoded).expect("body is json");
+
+    body["session_id"].as_str().expect("session id").to_owned()
 }

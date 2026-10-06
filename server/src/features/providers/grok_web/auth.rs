@@ -13,10 +13,11 @@ use tokio_tungstenite::tungstenite::http::HeaderValue;
 
 use super::executor::GrokWebExecutor;
 use super::transport::{GrokSocket, event_error_message};
-use super::types::{GROK_WEB_USER_AGENT, session_capabilities};
+use super::types::{GROK_WEB_PROVIDER, GROK_WEB_USER_AGENT, session_capabilities};
 use crate::clock::now_ms;
 use crate::constants;
 use crate::error::APIError;
+use crate::features::providers::rotation::{is_rate_limited, round_robin_enabled};
 use crate::infrastructure::database::providers::{GrokWebCredentials, load_grok_web_credentials};
 
 /// Upper bound for the whole establishment phase (page probe excluded): WebSocket
@@ -113,12 +114,39 @@ impl GrokWebExecutor {
     /// Loads credentials, probes the page for `x-userid`, opens the WebSocket,
     /// runs `session.create`, waits for `conversation.attached`, and sends
     /// `response.create`. The whole span is bounded by `session_timeout`.
+    /// Several accounts rotate, and a rate-limited one is passed over.
     pub(super) async fn establish(
         &self,
         model_id: &str,
         prompt: &str,
     ) -> Result<Session, APIError> {
-        let credentials = self.credentials().await?;
+        let candidates = self.candidates().await?;
+        let mut last: Option<APIError> = None;
+
+        for _ in 0..candidates.len() {
+            let credentials = self.pick_account(&candidates).await?;
+            let connection_id = credentials.id.clone();
+
+            match self.establish_with(credentials, model_id, prompt).await {
+                Err(error) if is_rate_limited(&error) => {
+                    self.rotator.cool(&connection_id);
+                    last = Some(error);
+                }
+                outcome => return outcome,
+            }
+        }
+
+        Err(last.expect("a bounded loop over non-empty candidates ran at least once"))
+    }
+
+    /// Establishes against one named connection. A `429` handshake fails the
+    /// request over to the next account without re-reading the list.
+    pub(super) async fn establish_with(
+        &self,
+        credentials: GrokWebCredentials,
+        model_id: &str,
+        prompt: &str,
+    ) -> Result<Session, APIError> {
         let uid = self.fetch_uid(&credentials.sso).await?;
 
         tokio::time::timeout(self.session_timeout, async {
@@ -166,15 +194,43 @@ impl GrokWebExecutor {
         .map_err(|_| APIError::new(500, constants::providers::grok_web::SESSION_TIMEOUT))?
     }
 
-    async fn credentials(&self) -> Result<GrokWebCredentials, APIError> {
+    /// Every enabled Grok Web connection, newest first. The failover loop
+    /// rotates over this list; a request that only needs one account asks for
+    /// the first pick instead.
+    pub(super) async fn candidates(&self) -> Result<Vec<GrokWebCredentials>, APIError> {
         let database = self
             .database
             .as_ref()
             .ok_or_else(|| APIError::new(500, constants::providers::grok_web::DATABASE_REQUIRED))?;
 
-        load_grok_web_credentials(database)
-            .await?
-            .ok_or_else(|| APIError::new(401, constants::providers::grok_web::NOT_CONNECTED))
+        let connections = load_grok_web_credentials(database).await?;
+        if connections.is_empty() {
+            return Err(APIError::new(
+                401,
+                constants::providers::grok_web::NOT_CONNECTED,
+            ));
+        }
+
+        Ok(connections)
+    }
+
+    /// Rotates onto one of `candidates`, newest first, skipping a rate-limited
+    /// account.
+    pub(super) async fn pick_account(
+        &self,
+        candidates: &[GrokWebCredentials],
+    ) -> Result<GrokWebCredentials, APIError> {
+        let database = self
+            .database
+            .as_ref()
+            .ok_or_else(|| APIError::new(500, constants::providers::grok_web::DATABASE_REQUIRED))?;
+        let enabled = round_robin_enabled(database, GROK_WEB_PROVIDER.id).await;
+        let ids: Vec<String> = candidates
+            .iter()
+            .map(|credentials| credentials.id.clone())
+            .collect();
+
+        Ok(candidates[self.rotator.choose(enabled, &ids)].clone())
     }
 
     /// Probes the page for the `x-userid` cookie the WebSocket query string

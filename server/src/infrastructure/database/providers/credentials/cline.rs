@@ -62,20 +62,19 @@ pub async fn upsert_cline_connection(
     Ok(())
 }
 
-/// Loads the credentials of the newest enabled Cline connection.
+/// Loads the credentials of every enabled Cline connection, newest first.
 /// Accepts snake_case and camelCase aliases (plan D2).
 pub async fn load_cline_credentials(
     database: &AppDatabase,
-) -> Result<Option<ClineCredentials>, APIError> {
+) -> Result<Vec<ClineCredentials>, APIError> {
     let Some(pool) = database.sqlite_pool() else {
-        return Ok(None);
+        return Ok(Vec::new());
     };
 
     let rows = sqlx::query(
         "SELECT id, credentials FROM providers
          WHERE provider_id = 'cline' AND enabled = 1
-         ORDER BY created_at DESC
-         LIMIT 1",
+         ORDER BY created_at DESC",
     )
     .fetch_all(&pool)
     .await
@@ -86,16 +85,17 @@ pub async fn load_cline_credentials(
         )
     })?;
 
+    let mut connections = Vec::with_capacity(rows.len());
     for row in &rows {
         let raw = text(row, "credentials")?;
 
         if let Some(mut credentials) = parse_cline_credentials(&raw) {
             credentials.id = text(row, "id")?;
-            return Ok(Some(credentials));
+            connections.push(credentials);
         }
     }
 
-    Ok(None)
+    Ok(connections)
 }
 
 /// Parses a Cline credentials JSON row, accepting snake_case and camelCase

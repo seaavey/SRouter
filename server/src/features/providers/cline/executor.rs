@@ -17,6 +17,7 @@ use super::types::{CLINE_KEYS, CLINE_PROVIDER, ClineEndpoints};
 use crate::error::APIError;
 use crate::features::providers::adapter::{ProviderAdapter, ProviderStream, upstream_error};
 use crate::features::providers::executor::{BoxFuture, ProviderExecutor};
+use crate::features::providers::rotation::AccountRotator;
 use crate::infrastructure::database::AppDatabase;
 use crate::infrastructure::upstream::UpstreamClient;
 use crate::protocol::model::ChatCompletionRequest;
@@ -38,6 +39,9 @@ pub struct ClineExecutor {
     pub catalog: SharedCatalog,
     pub(super) catalog_refresh_lock: Arc<tokio::sync::Mutex<()>>,
     pub(super) token_refreshes: Arc<Mutex<HashMap<String, Arc<tokio::sync::Mutex<()>>>>>,
+    /// Rotation and cooldown state across this provider's accounts, shared by
+    /// every clone of the adapter.
+    pub(super) rotator: Arc<AccountRotator>,
 }
 
 impl ClineExecutor {
@@ -55,6 +59,7 @@ impl ClineExecutor {
             catalog: ClineCatalog::shared_empty(),
             catalog_refresh_lock: Arc::new(tokio::sync::Mutex::new(())),
             token_refreshes: Arc::new(Mutex::new(HashMap::new())),
+            rotator: AccountRotator::shared(),
         }
     }
 

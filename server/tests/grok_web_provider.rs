@@ -561,6 +561,8 @@ async fn connect_stores_a_cookie_that_the_probe_accepts() {
     let stored = load_grok_web_credentials(&app_database)
         .await
         .expect("credentials read")
+        .into_iter()
+        .next()
         .expect("connection stored");
     assert_eq!(stored.sso, "fixture-valid", "sso= prefix must be stripped");
 }
@@ -600,6 +602,8 @@ async fn connect_accepts_a_raw_text_cookie_line() {
     let stored = load_grok_web_credentials(&app_database)
         .await
         .expect("credentials read")
+        .into_iter()
+        .next()
         .expect("connection stored");
     assert_eq!(stored.sso, "fixture-valid", "only the sso pair is stored");
     assert!(fake.with(|state| state.last_page_cookie.contains("sso=fixture-valid")));
@@ -636,6 +640,8 @@ async fn connect_accepts_an_uploaded_cookie_file() {
     let stored = load_grok_web_credentials(&app_database)
         .await
         .expect("credentials read")
+        .into_iter()
+        .next()
         .expect("connection stored");
     assert_eq!(stored.sso, "fixture-valid", "the cookies.txt row is parsed");
     assert!(fake.with(|state| state.last_page_cookie.contains("sso=fixture-valid")));
@@ -673,7 +679,7 @@ async fn connect_rejects_a_multipart_form_without_a_cookie() {
         load_grok_web_credentials(&app_database)
             .await
             .expect("credentials read")
-            .is_none(),
+            .is_empty(),
         "a form without a cookie must not be stored"
     );
 }
@@ -701,7 +707,7 @@ async fn connect_rejects_a_cookie_value_with_control_characters() {
         load_grok_web_credentials(&app_database)
             .await
             .expect("credentials read")
-            .is_none(),
+            .is_empty(),
         "a cookie value with control characters must not be stored"
     );
 }
@@ -728,7 +734,7 @@ async fn connect_rejects_an_oversized_cookie_value() {
         load_grok_web_credentials(&app_database)
             .await
             .expect("credentials read")
-            .is_none(),
+            .is_empty(),
         "an oversized cookie value must not be stored"
     );
 }
@@ -756,7 +762,7 @@ async fn connect_rejects_a_cookie_the_probe_refuses() {
         load_grok_web_credentials(&app_database)
             .await
             .expect("credentials read")
-            .is_none(),
+            .is_empty(),
         "an invalid cookie must not be stored"
     );
 }

@@ -8,6 +8,7 @@ use crate::protocol::model::ChatCompletionRequest;
 
 fn credentials() -> QoderCredentials {
     QoderCredentials {
+        id: "qoder_account".to_owned(),
         access_token: "device-token".to_owned(),
         refresh_token: None,
         token_expires_at: None,

@@ -1252,3 +1252,103 @@ async fn a_connection_with_unreadable_meta_is_still_counted() {
     let body = json_body(response).await;
     assert_eq!(body["data"][0]["status"]["connected_count"], 1);
 }
+
+/// The round-robin toggle: unauthenticated is `401`, an unknown provider is
+/// `400`, and a successful call persists the flag and echoes it back on both the
+/// detail and catalog payloads. Black-box evidence for the guard is
+/// `apps/api/tests/round-robin-endpoint.test.ts`.
+#[tokio::test]
+async fn the_round_robin_toggle_persists_the_flag_and_echoes_it() {
+    let database = TestDatabase::new().unwrap();
+    let app = app(&database).await;
+
+    let unauthenticated = with_loopback_client(json_request_with_headers(
+        "PATCH",
+        "/v1/providers/qoder/round-robin",
+        serde_json::json!({ "enabled": true }),
+        &[],
+    ));
+    let response = app.clone().oneshot(unauthenticated).await.unwrap();
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+
+    let unknown = admin_request(
+        "PATCH",
+        "/v1/providers/not-a-provider/round-robin",
+        serde_json::json!({ "enabled": true }),
+    );
+    let response = app.clone().oneshot(unknown).await.unwrap();
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+
+    let malformed = admin_request(
+        "PATCH",
+        "/v1/providers/qoder/round-robin",
+        serde_json::json!({ "enabled": "yes" }),
+    );
+    let response = app.clone().oneshot(malformed).await.unwrap();
+    assert_eq!(
+        response.status(),
+        StatusCode::BAD_REQUEST,
+        "a non-boolean must not flip a provider"
+    );
+
+    // A provider with no stored row reads as on, so the first explicit write is
+    // the one that turns it off.
+    let disable = admin_request(
+        "PATCH",
+        "/v1/providers/qoder/round-robin",
+        serde_json::json!({ "enabled": false }),
+    );
+    let response = app.clone().oneshot(disable).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = json_body(response).await;
+    assert_eq!(body["roundRobin"], serde_json::json!(false));
+
+    let detail = json_body(
+        app.clone()
+            .oneshot(get_request("/v1/providers/qoder"))
+            .await
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(detail["roundRobin"], serde_json::json!(false));
+
+    let catalog = json_body(
+        app.clone()
+            .oneshot(get_request("/v1/providers/catalog"))
+            .await
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(
+        catalog["categories"]["oauth"][0]["roundRobin"],
+        serde_json::json!(false),
+        "the catalog payload carries the flag too"
+    );
+
+    let enable = admin_request(
+        "PATCH",
+        "/v1/providers/qoder/round-robin",
+        serde_json::json!({ "enabled": true }),
+    );
+    let response = app.clone().oneshot(enable).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = json_body(response).await;
+    assert_eq!(body["roundRobin"], serde_json::json!(true));
+}
+
+/// The catalog and detail payloads report rotation as on before anything is
+/// stored, which is the default the executor runs with.
+#[tokio::test]
+async fn a_provider_without_a_stored_flag_reports_rotation_as_on() {
+    let database = TestDatabase::new().unwrap();
+    let app = app(&database).await;
+
+    let detail = json_body(
+        app.oneshot(get_request("/v1/providers/cline"))
+            .await
+            .unwrap(),
+    )
+    .await;
+
+    assert_eq!(detail["roundRobin"], serde_json::json!(true));
+}

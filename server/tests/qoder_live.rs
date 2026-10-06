@@ -28,6 +28,8 @@ async fn prints_the_live_model_list_body() {
     let credentials = load_qoder_credentials(&database)
         .await
         .expect("credentials load")
+        .into_iter()
+        .next()
         .expect("a qoder connection is stored");
     let machine_id = machine_id_for(&database).await.expect("machine id reads");
 

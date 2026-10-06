@@ -24,8 +24,8 @@ impl ClineExecutor {
             return;
         };
         match load_cline_credentials(database).await {
-            Ok(Some(_)) => {}
-            Ok(None) => {
+            Ok(connections) if !connections.is_empty() => {}
+            Ok(_) => {
                 *write_catalog(&self.catalog) = ClineCatalog::empty();
                 return;
             }

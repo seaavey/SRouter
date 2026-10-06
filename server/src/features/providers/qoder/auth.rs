@@ -4,32 +4,75 @@
 use super::cosy::CosyIdentity;
 use super::executor::QoderExecutor;
 use super::state::{read_opt, write_opt};
+use super::types::QODER_PROVIDER;
 use crate::clock::now_ms;
 use crate::constants;
 use crate::error::APIError;
+use crate::features::providers::rotation::round_robin_enabled;
 use crate::infrastructure::database::AppDatabase;
 use crate::infrastructure::database::providers::{QoderCredentials, load_qoder_credentials};
 use crate::infrastructure::database::settings::{get_setting, set_setting};
 
 impl QoderExecutor {
-    /// The stored Qoder credentials, refused when the token has lapsed.
-    pub(super) async fn credentials(&self) -> Result<QoderCredentials, APIError> {
+    /// Every enabled Qoder account whose device token is still valid, newest
+    /// first. The failover loop rotates over this list; a request that only
+    /// needs one account asks for the first pick instead.
+    pub(super) async fn candidates(&self) -> Result<Vec<QoderCredentials>, APIError> {
         let database = self
             .database
             .as_ref()
             .ok_or_else(|| APIError::new(500, constants::providers::DATABASE_REQUIRED))?;
-        let credentials = load_qoder_credentials(database)
-            .await?
-            .ok_or_else(|| APIError::new(401, constants::providers::qoder::NOT_CONNECTED))?;
+        let connections = load_qoder_credentials(database).await?;
 
-        if credentials.is_expired(now_ms()) {
+        if connections.is_empty() {
+            return Err(APIError::new(
+                401,
+                constants::providers::qoder::NOT_CONNECTED,
+            ));
+        }
+
+        let now = now_ms();
+        let usable: Vec<QoderCredentials> = connections
+            .into_iter()
+            .filter(|credentials| !credentials.is_expired(now))
+            .collect();
+
+        if usable.is_empty() {
             return Err(APIError::new(
                 401,
                 constants::providers::qoder::TOKEN_EXPIRED,
             ));
         }
 
-        Ok(credentials)
+        Ok(usable)
+    }
+
+    /// The stored Qoder credentials, refused when the token has lapsed. Several
+    /// accounts rotate; a lapsed one is passed over so a live sibling serves the
+    /// request instead.
+    pub(super) async fn credentials(&self) -> Result<QoderCredentials, APIError> {
+        let candidates = self.candidates().await?;
+        self.pick_account(&candidates).await
+    }
+
+    /// Rotates onto one of `candidates`, newest first, skipping a rate-limited
+    /// account. Falls back to the newest when every account is cooling, because
+    /// serving the request beats waiting out a cooldown that may no longer hold.
+    pub(super) async fn pick_account(
+        &self,
+        candidates: &[QoderCredentials],
+    ) -> Result<QoderCredentials, APIError> {
+        let database = self
+            .database
+            .as_ref()
+            .ok_or_else(|| APIError::new(500, constants::providers::DATABASE_REQUIRED))?;
+        let enabled = round_robin_enabled(database, QODER_PROVIDER.id).await;
+        let ids: Vec<String> = candidates
+            .iter()
+            .map(|credentials| credentials.id.clone())
+            .collect();
+
+        Ok(candidates[self.rotator.choose(enabled, &ids)].clone())
     }
 
     /// The machine id the COSY headers carry, cached for the life of the

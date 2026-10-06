@@ -33,8 +33,8 @@ impl QoderExecutor {
             return;
         };
         match load_qoder_credentials(database).await {
-            Ok(Some(_)) => {}
-            Ok(None) => {
+            Ok(connections) if !connections.is_empty() => {}
+            Ok(_) => {
                 *write_catalog(&self.catalog) = QoderCatalog::empty();
                 return;
             }

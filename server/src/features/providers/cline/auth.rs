@@ -7,9 +7,11 @@ use serde_json::Value;
 
 use super::executor::ClineExecutor;
 use super::request::endpoint_url;
+use super::types::CLINE_PROVIDER;
 use crate::clock::now_ms;
 use crate::constants;
 use crate::error::APIError;
+use crate::features::providers::rotation::round_robin_enabled;
 use crate::features::providers::wire::{error_message, payload_reports_invalid_grant};
 use crate::infrastructure::database::providers::{
     ClineCredentials, load_cline_credentials, update_cline_tokens,
@@ -19,17 +21,50 @@ pub(super) const TOKEN_REFRESH_LEAD_MS: i64 = 5 * 60 * 1000;
 pub(super) const TOKEN_REFRESH_FALLBACK_MS: i64 = 12 * 60 * 60 * 1000;
 
 impl ClineExecutor {
-    pub(super) async fn credentials(&self) -> Result<ClineCredentials, APIError> {
+    /// Every enabled Cline connection, newest first. The failover loop rotates
+    /// over this list; a request that only needs one account asks for the first
+    /// pick instead.
+    pub(super) async fn candidates(&self) -> Result<Vec<ClineCredentials>, APIError> {
         let database = self
             .database
             .as_ref()
             .ok_or_else(|| APIError::new(500, constants::providers::cline::DATABASE_REQUIRED))?;
 
-        load_cline_credentials(database)
-            .await
-            .ok()
-            .flatten()
-            .ok_or_else(|| APIError::new(401, constants::providers::cline::NOT_CONNECTED))
+        let connections = load_cline_credentials(database).await?;
+        if connections.is_empty() {
+            return Err(APIError::new(
+                401,
+                constants::providers::cline::NOT_CONNECTED,
+            ));
+        }
+
+        Ok(connections)
+    }
+
+    /// The stored Cline credentials, one account of the rotation. A request that
+    /// fails over picks again, so this reads the connection list on every call.
+    pub(super) async fn credentials(&self) -> Result<ClineCredentials, APIError> {
+        let candidates = self.candidates().await?;
+        self.pick_account(&candidates).await
+    }
+
+    /// Rotates onto one of `candidates`, newest first, skipping a rate-limited
+    /// account.
+    pub(super) async fn pick_account(
+        &self,
+        candidates: &[ClineCredentials],
+    ) -> Result<ClineCredentials, APIError> {
+        let database = self
+            .database
+            .as_ref()
+            .ok_or_else(|| APIError::new(500, constants::providers::cline::DATABASE_REQUIRED))?;
+        let enabled = round_robin_enabled(database, CLINE_PROVIDER.id).await;
+        let ids: Vec<String> = candidates
+            .iter()
+            .map(|credentials| credentials.id.clone())
+            .collect();
+
+        Ok(candidates[self.rotator.choose(enabled, &ids)].clone())
     }
 
     pub(super) async fn ensure_fresh_token(
@@ -37,18 +72,29 @@ impl ClineExecutor {
         force: bool,
     ) -> Result<ClineCredentials, APIError> {
         let credentials = self.credentials().await?;
-        if !force && !token_refresh_is_due(&credentials, now_ms()) {
-            return Ok(credentials);
+        self.ensure_fresh_token_for(&credentials, force).await
+    }
+
+    /// Refreshes one named connection. The failover loop holds the connection it
+    /// used, so the refresh must target that row rather than a fresh rotation
+    /// pick.
+    pub(super) async fn ensure_fresh_token_for(
+        &self,
+        credentials: &ClineCredentials,
+        force: bool,
+    ) -> Result<ClineCredentials, APIError> {
+        if !force && !token_refresh_is_due(credentials, now_ms()) {
+            return Ok(credentials.clone());
         }
 
-        let Some(refresh_token) = credentials.refresh_token.as_deref() else {
+        let Some(fallback_refresh) = credentials.refresh_token.clone() else {
             if credentials.is_expired(now_ms()) || force {
                 return Err(APIError::new(
                     401,
                     constants::providers::cline::TOKEN_EXPIRED,
                 ));
             }
-            return Ok(credentials);
+            return Ok(credentials.clone());
         };
 
         let refresh_lock = {
@@ -63,17 +109,33 @@ impl ClineExecutor {
         };
         let _guard = refresh_lock.lock().await;
 
-        let current = self.credentials().await?;
+        let current = self
+            .connection(&credentials.id)
+            .await?
+            .ok_or_else(|| APIError::new(401, constants::providers::cline::NOT_CONNECTED))?;
         if !force && !token_refresh_is_due(&current, now_ms()) {
             return Ok(current);
         }
-        let refresh_token = current.refresh_token.as_deref().unwrap_or(refresh_token);
+        let refresh_token = current.refresh_token.clone().unwrap_or(fallback_refresh);
 
-        match self.refresh_token(&current.id, refresh_token).await {
+        match self.refresh_token(&current.id, &refresh_token).await {
             Ok(refreshed) => Ok(refreshed),
             Err(error) if error.status() >= 500 && !current.is_expired(now_ms()) => Ok(current),
             Err(error) => Err(error),
         }
+    }
+
+    /// One named connection, or `None` when the row is gone or disabled.
+    async fn connection(&self, connection_id: &str) -> Result<Option<ClineCredentials>, APIError> {
+        let database = self
+            .database
+            .as_ref()
+            .ok_or_else(|| APIError::new(500, constants::providers::cline::DATABASE_REQUIRED))?;
+
+        Ok(load_cline_credentials(database)
+            .await?
+            .into_iter()
+            .find(|credentials| credentials.id == connection_id))
     }
 
     async fn refresh_token(

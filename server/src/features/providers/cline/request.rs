@@ -13,7 +13,9 @@ use crate::error::APIError;
 use crate::features::providers::adapter::{
     upstream_error, upstream_status_error, upstream_stream_status_error,
 };
+use crate::features::providers::rotation::is_rate_limited;
 use crate::features::providers::wire::apply_headers;
+use crate::infrastructure::database::providers::ClineCredentials;
 use crate::protocol::model::ChatCompletionRequest;
 
 pub(super) struct PreparedRequest {
@@ -24,24 +26,58 @@ pub(super) struct PreparedRequest {
 }
 
 impl ClineExecutor {
+    /// One chat attempt per candidate, moving on when upstream answers `429`.
+    /// Only the phase before the first byte is covered, so a `429` at status
+    /// time fails over while an error mid-stream still surfaces to the client.
+    /// The last error is returned when every account is rate limited.
     pub(super) async fn chat_response(
         &self,
         model: &str,
         request: &ChatCompletionRequest,
         buffered: bool,
     ) -> Result<(reqwest::Response, PreparedRequest), APIError> {
-        let prepared = self.prepare(model, request, false).await?;
+        let candidates = self.candidates().await?;
+        let mut last: Option<APIError> = None;
+
+        for _ in 0..candidates.len() {
+            let credentials = self.pick_account(&candidates).await?;
+
+            match self
+                .chat_attempt(model, request, buffered, &credentials)
+                .await
+            {
+                Err(error) if is_rate_limited(&error) => {
+                    self.rotator.cool(&credentials.id);
+                    last = Some(error);
+                }
+                outcome => return outcome,
+            }
+        }
+
+        Err(last.expect("a bounded loop over non-empty candidates ran at least once"))
+    }
+
+    /// One attempt against one named connection, including the 401 retry that
+    /// forces a token refresh for that same row.
+    async fn chat_attempt(
+        &self,
+        model: &str,
+        request: &ChatCompletionRequest,
+        buffered: bool,
+        credentials: &ClineCredentials,
+    ) -> Result<(reqwest::Response, PreparedRequest), APIError> {
+        let prepared = self.prepare(model, request, credentials).await?;
         let response = self.send_chat(&prepared, buffered).await?;
 
         if response.status().as_u16() != 401 {
-            self.check_chat_status(response, prepared, buffered)
-        } else {
-            drop(response);
-            self.ensure_fresh_token(true).await?;
-            let prepared = self.prepare(model, request, false).await?;
-            let response = self.send_chat(&prepared, buffered).await?;
-            self.check_chat_status(response, prepared, buffered)
+            return self.check_chat_status(response, prepared, buffered);
         }
+
+        drop(response);
+        let refreshed = self.ensure_fresh_token_for(credentials, true).await?;
+        let prepared = self.prepare(model, request, &refreshed).await?;
+        let response = self.send_chat(&prepared, buffered).await?;
+        self.check_chat_status(response, prepared, buffered)
     }
 
     fn check_chat_status(
@@ -87,9 +123,8 @@ impl ClineExecutor {
         &self,
         model: &str,
         request: &ChatCompletionRequest,
-        force_refresh: bool,
+        credentials: &ClineCredentials,
     ) -> Result<PreparedRequest, APIError> {
-        let credentials = self.ensure_fresh_token(force_refresh).await?;
         let model_key = strip_cline_prefix(model.trim()).to_owned();
         let mut body = serde_json::to_value(request).map_err(|error| {
             APIError::new(500, constants::providers::could_not_build_request(&error))

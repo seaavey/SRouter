@@ -38,6 +38,7 @@ use crate::constants;
 use crate::error::APIError;
 use crate::features::providers::adapter::{ProviderAdapter, ProviderStream};
 use crate::features::providers::executor::{BoxFuture, ProviderExecutor};
+use crate::features::providers::rotation::AccountRotator;
 use crate::infrastructure::database::AppDatabase;
 use crate::infrastructure::database::providers::load_grok_web_credentials;
 use crate::infrastructure::upstream::STREAM_IDLE_TIMEOUT;
@@ -64,6 +65,9 @@ pub struct GrokWebExecutor {
     catalog: Arc<RwLock<Vec<String>>>,
     pub(super) session_timeout: Duration,
     idle_timeout: Duration,
+    /// Rotation and cooldown state across this provider's accounts, shared by
+    /// every clone of the adapter.
+    pub(super) rotator: Arc<AccountRotator>,
 }
 
 impl GrokWebExecutor {
@@ -77,6 +81,7 @@ impl GrokWebExecutor {
             catalog: Arc::new(RwLock::new(Vec::new())),
             session_timeout: DEFAULT_SESSION_TIMEOUT,
             idle_timeout: STREAM_IDLE_TIMEOUT,
+            rotator: AccountRotator::shared(),
         })
     }
 
@@ -118,7 +123,7 @@ impl GrokWebExecutor {
         let Some(database) = self.database.as_ref() else {
             return;
         };
-        let connected = matches!(load_grok_web_credentials(database).await, Ok(Some(_)));
+        let connected = matches!(load_grok_web_credentials(database).await, Ok(connections) if !connections.is_empty());
         let mut catalog = self.catalog.write().unwrap_or_else(|p| p.into_inner());
         if connected && catalog.is_empty() {
             *catalog = GROK_WEB_MODELS

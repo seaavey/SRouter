@@ -183,6 +183,8 @@ async fn poll_stays_pending_until_the_browser_approves() {
     let credentials = load_qoder_credentials(&app_database)
         .await
         .expect("credentials read")
+        .into_iter()
+        .next()
         .expect("a connection was stored");
 
     assert_eq!(credentials.access_token, "dt-fixture-token");
@@ -419,7 +421,7 @@ async fn credentials_read_under_either_spelling() {
         load_qoder_credentials(&db)
             .await
             .expect("credentials read")
-            .is_none(),
+            .is_empty(),
         "no connection reads as none"
     );
 
@@ -440,6 +442,8 @@ async fn credentials_read_under_either_spelling() {
     let credentials = load_qoder_credentials(&db)
         .await
         .expect("credentials read")
+        .into_iter()
+        .next()
         .expect("the camelCase row reads");
 
     assert_eq!(credentials.access_token, "pt-node-token");
@@ -521,6 +525,8 @@ async fn cline_device_and_poll_connect_a_workos_device_account() {
     let credentials = load_cline_credentials(&db)
         .await
         .expect("credentials read")
+        .into_iter()
+        .next()
         .expect("Cline connection stored");
     assert_eq!(credentials.access_token, "workos:cline-access");
     assert_eq!(credentials.refresh_token.as_deref(), Some("cline-refresh"));
@@ -718,6 +724,8 @@ async fn update_cline_tokens_persists_rotated_credentials() {
     let credentials = load_cline_credentials(&db)
         .await
         .expect("credentials read")
+        .into_iter()
+        .next()
         .expect("Cline connection stored");
     assert_eq!(credentials.access_token, "workos:new-access");
     assert_eq!(

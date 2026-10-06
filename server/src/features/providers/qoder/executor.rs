@@ -13,13 +13,16 @@ use futures_util::StreamExt;
 use serde_json::Value;
 
 use super::catalog::{QoderCatalog, SharedCatalog};
+use super::request::PreparedRequest;
 use super::state::read_catalog;
 use super::translate::{Aggregator, data_payload, translate_stream};
 use super::types::{QODER_KEYS, QODER_PROVIDER, QoderEndpoints};
 use crate::error::APIError;
 use crate::features::providers::adapter::{ProviderAdapter, ProviderStream, upstream_error};
 use crate::features::providers::executor::{BoxFuture, ProviderExecutor};
+use crate::features::providers::rotation::{AccountRotator, is_rate_limited};
 use crate::infrastructure::database::AppDatabase;
+use crate::infrastructure::database::providers::QoderCredentials;
 use crate::infrastructure::upstream::UpstreamClient;
 use crate::protocol::model::ChatCompletionRequest;
 
@@ -42,6 +45,9 @@ pub struct QoderExecutor {
     /// Shared through the `Arc` because the registry stores one clone of this
     /// adapter per lookup key, and both clones must coalesce into one fetch.
     pub(super) refresh_lock: Arc<tokio::sync::Mutex<()>>,
+    /// Rotation and cooldown state across this provider's accounts, shared by
+    /// every clone of the adapter for the same reason.
+    pub(super) rotator: Arc<AccountRotator>,
 }
 
 impl QoderExecutor {
@@ -59,6 +65,7 @@ impl QoderExecutor {
             catalog: QoderCatalog::shared_empty(),
             machine_id: Arc::new(RwLock::new(None)),
             refresh_lock: Arc::new(tokio::sync::Mutex::new(())),
+            rotator: AccountRotator::shared(),
         }
     }
 
@@ -111,8 +118,10 @@ impl QoderExecutor {
         request: &ChatCompletionRequest,
     ) -> Result<Value, APIError> {
         self.maybe_refresh(false).await;
-        let prepared = self.prepare(model, request).await?;
-        let response = self.send_chat(&prepared, true).await?;
+        let candidates = self.candidates().await?;
+        let (response, prepared) = self
+            .send_with_failover(model, request, &candidates, true)
+            .await?;
         let mut stream = response.bytes_stream();
 
         let mut aggregator = Aggregator::new(&prepared.model_key);
@@ -141,13 +150,45 @@ impl QoderExecutor {
         request: &ChatCompletionRequest,
     ) -> Result<ProviderStream, APIError> {
         self.maybe_refresh(false).await;
-        let prepared = self.prepare(model, request).await?;
-        let response = self.send_chat(&prepared, false).await?;
+        let candidates = self.candidates().await?;
+        let (response, prepared) = self
+            .send_with_failover(model, request, &candidates, false)
+            .await?;
 
         Ok(translate_stream(
             response.bytes_stream(),
             prepared.model_key,
         ))
+    }
+
+    /// Signs and sends one chat request per candidate, moving on when upstream
+    /// answers `429`. Only the phase before the first byte is covered: a
+    /// buffered request retries the whole attempt, a streaming one retries the
+    /// request that has not handed a body back yet. The last error is returned
+    /// when every account is rate limited.
+    async fn send_with_failover(
+        &self,
+        model: &str,
+        request: &ChatCompletionRequest,
+        candidates: &[QoderCredentials],
+        buffered: bool,
+    ) -> Result<(reqwest::Response, PreparedRequest), APIError> {
+        let mut last: Option<APIError> = None;
+
+        for _ in 0..candidates.len() {
+            let credentials = self.pick_account(candidates).await?;
+            let prepared = self.prepare(model, request, &credentials).await?;
+
+            match self.send_chat(&prepared, buffered).await {
+                Err(error) if is_rate_limited(&error) => {
+                    self.rotator.cool(&credentials.id);
+                    last = Some(error);
+                }
+                outcome => return outcome.map(|response| (response, prepared)),
+            }
+        }
+
+        Err(last.expect("a bounded loop over non-empty candidates ran at least once"))
     }
 }
 

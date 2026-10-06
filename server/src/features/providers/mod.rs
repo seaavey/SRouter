@@ -14,6 +14,7 @@ pub mod opencode;
 pub mod qoder;
 pub mod quota;
 pub mod registry;
+pub mod rotation;
 mod wire;
 
 pub use adapter::{OpenAIAdapter, ProviderAdapter, ProviderStream, forward_image_generation};

@@ -20,6 +20,10 @@ pub struct ProviderEntry {
     pub requires_oauth: bool,
     pub supports_custom_url: bool,
     pub enabled: bool,
+    /// Whether requests rotate across this provider's accounts. Spelled the way
+    /// the web client reads it and the way Node emits it.
+    #[serde(rename = "roundRobin")]
+    pub round_robin: bool,
     pub status: ProviderStatus,
     /// Detail only; the list and catalog omit it like Node does.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -45,10 +49,19 @@ impl ProviderEntry {
             requires_oauth: metadata.requires_oauth,
             supports_custom_url: metadata.supports_custom_url,
             enabled,
+            round_robin: true,
             status: ProviderStatus::new(metadata.status_message, connected_count),
             connections: None,
             models: Vec::new(),
         }
+    }
+
+    /// Sets the stored rotation flag. A provider whose row is absent reads as
+    /// on, matching the executor's own default.
+    pub fn with_round_robin(mut self, enabled: bool) -> Self {
+        self.round_robin = enabled;
+
+        self
     }
 
     /// Attaches the detail-only payload.

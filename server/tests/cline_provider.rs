@@ -14,8 +14,8 @@ use srouter_server::infrastructure::database::providers::{
     ClineConnectionWrite, load_cline_credentials, upsert_cline_connection,
 };
 use support::{
-    FakeClineUpstream, TestDatabase, cline_registry, connect_cline, test_config,
-    with_loopback_client,
+    FakeClineUpstream, TestDatabase, cline_registry, connect_cline, connect_second_cline,
+    test_config, with_loopback_client,
 };
 use tower::ServiceExt;
 
@@ -361,7 +361,63 @@ async fn cline_refresh_drops_the_workos_prefix_and_rotates_the_stored_token() {
     let credentials = load_cline_credentials(&db)
         .await
         .expect("credentials load")
+        .into_iter()
+        .next()
         .expect("connection");
     assert_eq!(credentials.access_token, "workos:cline-access");
     assert_eq!(credentials.refresh_token.as_deref(), Some("cline-refresh"));
+}
+
+/// Two connected accounts with the first chat answered `429`: the request must
+/// succeed through the second account, and the rate-limited one must be skipped
+/// by the next request. The bearers differ per account, so they name the
+/// connection each attempt used.
+#[tokio::test]
+async fn a_rate_limited_cline_account_fails_over_to_the_next_one() {
+    let database = TestDatabase::new().expect("temporary database");
+    connect_cline(&database).await;
+    connect_second_cline(&database).await;
+    let fake = FakeClineUpstream::start().await;
+    fake.with(|state| state.rate_limited_chats = 1);
+    let app = app(&database, &fake).await;
+
+    let response = app
+        .clone()
+        .oneshot(request(
+            "/v1/chat/completions",
+            chat_body("cline/anthropic/claude-sonnet-5.5", false),
+        ))
+        .await
+        .expect("gateway response");
+    assert_eq!(
+        response.status(),
+        StatusCode::OK,
+        "the client never sees the upstream 429"
+    );
+    let _ = text_body(response).await;
+
+    let attempts = fake.with(|state| state.chat_authorizations.clone());
+    assert_eq!(attempts.len(), 2, "the request was tried twice");
+    assert_ne!(
+        attempts[0], attempts[1],
+        "the second attempt used a different account"
+    );
+
+    // The rate-limited account stays cooling, so the next request goes straight
+    // to the surviving one.
+    let response = app
+        .oneshot(request(
+            "/v1/chat/completions",
+            chat_body("cline/anthropic/claude-sonnet-5.5", false),
+        ))
+        .await
+        .expect("gateway response");
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let attempts = fake.with(|state| state.chat_authorizations.clone());
+    assert_eq!(attempts.len(), 3, "the cooling account was skipped");
+    assert_eq!(
+        attempts[2], attempts[1],
+        "the surviving account served the follow-up"
+    );
 }

@@ -58,19 +58,18 @@ pub async fn upsert_grok_web_connection(
     Ok(())
 }
 
-/// Loads the credentials of the newest enabled Grok Web connection.
+/// Loads the credentials of every enabled Grok Web connection, newest first.
 pub async fn load_grok_web_credentials(
     database: &AppDatabase,
-) -> Result<Option<GrokWebCredentials>, APIError> {
+) -> Result<Vec<GrokWebCredentials>, APIError> {
     let Some(pool) = database.sqlite_pool() else {
-        return Ok(None);
+        return Ok(Vec::new());
     };
 
     let rows = sqlx::query(
         "SELECT id, credentials FROM providers
          WHERE provider_id = 'grok-web' AND enabled = 1
-         ORDER BY created_at DESC
-         LIMIT 1",
+         ORDER BY created_at DESC",
     )
     .fetch_all(&pool)
     .await
@@ -81,16 +80,17 @@ pub async fn load_grok_web_credentials(
         )
     })?;
 
+    let mut connections = Vec::with_capacity(rows.len());
     for row in &rows {
         let raw = text(row, "credentials")?;
 
         if let Some(mut credentials) = parse_grok_web_credentials(&raw) {
             credentials.id = text(row, "id")?;
-            return Ok(Some(credentials));
+            connections.push(credentials);
         }
     }
 
-    Ok(None)
+    Ok(connections)
 }
 
 /// Parses a Grok Web credentials JSON row. The cookie lives under the Node

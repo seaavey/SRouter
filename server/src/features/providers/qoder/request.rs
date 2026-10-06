@@ -32,6 +32,7 @@ impl QoderExecutor {
         &self,
         model: &str,
         request: &ChatCompletionRequest,
+        credentials: &QoderCredentials,
     ) -> Result<PreparedRequest, APIError> {
         let model_key = requested_key(&read_catalog(&self.catalog), model);
         let config = {
@@ -41,9 +42,8 @@ impl QoderExecutor {
                 .cloned()
                 .unwrap_or_else(|| default_config(&model_key))
         };
-        let credentials = self.credentials().await?;
         let machine_id = self.machine_id().await?;
-        let body = build_body(&model_key, &config, &credentials, request);
+        let body = build_body(&model_key, &config, credentials, request);
         let encoded_body = encode_body(body.to_string().as_bytes());
         let url = self.endpoints.chat_url();
         let request_id = uuid::Uuid::new_v4().to_string();
@@ -51,7 +51,7 @@ impl QoderExecutor {
         let headers = sign(
             &encoded_body,
             &url,
-            &identity(&credentials, &machine_id),
+            &identity(credentials, &machine_id),
             (now_ms() / 1000) as u64,
             &request_id,
         )?;

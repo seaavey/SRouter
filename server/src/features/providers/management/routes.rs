@@ -18,6 +18,7 @@ use crate::error::APIError;
 use crate::features::providers::management::model::{
     CatalogResponse, GroupedCatalog, ProviderConnectionView, ProviderEntry, ProviderModel,
 };
+use crate::features::providers::rotation::round_robin_enabled;
 use crate::features::providers::{ProviderMetadata, SEED_PROVIDERS};
 use crate::infrastructure::database::AppDatabase;
 use crate::infrastructure::database::catalog_flags::{favorite_model_ids, hidden_model_ids};
@@ -25,6 +26,7 @@ use crate::infrastructure::database::providers::{
     ProviderConnection, ProviderPatch, apply_provider_patch, list_connections, matches_base_id,
     provider_enabled, provider_exists,
 };
+use crate::infrastructure::database::settings::set_setting;
 use crate::state::AppState;
 
 const INVALID_PATCH_PAYLOAD: &str = constants::common::INVALID_PAYLOAD;
@@ -42,10 +44,15 @@ pub fn create_providers_read_router() -> Router<AppState> {
 
 /// Mutation routes. The composition root layers the admin-session guard on top,
 /// matching the Node router, which requires `RequireAdmin` for every write.
-/// The provider `PATCH` carries the provider-level edits (the enabled flag);
-/// every model-level operation lives under `/v1/models`.
+/// The provider `PATCH` carries the provider-level edits (the enabled flag) and
+/// the round-robin toggle; every model-level operation lives under `/v1/models`.
 pub fn create_providers_management_router() -> Router<AppState> {
-    Router::new().route("/providers/{provider_id}", patch(patch_provider))
+    Router::new()
+        .route("/providers/{provider_id}", patch(patch_provider))
+        .route(
+            "/providers/{provider_id}/round-robin",
+            patch(patch_round_robin),
+        )
 }
 
 #[derive(Serialize)]
@@ -121,6 +128,48 @@ async fn patch_provider(
     // Read back after the write, so the response reports the stored state rather
     // than what the request asked for.
     Ok(Json(detail_entry(&state, base_id).await?))
+}
+
+/// Toggles rotation for one provider. `{enabled: bool}` in, the provider detail
+/// out, mirroring Node's `ToggleRoundRobin`: an unknown provider or a malformed
+/// body is a `400` rather than a silent no-op.
+async fn patch_round_robin(
+    State(state): State<AppState>,
+    Path(provider_id): Path<String>,
+    body: Bytes,
+) -> Result<Json<ProviderEntry>, APIError> {
+    let enabled = parse_round_robin_toggle(&body)?;
+    let database = require_database(&state)?;
+    let normalized = provider_id.to_lowercase();
+    let base_id = base_id_of(&normalized);
+
+    let is_seed = SEED_PROVIDERS.iter().any(|metadata| metadata.id == base_id);
+    if !is_seed && !provider_exists(database, base_id).await? {
+        return Err(APIError::new(
+            400,
+            constants::providers::not_found(&provider_id),
+        ));
+    }
+
+    set_setting(
+        database,
+        &format!("round_robin_{base_id}"),
+        if enabled { "true" } else { "false" },
+    )
+    .await?;
+
+    Ok(Json(detail_entry(&state, base_id).await?))
+}
+
+/// Reads `{enabled: bool}`. Only a real boolean is accepted, so `"yes"` and `1`
+/// cannot flip a provider.
+fn parse_round_robin_toggle(body: &[u8]) -> Result<bool, APIError> {
+    let value: Value = serde_json::from_slice(body).map_err(|_| invalid_patch_payload())?;
+
+    value
+        .get("enabled")
+        .and_then(Value::as_bool)
+        .ok_or_else(invalid_patch_payload)
 }
 
 /// Reads the editable fields out of the request body. An unknown key is ignored;
@@ -216,7 +265,17 @@ async fn detail_entry(state: &AppState, provider_id: &str) -> Result<ProviderEnt
         stored_enabled(state, metadata.id).await?,
         connected_count,
     )
+    .with_round_robin(stored_round_robin(state, metadata.id).await)
     .with_details(views, provider_models(state).await?))
+}
+
+/// The stored rotation flag for one provider, read through the same helper the
+/// executor uses so the payload and the runtime cannot disagree.
+async fn stored_round_robin(state: &AppState, base_id: &str) -> bool {
+    match state.database.as_ref() {
+        Some(database) => round_robin_enabled(database, base_id).await,
+        None => true,
+    }
 }
 
 /// Resolves the path param against the static seed, case-insensitively. Aliases
@@ -278,7 +337,8 @@ async fn provider_entry(
         metadata,
         stored_enabled(state, metadata.id).await?,
         connected_count,
-    ))
+    )
+    .with_round_robin(stored_round_robin(state, metadata.id).await))
 }
 
 /// The provider's stored enabled flag. Without a database nothing is switched
