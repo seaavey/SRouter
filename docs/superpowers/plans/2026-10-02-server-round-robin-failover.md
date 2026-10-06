@@ -2,7 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Status:** design plan only, no code written. Scope is `server/` only; `apps/api` stays byte-identical as the rollback path, and `packages/*` stays untouchable per the ground rules in `server/TODO.md`.
+**Status:** implemented 2026-10-06; all six tasks landed in `server/` (see `server/TODO.md`
+section 4). Scope note still holds: `apps/api` stays byte-identical as the rollback path, and
+`packages/*` stayed untouched.
 
 **Goal:** every provider that has more than one enabled connection rotates across them automatically, system-on with no configuration, and a request whose upstream answers `429` fails over to the next account inside the same request instead of surfacing the rate-limit error.
 
@@ -116,12 +118,12 @@ Attempt bodies stay executor-specific: qoder sends its COSY request, cline sends
 
 ## Tasks
 
-- [ ] **Task 1: rotator core.** Create `rotation.rs` with `AccountRotator`, `COOLDOWN: Duration = Duration::from_secs(60)`, and unit tests: rotation order over three rows, cooling row skipped, all-cooling fallback, disabled flag pins the newest row, index safe when the row count shrinks. Gate: `cargo test --lib`, `cargo fmt --check`.
-- [ ] **Task 2: candidate loaders.** Convert the three `load_*_credentials` functions to return every parseable enabled row newest-first, add `QoderCredentials.id`, filter expired qoder rows, and pick through the rotator with the flag defaulting on. Keep the single-row behavior of `NOT_CONNECTED` and `TOKEN_EXPIRED` unchanged. Gate: `cargo test --test qoder_provider --test cline_provider --test grok_web_provider`, `cargo fmt --check`.
-- [ ] **Task 3: failover in qoder.** Thread `Arc<AccountRotator>` and the flag into the executor, wrap the non-stream and pre-open stream attempts in the candidate loop, cool on `429`. Gate: `cargo test --test qoder_provider`.
-- [ ] **Task 4: failover in cline and grok-web.** Same loop for cline (refresh path keeps the chosen row's id) and for grok-web (`establish` re-runs against the next cookie). Gate: `cargo test --test cline_provider --test grok_web_provider`.
-- [ ] **Task 5: flag, endpoint, payload.** `round_robin_enabled` helper, `roundRobin` in detail and catalog builders, `PATCH /v1/providers/{provider_id}/round-robin` handler (`400` unknown or malformed, detail payload out). Add endpoint tests to `tests/providers.rs`: unauthenticated `401` (black-box evidence from `apps/api/tests/round-robin-endpoint.test.ts`), unknown provider `400`, persist and echo `enabled: false`, `enabled: true` after an explicit off. Gate: `cargo test --test providers`.
-- [ ] **Task 6: failover integration proof and sync.** Fake upstream trigger that answers `429` on the first attempt and succeeds on the second, two-row connection fixture; assert the request succeeds through the second account, the cooled row is skipped by the next request until the cooldown lapses, and an all-cooling provider still serves. Sync `docs/api-v1-contract.md` (row 86 now served, replace the "No round-robin" note in row 117) and tick `server/TODO.md` items 170 and 180. Gate: full focused suite (`providers`, `models`, `chat_completions`, `messages`, the three provider suites, `provider_auth`), `cargo clippy --all-targets --all-features --locked -- -D warnings`, `git diff --check`.
+- [x] **Task 1: rotator core.** Create `rotation.rs` with `AccountRotator`, `COOLDOWN: Duration = Duration::from_secs(60)`, and unit tests: rotation order over three rows, cooling row skipped, all-cooling fallback, disabled flag pins the newest row, index safe when the row count shrinks. Gate: `cargo test --lib`, `cargo fmt --check`.
+- [x] **Task 2: candidate loaders.** Convert the three `load_*_credentials` functions to return every parseable enabled row newest-first, add `QoderCredentials.id`, filter expired qoder rows, and pick through the rotator with the flag defaulting on. Keep the single-row behavior of `NOT_CONNECTED` and `TOKEN_EXPIRED` unchanged. Gate: `cargo test --test qoder_provider --test cline_provider --test grok_web_provider`, `cargo fmt --check`.
+- [x] **Task 3: failover in qoder.** Thread `Arc<AccountRotator>` and the flag into the executor, wrap the non-stream and pre-open stream attempts in the candidate loop, cool on `429`. Gate: `cargo test --test qoder_provider`.
+- [x] **Task 4: failover in cline and grok-web.** Same loop for cline (refresh path keeps the chosen row's id) and for grok-web (`establish` re-runs against the next cookie). Gate: `cargo test --test cline_provider --test grok_web_provider`.
+- [x] **Task 5: flag, endpoint, payload.** `round_robin_enabled` helper, `roundRobin` in detail and catalog builders, `PATCH /v1/providers/{provider_id}/round-robin` handler (`400` unknown or malformed, detail payload out). Add endpoint tests to `tests/providers.rs`: unauthenticated `401` (black-box evidence from `apps/api/tests/round-robin-endpoint.test.ts`), unknown provider `400`, persist and echo `enabled: false`, `enabled: true` after an explicit off. Gate: `cargo test --test providers`.
+- [x] **Task 6: failover integration proof and sync.** Fake upstream trigger that answers `429` on the first attempt and succeeds on the second, two-row connection fixture; assert the request succeeds through the second account, the cooled row is skipped by the next request until the cooldown lapses, and an all-cooling provider still serves. Sync `docs/api-v1-contract.md` (row 86 now served, replace the "No round-robin" note in row 117) and tick `server/TODO.md` items 170 and 180. Gate: full focused suite (`providers`, `models`, `chat_completions`, `messages`, the three provider suites, `provider_auth`), `cargo clippy --all-targets --all-features --locked -- -D warnings`, `git diff --check`.
 
 ## Acceptance criteria
 

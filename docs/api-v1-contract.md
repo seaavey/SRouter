@@ -120,6 +120,7 @@ The Rust build serves the two catalog reads above and adds the full model CRUD, 
 
 - **Custom models.** A registered model is stored bare under its provider and re-prefixed with the provider alias when the catalog merges it, so it lists as `<alias>/<bare>` and carries `custom: true`, mirroring Node's `MergeCustomModels`. `GET /v1/models` and `GET /v1/models/:model` return it too.
 - **This replaces the model-level rows above.** `POST|DELETE /v1/providers/:providerId/models(/:modelId)`, `GET|POST /v1/providers/:providerId/hidden-models`, `DELETE /v1/providers/:providerId/hidden-models/:modelId`, and `GET|POST|DELETE /v1/favorites` are not served; the equivalent operations are the `/v1/models` writes. This is a deliberate deviation from Node, which has no `/v1/models` writes. Only the reads (`/models`, `/models/:model`) are mounted under the `/v1/v1` alias.
+- **The web reads and writes these routes.** `apps/web`'s favorites hook takes its list from `GET /v1/models` and its writes from `PATCH /v1/models/{*model}` (`favorite`), and the provider hooks take the hidden set from the provider detail's `models[].hidden` and write it through the same `PATCH` (`hidden`); `POST|DELETE /v1/models` and the provider `enabled` flag are used the same way. Model ids are sent percent-encoded, which the catch-all segment decodes. Rolling the API back to `apps/api` therefore has to roll the web bundle back with it.
 
 ### Providers in the Rust build
 
@@ -129,7 +130,18 @@ The Rust provider registry contains the built-in drivers. Live model catalogs ar
 - **Idempotent writes.** Hiding an already hidden model keeps its single override row, restoring a model that is not hidden succeeds without changing anything, and favoriting or unfavoriting repeats safely. Model ids are stored lowercased and matched case-insensitively, so a row written elsewhere with different casing is still found.
 - **Hidden state is a flag.** A hidden model is written through `PATCH /v1/models/{*model}` (`hidden`), not a listing route. The provider detail response still carries `hidden` and `favorite` on each `models[]` entry and lists hidden models instead of filtering them out, unlike Node. `GET /v1/models` still drops hidden models and every model of a disabled provider.
 - **Favorites.** Favorites are written through `PATCH /v1/models/{*model}` (`favorite`) and read back as the `favorite` flag on each `/v1/models` entry and on the provider detail's `models[]`. The backing table carries no provider dimension, so the model id alone identifies the row.
-- **No round-robin.** `PATCH /v1/providers/:providerId/round-robin` is not served, and no `round_robin` field is emitted.
+- **Round-robin is served.** `PATCH /v1/providers/:providerId/round-robin` takes `{enabled: bool}`
+  behind the admin session and answers with the provider detail entry read back after the write;
+  an unknown provider or an `enabled` value that is not a real boolean returns `400`. Every
+  provider response (`GET /v1/providers`, `GET /v1/providers/catalog`, `GET /v1/providers/{id}`)
+  carries `roundRobin`. The flag turns rotation off, never on: **a missing settings row reads as
+  on**, where Node defaults it off (`packages/db/src/settings.ts`). With a single connection
+  rotation is a no-op, so the flag is an escape hatch rather than a setup step. Rotation walks the
+  enabled connections newest-first inside the executor that loads credentials (`qoder`, `cline`,
+  `grok-web`), and a connection that answered `429` is passed over for 60 seconds before the next
+  request uses it; when every connection is cooling the newest is used anyway. The failover only
+  covers the phase before the first response byte, so an in-stream failure still reaches the
+  client unchanged.
 - **Protocol is an enum.** `ProviderMetadata.protocol` and the `protocol` field of every provider response carry `ProviderProtocol { OpenAI, Anthropic, Custom }`, serialized lowercase, so the wire values are unchanged. Node's `ProviderProtocol` union also lists `gemini`; that value is dead (its only user, the `gemini_cli` provider, was deleted with `packages/providers/src/catalog.ts`) and the Rust enum does not carry it.
 - **No credential material.** `connections[]` never carries a stored secret; the credential column is not read at all.
 - **Field naming.** Connection status reports snake_case `connected_count` instead of Node's `connectedCount`.

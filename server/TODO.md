@@ -259,8 +259,25 @@ Everything below is still Node-only.
 - [x] Custom models are managed at `/v1/models` (not the provider path): `POST /v1/models`
       registers one (`model_id`, `201`/`200`), `PUT /v1/models/{*model}` upserts, and
       `DELETE /v1/models/{*model}` removes it.
-- [x] `PATCH /v1/providers/{providerId}/round-robin` — `enabled` flag.
-      (`apps/api/tests/round-robin-endpoint.test.ts`.)
+- [x] `PATCH /v1/providers/{providerId}/round-robin` — `enabled` flag. Served by
+      `features/providers/management/routes.rs` behind the admin guard: `400` for an unknown
+      provider or an `enabled` value that is not a real boolean, and the provider detail entry is
+      read back after the write so the response reports stored state. The list, catalog, and
+      detail payloads all carry `roundRobin`.
+      Rotation itself is Rust-native, not a port: `features/providers/rotation.rs` holds one
+      `AccountRotator` per provider executor (shared through `Arc`, because the registry stores a
+      clone per lookup key) and picks the connection where the credentials load for `qoder`,
+      `cline`, and `grok-web`. Candidates are enabled rows newest-first; a row that answered `429`
+      is passed over for 60 seconds, and an all-cooling provider still serves the newest row
+      rather than failing locally. A missing settings row reads as **on**, a deliberate divergence
+      from Node (`packages/db/src/settings.ts` defaults it off): with one connection rotation is a
+      no-op, so the flag exists as an escape hatch rather than as a setup step.
+      Failover loops live inside each executor's pre-stream phase (`send_with_failover`,
+      `chat_response`, `establish`), bounded by the candidate count, so the client never sees a
+      `429` that another account could absorb.
+      Legacy evidence: `apps/api/tests/round-robin-endpoint.test.ts`. Rust evidence:
+      `rotation.rs` unit tests, `tests/qoder_provider.rs` and `tests/cline_provider.rs` failover
+      cases, `tests/providers.rs` toggle cases.
 - [x] Second driver registered: `qoder` (`features/providers/qoder/`), COSY-signed chat with the
       envelope-to-OpenAI translation, and a model list that exists only after `model/list` has
       answered, on a 5-minute TTL. Nothing is seeded: a build without a Qoder connection advertises
@@ -429,9 +446,22 @@ Qoder, Cline, OpenAI, Antigravity, and Claude routes exist in Rust. Source of tr
       section 1.4). `SROUTER_PUBLIC_URL` supplies the public base; user-supplied non-local callback
       URLs pass through unchanged (`apps/api/src/utils/callbackUrl.ts`). The Node local-mode branch
       that handed callbacks to the `:1455` listener is intentionally not ported.
-- [~] PKCE + state lifecycle: state creation, replay/expiry rejection, device-poll state read from
-  query or JSON body. Done for `qoder` and Cline (`infrastructure/database/oauth_sessions.rs`:
-  PKCE/device-code save, claim, release, delete, 15-minute sweep); other providers still need it.
+- [x] PKCE + state lifecycle: state creation, replay/expiry rejection, device-poll state read from
+      query or JSON body. One lifecycle serves every flow
+      (`infrastructure/database/oauth_sessions.rs`: save, claim, release, delete, 15-minute sweep):
+      `claim_session` returns `None` for an unknown, expired, or already-claimed state, so a
+      replayed callback cannot exchange the same code twice, and the row is deleted once the tokens
+      are stored. PKCE verifier saved and challenged, then sent to the token leg from
+      `session.code_verifier`: `openai`, `claude`, `antigravity`, `qoder`. `codebuddy` saves an
+      empty verifier (state only), matching the Node oracle's `codeVerifier: ""`, and `cline` stores
+      a device code instead; `grok_web` is a cookie connect with no OAuth flow at all.
+      Covered by `server/tests/provider_auth.rs`
+      (`a_session_can_be_claimed_once_released_and_reclaimed`,
+      `an_expired_session_cannot_be_claimed`, `openai_callback_with_an_unknown_state_is_rejected`),
+      plus `callback_rejects_missing_params_and_unknown_state` in `claude_auth.rs` and
+      `antigravity_auth.rs`, the `claim_session` case in `codebuddy_auth.rs`, and the device-poll
+      cases (`poll_without_a_state_is_rejected`,
+      `cline_poll_handles_pending_denied_unknown_and_missing_state`).
 - [x] Token refresh sweeper and scheduling (`apps/api/src/services/tokenRefresh.ts`), started only
       after database/provider state is ready: implemented via `ProviderRegistry::sweep_tokens`
       invoking each provider's `sweep_tokens()` method (Codex, Cline, Antigravity) with a 5-second
@@ -708,9 +738,19 @@ stale-while-revalidate=86400`, `refresh`/`force`/`no-cache` forcing a refresh.
   (create/delete connection, verify, custom models, round-robin, hidden-models, favorites,
   `enabled`) and the field-naming differences are owner-approved as the Rust build's
   contract, so no provider route needs a Node-parity port before cutover.
+  Since that ruling the ground moved: hidden-models and favorites are served again under
+  `/v1/models`, and round-robin is served by `PATCH /providers/{provider_id}/round-robin`
+  (section 4). The approval still stands for what remains unported: `POST /v1/providers`,
+  `DELETE /v1/providers/:id`, both verify routes, and `/v1/providers/:id/enabled` as a separate
+  route (its flag lives on the provider `PATCH`).
 
 Do not start until every section above is checked, the parity matrix passes, and the rollback window
 has closed. Then delete, in one commit:
+
+- Web coupling (since 2026-10-06): `apps/web` talks to the Rust surface only. Favorites, hidden
+  models, custom models, and the provider `enabled` flag go through `/v1/models` and the provider
+  `PATCH`, none of which `apps/api` serves. A rollback to `apps/api` has to ship the web bundle
+  from the same commit; the reverse is free.
 
 - [ ] `apps/api/src/**/*.ts`, `apps/api/tests/**/*.ts`, `apps/api/package.json`,
       `apps/api/tsconfig.json`, `apps/api/tsup.config.ts`, `apps/api/heroku.yml`,
