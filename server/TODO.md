@@ -354,17 +354,26 @@ Qoder, Cline, OpenAI, Antigravity, and Claude routes exist in Rust. Source of tr
 - [x] Cline device flow: `/v1/auth/cline/device` (GET) and `/v1/auth/cline/poll` (GET, POST),
       guarded by the admin session. `/v1/auth/cline/token` (contract row 58) remains deliberately
       deferred; the OAuth-only scope is recorded in the Cline plan.
-- [~] Privileged routes: `openai` landed (`features/provider_auth/openai.rs`):
-  `GET /v1/auth/openai/login` (supports `client_id`, `redirect_uri`, `prompt`,
-  `format=json`) and `POST /v1/auth/openai/token` (validated token import, `201`), both
-  admin-guarded. `GET /v1/auth/{codebuddy,codebuddy-cn}/login` and `/poll` (`GET`, `POST`) are implemented as a verified OAuth-only flow: the state comes from CodeBuddy and the connection is persisted only after its token poll returns a non-empty access token. The inference executor landed (`features/providers/codebuddy/`): one `CodeBuddyExecutor` parameterized by `Flavor { Global, China }` serves chat (stream + non-stream aggregation) for both flavors, with models read live from `GET /v3/config` and gated on the flavor's exact `provider_id` connection. There is deliberately no `/token` route (user scope) and no token refresh (the login token is valid ~1 year). `claude` landed (`features/provider_auth/claude.rs`):
-  `GET /v1/auth/claude/login` (supports `client_id`, `redirect_uri`, `scope`, `prompt`,
-  `format=json`, and the `CLAUDE_OAUTH_CLIENT_ID` env override) and
-  `POST /v1/auth/claude/token` (validated token import, `201`), both admin-guarded.
-  Still open: every other `/token` route
-  (`commandcode, anthropic, atria, tokenrouter, qoder`) → validated import, `201`.
-  Tests: `server/tests/codebuddy_auth.rs`, `server/tests/codebuddy_provider.rs`,
-  `server/tests/claude_auth.rs` (fake upstream only).
+- [~] Custom providers and the protocol enum: the per-provider `/token` imports
+  (`commandcode`, `anthropic`, `atria`, `tokenrouter`, `qoder`) leave the backlog in favour of
+  one generic custom-provider surface. `ProviderMetadata.protocol` is a plain `&'static str`
+  today (`"openai"` on eight drivers, `"anthropic"` on `claude`), and the `provider_auth`
+  `Protocol` enum carries only those two variants. The enum target is three values,
+  `openai | anthropic | custom`. Node's `ProviderProtocol` union also lists `gemini`
+  (`packages/types/src/provider.ts:13`), but that value is dead and is not carried over: its only
+  user was the `gemini_cli` provider in `packages/providers/src/catalog.ts`, deleted whole in
+  `e248528`, and nothing declares or branches on it since (`apps/api/src/logic/providers.logic.ts:50`
+  still accepts it in the union check). `custom` is live in Node
+  (`packages/constants/src/providers/kiro.ts:7`), so it stays. Turning the field into that enum
+  is the open work. No custom-provider route is served: `POST /v1/providers` with
+  `category: "custom_provider"` stays the owner-approved Node-only deviation recorded in
+  section 4 and `docs/api-v1-contract.md` ("Providers in the Rust build").
+  Landed already: `openai` (`GET /v1/auth/openai/login`, `POST /v1/auth/openai/token`),
+  `claude` (login, `token`, the `CLAUDE_OAUTH_CLIENT_ID` override), and the CodeBuddy
+  OAuth-only flow (`/v1/auth/{codebuddy,codebuddy-cn}/login` and `/poll`, one
+  `CodeBuddyExecutor` over `Flavor { Global, China }`, catalog from `GET /v3/config`, no
+  `/token`, no refresh). Tests: `server/tests/codebuddy_auth.rs`,
+  `codebuddy_provider.rs`, `claude_auth.rs` (fake upstream only).
 - [x] `antigravity` privileged routes: `GET /v1/auth/antigravity/login` (supports `client_id`,
       `redirect_uri`, `prompt`, `format=json`) and `POST /v1/auth/antigravity/token` (validated
       token import, `201`) in `features/provider_auth/antigravity.rs`, both admin-guarded. D3: the
