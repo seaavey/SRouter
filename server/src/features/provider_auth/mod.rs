@@ -2,6 +2,7 @@
 //! JSON-body helpers every device or callback route shares.
 
 mod antigravity;
+mod claude;
 mod cline;
 mod codebuddy;
 mod grok_web;
@@ -27,6 +28,11 @@ pub use antigravity::{
     create_antigravity_callback_pages_router,
     create_antigravity_callback_pages_router_with_endpoints, create_antigravity_callback_router,
     create_antigravity_callback_router_with_endpoints, create_antigravity_login_router,
+};
+pub use claude::{
+    create_claude_callback_pages_router, create_claude_callback_pages_router_with_endpoints,
+    create_claude_callback_router, create_claude_callback_router_with_endpoints,
+    create_claude_login_router,
 };
 pub use cline::create_cline_login_router;
 pub use codebuddy::{

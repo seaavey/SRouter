@@ -9,6 +9,9 @@ use crate::features::providers::adapter::ProviderAdapter;
 use crate::features::providers::antigravity;
 use crate::features::providers::antigravity::AntigravityExecutor;
 use crate::features::providers::antigravity::types::AntigravityEndpoints;
+use crate::features::providers::claude;
+use crate::features::providers::claude::ClaudeExecutor;
+use crate::features::providers::claude::types::ClaudeEndpoints;
 use crate::features::providers::cline;
 use crate::features::providers::cline::ClineExecutor;
 use crate::features::providers::cline::types::ClineEndpoints;
@@ -88,6 +91,7 @@ impl ProviderRegistry {
         registry.register(codebuddy::adapter(Flavor::Global, database.clone())?);
         registry.register(codebuddy::adapter(Flavor::China, database.clone())?);
         registry.register(antigravity::adapter(database.clone())?);
+        registry.register(claude::adapter(database.clone())?);
         registry.register(codex::adapter(database)?);
 
         Ok(registry)
@@ -135,6 +139,15 @@ impl ProviderRegistry {
         self.adapters
             .values()
             .find_map(|adapter| adapter.downcast_ref::<AntigravityExecutor>())
+            .map(|executor| executor.endpoints().clone())
+    }
+
+    /// The Claude endpoints in use, so the OAuth routes and tests talk to the
+    /// same hosts the executor does.
+    pub fn claude_endpoints(&self) -> Option<ClaudeEndpoints> {
+        self.adapters
+            .values()
+            .find_map(|adapter| adapter.downcast_ref::<ClaudeExecutor>())
             .map(|executor| executor.endpoints().clone())
     }
 

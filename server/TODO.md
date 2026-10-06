@@ -238,9 +238,9 @@ Status legend: `[x]` done and covered by a Rust test, `[ ]` missing, `[~]` parti
 
 ## 4. Providers: management, registry, catalog
 
-Current Rust scope (documented deviation): eight drivers served from the `SEED_PROVIDERS` slice
+Current Rust scope (documented deviation): nine drivers served from the `SEED_PROVIDERS` slice
 (`opencode_zen`, `qoder`, `cline`, `grok-web`, `openai_codex`, `codebuddy`, `codebuddy-cn`,
-`antigravity`), read routes `GET /v1/providers`, `GET /v1/providers/catalog`,
+`antigravity`, `claude`), read routes `GET /v1/providers`, `GET /v1/providers/catalog`,
 `GET /v1/providers/{provider_id}`, one write route `PATCH /v1/providers/{provider_id}` with
 `enabled|hide|restore|favorite|unfavorite` (`features/providers/management/routes.rs`).
 Everything below is still Node-only.
@@ -341,7 +341,7 @@ Everything below is still Node-only.
 
 ## 5. Provider auth (OAuth, device flows, token import) — `features/provider_auth/`
 
-Qoder, Cline, OpenAI, and Antigravity routes exist in Rust. Source of truth for the route list:
+Qoder, Cline, OpenAI, Antigravity, and Claude routes exist in Rust. Source of truth for the route list:
 `docs/api-v1-contract.md`
 "Retained route inventory" (rows 57-65) and `apps/api/src/routes/v1/auth.ts` (34 routes).
 
@@ -351,10 +351,14 @@ Qoder, Cline, OpenAI, and Antigravity routes exist in Rust. Source of truth for 
 - [~] Privileged routes: `openai` landed (`features/provider_auth/openai.rs`):
   `GET /v1/auth/openai/login` (supports `client_id`, `redirect_uri`, `prompt`,
   `format=json`) and `POST /v1/auth/openai/token` (validated token import, `201`), both
-  admin-guarded. `GET /v1/auth/{codebuddy,codebuddy-cn}/login` and `/poll` (`GET`, `POST`) are implemented as a verified OAuth-only flow: the state comes from CodeBuddy and the connection is persisted only after its token poll returns a non-empty access token. The inference executor landed (`features/providers/codebuddy/`): one `CodeBuddyExecutor` parameterized by `Flavor { Global, China }` serves chat (stream + non-stream aggregation) for both flavors, with models read live from `GET /v3/config` and gated on the flavor's exact `provider_id` connection. There is deliberately no `/token` route (user scope) and no token refresh (the login token is valid ~1 year). Still open:
-  `/v1/auth/claude/login` and every other `/token` route
-  (`commandcode, anthropic, atria, claude, tokenrouter, qoder`) → validated import, `201`.
-  Tests: `server/tests/codebuddy_auth.rs`, `server/tests/codebuddy_provider.rs` (fake upstream only).
+  admin-guarded. `GET /v1/auth/{codebuddy,codebuddy-cn}/login` and `/poll` (`GET`, `POST`) are implemented as a verified OAuth-only flow: the state comes from CodeBuddy and the connection is persisted only after its token poll returns a non-empty access token. The inference executor landed (`features/providers/codebuddy/`): one `CodeBuddyExecutor` parameterized by `Flavor { Global, China }` serves chat (stream + non-stream aggregation) for both flavors, with models read live from `GET /v3/config` and gated on the flavor's exact `provider_id` connection. There is deliberately no `/token` route (user scope) and no token refresh (the login token is valid ~1 year). `claude` landed (`features/provider_auth/claude.rs`):
+  `GET /v1/auth/claude/login` (supports `client_id`, `redirect_uri`, `scope`, `prompt`,
+  `format=json`, and the `CLAUDE_OAUTH_CLIENT_ID` env override) and
+  `POST /v1/auth/claude/token` (validated token import, `201`), both admin-guarded.
+  Still open: every other `/token` route
+  (`commandcode, anthropic, atria, tokenrouter, qoder`) → validated import, `201`.
+  Tests: `server/tests/codebuddy_auth.rs`, `server/tests/codebuddy_provider.rs`,
+  `server/tests/claude_auth.rs` (fake upstream only).
 - [x] `antigravity` privileged routes: `GET /v1/auth/antigravity/login` (supports `client_id`,
       `redirect_uri`, `prompt`, `format=json`) and `POST /v1/auth/antigravity/token` (validated
       token import, `201`) in `features/provider_auth/antigravity.rs`, both admin-guarded. D3: the
@@ -366,6 +370,16 @@ Qoder, Cline, OpenAI, and Antigravity routes exist in Rust. Source of truth for 
       translation, the `loadCodeAssist` project bootstrap (D5), the Codex-pattern token refresh
       (D6), and the registry registration (D10, `SEED_PROVIDERS` 7 → 8). Covered by
       `server/tests/antigravity_provider.rs` and the in-file unit tests.
+- [x] `claude` executor: `features/providers/claude/` ports the Anthropic Messages transport over
+      a stored Claude Code OAuth session: the request builder (`system` hoisted, `max_tokens`
+      default `4096`), the buffered response translation, the Anthropic-SSE → OpenAI re-framer, the
+      OAuth headers (`anthropic-version`, the `anthropic-beta` set with the opus/sonnet heavy-agent
+      flags, the CLI fingerprint, `anthropic-organization-id`), the live `/models` catalog gated on
+      the connection, and the Codex-pattern lazy refresh. Registry registration
+      (`SEED_PROVIDERS` 8 → 9). Provenance is recorded in `features/providers/claude/types.rs`
+      (official binary 2.1.291 + four independent public OAuth reimplementations) and
+      `docs/superpowers/plans/2026-10-06-rust-provider-claude.md`. Covered by
+      `server/tests/claude_provider.rs` and the in-file unit tests.
 - [x] `antigravity` not-ported paths, reviewed 2026-10-06: none of them is reachable or contract
       material yet, so this is not pending work. The `image_gen` branch (`requestType: "image_gen"`,
       non-stream `generateContent`) fires only for a model whose id matches `/image|imagen/`, and the
@@ -382,11 +396,12 @@ Qoder, Cline, OpenAI, and Antigravity routes exist in Rust. Source of truth for 
       JSON body, or `callback_url`; missing values → `400`. The browser page
       `GET|POST /auth/qoder/callback` is mounted at the application root (`qoder.rs`) and shares the
       generic `success_page`/`error_page` helpers in `provider_auth/mod.rs` with `openai`.
-- [~] Public routes: `openai` landed — `/v1/auth/openai/callback` (GET, POST) shares
-  `parse_callback` with `qoder` and reads `code` and `state` from query, JSON body, or
-  `callback_url`; missing values → `400`, unknown state → `500`
-  (`Invalid or expired OAuth state parameter`). Still open:
-  `/v1/auth/claude/callback`.
+- [x] Public routes: `openai` and `claude` landed — `/v1/auth/openai/callback` and
+      `/v1/auth/claude/callback` (GET, POST) share `parse_callback` with `qoder` and read
+      `code` and `state` from query, JSON body, or `callback_url`; missing values → `400`,
+      unknown state → `500` (`Invalid or expired OAuth state parameter`). The browser pages
+      `GET|POST /auth/{openai,claude}/callback` are mounted at the application root. Covered by
+      `server/tests/claude_auth.rs` (fake upstream only).
 - [x] `antigravity` public route: `/v1/auth/antigravity/callback` (GET, POST) shares
       `parse_callback` and reads `code` and `state` from query, JSON body, or `callback_url`;
       missing values → `400`, unknown state → `500`. The browser page
@@ -406,9 +421,8 @@ Qoder, Cline, OpenAI, and Antigravity routes exist in Rust. Source of truth for 
       invoking each provider's `sweep_tokens()` method (Codex, Cline, Antigravity) with a 5-second
       initial delay and 60-second background ticker in `main.rs`. Verified in
       `server/tests/codex_provider.rs`.
-- Not a backlog item: the `CLAUDE_OAUTH_CLIENT_ID` env override belongs to the `claude` provider,
-  which Rust does not port at all (the `/v1/auth/claude/login` and `/callback` rows are still
-  open above). It becomes relevant only if that provider lands.
+- [x] Env override `CLAUDE_OAUTH_CLIENT_ID`: honored by the `claude` login route (falls back to the
+      constant), since the provider now lands. Covered by the in-file `claude` route tests.
 - Policy, not a work item: tests for this slice use fake upstreams only
   (`server/tests/provider_auth.rs`), never real provider credentials.
   Legacy evidence to read as oracle: `auth-providers.test.ts`, `token-refresh.test.ts`,

@@ -3,6 +3,7 @@
 //! queries that read and write the `providers.credentials` column.
 
 mod antigravity;
+mod claude;
 mod cline;
 mod codebuddy;
 mod codex;
@@ -14,6 +15,10 @@ use serde_json::Value;
 pub use antigravity::{
     AntigravityConnectionWrite, AntigravityCredentials, load_antigravity_credentials,
     update_antigravity_project_id, update_antigravity_tokens, upsert_antigravity_connection,
+};
+pub use claude::{
+    ClaudeConnectionWrite, ClaudeCredentials, load_claude_credentials, update_claude_tokens,
+    upsert_claude_connection,
 };
 pub use cline::{
     ClineConnectionWrite, ClineCredentials, load_cline_credentials, update_cline_tokens,

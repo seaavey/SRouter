@@ -451,6 +451,51 @@ pub mod providers {
         }
     }
 
+    /// Messages of the `claude` OAuth routes and executor: starting the Claude
+    /// Code PKCE flow, the callback exchange, importing a token, and the typed
+    /// upstream errors. Wording is frozen against
+    /// `apps/api/src/services/authHandlers.ts` (`AuthHandlers.Claude`) and
+    /// `packages/providers/src/oauth/claude.ts` (`ClaudeOAuth`).
+    pub mod claude {
+        pub const OAUTH_SUCCESS: &str = "Login Claude Code OAuth Berhasil!";
+        pub const TOKEN_IMPORT_SUCCESS: &str =
+            "Claude Code OAuth token registered and saved directly to SQLite database!";
+        pub const MISSING_ACCESS_TOKEN: &str = "Missing required 'accessToken' parameter";
+        pub const INVALID_JSON_BODY: &str = "Invalid JSON body";
+        pub const EMPTY_TOKEN_RESPONSE: &str = "Claude OAuth Exchange returned no access token";
+        pub const NOT_CONNECTED: &str = "No active Claude Code connection found. Connect the Claude account in the Providers tab.";
+        pub const DATABASE_REQUIRED: &str =
+            "no database is configured; the Claude connection cannot be read";
+        pub const TOKEN_EXPIRED: &str =
+            "The Claude OAuth token has expired; reconnect the Claude account.";
+
+        pub fn exchange_failed(status: u16) -> String {
+            format!("Claude OAuth Exchange Failed ({status})")
+        }
+
+        pub fn exchange_transport_failed(error: impl std::fmt::Display) -> String {
+            format!("Claude OAuth Exchange Failed: {error}")
+        }
+
+        pub fn refresh_failed(status: u16) -> String {
+            format!("Claude OAuth Refresh Failed ({status})")
+        }
+
+        pub fn refresh_transport_failed(error: impl std::fmt::Display) -> String {
+            format!("Claude OAuth Refresh Failed: {error}")
+        }
+
+        /// The typed upstream error the Node `AnthropicExecutor` raises.
+        pub fn provider_error(status: u16, detail: &str) -> String {
+            format!("Anthropic API Error ({status}): {detail}")
+        }
+
+        /// The typed streaming upstream error the Node `AnthropicExecutor` raises.
+        pub fn provider_stream_error(status: u16, detail: &str) -> String {
+            format!("Anthropic API Stream Error ({status}): {detail}")
+        }
+    }
+
     /// Messages of the `openai_codex` OAuth routes: starting the authorization
     /// code flow and importing a token. Wording is frozen against
     /// `apps/api/src/services/authHandlers.ts` (`AuthHandlers.OpenAI`).

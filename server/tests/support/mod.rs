@@ -23,6 +23,7 @@ use srouter_server::features::admin_auth::AdminSessionStore;
 use srouter_server::features::api_keys::{APIKeyRecord, APIKeyStore};
 use srouter_server::features::provider_auth::CodeBuddyAuthEndpoints;
 use srouter_server::features::providers::antigravity::{self, AntigravityEndpoints};
+use srouter_server::features::providers::claude::{self, ClaudeEndpoints};
 use srouter_server::features::providers::cline::{self, ClineEndpoints};
 use srouter_server::features::providers::codebuddy::{self, Flavor, types::CodeBuddyEndpoints};
 use srouter_server::features::providers::codex::{self, CodexEndpoints};
@@ -33,10 +34,11 @@ use srouter_server::infrastructure::database::AppDatabase;
 use srouter_server::infrastructure::database::admin_auth::SQLxAdminAuthStore;
 use srouter_server::infrastructure::database::api_keys::SQLxAPIKeyStore;
 use srouter_server::infrastructure::database::providers::{
-    AntigravityConnectionWrite, ClineConnectionWrite, CodeBuddyConnectionWrite,
-    CodexConnectionWrite, GrokWebConnectionWrite, QoderConnectionWrite,
-    upsert_antigravity_connection, upsert_cline_connection, upsert_codebuddy_connection,
-    upsert_codex_connection, upsert_grok_web_connection, upsert_qoder_connection,
+    AntigravityConnectionWrite, ClaudeConnectionWrite, ClineConnectionWrite,
+    CodeBuddyConnectionWrite, CodexConnectionWrite, GrokWebConnectionWrite, QoderConnectionWrite,
+    upsert_antigravity_connection, upsert_claude_connection, upsert_cline_connection,
+    upsert_codebuddy_connection, upsert_codex_connection, upsert_grok_web_connection,
+    upsert_qoder_connection,
 };
 use srouter_server::{APIConfig, APIError, AppState, SecurityState};
 use tokio::net::TcpListener;
@@ -2752,6 +2754,227 @@ async fn fake_chat_completion(
         "echo": payload
     }))
     .into_response()
+}
+
+/// The recorded state of the fake Claude upstream: the OAuth token leg, the
+/// Anthropic Messages leg, and the live `/models` leg.
+#[derive(Debug)]
+pub struct FakeClaudeState {
+    /// The access token an `authorization_code` or `refresh_token` grant returns.
+    pub access_token: String,
+    pub refresh_token: String,
+    pub token_requests: usize,
+    pub chat_requests: usize,
+    pub model_requests: usize,
+    pub last_token_body: String,
+    pub last_authorization: String,
+    pub last_anthropic_beta: String,
+    pub last_chat_body: serde_json::Value,
+    /// `stream` to answer SSE, anything else a buffered Anthropic body.
+    pub chat_mode: String,
+}
+
+impl Default for FakeClaudeState {
+    fn default() -> Self {
+        Self {
+            access_token: "sk-ant-oat01-fresh".to_owned(),
+            refresh_token: "sk-ant-ort01-rotated".to_owned(),
+            token_requests: 0,
+            chat_requests: 0,
+            model_requests: 0,
+            last_token_body: String::new(),
+            last_authorization: String::new(),
+            last_anthropic_beta: String::new(),
+            last_chat_body: serde_json::Value::Null,
+            chat_mode: "default".to_owned(),
+        }
+    }
+}
+
+type SharedClaudeState = Arc<StdMutex<FakeClaudeState>>;
+
+/// A local stand-in for the Anthropic host: the Claude OAuth token leg, the
+/// Messages leg, and the live model list, on a random loopback port.
+pub struct FakeClaudeUpstream {
+    base_url: String,
+    state: SharedClaudeState,
+    task: JoinHandle<()>,
+}
+
+impl FakeClaudeUpstream {
+    pub async fn start() -> Self {
+        let state: SharedClaudeState = Arc::new(StdMutex::new(FakeClaudeState::default()));
+        let router = Router::new()
+            .route("/messages", post(claude_chat))
+            .route("/models", get(claude_models))
+            .route("/token", post(claude_token))
+            .with_state(state.clone());
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind the fake Claude upstream");
+        let address = listener.local_addr().expect("fake Claude upstream address");
+        let task = tokio::spawn(async move {
+            let _ = axum::serve(listener, router).await;
+        });
+
+        Self {
+            base_url: format!("http://{address}"),
+            state,
+            task,
+        }
+    }
+
+    /// Endpoints pointing every Claude URL at this fake.
+    pub fn endpoints(&self) -> ClaudeEndpoints {
+        ClaudeEndpoints {
+            chat_url: format!("{}/messages", self.base_url),
+            models_url: format!("{}/models", self.base_url),
+            token_url: format!("{}/token", self.base_url),
+        }
+    }
+
+    /// Runs an edit against the recorded state.
+    pub fn with<F, R>(&self, edit: F) -> R
+    where
+        F: FnOnce(&mut FakeClaudeState) -> R,
+    {
+        edit(&mut self.state.lock().expect("fake Claude state"))
+    }
+
+    pub fn token_requests(&self) -> usize {
+        self.with(|state| state.token_requests)
+    }
+
+    pub fn chat_requests(&self) -> usize {
+        self.with(|state| state.chat_requests)
+    }
+
+    pub fn model_requests(&self) -> usize {
+        self.with(|state| state.model_requests)
+    }
+}
+
+impl Drop for FakeClaudeUpstream {
+    fn drop(&mut self) {
+        self.task.abort();
+    }
+}
+
+/// The Claude OAuth token leg: a JSON body distinguishes the grants.
+async fn claude_token(State(state): State<SharedClaudeState>, body: String) -> Response {
+    let (access, refresh) = {
+        let mut guard = state.lock().expect("fake Claude state");
+        guard.token_requests += 1;
+        guard.last_token_body = body.clone();
+        (guard.access_token.clone(), guard.refresh_token.clone())
+    };
+
+    Json(serde_json::json!({
+        "access_token": access,
+        "refresh_token": refresh,
+        "expires_in": 3600,
+        "token_type": "Bearer",
+        "organization_id": "org-fake"
+    }))
+    .into_response()
+}
+
+/// The Anthropic Messages leg: a buffered body or a two-delta SSE stream.
+async fn claude_chat(
+    State(state): State<SharedClaudeState>,
+    headers: HeaderMap,
+    Json(payload): Json<serde_json::Value>,
+) -> Response {
+    let mode = {
+        let mut guard = state.lock().expect("fake Claude state");
+        guard.chat_requests += 1;
+        guard.last_authorization = header_text(&headers, "authorization");
+        guard.last_anthropic_beta = header_text(&headers, "anthropic-beta");
+        guard.last_chat_body = payload.clone();
+        guard.chat_mode.clone()
+    };
+
+    if payload.get("stream").and_then(serde_json::Value::as_bool) == Some(true) || mode == "stream"
+    {
+        let sse = concat!(
+            "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_fake\"}}\n\n",
+            "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"delta\":{\"type\":\"text_delta\",\"text\":\"Hello\"}}\n\n",
+            "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"delta\":{\"type\":\"text_delta\",\"text\":\" world\"}}\n\n",
+            "event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n"
+        );
+        return Response::builder()
+            .status(StatusCode::OK)
+            .header(header::CONTENT_TYPE, "text/event-stream")
+            .body(Body::from(sse))
+            .expect("fake Claude stream");
+    }
+
+    Json(serde_json::json!({
+        "id": "msg_fake",
+        "type": "message",
+        "role": "assistant",
+        "model": payload.get("model").and_then(serde_json::Value::as_str).unwrap_or("claude"),
+        "content": [{ "type": "text", "text": "fake upstream reply" }],
+        "stop_reason": "end_turn",
+        "usage": { "input_tokens": 5, "output_tokens": 7 }
+    }))
+    .into_response()
+}
+
+/// The live model list leg, in the Anthropic `{ "data": [...] }` shape.
+async fn claude_models(State(state): State<SharedClaudeState>) -> Response {
+    state.lock().expect("fake Claude state").model_requests += 1;
+
+    Json(serde_json::json!({
+        "data": [
+            { "id": "claude-sonnet-4-5", "display_name": "Sonnet" },
+            { "id": "claude-opus-4-1" }
+        ]
+    }))
+    .into_response()
+}
+
+/// Stores the fixture Claude connection.
+pub async fn connect_claude(database: &TestDatabase) {
+    let app_database = database.connect().await.expect("temporary database");
+    upsert_claude_connection(
+        &app_database,
+        &ClaudeConnectionWrite {
+            id: "claude_fixture".to_owned(),
+            name: "Claude fixture".to_owned(),
+            access_token: "sk-ant-oat01-fixture".to_owned(),
+            refresh_token: Some("sk-ant-ort01-fixture".to_owned()),
+            expires_at: Some(srouter_server::clock::now_ms() + 86_400_000),
+            organization_id: Some("org-fixture".to_owned()),
+        },
+    )
+    .await
+    .expect("Claude connection stored");
+}
+
+/// A registry whose `claude` adapter points at the fake upstream.
+pub fn claude_registry(
+    database: Option<AppDatabase>,
+    fake: &FakeClaudeUpstream,
+) -> ProviderRegistry {
+    let mut providers = ProviderRegistry::new();
+    providers.register(opencode::adapter().expect("opencode_zen adapter"));
+    providers.register(
+        claude::adapter_with_endpoints(fake.endpoints(), database).expect("claude adapter"),
+    );
+
+    providers
+}
+
+/// Application state wired to the fake Claude upstream and the given database.
+pub fn claude_state(
+    database: AppDatabase,
+    security: SecurityState,
+    fake: &FakeClaudeUpstream,
+) -> AppState {
+    let providers = claude_registry(Some(database.clone()), fake);
+
+    AppState::with_security(test_config(), providers, security).with_database(database)
 }
 
 fn unique_temp_directory() -> std::io::Result<PathBuf> {
