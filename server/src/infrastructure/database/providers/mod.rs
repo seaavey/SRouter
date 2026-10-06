@@ -10,9 +10,10 @@ mod credentials;
 
 pub(crate) use connections::{PROVIDER_ENABLED_PREFIX, matches_base_id};
 pub use connections::{
-    ProviderConnection, ProviderForQuota, ProviderPatch, add_favorite_model, apply_provider_patch,
-    clear_model_hidden, list_connections, list_providers_for_quota, provider_enabled,
-    provider_exists, remove_favorite_model, set_model_hidden,
+    ProviderConnection, ProviderForQuota, ProviderPatch, add_custom_model, add_favorite_model,
+    apply_provider_patch, clear_model_hidden, custom_model_ids_for_provider, list_connections,
+    list_custom_models, list_providers_for_quota, provider_enabled, provider_exists,
+    remove_custom_model, remove_favorite_model, set_model_hidden,
 };
 pub use credentials::{
     AntigravityConnectionWrite, AntigravityCredentials, ClaudeConnectionWrite, ClaudeCredentials,

@@ -271,14 +271,17 @@ Everything below is still Node-only.
 - [x] Bare model ids advertised by multiple drivers rotate deterministically across matching
       adapters in `ProviderRegistry::resolve`; provider-prefixed requests remain pinned to the
       requested driver. Per-model selection state is shared across registry clones.
-- [x] `GET /v1/providers/{providerId}/hidden-models` — Node returns `{models:[...]}`. Served for
-      parity, together with the single-model `POST` (hide, `201`) and `DELETE /{modelId}` (restore,
-      `404` when not hidden) routes, so the web's `useProvider` hidden flow works unchanged
-      (`features/providers/management/routes.rs`, `server/tests/providers.rs`). `/v1/favorites`
-      is served too (`GET` API-key, `POST` admin `201`, `DELETE /{modelId}` `404`), matching
-      `apps/api/src/controllers/favorites.controller.ts`; the web's `useFavorites` calls it. The
-      provider `PATCH` remains the batch surface, and the detail payload still carries the per-model
-      `hidden`/`favorite` flags. The contract's "Providers in the Rust build" bullets were updated.
+- [x] Every model-level operation lives under `/v1/models`, so a model is managed there and nowhere
+      else: `GET /v1/models` (list), `GET /v1/models/{*model}`, `POST` (register a custom model,
+      `201`/`200`), `PUT /{*model}` (idempotent upsert), `PATCH /{*model}` (`favorite`/`hidden`),
+      and `DELETE /{*model}` (remove a custom model, `404` when absent). The provider is inferred
+      from the id prefix (`claude/...`, `zen/...`); a custom model is stored bare and re-prefixed
+      with the provider alias when the catalog merges it, and the entry carries `custom: true`,
+      mirroring Node's `MergeCustomModels`. Reads keep the API-key guard, writes the admin session
+      (`features/gateway/{models,routes}.rs`, `server/tests/{models,providers}.rs`). This replaces
+      the former `/v1/favorites*`, `/v1/providers/{id}/hidden-models*`, and provider-model routes;
+      the provider `PATCH` stays the provider-level surface (`enabled`) and the provider detail
+      still carries the per-model `hidden`/`favorite` flags.
 - [x] Catalog provenance: record an allowed independent source for every built-in provider entry
       and model list (`docs/api-v1-contract.md` "Scope"). The `qoder` entry is recorded, and its
       models are read from upstream; `features/providers/qoder/types.rs` keeps only the alias table

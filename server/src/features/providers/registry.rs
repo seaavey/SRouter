@@ -182,6 +182,22 @@ impl ProviderRegistry {
         }
     }
 
+    /// The user-facing alias of a provider base id, so a stored custom model can
+    /// be listed under the same prefix the catalog advertises.
+    pub fn alias_of(&self, base_id: &str) -> Option<&'static str> {
+        self.adapters
+            .values()
+            .find(|adapter| adapter.id().eq_ignore_ascii_case(base_id))
+            .map(|adapter| adapter.alias())
+    }
+
+    /// The base id a model-id prefix (a provider id or alias) names.
+    pub fn base_id_of_prefix(&self, prefix: &str) -> Option<&'static str> {
+        self.adapters
+            .get(&prefix.to_lowercase())
+            .map(|adapter| adapter.id())
+    }
+
     /// Resolves `<provider>/<model>` or `<alias>/<model>`. A bare model id is
     /// resolved against the providers that advertise it.
     pub fn resolve(&self, model: &str) -> Option<ResolvedModel> {

@@ -3,7 +3,7 @@
 //! are read here; credentials live in the `credentials` submodule.
 
 use serde_json::Value;
-use sqlx::{Sqlite, Transaction};
+use sqlx::{Row, Sqlite, Transaction};
 
 use crate::clock::now_ms;
 use crate::constants;
@@ -413,7 +413,7 @@ async fn unfavorite_model(
     Ok(removed > 0)
 }
 
-/// The single-model write behind `POST /v1/providers/:id/hidden-models`: hides
+/// The write behind `PATCH /v1/models/{id}` with `hidden: true`: hides
 /// one model for one provider. The caller normalizes the provider to its base id.
 pub async fn set_model_hidden(
     database: &AppDatabase,
@@ -438,7 +438,7 @@ pub async fn set_model_hidden(
     })
 }
 
-/// The single-model write behind `DELETE /v1/providers/:id/hidden-models/:modelId`:
+/// The write behind `PATCH /v1/models/{id}` with `hidden: false`: restores
 /// restores one model. Returns whether it was hidden, so the route can answer `404`.
 pub async fn clear_model_hidden(
     database: &AppDatabase,
@@ -465,7 +465,8 @@ pub async fn clear_model_hidden(
     Ok(cleared)
 }
 
-/// The write behind `POST /v1/favorites`: favorites one model, globally.
+/// The write behind `PATCH /v1/models/{id}` with `favorite: true`: favorites one
+/// model, globally.
 pub async fn add_favorite_model(database: &AppDatabase, model_id: &str) -> Result<(), APIError> {
     let pool = database.sqlite_required(constants::database::PROVIDERS_UNSUPPORTED)?;
     let mut transaction = pool.begin().await.map_err(|error| {
@@ -485,8 +486,8 @@ pub async fn add_favorite_model(database: &AppDatabase, model_id: &str) -> Resul
     })
 }
 
-/// The write behind `DELETE /v1/favorites/:modelId`. Returns whether a row was
-/// removed, so the route can answer `404` like Node.
+/// The write behind `PATCH /v1/models/{id}` with `favorite: false`. Returns
+/// whether a row was removed.
 pub async fn remove_favorite_model(
     database: &AppDatabase,
     model_id: &str,
@@ -509,6 +510,191 @@ pub async fn remove_favorite_model(
     })?;
 
     Ok(removed)
+}
+
+/// The write behind `POST /v1/models` (and `PUT`): flags one model as a custom
+/// model of `base_id`. The row carries `custom = 1` and keeps any `hidden` flag
+/// it already had, because schema v2 merged the custom and hidden tables.
+pub async fn add_custom_model(
+    database: &AppDatabase,
+    base_id: &str,
+    model_id: &str,
+) -> Result<(), APIError> {
+    let pool = database.sqlite_required(constants::database::PROVIDERS_UNSUPPORTED)?;
+    let mut transaction = pool.begin().await.map_err(|error| {
+        APIError::new(
+            500,
+            constants::database::could_not_start_provider_update(&error),
+        )
+    })?;
+
+    let model_id = model_id.to_lowercase();
+    let updated = sqlx::query(
+        "UPDATE provider_model_overrides SET custom = 1 \
+         WHERE provider_id = ? AND lower(model_id) = ?",
+    )
+    .bind(base_id)
+    .bind(&model_id)
+    .execute(&mut *transaction)
+    .await
+    .map_err(|error| APIError::new(500, constants::database::could_not_add_custom_model(&error)))?
+    .rows_affected();
+
+    if updated == 0 {
+        sqlx::query(
+            "INSERT INTO provider_model_overrides (provider_id, model_id, custom, hidden, created_at) \
+             VALUES (?, ?, 1, 0, ?)",
+        )
+        .bind(base_id)
+        .bind(&model_id)
+        .bind(now_ms())
+        .execute(&mut *transaction)
+        .await
+        .map_err(|error| {
+            APIError::new(500, constants::database::could_not_add_custom_model(&error))
+        })?;
+    }
+
+    transaction.commit().await.map_err(|error| {
+        APIError::new(
+            500,
+            constants::database::could_not_commit_provider_update(&error),
+        )
+    })
+}
+
+/// The write behind `DELETE /v1/models/{id}`. Clears the custom flag of one
+/// model, then drops the row when it carried nothing else. Returns whether a
+/// custom row was removed, so the route can answer `404`.
+pub async fn remove_custom_model(
+    database: &AppDatabase,
+    base_id: &str,
+    model_id: &str,
+) -> Result<bool, APIError> {
+    let pool = database.sqlite_required(constants::database::PROVIDERS_UNSUPPORTED)?;
+    let mut transaction = pool.begin().await.map_err(|error| {
+        APIError::new(
+            500,
+            constants::database::could_not_start_provider_update(&error),
+        )
+    })?;
+
+    let model_id = model_id.to_lowercase();
+    let cleared = sqlx::query(
+        "UPDATE provider_model_overrides SET custom = 0 \
+         WHERE provider_id = ? AND lower(model_id) = ? AND custom = 1",
+    )
+    .bind(base_id)
+    .bind(&model_id)
+    .execute(&mut *transaction)
+    .await
+    .map_err(|error| {
+        APIError::new(
+            500,
+            constants::database::could_not_remove_custom_model(&error),
+        )
+    })?
+    .rows_affected();
+
+    sqlx::query(
+        "DELETE FROM provider_model_overrides \
+         WHERE provider_id = ? AND lower(model_id) = ? AND custom = 0 AND hidden = 0",
+    )
+    .bind(base_id)
+    .bind(&model_id)
+    .execute(&mut *transaction)
+    .await
+    .map_err(|error| {
+        APIError::new(
+            500,
+            constants::database::could_not_remove_custom_model(&error),
+        )
+    })?;
+
+    transaction.commit().await.map_err(|error| {
+        APIError::new(
+            500,
+            constants::database::could_not_commit_provider_update(&error),
+        )
+    })?;
+
+    Ok(cleared > 0)
+}
+
+/// The custom model ids one provider carries, in insertion order, for the
+/// `/v1/models` list and the single-model lookup.
+pub async fn custom_model_ids_for_provider(
+    database: &AppDatabase,
+    base_id: &str,
+) -> Result<Vec<String>, APIError> {
+    let Some(pool) = database.sqlite_pool() else {
+        return Ok(Vec::new());
+    };
+
+    let rows = sqlx::query(
+        "SELECT model_id FROM provider_model_overrides \
+         WHERE provider_id = ? AND custom = 1 ORDER BY created_at ASC",
+    )
+    .bind(base_id)
+    .fetch_all(&pool)
+    .await
+    .map_err(|error| {
+        APIError::new(
+            500,
+            constants::database::could_not_read_custom_models(&error),
+        )
+    })?;
+
+    rows.iter()
+        .map(|row| {
+            row.try_get::<String, _>("model_id").map_err(|error| {
+                APIError::new(
+                    500,
+                    constants::database::could_not_read_custom_model_id(&error),
+                )
+            })
+        })
+        .collect()
+}
+
+/// Every custom model as `(provider_id, model_id)`, in insertion order, so the
+/// catalog can merge them under their provider's alias.
+pub async fn list_custom_models(database: &AppDatabase) -> Result<Vec<(String, String)>, APIError> {
+    let Some(pool) = database.sqlite_pool() else {
+        return Ok(Vec::new());
+    };
+
+    let rows = sqlx::query(
+        "SELECT provider_id, model_id FROM provider_model_overrides \
+         WHERE custom = 1 ORDER BY created_at ASC",
+    )
+    .fetch_all(&pool)
+    .await
+    .map_err(|error| {
+        APIError::new(
+            500,
+            constants::database::could_not_read_custom_models(&error),
+        )
+    })?;
+
+    rows.iter()
+        .map(|row| {
+            let provider_id = row.try_get::<String, _>("provider_id").map_err(|error| {
+                APIError::new(
+                    500,
+                    constants::database::could_not_read_custom_model_id(&error),
+                )
+            })?;
+            let model_id = row.try_get::<String, _>("model_id").map_err(|error| {
+                APIError::new(
+                    500,
+                    constants::database::could_not_read_custom_model_id(&error),
+                )
+            })?;
+
+            Ok((provider_id, model_id))
+        })
+        .collect()
 }
 
 /// The settings key holding a provider's enabled flag. Normalized to the base

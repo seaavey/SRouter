@@ -9,7 +9,9 @@ use crate::features::admin_auth::create_admin_router;
 use crate::features::api_keys::create_api_keys_router;
 use crate::features::catalog::create_quota_router;
 use crate::features::database_transfer::create_database_router;
-use crate::features::gateway::routes::{create_gateway_router, create_models_router};
+use crate::features::gateway::routes::{
+    create_gateway_router, create_models_read_router, create_models_write_router,
+};
 use crate::features::logs::create_logs_router;
 use crate::features::provider_auth::{
     create_antigravity_callback_pages_router, create_antigravity_callback_router,
@@ -81,7 +83,11 @@ pub fn create_router(state: AppState) -> Router {
     // `GET /v1/models` lists API-key auth, so polling must not consume the
     // chat/messages window.
     let models_routes =
-        create_models_router().layer(from_fn_with_state(state.clone(), api_key_auth));
+        create_models_read_router().layer(from_fn_with_state(state.clone(), api_key_auth));
+    // The model writes are operator actions, so they carry the admin-session
+    // guard. Every model-level operation lives under `/v1/models`.
+    let models_write_routes = create_models_write_router()
+        .layer(from_fn_with_state(state.clone(), require_admin_session));
     // Key management is admin-session only, so it carries its own guard instead
     // of the gateway's API-key/auth-session chain.
     let keys_routes =
@@ -139,6 +145,7 @@ pub fn create_router(state: AppState) -> Router {
     let v1_routes = gateway_routes
         .clone()
         .merge(models_routes.clone())
+        .merge(models_write_routes)
         .merge(keys_routes)
         .merge(create_admin_router())
         .merge(qoder_login_routes)

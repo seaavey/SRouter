@@ -24,7 +24,7 @@ pub mod token_saver;
 pub mod translation;
 
 pub use images::create_image;
-pub use routes::{create_gateway_router, create_models_router};
+pub use routes::{create_gateway_router, create_models_read_router, create_models_write_router};
 
 #[derive(Clone)]
 pub(crate) struct RequestLogContext {

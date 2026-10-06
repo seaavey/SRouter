@@ -1,12 +1,14 @@
 use axum::{
     Router,
-    routing::{get, post},
+    routing::{get, post, put},
 };
 
 use crate::features::gateway::chat::create_completion;
 use crate::features::gateway::images::create_image;
 use crate::features::gateway::messages::{count_tokens, create_message};
-use crate::features::gateway::models::{get_model, list_models};
+use crate::features::gateway::models::{
+    create_model, delete_model, get_model, list_models, patch_model, put_model,
+};
 use crate::state::AppState;
 
 /// Mounts the chat, messages, and images routes. The composition root layers the rate
@@ -22,13 +24,21 @@ pub fn create_gateway_router() -> Router<AppState> {
         .route("/images/generations", post(create_image))
 }
 
-/// Mounts the model catalog routes. Node applies only `ApiKeyAuth` here, never
-/// the rate limiter (`apps/api/src/routes/v1/models.ts`), and the contract
-/// lists `GET /v1/models` as API-key auth, so the composition root layers the
-/// API-key guard over this router without the limiter: catalog polling must
-/// not consume the chat/messages window.
-pub fn create_models_router() -> Router<AppState> {
+/// The model reads: the catalog list and one model. Node applies only
+/// `ApiKeyAuth` here, never the rate limiter, so catalog polling must not
+/// consume the chat/messages window.
+pub fn create_models_read_router() -> Router<AppState> {
     Router::new()
         .route("/models", get(list_models))
         .route("/models/{*model}", get(get_model))
+}
+
+/// The model writes: create, upsert, update state, and delete a model. Every
+/// model-level operation lives under `/v1/models`, so a model is managed here
+/// and nowhere else. The composition root layers the admin-session guard.
+pub fn create_models_write_router() -> Router<AppState> {
+    Router::new().route("/models", post(create_model)).route(
+        "/models/{*model}",
+        put(put_model).patch(patch_model).delete(delete_model),
+    )
 }
