@@ -9,7 +9,7 @@
 
 use std::path::PathBuf;
 
-use crate::features::providers::model::ProviderMetadata;
+use crate::features::providers::model::{ProviderMetadata, ProviderProtocol};
 
 /// Chat endpoint of the global flavor. The Node oracle stores the full
 /// completions URL as its base; the executor POSTs to it verbatim.
@@ -42,7 +42,7 @@ pub const CODEBUDDY_PROVIDER: ProviderMetadata = ProviderMetadata {
     id: "codebuddy",
     name: "CodeBuddy",
     category: "oauth",
-    protocol: "openai",
+    protocol: ProviderProtocol::OpenAI,
     base_url: CODEBUDDY_CHAT_URL,
     web_url: CODEBUDDY_WEB_URL,
     alias: "codebuddy",
@@ -56,7 +56,7 @@ pub const CODEBUDDY_CN_PROVIDER: ProviderMetadata = ProviderMetadata {
     id: "codebuddy-cn",
     name: "CodeBuddy CN",
     category: "oauth",
-    protocol: "openai",
+    protocol: ProviderProtocol::OpenAI,
     base_url: CODEBUDDY_CN_CHAT_URL,
     web_url: CODEBUDDY_CN_WEB_URL,
     alias: "codebuddy-cn",

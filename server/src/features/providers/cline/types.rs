@@ -8,7 +8,7 @@
 //! - `apps/web/src/components/providers/providers.oauth-flow.tsx`
 //! - `docs/api-v1-contract.md` rows 57-58
 
-use crate::features::providers::model::ProviderMetadata;
+use crate::features::providers::model::{ProviderMetadata, ProviderProtocol};
 
 /// API root for chat, the model catalog, and the token refresh call.
 pub const CLINE_BASE_URL: &str = "https://api.cline.bot/api/v1";
@@ -33,7 +33,7 @@ pub const CLINE_PROVIDER: ProviderMetadata = ProviderMetadata {
     id: "cline",
     name: "Cline",
     category: "oauth",
-    protocol: "openai",
+    protocol: ProviderProtocol::OpenAI,
     base_url: CLINE_BASE_URL,
     web_url: CLINE_WEB_URL,
     alias: "cline",

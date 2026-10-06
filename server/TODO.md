@@ -356,18 +356,19 @@ Qoder, Cline, OpenAI, Antigravity, and Claude routes exist in Rust. Source of tr
       deferred; the OAuth-only scope is recorded in the Cline plan.
 - [~] Custom providers and the protocol enum: the per-provider `/token` imports
   (`commandcode`, `anthropic`, `atria`, `tokenrouter`, `qoder`) leave the backlog in favour of
-  one generic custom-provider surface. `ProviderMetadata.protocol` is a plain `&'static str`
-  today (`"openai"` on eight drivers, `"anthropic"` on `claude`), and the `provider_auth`
-  `Protocol` enum carries only those two variants. The enum target is three values,
-  `openai | anthropic | custom`. Node's `ProviderProtocol` union also lists `gemini`
-  (`packages/types/src/provider.ts:13`), but that value is dead and is not carried over: its only
-  user was the `gemini_cli` provider in `packages/providers/src/catalog.ts`, deleted whole in
-  `e248528`, and nothing declares or branches on it since (`apps/api/src/logic/providers.logic.ts:50`
-  still accepts it in the union check). `custom` is live in Node
-  (`packages/constants/src/providers/kiro.ts:7`), so it stays. Turning the field into that enum
-  is the open work. No custom-provider route is served: `POST /v1/providers` with
-  `category: "custom_provider"` stays the owner-approved Node-only deviation recorded in
-  section 4 and `docs/api-v1-contract.md` ("Providers in the Rust build").
+  one generic custom-provider surface. The protocol enum landed:
+  `ProviderProtocol { OpenAI, Anthropic, Custom }` in `features/providers/model.rs`, serialized
+  lowercase, carried by `ProviderMetadata.protocol` and by the `ProviderEntry` response type, with
+  the connect responses re-exporting it as `Protocol`. Every driver names a variant instead of a
+  string. Three variants, matching what the build serves: Node's `ProviderProtocol` union also
+  lists `gemini` (`packages/types/src/provider.ts:13`), but that value is dead and was not carried
+  over, since its only user was the `gemini_cli` provider deleted with
+  `packages/providers/src/catalog.ts` in `e248528` and nothing declares or branches on it since
+  (`apps/api/src/logic/providers.logic.ts:50` still accepts it in the union check). `custom` is
+  live in Node (`packages/constants/src/providers/kiro.ts:7`), so it stays. Still open: no
+  custom-provider route is served, so `POST /v1/providers` with `category: "custom_provider"`
+  stays the owner-approved Node-only deviation recorded in section 4 and
+  `docs/api-v1-contract.md` ("Providers in the Rust build").
   Landed already: `openai` (`GET /v1/auth/openai/login`, `POST /v1/auth/openai/token`),
   `claude` (login, `token`, the `CLAUDE_OAUTH_CLIENT_ID` override), and the CodeBuddy
   OAuth-only flow (`/v1/auth/{codebuddy,codebuddy-cn}/login` and `/poll`, one

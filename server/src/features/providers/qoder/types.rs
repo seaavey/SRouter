@@ -7,7 +7,7 @@
 //! - public protocol docs: `pi-qoder-provider` (npm), `qoder2api`, `qodercli2api`, `docs.qoder.com`
 //! - `apps/docs/src/pages/docs/concepts/providers-routing.md`
 
-use crate::features::providers::model::ProviderMetadata;
+use crate::features::providers::model::{ProviderMetadata, ProviderProtocol};
 
 /// Gateway root for chat and the model catalog. China/VPC hosts are a follow-up.
 pub const QODER_BASE_URL: &str = "https://api3.qoder.sh";
@@ -47,7 +47,7 @@ pub const QODER_PROVIDER: ProviderMetadata = ProviderMetadata {
     id: "qoder",
     name: "Qoder",
     category: "oauth",
-    protocol: "openai",
+    protocol: ProviderProtocol::OpenAI,
     base_url: QODER_BASE_URL,
     web_url: QODER_WEB_URL,
     alias: "qd",

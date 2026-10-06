@@ -22,7 +22,7 @@
 //!   per-connection `base_url` is not honored, and the OpenAI-compatible
 //!   fallback executor for `AIzaSy` keys is deferred.
 
-use crate::features::providers::model::ProviderMetadata;
+use crate::features::providers::model::{ProviderMetadata, ProviderProtocol};
 
 /// Static chat host of the CloudCode IDE envelope. It is not the OpenAI-compatible
 /// `generativelanguage.googleapis.com` base the deferred fallback executor would use.
@@ -58,7 +58,7 @@ pub const ANTIGRAVITY_PROVIDER: ProviderMetadata = ProviderMetadata {
     id: "antigravity",
     name: "Google Antigravity",
     category: "oauth",
-    protocol: "openai",
+    protocol: ProviderProtocol::OpenAI,
     base_url: ANTIGRAVITY_IDE_BASE_URL,
     web_url: ANTIGRAVITY_WEB_URL,
     alias: "antigravity",
@@ -152,7 +152,7 @@ mod tests {
         assert_eq!(ANTIGRAVITY_PROVIDER.id, "antigravity");
         assert_eq!(ANTIGRAVITY_PROVIDER.alias, "antigravity");
         assert_eq!(ANTIGRAVITY_PROVIDER.category, "oauth");
-        assert_eq!(ANTIGRAVITY_PROVIDER.protocol, "openai");
+        assert_eq!(ANTIGRAVITY_PROVIDER.protocol, ProviderProtocol::OpenAI);
         assert_eq!(ANTIGRAVITY_PROVIDER.base_url, ANTIGRAVITY_IDE_BASE_URL);
     }
 }

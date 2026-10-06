@@ -47,24 +47,9 @@ pub use qoder::{
     create_qoder_callback_pages_router, create_qoder_callback_router, create_qoder_login_router,
 };
 
-/// The wire protocol a connected provider speaks.
-#[derive(Serialize)]
-#[serde(rename_all = "lowercase")]
-enum Protocol {
-    OpenAI,
-    Anthropic,
-}
-
-impl Protocol {
-    /// Maps a provider metadata `protocol` name onto the enum. Unknown names
-    /// keep the OpenAI shape, which is what every seed provider speaks.
-    fn from_name(name: &str) -> Self {
-        match name {
-            "anthropic" => Self::Anthropic,
-            _ => Self::OpenAI,
-        }
-    }
-}
+/// The wire protocol a connected provider speaks, as the connect responses
+/// report it.
+pub use crate::features::providers::model::ProviderProtocol as Protocol;
 
 /// The connected provider, echoed back so the client can show what was stored.
 #[derive(Serialize)]

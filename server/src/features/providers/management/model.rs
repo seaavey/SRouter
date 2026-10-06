@@ -5,7 +5,7 @@ use std::collections::HashSet;
 
 use serde::Serialize;
 
-use crate::features::providers::{ModelObject, ProviderMetadata};
+use crate::features::providers::{ModelObject, ProviderMetadata, ProviderProtocol};
 use crate::infrastructure::database::providers::ProviderConnection;
 
 /// A provider as the list, catalog, and detail routes describe it.
@@ -14,7 +14,7 @@ pub struct ProviderEntry {
     pub id: &'static str,
     pub name: &'static str,
     pub category: &'static str,
-    pub protocol: &'static str,
+    pub protocol: ProviderProtocol,
     pub default_base_url: &'static str,
     pub requires_api_key: bool,
     pub requires_oauth: bool,

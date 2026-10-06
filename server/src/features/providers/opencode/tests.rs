@@ -2,6 +2,7 @@
 
 use serde_json::json;
 
+use crate::features::providers::ProviderProtocol;
 use crate::features::providers::opencode::executor::{
     BufferedCompletion, adapter, adapter_with_base_url, generate_opencode_session_id,
 };
@@ -15,7 +16,7 @@ fn opencode_zen_metadata_matches_the_node_api_provider() {
     assert_eq!(OPENCODE_ZEN_PROVIDER.id, "opencode_zen");
     assert_eq!(OPENCODE_ZEN_PROVIDER.name, "OpenCode Zen");
     assert_eq!(OPENCODE_ZEN_PROVIDER.category, "free_tier");
-    assert_eq!(OPENCODE_ZEN_PROVIDER.protocol, "openai");
+    assert_eq!(OPENCODE_ZEN_PROVIDER.protocol, ProviderProtocol::OpenAI);
     assert_eq!(OPENCODE_ZEN_PROVIDER.alias, "zen");
     assert_eq!(OPENCODE_ZEN_PROVIDER.base_url, OPENCODE_ZEN_BASE_URL);
     assert_eq!(OPENCODE_ZEN_PROVIDER.web_url, "https://opencode.ai/zen");

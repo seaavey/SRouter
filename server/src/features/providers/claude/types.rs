@@ -26,7 +26,7 @@
 //!   binary no longer sends `token-efficient-tools-2026-03-28`.
 //! - the model catalog is live (`GET {base}/models`), not a seeded list.
 
-use crate::features::providers::model::ProviderMetadata;
+use crate::features::providers::model::{ProviderMetadata, ProviderProtocol};
 
 /// The Anthropic Messages API base; the chat endpoint is `{base}/messages` and
 /// the live catalog is `{base}/models`.
@@ -96,7 +96,7 @@ pub const CLAUDE_PROVIDER: ProviderMetadata = ProviderMetadata {
     id: "claude",
     name: "Claude Code",
     category: "oauth",
-    protocol: "anthropic",
+    protocol: ProviderProtocol::Anthropic,
     base_url: CLAUDE_BASE_URL,
     web_url: CLAUDE_WEB_URL,
     alias: "claude",
@@ -153,7 +153,7 @@ mod tests {
         assert_eq!(CLAUDE_PROVIDER.id, "claude");
         assert_eq!(CLAUDE_PROVIDER.alias, "claude");
         assert_eq!(CLAUDE_PROVIDER.category, "oauth");
-        assert_eq!(CLAUDE_PROVIDER.protocol, "anthropic");
+        assert_eq!(CLAUDE_PROVIDER.protocol, ProviderProtocol::Anthropic);
         assert_eq!(CLAUDE_PROVIDER.base_url, CLAUDE_BASE_URL);
     }
 

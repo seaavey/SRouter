@@ -12,7 +12,7 @@
 //!   the allowed sources for SRouter-facing metadata and compatibility behavior;
 //!   provider-specific catalog facts above come from OpenCode's own sources.
 
-use crate::features::providers::model::{ModelDefinition, ProviderMetadata};
+use crate::features::providers::model::{ModelDefinition, ProviderMetadata, ProviderProtocol};
 
 pub const OPENCODE_ZEN_BASE_URL: &str = "https://opencode.ai/zen/v1";
 
@@ -56,7 +56,7 @@ pub const OPENCODE_ZEN_PROVIDER: ProviderMetadata = ProviderMetadata {
     id: "opencode_zen",
     name: "OpenCode Zen",
     category: "free_tier",
-    protocol: "openai",
+    protocol: ProviderProtocol::OpenAI,
     base_url: OPENCODE_ZEN_BASE_URL,
     web_url: "https://opencode.ai/zen",
     alias: "zen",

@@ -15,7 +15,7 @@
 //! - `docs/api-database-contract.md`: `providers.credentials` columns (`access_token`,
 //!   `refresh_token`, `account_id`, `token_expires_at`, `last_refreshed_at`).
 
-use crate::features::providers::model::ProviderMetadata;
+use crate::features::providers::model::{ProviderMetadata, ProviderProtocol};
 
 /// API root for `POST {base}/responses` and the model list.
 pub const CODEX_BASE_URL: &str = "https://chatgpt.com/backend-api/codex";
@@ -55,7 +55,7 @@ pub const CODEX_PROVIDER: ProviderMetadata = ProviderMetadata {
     id: "openai_codex",
     name: "OpenAI Codex",
     category: "oauth",
-    protocol: "openai",
+    protocol: ProviderProtocol::OpenAI,
     base_url: CODEX_BASE_URL,
     web_url: "https://chatgpt.com/codex",
     alias: "openai_codex",

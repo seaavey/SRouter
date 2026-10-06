@@ -27,13 +27,27 @@ impl ModelObject {
     }
 }
 
+/// The wire protocol a provider speaks, as the catalog and the provider-auth
+/// responses report it.
+///
+/// Three variants, matching what the build actually serves. Node's
+/// `ProviderProtocol` union also lists `gemini`, but that value is dead: its only
+/// user was the `gemini_cli` provider deleted with `packages/providers/src/catalog.ts`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ProviderProtocol {
+    OpenAI,
+    Anthropic,
+    Custom,
+}
+
 /// Provider metadata shared by the catalog and provider-detail responses.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ProviderMetadata {
     pub id: &'static str,
     pub name: &'static str,
     pub category: &'static str,
-    pub protocol: &'static str,
+    pub protocol: ProviderProtocol,
     pub base_url: &'static str,
     pub web_url: &'static str,
     pub alias: &'static str,

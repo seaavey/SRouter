@@ -26,7 +26,7 @@ pub use codebuddy::{
 pub use codex::{CODEX_KEYS, CODEX_PROVIDER};
 pub use executor::ProviderExecutor;
 pub use grok_web::{GROK_WEB_KEYS, GROK_WEB_PROVIDER};
-pub use model::{ModelDefinition, ModelObject, ProviderMetadata};
+pub use model::{ModelDefinition, ModelObject, ProviderMetadata, ProviderProtocol};
 pub use opencode::{
     OPENCODE_ZEN_BASE_URL, OPENCODE_ZEN_KEYS, OPENCODE_ZEN_MODELS, OPENCODE_ZEN_PROVIDER,
 };

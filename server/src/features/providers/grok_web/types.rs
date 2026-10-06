@@ -16,7 +16,7 @@
 //!   transport, which grok.com now rejects without the browser `botoxSign`
 //!   signature; this provider speaks the WebSocket the real web client uses.
 
-use crate::features::providers::model::{ModelDefinition, ProviderMetadata};
+use crate::features::providers::model::{ModelDefinition, ProviderMetadata, ProviderProtocol};
 
 /// Page whose `GET` response issues the `x-userid` cookie. Also the cookie
 /// probe used by the connect route: a valid session returns `200` plus the
@@ -65,7 +65,7 @@ pub const GROK_WEB_PROVIDER: ProviderMetadata = ProviderMetadata {
     id: "grok-web",
     name: "Grok Web (Subscription)",
     category: "api_key",
-    protocol: "openai",
+    protocol: ProviderProtocol::OpenAI,
     base_url: GROK_WEB_WS_URL,
     web_url: "https://grok.com",
     alias: "grok-web",
