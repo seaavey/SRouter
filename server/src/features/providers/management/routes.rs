@@ -8,7 +8,9 @@ use std::collections::HashSet;
 
 use axum::body::Bytes;
 use axum::extract::{Path, State};
-use axum::routing::{get, patch};
+use axum::http::StatusCode;
+use axum::response::{IntoResponse, Response};
+use axum::routing::{delete, get, patch, post};
 use axum::{Json, Router};
 use serde::Serialize;
 use serde_json::Value;
@@ -20,10 +22,13 @@ use crate::features::providers::management::model::{
 };
 use crate::features::providers::{ProviderMetadata, SEED_PROVIDERS};
 use crate::infrastructure::database::AppDatabase;
-use crate::infrastructure::database::catalog_flags::{favorite_model_ids, hidden_model_ids};
+use crate::infrastructure::database::catalog_flags::{
+    favorite_model_ids, hidden_model_ids, hidden_model_ids_for_provider, list_favorite_model_ids,
+};
 use crate::infrastructure::database::providers::{
-    ProviderConnection, ProviderPatch, apply_provider_patch, list_connections, matches_base_id,
-    provider_enabled, provider_exists,
+    ProviderConnection, ProviderPatch, add_favorite_model, apply_provider_patch,
+    clear_model_hidden, list_connections, matches_base_id, provider_enabled, provider_exists,
+    remove_favorite_model, set_model_hidden,
 };
 use crate::state::AppState;
 
@@ -38,19 +43,51 @@ pub fn create_providers_read_router() -> Router<AppState> {
         // static segments priority either way.
         .route("/providers/catalog", get(get_catalog))
         .route("/providers/{provider_id}", get(get_provider))
+        // Node keeps these reads under the provider/favorites routers with the
+        // same API-key guard as the rest of this surface.
+        .route(
+            "/providers/{provider_id}/hidden-models",
+            get(list_hidden_models),
+        )
+        .route("/favorites", get(list_favorites))
 }
 
 /// Mutation routes. The composition root layers the admin-session guard on top,
 /// matching the Node router, which requires `RequireAdmin` for every write.
-/// One `PATCH` carries every edit the catalog page can make.
+/// One `PATCH` carries every edit the catalog page can make; the favorites and
+/// hidden-models routes are the single-model surface the web client calls.
 pub fn create_providers_management_router() -> Router<AppState> {
-    Router::new().route("/providers/{provider_id}", patch(patch_provider))
+    Router::new()
+        .route("/providers/{provider_id}", patch(patch_provider))
+        .route(
+            "/providers/{provider_id}/hidden-models",
+            post(hide_model_route),
+        )
+        .route(
+            "/providers/{provider_id}/hidden-models/{model_id}",
+            delete(restore_model_route),
+        )
+        .route("/favorites", post(add_favorite_route))
+        .route("/favorites/{model_id}", delete(remove_favorite_route))
 }
 
 #[derive(Serialize)]
 struct ProviderListResponse {
     object: &'static str,
     data: Vec<ProviderEntry>,
+}
+
+/// `{ "models": [...] }`, the shape both `/v1/favorites` and the hidden-models
+/// list return.
+#[derive(Serialize)]
+struct HiddenModelsResponse {
+    models: Vec<String>,
+}
+
+/// `{ "message": "..." }`, the shape the single-model writes return.
+#[derive(Serialize)]
+struct MessageResponse {
+    message: &'static str,
 }
 
 async fn list_providers(
@@ -304,4 +341,139 @@ async fn provider_connections(
         .into_iter()
         .filter(|connection| connection.base_id_is(base_id))
         .collect())
+}
+
+/// The body of a single-model write (`model_id`), matching Node's
+/// `AddCustomModelSchema`.
+fn parse_model_id_body(body: &[u8], invalid: &'static str) -> Result<String, APIError> {
+    let value: Value = serde_json::from_slice(body).map_err(|_| APIError::new(400, invalid))?;
+    value
+        .get("model_id")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|model_id| !model_id.is_empty())
+        .map(str::to_owned)
+        .ok_or_else(|| APIError::new(400, invalid))
+}
+
+/// `GET /v1/providers/:id/hidden-models` — Node returns `{models:[...]}` for the
+/// provider's hidden ids. The provider normalizes to its base id, so a
+/// connection id reads the rows the patch wrote.
+async fn list_hidden_models(
+    State(state): State<AppState>,
+    Path(provider_id): Path<String>,
+) -> Result<Json<HiddenModelsResponse>, APIError> {
+    let database = require_database(&state)?;
+    let normalized = provider_id.to_lowercase();
+    let base_id = base_id_of(&normalized);
+
+    Ok(Json(HiddenModelsResponse {
+        models: hidden_model_ids_for_provider(database, base_id).await?,
+    }))
+}
+
+/// `POST /v1/providers/:id/hidden-models` — hides one model, `201`.
+async fn hide_model_route(
+    State(state): State<AppState>,
+    Path(provider_id): Path<String>,
+    body: Bytes,
+) -> Result<Response, APIError> {
+    let model_id =
+        parse_model_id_body(&body, constants::providers::hidden_models::INVALID_PAYLOAD)?;
+    let database = require_database(&state)?;
+    let normalized = provider_id.to_lowercase();
+    let base_id = base_id_of(&normalized);
+
+    set_model_hidden(database, base_id, &model_id).await?;
+
+    Ok((
+        StatusCode::CREATED,
+        Json(MessageResponse {
+            message: constants::providers::hidden_models::HIDDEN,
+        }),
+    )
+        .into_response())
+}
+
+/// `DELETE /v1/providers/:id/hidden-models/:modelId` — restores one model, `404`
+/// when it was not hidden, matching Node.
+async fn restore_model_route(
+    State(state): State<AppState>,
+    Path((provider_id, model_id)): Path<(String, String)>,
+) -> Result<Json<MessageResponse>, APIError> {
+    let database = require_database(&state)?;
+    let normalized = provider_id.to_lowercase();
+    let base_id = base_id_of(&normalized);
+    let model_id = decode_path_segment(&model_id);
+
+    if !clear_model_hidden(database, base_id, &model_id).await? {
+        return Err(APIError::new(
+            404,
+            constants::providers::hidden_models::not_found(&provider_id, &model_id),
+        ));
+    }
+
+    Ok(Json(MessageResponse {
+        message: constants::providers::hidden_models::RESTORED,
+    }))
+}
+
+/// `GET /v1/favorites` — Node returns `{models:[...]}`.
+async fn list_favorites(
+    State(state): State<AppState>,
+) -> Result<Json<HiddenModelsResponse>, APIError> {
+    let database = require_database(&state)?;
+
+    Ok(Json(HiddenModelsResponse {
+        models: list_favorite_model_ids(database).await?,
+    }))
+}
+
+/// `POST /v1/favorites` — adds one favorite, `201`.
+async fn add_favorite_route(
+    State(state): State<AppState>,
+    body: Bytes,
+) -> Result<Response, APIError> {
+    let model_id = parse_model_id_body(&body, constants::providers::favorites::INVALID_PAYLOAD)?;
+    let database = require_database(&state)?;
+
+    add_favorite_model(database, &model_id).await?;
+
+    Ok((
+        StatusCode::CREATED,
+        Json(MessageResponse {
+            message: constants::providers::favorites::ADDED,
+        }),
+    )
+        .into_response())
+}
+
+/// `DELETE /v1/favorites/:modelId` — removes one favorite, `404` when it was not
+/// one, matching Node.
+async fn remove_favorite_route(
+    State(state): State<AppState>,
+    Path(model_id): Path<String>,
+) -> Result<Json<MessageResponse>, APIError> {
+    let database = require_database(&state)?;
+    let model_id = decode_path_segment(&model_id);
+
+    if !remove_favorite_model(database, &model_id).await? {
+        return Err(APIError::new(
+            404,
+            constants::providers::favorites::NOT_FOUND,
+        ));
+    }
+
+    Ok(Json(MessageResponse {
+        message: constants::providers::favorites::REMOVED,
+    }))
+}
+
+/// Percent-decodes a path segment, because a model id can carry a slash or other
+/// reserved characters the client encoded.
+fn decode_path_segment(value: &str) -> String {
+    url::form_urlencoded::parse(value.as_bytes())
+        .map(|(key, _)| key.into_owned())
+        .next()
+        .unwrap_or_else(|| value.to_owned())
 }

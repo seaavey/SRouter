@@ -109,3 +109,67 @@ pub async fn hidden_model_ids(database: &AppDatabase) -> Result<HashSet<String>,
 
     Ok(hidden)
 }
+
+/// Lists the favorited model ids in insertion order, matching Node's
+/// `getFavoriteModelsDB` (`ORDER BY created_at ASC`). Without a database the
+/// list is empty rather than an error.
+pub async fn list_favorite_model_ids(database: &AppDatabase) -> Result<Vec<String>, APIError> {
+    let Some(pool) = database.sqlite_pool() else {
+        return Ok(Vec::new());
+    };
+
+    let rows = sqlx::query("SELECT model_id FROM favorite_models ORDER BY created_at ASC")
+        .fetch_all(&pool)
+        .await
+        .map_err(|error| {
+            APIError::new(
+                500,
+                constants::database::could_not_read_favorite_models(&error),
+            )
+        })?;
+
+    rows.iter()
+        .map(|row| {
+            row.try_get::<String, _>("model_id").map_err(|error| {
+                APIError::new(500, constants::database::could_not_read_favorite_id(&error))
+            })
+        })
+        .collect()
+}
+
+/// Lists the ids one provider has hidden, in insertion order, matching Node's
+/// `getHiddenModelsByProviderDB`. The provider is normalized to its base id by
+/// the caller, so a connection id reads the rows the patch wrote.
+pub async fn hidden_model_ids_for_provider(
+    database: &AppDatabase,
+    provider_id: &str,
+) -> Result<Vec<String>, APIError> {
+    let Some(pool) = database.sqlite_pool() else {
+        return Ok(Vec::new());
+    };
+
+    let rows = sqlx::query(
+        "SELECT model_id FROM provider_model_overrides \
+         WHERE provider_id = ? AND hidden = 1 ORDER BY created_at ASC",
+    )
+    .bind(provider_id)
+    .fetch_all(&pool)
+    .await
+    .map_err(|error| {
+        APIError::new(
+            500,
+            constants::database::could_not_read_hidden_models(&error),
+        )
+    })?;
+
+    rows.iter()
+        .map(|row| {
+            row.try_get::<String, _>("model_id").map_err(|error| {
+                APIError::new(
+                    500,
+                    constants::database::could_not_read_hidden_model_id(&error),
+                )
+            })
+        })
+        .collect()
+}

@@ -357,6 +357,29 @@ pub mod providers {
         format!("Provider '{provider_id}' not found")
     }
 
+    /// Messages of the `/v1/favorites` routes. Wording is frozen against
+    /// `apps/api/src/controllers/favorites.controller.ts`.
+    pub mod favorites {
+        pub const ADDED: &str = "Model added to favorites";
+        pub const REMOVED: &str = "Model removed from favorites";
+        pub const NOT_FOUND: &str = "Favorite model not found";
+        pub const INVALID_PAYLOAD: &str = "Invalid model payload";
+        pub const MODEL_ID_REQUIRED: &str = "Model ID is required";
+    }
+
+    /// Messages of the `hidden-models` routes. Wording is frozen against
+    /// `apps/api/src/controllers/providers.controller.ts`.
+    pub mod hidden_models {
+        pub const HIDDEN: &str = "Model hidden";
+        pub const RESTORED: &str = "Model restored";
+        pub const INVALID_PAYLOAD: &str = "Invalid model payload";
+        pub const PROVIDER_ID_REQUIRED: &str = "Provider ID is required";
+
+        pub fn not_found(provider_id: &str, model_id: &str) -> String {
+            format!("Hidden model '{model_id}' not found for '{provider_id}'")
+        }
+    }
+
     pub fn upstream_error(status: u16, detail: &str) -> String {
         format!("OpenAI Provider Error ({status}): {detail}")
     }

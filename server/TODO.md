@@ -271,12 +271,14 @@ Everything below is still Node-only.
 - [x] Bare model ids advertised by multiple drivers rotate deterministically across matching
       adapters in `ProviderRegistry::resolve`; provider-prefixed requests remain pinned to the
       requested driver. Per-model selection state is shared across registry clones.
-- [x] `GET /v1/providers/{providerId}/hidden-models` — Node returns `{models:[...]}`. Rust folded
-      this into the detail payload; the route is not served. Either implement the route for parity or
-      get the deviation explicitly approved, like the tunnel exclusion. Same call for
-      `/v1/favorites` (`GET` API-key, `POST` admin `201`, `DELETE /{modelId}` `404`)
-      (`apps/api/src/controllers/favorites.controller.ts`, web calls both — `favorites.ts`,
-      `favorites` mutations today only work through the provider PATCH).
+- [x] `GET /v1/providers/{providerId}/hidden-models` — Node returns `{models:[...]}`. Served for
+      parity, together with the single-model `POST` (hide, `201`) and `DELETE /{modelId}` (restore,
+      `404` when not hidden) routes, so the web's `useProvider` hidden flow works unchanged
+      (`features/providers/management/routes.rs`, `server/tests/providers.rs`). `/v1/favorites`
+      is served too (`GET` API-key, `POST` admin `201`, `DELETE /{modelId}` `404`), matching
+      `apps/api/src/controllers/favorites.controller.ts`; the web's `useFavorites` calls it. The
+      provider `PATCH` remains the batch surface, and the detail payload still carries the per-model
+      `hidden`/`favorite` flags. The contract's "Providers in the Rust build" bullets were updated.
 - [x] Catalog provenance: record an allowed independent source for every built-in provider entry
       and model list (`docs/api-v1-contract.md` "Scope"). The `qoder` entry is recorded, and its
       models are read from upstream; `features/providers/qoder/types.rs` keeps only the alias table

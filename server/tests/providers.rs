@@ -432,27 +432,177 @@ async fn provider_detail_serves_the_seed_without_a_database() {
 }
 
 #[tokio::test]
-async fn the_hidden_model_routes_are_gone() {
+async fn the_hidden_model_routes_list_hide_and_restore() {
+    let database = TestDatabase::new().unwrap();
+    let app = app(&database).await;
+    let model_id = "zen/big-pickle";
+
+    // The list starts empty.
+    let listed = json_body(
+        app.clone()
+            .oneshot(get_request("/v1/providers/opencode_zen/hidden-models"))
+            .await
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(listed["models"], serde_json::json!([]));
+
+    // Hide one model through the single-model route.
+    let hidden = app
+        .clone()
+        .oneshot(admin_request(
+            "POST",
+            "/v1/providers/opencode_zen/hidden-models",
+            serde_json::json!({ "model_id": model_id }),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(hidden.status(), StatusCode::CREATED);
+    assert_eq!(json_body(hidden).await["message"], "Model hidden");
+
+    let listed = json_body(
+        app.clone()
+            .oneshot(get_request("/v1/providers/opencode_zen/hidden-models"))
+            .await
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(listed["models"], serde_json::json!([model_id]));
+
+    // A model that is not hidden cannot be restored.
+    let missing = app
+        .clone()
+        .oneshot(admin_request(
+            "DELETE",
+            "/v1/providers/opencode_zen/hidden-models/zen%2Fnope",
+            serde_json::json!(null),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(missing.status(), StatusCode::NOT_FOUND);
+
+    // Restore it.
+    let restored = app
+        .clone()
+        .oneshot(admin_request(
+            "DELETE",
+            "/v1/providers/opencode_zen/hidden-models/zen%2Fbig-pickle",
+            serde_json::json!(null),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(restored.status(), StatusCode::OK);
+    assert_eq!(json_body(restored).await["message"], "Model restored");
+
+    let listed = json_body(
+        app.oneshot(get_request("/v1/providers/opencode_zen/hidden-models"))
+            .await
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(listed["models"], serde_json::json!([]));
+}
+
+#[tokio::test]
+async fn the_favorite_routes_list_add_and_remove() {
+    let database = TestDatabase::new().unwrap();
+    let app = app(&database).await;
+    let model_id = "zen/big-pickle";
+
+    let listed = json_body(
+        app.clone()
+            .oneshot(get_request("/v1/favorites"))
+            .await
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(listed["models"], serde_json::json!([]));
+
+    let added = app
+        .clone()
+        .oneshot(admin_request(
+            "POST",
+            "/v1/favorites",
+            serde_json::json!({ "model_id": model_id }),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(added.status(), StatusCode::CREATED);
+    assert_eq!(
+        json_body(added).await["message"],
+        "Model added to favorites"
+    );
+
+    let listed = json_body(
+        app.clone()
+            .oneshot(get_request("/v1/favorites"))
+            .await
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(listed["models"], serde_json::json!([model_id]));
+
+    // Removing something that is not a favorite is a 404.
+    let missing = app
+        .clone()
+        .oneshot(admin_request(
+            "DELETE",
+            "/v1/favorites/zen%2Fnope",
+            serde_json::json!(null),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(missing.status(), StatusCode::NOT_FOUND);
+
+    let removed = app
+        .oneshot(admin_request(
+            "DELETE",
+            "/v1/favorites/zen%2Fbig-pickle",
+            serde_json::json!(null),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(removed.status(), StatusCode::OK);
+    assert_eq!(
+        json_body(removed).await["message"],
+        "Model removed from favorites"
+    );
+}
+
+#[tokio::test]
+async fn the_single_model_routes_require_an_admin_session() {
     let database = TestDatabase::new().unwrap();
     let app = app(&database).await;
 
-    // The flags ride along on the detail response, so no route of their own
-    // exists: a PATCH on the provider is what changes them.
     for (method, uri) in [
-        ("GET", "/v1/providers/opencode_zen/hidden-models"),
         ("POST", "/v1/providers/opencode_zen/hidden-models"),
         (
             "DELETE",
             "/v1/providers/opencode_zen/hidden-models/zen%2Fbig-pickle",
         ),
+        ("POST", "/v1/favorites"),
+        ("DELETE", "/v1/favorites/zen%2Fbig-pickle"),
     ] {
         let response = app
             .clone()
-            .oneshot(admin_request(method, uri, serde_json::json!(null)))
+            .oneshot(with_loopback_client(
+                Request::builder()
+                    .method(method)
+                    .uri(uri)
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        serde_json::to_vec(&serde_json::json!({ "model_id": "zen/x" })).unwrap(),
+                    ))
+                    .unwrap(),
+            ))
             .await
             .unwrap();
 
-        assert_eq!(response.status(), StatusCode::NOT_FOUND, "{method} {uri}");
+        assert_eq!(
+            response.status(),
+            StatusCode::UNAUTHORIZED,
+            "{method} {uri}"
+        );
     }
 }
 

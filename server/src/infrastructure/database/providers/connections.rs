@@ -332,17 +332,16 @@ async fn hide_model(
 }
 
 /// Clears the hidden flag of one model, then drops the row when it carried
-/// nothing else. Idempotent: restoring a model that is not hidden is a no-op,
-/// while Node answers 404 there, because a set-shaped patch cannot fail halfway
-/// for it.
+/// nothing else. Returns whether a hidden row was actually cleared, so the
+/// restore route can answer `404` like Node; the set-shaped patch ignores it.
 async fn restore_model(
     transaction: &mut Transaction<'_, Sqlite>,
     base_id: &str,
     model_id: &str,
-) -> Result<(), APIError> {
+) -> Result<bool, APIError> {
     let model_id = model_id.to_lowercase();
 
-    sqlx::query(
+    let cleared = sqlx::query(
         "UPDATE provider_model_overrides SET hidden = 0 \
          WHERE provider_id = ? AND lower(model_id) = ? AND hidden = 1",
     )
@@ -350,7 +349,8 @@ async fn restore_model(
     .bind(&model_id)
     .execute(&mut **transaction)
     .await
-    .map_err(|error| APIError::new(500, constants::database::could_not_restore_model(&error)))?;
+    .map_err(|error| APIError::new(500, constants::database::could_not_restore_model(&error)))?
+    .rows_affected();
 
     sqlx::query(
         "DELETE FROM provider_model_overrides \
@@ -367,7 +367,7 @@ async fn restore_model(
         )
     })?;
 
-    Ok(())
+    Ok(cleared > 0)
 }
 
 /// Favorites one model. `favorite_models` carries no provider dimension, so the
@@ -392,22 +392,123 @@ async fn favorite_model(
     Ok(())
 }
 
-/// Drops the favorite row of one model, if any. Idempotent.
+/// Drops the favorite row of one model, if any. Returns whether a row was
+/// removed, so the remove route can answer `404` like Node; the set-shaped patch
+/// ignores it.
 async fn unfavorite_model(
     transaction: &mut Transaction<'_, Sqlite>,
     model_id: &str,
-) -> Result<(), APIError> {
+) -> Result<bool, APIError> {
     let model_id = model_id.to_lowercase();
 
-    sqlx::query("DELETE FROM favorite_models WHERE lower(model_id) = ?")
+    let removed = sqlx::query("DELETE FROM favorite_models WHERE lower(model_id) = ?")
         .bind(&model_id)
         .execute(&mut **transaction)
         .await
         .map_err(|error| {
             APIError::new(500, constants::database::could_not_unfavorite_model(&error))
-        })?;
+        })?
+        .rows_affected();
 
-    Ok(())
+    Ok(removed > 0)
+}
+
+/// The single-model write behind `POST /v1/providers/:id/hidden-models`: hides
+/// one model for one provider. The caller normalizes the provider to its base id.
+pub async fn set_model_hidden(
+    database: &AppDatabase,
+    base_id: &str,
+    model_id: &str,
+) -> Result<(), APIError> {
+    let pool = database.sqlite_required(constants::database::PROVIDERS_UNSUPPORTED)?;
+    let mut transaction = pool.begin().await.map_err(|error| {
+        APIError::new(
+            500,
+            constants::database::could_not_start_provider_update(&error),
+        )
+    })?;
+
+    hide_model(&mut transaction, base_id, model_id).await?;
+
+    transaction.commit().await.map_err(|error| {
+        APIError::new(
+            500,
+            constants::database::could_not_commit_provider_update(&error),
+        )
+    })
+}
+
+/// The single-model write behind `DELETE /v1/providers/:id/hidden-models/:modelId`:
+/// restores one model. Returns whether it was hidden, so the route can answer `404`.
+pub async fn clear_model_hidden(
+    database: &AppDatabase,
+    base_id: &str,
+    model_id: &str,
+) -> Result<bool, APIError> {
+    let pool = database.sqlite_required(constants::database::PROVIDERS_UNSUPPORTED)?;
+    let mut transaction = pool.begin().await.map_err(|error| {
+        APIError::new(
+            500,
+            constants::database::could_not_start_provider_update(&error),
+        )
+    })?;
+
+    let cleared = restore_model(&mut transaction, base_id, model_id).await?;
+
+    transaction.commit().await.map_err(|error| {
+        APIError::new(
+            500,
+            constants::database::could_not_commit_provider_update(&error),
+        )
+    })?;
+
+    Ok(cleared)
+}
+
+/// The write behind `POST /v1/favorites`: favorites one model, globally.
+pub async fn add_favorite_model(database: &AppDatabase, model_id: &str) -> Result<(), APIError> {
+    let pool = database.sqlite_required(constants::database::PROVIDERS_UNSUPPORTED)?;
+    let mut transaction = pool.begin().await.map_err(|error| {
+        APIError::new(
+            500,
+            constants::database::could_not_start_provider_update(&error),
+        )
+    })?;
+
+    favorite_model(&mut transaction, model_id).await?;
+
+    transaction.commit().await.map_err(|error| {
+        APIError::new(
+            500,
+            constants::database::could_not_commit_provider_update(&error),
+        )
+    })
+}
+
+/// The write behind `DELETE /v1/favorites/:modelId`. Returns whether a row was
+/// removed, so the route can answer `404` like Node.
+pub async fn remove_favorite_model(
+    database: &AppDatabase,
+    model_id: &str,
+) -> Result<bool, APIError> {
+    let pool = database.sqlite_required(constants::database::PROVIDERS_UNSUPPORTED)?;
+    let mut transaction = pool.begin().await.map_err(|error| {
+        APIError::new(
+            500,
+            constants::database::could_not_start_provider_update(&error),
+        )
+    })?;
+
+    let removed = unfavorite_model(&mut transaction, model_id).await?;
+
+    transaction.commit().await.map_err(|error| {
+        APIError::new(
+            500,
+            constants::database::could_not_commit_provider_update(&error),
+        )
+    })?;
+
+    Ok(removed)
 }
 
 /// The settings key holding a provider's enabled flag. Normalized to the base
