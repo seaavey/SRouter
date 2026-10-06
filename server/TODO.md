@@ -238,8 +238,9 @@ Status legend: `[x]` done and covered by a Rust test, `[ ]` missing, `[~]` parti
 
 ## 4. Providers: management, registry, catalog
 
-Current Rust scope (documented deviation): two drivers `opencode_zen` and `qoder` served from
-the `SEED_PROVIDERS` slice, read routes `GET /v1/providers`, `GET /v1/providers/catalog`,
+Current Rust scope (documented deviation): eight drivers served from the `SEED_PROVIDERS` slice
+(`opencode_zen`, `qoder`, `cline`, `grok-web`, `openai_codex`, `codebuddy`, `codebuddy-cn`,
+`antigravity`), read routes `GET /v1/providers`, `GET /v1/providers/catalog`,
 `GET /v1/providers/{provider_id}`, one write route `PATCH /v1/providers/{provider_id}` with
 `enabled|hide|restore|favorite|unfavorite` (`features/providers/management/routes.rs`).
 Everything below is still Node-only.
@@ -318,8 +319,7 @@ Everything below is still Node-only.
       `/v1/auth/openai/login`, `/callback`, and `/token` on the shared `features/provider_auth/`
       helpers (PKCE, callback parsing, `SROUTER_PUBLIC_URL` resolution). A successful callback or
       token import writes the row `upsert_codex_connection` stores and force-refreshes the Codex
-      catalog; the lazy per-request refresh already worked. The background sweeper remains open
-      for every provider (section 5).
+      catalog; the lazy per-request refresh already worked.
       Vendor allow-list note: `auth.openai.com` accepts only the Codex redirects
       `http://127.0.0.1:{1455,1457}/auth/callback`, not the Rust default `/v1/auth/openai/callback`
       (or a `localhost` host). The browser-facing page route `GET|POST /auth/callback` (plus the
@@ -366,10 +366,14 @@ Qoder, Cline, OpenAI, and Antigravity routes exist in Rust. Source of truth for 
       translation, the `loadCodeAssist` project bootstrap (D5), the Codex-pattern token refresh
       (D6), and the registry registration (D10, `SEED_PROVIDERS` 7 → 8). Covered by
       `server/tests/antigravity_provider.rs` and the in-file unit tests.
-- [ ] `antigravity` not-ported paths: the `image_gen` request path (`requestType: "image_gen"`,
-      non-stream `generateContent`) and the OpenAI-compatible fallback executor for local proxies /
-      `AIzaSy` keys on an `/openai` base, plus honoring a per-connection `base_url` (D7/D8). Listed
-      as follow-ups in the plan, not started.
+- [x] `antigravity` not-ported paths, reviewed 2026-10-06: none of them is reachable or contract
+      material yet, so this is not pending work. The `image_gen` branch (`requestType: "image_gen"`,
+      non-stream `generateContent`) fires only for a model whose id matches `/image|imagen/`, and the
+      oracle's `ANTIGRAVITY_MODELS` (17 ids) contains none: the Node branch is dead code, and the plan
+      already gates the port on "once an image model is advertised". The OpenAI-compatible fallback
+      executor and per-connection `base_url` exist only for local proxies or `AIzaSy` keys on an
+      `/openai` base, which the owner scope excludes (static chat endpoint, D7). Revisit only when an
+      image model appears upstream or the owner reverses that scope.
 - [x] `qoder` privileged routes: `GET /v1/auth/qoder/login` (supports `client_id`, `redirect_uri`,
       `format=json`, otherwise redirects to the device URL) and `/v1/auth/qoder/poll` (GET, POST,
       `state` from query or JSON body) in `features/provider_auth/qoder.rs`, mounted behind
@@ -402,12 +406,15 @@ Qoder, Cline, OpenAI, and Antigravity routes exist in Rust. Source of truth for 
       invoking each provider's `sweep_tokens()` method (Codex, Cline, Antigravity) with a 5-second
       initial delay and 60-second background ticker in `main.rs`. Verified in
       `server/tests/codex_provider.rs`.
-- [ ] Env override `CLAUDE_OAUTH_CLIENT_ID`.
-- [ ] Fake-upstream tests only (`server/tests/provider_auth.rs`); never real provider credentials.
-      Legacy evidence to read as oracle: `auth-providers.test.ts`, `token-refresh.test.ts`,
-      `antigravity-provider.test.ts`, `codebuddy-provider.test.ts`, `qoder-provider.test.ts`,
-      `tokenrouter-provider.test.ts`, `kiro-provider.test.ts`, `bai-provider.test.ts`,
-      `neosantara-provider.test.ts`, `experientiallabs-provider.test.ts`.
+- Not a backlog item: the `CLAUDE_OAUTH_CLIENT_ID` env override belongs to the `claude` provider,
+  which Rust does not port at all (the `/v1/auth/claude/login` and `/callback` rows are still
+  open above). It becomes relevant only if that provider lands.
+- Policy, not a work item: tests for this slice use fake upstreams only
+  (`server/tests/provider_auth.rs`), never real provider credentials.
+  Legacy evidence to read as oracle: `auth-providers.test.ts`, `token-refresh.test.ts`,
+  `antigravity-provider.test.ts`, `codebuddy-provider.test.ts`, `qoder-provider.test.ts`,
+  `tokenrouter-provider.test.ts`, `kiro-provider.test.ts`, `bai-provider.test.ts`,
+  `neosantara-provider.test.ts`, `experientiallabs-provider.test.ts`.
 
 ---
 
@@ -594,10 +601,21 @@ stale-while-revalidate=86400`, `refresh`/`force`/`no-cache` forcing a refresh.
       `admin_auth.rs`), then relax the boot refusal. The defensive "reads empty / writes fail"
       behavior is still pinned by `a_postgres_backend_reads_empty_and_refuses_provider_writes`
       and `postgres_request_log_repository_fails_explicitly`.
-- [ ] Migration ownership check: the Rust migration files must stay forward-compatible with an
-      existing user database (`docs/api-database-contract.md`); never drop or recreate user data.
-- [ ] Field/relation citations for every table Rust touches (plan Task 2 item still unchecked:
-      "For every field/relation required by Rust, cite an allowed independent source").
+- [x] Migration ownership check: audited 2026-10-06 against `docs/schemas-database.md`, the allowed
+      independent contract. All ten tables match it column for column, and the eight `request_logs` v3
+      columns in `0003_request_logs.sql` are the documented ones (contract section 4). The only
+      destructive statements are `DROP TABLE IF EXISTS` on six legacy shapes, each with a reason
+      (shape changed and recreated from the captured rows, renamed, or the provenance marker); there is
+      no `DELETE`, `TRUNCATE`, or `DROP COLUMN`. Row-level preservation is pinned by
+      `server/tests/schema.rs`: the v1 transform, v1 with missing optional columns, v2 request logs, the
+      newer-version refusal, and the second-connect no-op. The invariant stands: a migration that drops
+      user data is a defect, and any new statement here must keep that property.
+- [x] Field/relation citations for every table Rust touches: satisfied 2026-10-06 by
+      `docs/schemas-database.md`, which records the independent provenance (disposable-probe dump of the
+      observed v1 schema plus API-visible behavior) and carries a `CREATE TABLE` for every one of the
+      ten tables plus the v3 `request_logs` additions. A programmatic diff of that contract against
+      `server/migrations/0002_v2_schema.sql` shows every column present on both sides and no table on
+      either side alone.
 - [ ] Optional PostgreSQL integration test behind an isolated CI database URL (skip when unset);
       it belongs with the "PostgreSQL support" item above.
 
