@@ -125,7 +125,7 @@ async fn quota_filters_out_non_oauth_providers() {
         "INSERT INTO providers (id, provider_id, name, category, protocol, enabled, credentials, meta, created_at)
          VALUES ('openai-apikey-1', 'openai', 'OpenAI API Key Account', 'standard', 'openai', 1, '{\"apiKey\":\"sk-test\"}', '{}', 1000)",
     )
-    .execute(pool)
+    .execute(&pool)
     .await
     .expect("insert standard provider");
 

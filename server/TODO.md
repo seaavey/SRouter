@@ -557,16 +557,26 @@ stale-while-revalidate=86400`, `refresh`/`force`/`no-cache` forcing a refresh.
 
 ## 9. Database transfer
 
-- [ ] `GET /v1/admin/database/export` — admin session **only** (API keys and loopback do not
+- [x] `GET /v1/admin/database/export` — admin session **only** (API keys and loopback do not
       qualify), streams a snapshot as `application/octet-stream` with an attachment filename.
-- [ ] `POST /v1/admin/database/import` — exactly one multipart file in field `database`, max 25 MiB
+      `server/src/features/database_transfer/routes.rs` (`export_handler`) via `export_snapshot`;
+      admin guard applied in `server/src/app.rs`. Covered by `server/tests/database_transfer.rs`
+      (`export_requires_an_admin_session_and_rejects_api_keys_and_loopback`,
+      `export_filename_is_the_fourteen_digit_utc_stamp`).
+- [x] `POST /v1/admin/database/import` — exactly one multipart file in field `database`, max 25 MiB
       (`413` from the global limit for oversized `Content-Length`, `400` + `upload_too_large` for an
       oversized chunked upload), stream to a private temp file (`0700` dir / `0600` file, cleaned up
       on success and failure), validate before replacement, make a recoverable backup, replace
       atomically where the platform allows, restore on failure, clear the admin cookie, and return
       `ok`, `backup_path`, `restart_required`, `reauth_required`.
-- [ ] Legacy evidence: `apps/api/tests/database-route.test.ts`, `apps/api/src/controllers/database.controller.ts`,
-      `docs/api-database-contract.md`.
+      `multipart.rs` (streaming + field-shape rules), `transfer.rs` (validate/replace/lock), and
+      `routes.rs` (`import_handler`). Covered by the remaining `server/tests/database_transfer.rs`
+      cases (auth, happy path with post-swap visibility, duplicate/missing parts, size guards,
+      validation rules, legacy migration, cleanup + backup, live-lock `409`).
+- [x] Legacy evidence: `apps/api/tests/database-route.test.ts`, `apps/api/src/controllers/database.controller.ts`,
+      `docs/api-database-contract.md`. The Rust deviations (version carrier, legacy migration,
+      streaming parser, lock owner modes) are recorded in `docs/api-database-contract.md`
+      §"Database transfer in the Rust build" and `docs/api-v1-contract.md`.
 
 ## 10. Persistence gaps
 

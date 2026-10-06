@@ -51,7 +51,7 @@ async fn seed_log(database: &srouter_server::AppDatabase, id: &str, created_at: 
     .bind(id)
     .bind(status)
     .bind(created_at)
-    .execute(pool)
+    .execute(&pool)
     .await
     .unwrap();
 }
@@ -76,7 +76,7 @@ async fn seed_complete_log(
     .bind(id)
     .bind(status)
     .bind(created_at)
-    .execute(database.sqlite_pool().unwrap())
+    .execute(&database.sqlite_pool().unwrap())
     .await
     .unwrap();
 }
@@ -112,7 +112,7 @@ async fn seed_analytics_log(database: &srouter_server::AppDatabase, row: Analyti
     .bind(row.status)
     .bind(row.latency_ms)
     .bind(row.created_at)
-    .execute(pool)
+    .execute(&pool)
     .await
     .unwrap();
 }
@@ -215,7 +215,7 @@ async fn logs_stats_aggregate_usage_and_by_model() {
     seed_log(database, "00000000-0000-4000-8000-00000000000b", 200, 500).await;
     sqlx::query("UPDATE request_logs SET estimated_cost = 0.1234 WHERE id = ?")
         .bind("00000000-0000-4000-8000-00000000000a")
-        .execute(database.sqlite_pool().unwrap())
+        .execute(&database.sqlite_pool().unwrap())
         .await
         .unwrap();
     let app = app(state);

@@ -379,7 +379,7 @@ async fn post_images_generations_writes_request_log() {
     let row: (i64, String, i64, i64, i64) = sqlx::query_as(
         "SELECT status_code, model, prompt_tokens, completion_tokens, total_tokens FROM request_logs LIMIT 1",
     )
-    .fetch_one(database.sqlite_pool().unwrap())
+    .fetch_one(&database.sqlite_pool().unwrap())
     .await
     .unwrap();
 

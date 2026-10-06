@@ -58,6 +58,18 @@ pub mod code {
 
     /// Upstream provider failure.
     pub const UPSTREAM_UNAVAILABLE: &str = "upstream_unavailable";
+
+    /// Database transfer (`docs/api-database-contract.md`). Frozen identifiers
+    /// the dashboard switches on; the messages live in [`super::database`].
+    pub const UNSUPPORTED_STORAGE: &str = "unsupported_storage";
+    pub const INVALID_DATABASE: &str = "invalid_database";
+    pub const INVALID_MULTIPART: &str = "invalid_multipart";
+    pub const MISSING_DATABASE_FILE: &str = "missing_database_file";
+    pub const INVALID_DATABASE_FIELD: &str = "invalid_database_field";
+    pub const UPLOAD_TOO_LARGE: &str = "upload_too_large";
+    pub const DATABASE_IMPORT_BUSY: &str = "database_import_busy";
+    pub const DATABASE_RECOVERY_FAILED: &str = "database_recovery_failed";
+    pub const DATABASE_TRANSFER_FAILED: &str = "database_transfer_failed";
 }
 
 /// `error.type` values, used when a handler overrides the status-derived
@@ -843,6 +855,22 @@ pub mod database {
         pub const START_SCHEMA_MIGRATION: &str = "start the schema migration";
         pub const UPGRADE_LEGACY_REQUEST_LOG: &str = "upgrade a legacy request log";
     }
+
+    /// Frozen client-facing messages for the database export/import routes
+    /// (`docs/api-database-contract.md`). The Node oracle freezes the exact
+    /// wording in `apps/api/src/controllers/database.controller.ts:38-96`.
+    pub const UNSUPPORTED_STORAGE: &str =
+        "Database transfer is not supported for this storage backend.";
+    pub const INVALID_DATABASE: &str = "The uploaded database is invalid or incompatible.";
+    pub const DATABASE_IMPORT_BUSY: &str = "Another database import is already in progress.";
+    pub const DATABASE_RECOVERY_FAILED: &str =
+        "The database import failed and recovery was required.";
+    pub const DATABASE_TRANSFER_FAILED: &str = "The database transfer could not be completed.";
+    pub const UPLOAD_TOO_LARGE: &str = "The database upload is too large.";
+    pub const MISSING_DATABASE_FILE: &str = "A database file is required in the database field.";
+    pub const INVALID_DATABASE_FIELD: &str =
+        "A single database file is required in the database field.";
+    pub const INVALID_MULTIPART: &str = "A valid multipart database upload is required.";
 }
 
 /// The outbound HTTP client.

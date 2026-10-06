@@ -63,7 +63,7 @@ pub async fn list_connections(database: &AppDatabase) -> Result<Vec<ProviderConn
         "SELECT id, provider_id, name, alias, category, protocol, base_url, enabled, meta, created_at \
          FROM providers ORDER BY created_at DESC",
     )
-    .fetch_all(pool)
+    .fetch_all(&pool)
     .await
     .map_err(|error| {
         APIError::new(
@@ -120,7 +120,7 @@ pub async fn list_providers_for_quota(
         "SELECT id, provider_id, name, category, enabled, credentials, meta \
          FROM providers ORDER BY created_at DESC",
     )
-    .fetch_all(pool)
+    .fetch_all(&pool)
     .await
     .map_err(|error| {
         APIError::new(
@@ -156,7 +156,7 @@ pub async fn provider_exists(database: &AppDatabase, base_id: &str) -> Result<bo
     };
 
     let rows = sqlx::query("SELECT id, provider_id FROM providers")
-        .fetch_all(pool)
+        .fetch_all(&pool)
         .await
         .map_err(|error| {
             APIError::new(
@@ -190,7 +190,7 @@ pub async fn provider_enabled(database: &AppDatabase, base_id: &str) -> Result<b
 
     let value = sqlx::query_scalar::<_, String>("SELECT value FROM settings WHERE key = ?")
         .bind(enabled_key(base_id))
-        .fetch_optional(pool)
+        .fetch_optional(&pool)
         .await
         .map_err(|error| {
             APIError::new(

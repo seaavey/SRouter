@@ -46,7 +46,7 @@ pub async fn upsert_grok_web_connection(
     .bind(&write.name)
     .bind(credentials.to_string())
     .bind(now_ms())
-    .execute(pool)
+    .execute(&pool)
     .await
     .map_err(|error| {
         APIError::new(
@@ -72,7 +72,7 @@ pub async fn load_grok_web_credentials(
          ORDER BY created_at DESC
          LIMIT 1",
     )
-    .fetch_all(pool)
+    .fetch_all(&pool)
     .await
     .map_err(|error| {
         APIError::new(

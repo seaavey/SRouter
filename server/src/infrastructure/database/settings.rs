@@ -12,7 +12,7 @@ pub async fn get_require_api_key(database: &AppDatabase) -> Result<bool, APIErro
 
     let value =
         sqlx::query_scalar::<_, String>("SELECT value FROM settings WHERE key = 'require_api_key'")
-            .fetch_optional(pool)
+            .fetch_optional(&pool)
             .await
             .map_err(|error| {
                 APIError::new(
@@ -39,7 +39,7 @@ pub async fn set_require_api_key(database: &AppDatabase, required: bool) -> Resu
          ON CONFLICT(key) DO UPDATE SET value = excluded.value",
     )
     .bind(val)
-    .execute(pool)
+    .execute(&pool)
     .await
     .map_err(|error| {
         APIError::new(
@@ -60,7 +60,7 @@ pub async fn get_setting(database: &AppDatabase, key: &str) -> Result<Option<Str
 
     sqlx::query_scalar::<_, String>("SELECT value FROM settings WHERE key = ?")
         .bind(key)
-        .fetch_optional(pool)
+        .fetch_optional(&pool)
         .await
         .map_err(|error| {
             APIError::new(
@@ -85,7 +85,7 @@ pub async fn set_setting(database: &AppDatabase, key: &str, value: &str) -> Resu
     )
     .bind(key)
     .bind(value)
-    .execute(pool)
+    .execute(&pool)
     .await
     .map_err(|error| {
         APIError::new(

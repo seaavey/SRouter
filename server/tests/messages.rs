@@ -144,7 +144,7 @@ async fn post_v1_messages_logs_streaming_request() {
     let row = sqlx::query(
         "SELECT status_code, prompt_tokens, completion_tokens, total_tokens, path FROM request_logs",
     )
-    .fetch_one(database.sqlite_pool().unwrap())
+    .fetch_one(&database.sqlite_pool().unwrap())
     .await
     .expect("stream log row");
     assert_eq!(
@@ -168,7 +168,7 @@ async fn post_v1_messages_logs_streaming_request() {
         "/v1/messages"
     );
     let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM request_logs")
-        .fetch_one(database.sqlite_pool().unwrap())
+        .fetch_one(&database.sqlite_pool().unwrap())
         .await
         .unwrap();
     assert_eq!(count, 1);
@@ -543,7 +543,7 @@ async fn mid_stream_failure_emits_an_error_event_and_logs_the_failure_status() {
     let row = sqlx::query(
         "SELECT status_code, prompt_tokens, completion_tokens, total_tokens FROM request_logs",
     )
-    .fetch_one(database.sqlite_pool().unwrap())
+    .fetch_one(&database.sqlite_pool().unwrap())
     .await
     .expect("stream log row");
     assert_eq!(

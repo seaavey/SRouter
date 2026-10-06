@@ -28,7 +28,7 @@ impl AdminAuthRepository for SQLxAdminAuthStore {
             let pool = self.pool()?;
             let exists: i64 =
                 sqlx::query_scalar("SELECT COUNT(*) FROM admin_accounts WHERE id = 1")
-                    .fetch_one(pool)
+                    .fetch_one(&pool)
                     .await
                     .map_err(sql_error(constants::database::context::READ_ADMIN_ACCOUNT))?;
 
@@ -54,7 +54,7 @@ impl AdminAuthRepository for SQLxAdminAuthStore {
             .bind(password_hash)
             .bind(now_ms)
             .bind(now_ms)
-            .execute(pool)
+            .execute(&pool)
             .await
             .map_err(sql_error(
                 constants::database::context::CREATE_ADMIN_ACCOUNT,
@@ -69,7 +69,7 @@ impl AdminAuthRepository for SQLxAdminAuthStore {
             let pool = self.pool()?;
 
             sqlx::query_scalar::<_, String>("SELECT password_hash FROM admin_accounts WHERE id = 1")
-                .fetch_optional(pool)
+                .fetch_optional(&pool)
                 .await
                 .map_err(sql_error(
                     constants::database::context::READ_ADMIN_PASSWORD_HASH,
@@ -91,7 +91,7 @@ impl AdminAuthRepository for SQLxAdminAuthStore {
             )
             .bind(password_hash)
             .bind(now_ms)
-            .execute(pool)
+            .execute(&pool)
             .await
             .map_err(sql_error(
                 constants::database::context::UPDATE_ADMIN_PASSWORD_HASH,
@@ -118,7 +118,7 @@ impl AdminAuthRepository for SQLxAdminAuthStore {
             .bind(token_hash)
             .bind(created_at)
             .bind(expires_at)
-            .execute(pool)
+            .execute(&pool)
             .await
             .map_err(sql_error(
                 constants::database::context::CREATE_ADMIN_SESSION,
@@ -135,7 +135,7 @@ impl AdminAuthRepository for SQLxAdminAuthStore {
             let pool = self.pool()?;
             let result = sqlx::query("DELETE FROM admin_sessions WHERE token_hash = ?")
                 .bind(token_hash)
-                .execute(pool)
+                .execute(&pool)
                 .await
                 .map_err(sql_error(
                     constants::database::context::DELETE_ADMIN_SESSION,
@@ -159,7 +159,7 @@ impl AdminSessionStore for SQLxAdminAuthStore {
             )
             .bind(token_hash)
             .bind(now_ms)
-            .fetch_one(pool)
+            .fetch_one(&pool)
             .await
             .map_err(sql_error(constants::database::context::READ_ADMIN_SESSION))?;
 
@@ -169,7 +169,7 @@ impl AdminSessionStore for SQLxAdminAuthStore {
 }
 
 impl SQLxAdminAuthStore {
-    fn pool(&self) -> Result<&sqlx::SqlitePool, APIError> {
+    fn pool(&self) -> Result<sqlx::SqlitePool, APIError> {
         self.database
             .sqlite_pool()
             .ok_or_else(|| APIError::new(500, constants::database::ADMIN_UNSUPPORTED))

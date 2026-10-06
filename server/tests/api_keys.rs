@@ -278,7 +278,7 @@ async fn an_empty_allowlist_is_stored_and_reported_as_null() {
     let stored: Option<String> =
         sqlx::query_scalar("SELECT allowed_models FROM api_keys WHERE id = ?")
             .bind(&id)
-            .fetch_one(database.connect().await.unwrap().sqlite_pool().unwrap())
+            .fetch_one(&database.connect().await.unwrap().sqlite_pool().unwrap())
             .await
             .unwrap();
     assert_eq!(stored, None);

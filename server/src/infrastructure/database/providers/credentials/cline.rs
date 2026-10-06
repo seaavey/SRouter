@@ -50,7 +50,7 @@ pub async fn upsert_cline_connection(
     .bind(&write.name)
     .bind(credentials.to_string())
     .bind(now_ms())
-    .execute(pool)
+    .execute(&pool)
     .await
     .map_err(|error| {
         APIError::new(
@@ -77,7 +77,7 @@ pub async fn load_cline_credentials(
          ORDER BY created_at DESC
          LIMIT 1",
     )
-    .fetch_all(pool)
+    .fetch_all(&pool)
     .await
     .map_err(|error| {
         APIError::new(
@@ -173,7 +173,7 @@ pub async fn update_cline_tokens(
     )
     .bind(credentials.to_string())
     .bind(id)
-    .execute(pool)
+    .execute(&pool)
     .await
     .map_err(|error| {
         APIError::new(

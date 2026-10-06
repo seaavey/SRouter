@@ -206,7 +206,7 @@ async fn a_failed_store_releases_the_session_for_retry() {
     // Break the connection write so the callback fails after the exchange.
     let app_database = database.connect().await.expect("temporary database");
     sqlx::query("DROP TABLE providers")
-        .execute(app_database.sqlite_pool().unwrap())
+        .execute(&app_database.sqlite_pool().unwrap())
         .await
         .expect("providers table dropped");
 
@@ -223,7 +223,7 @@ async fn a_failed_store_releases_the_session_for_retry() {
     // retry instead of losing the OAuth state.
     let row = sqlx::query("SELECT claimed_at FROM oauth_sessions WHERE state = ?")
         .bind(&state)
-        .fetch_optional(app_database.sqlite_pool().unwrap())
+        .fetch_optional(&app_database.sqlite_pool().unwrap())
         .await
         .expect("session read")
         .expect("the session is not deleted when the store fails");

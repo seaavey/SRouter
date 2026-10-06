@@ -47,7 +47,7 @@ pub async fn load_codex_credentials(
          ORDER BY created_at DESC
          LIMIT 1",
     )
-    .fetch_all(pool)
+    .fetch_all(&pool)
     .await
     .map_err(|error| {
         APIError::new(
@@ -105,7 +105,7 @@ pub async fn update_codex_tokens(
 
     let current = sqlx::query_scalar::<_, String>("SELECT credentials FROM providers WHERE id = ?")
         .bind(id)
-        .fetch_optional(pool)
+        .fetch_optional(&pool)
         .await
         .map_err(|error| {
             APIError::new(
@@ -133,7 +133,7 @@ pub async fn update_codex_tokens(
     )
     .bind(credentials.to_string())
     .bind(id)
-    .execute(pool)
+    .execute(&pool)
     .await
     .map_err(|error| {
         APIError::new(
@@ -183,7 +183,7 @@ pub async fn upsert_codex_connection(
     .bind(&write.name)
     .bind(credentials.to_string())
     .bind(now_ms())
-    .execute(pool)
+    .execute(&pool)
     .await
     .map_err(|error| {
         APIError::new(

@@ -141,7 +141,7 @@ async fn the_catalog_is_gated_on_the_connection() {
     // Removing the connection flips it back off.
     let app_database = database.connect().await.expect("temporary database");
     sqlx::query("DELETE FROM providers WHERE id = 'antigravity_fixture'")
-        .execute(app_database.sqlite_pool().unwrap())
+        .execute(&app_database.sqlite_pool().unwrap())
         .await
         .expect("connection deleted");
 

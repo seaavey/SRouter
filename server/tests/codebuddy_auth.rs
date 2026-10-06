@@ -149,7 +149,7 @@ async fn poll_stays_pending_then_stores_only_a_codebuddy_verified_token() {
     let raw_credentials: String =
         sqlx::query_scalar("SELECT credentials FROM providers WHERE id = ?")
             .bind(&connection.id)
-            .fetch_one(app_database.sqlite_pool().unwrap())
+            .fetch_one(&app_database.sqlite_pool().unwrap())
             .await
             .unwrap();
     let credentials: serde_json::Value = serde_json::from_str(&raw_credentials).unwrap();

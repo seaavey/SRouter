@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 const REDACTED: &str = "[REDACTED]";
 
@@ -19,20 +19,37 @@ pub struct APIConfig {
     pub web_dist_path: Option<PathBuf>,
     pub database_path: PathBuf,
     pub database_url: Option<String>,
+    /// `<HOME>/.srouter`, the SRouter data directory. The database importer
+    /// keeps its transfer temp dirs and backups here (`databaseTransfer.ts:325-328`),
+    /// which is `$HOME/.srouter` even when `DATABASE_PATH` points elsewhere.
+    pub srouter_dir: PathBuf,
 }
 
 impl APIConfig {
     pub fn from_env_map(environment: &HashMap<String, String>) -> Result<Self, ConfigError> {
         let port = parse_port(environment, "PORT", 3000)?;
+        let home = environment
+            .get("HOME")
+            .filter(|home| !home.is_empty())
+            .map(PathBuf::from);
         let database_path = match environment.get("DATABASE_PATH") {
             Some(path) => PathBuf::from(path),
-            None => {
-                let home = environment
-                    .get("HOME")
-                    .filter(|home| !home.is_empty())
-                    .ok_or(ConfigError::MissingHome)?;
-                PathBuf::from(home).join(".srouter").join("srouter.db")
-            }
+            None => home
+                .as_ref()
+                .ok_or(ConfigError::MissingHome)?
+                .join(".srouter")
+                .join("srouter.db"),
+        };
+        // `<HOME>/.srouter` is where the importer keeps transfer temp dirs and
+        // backups (`databaseTransfer.ts:325-328`). It follows `HOME` even when
+        // `DATABASE_PATH` points elsewhere; without `HOME` it falls back to the
+        // database's own directory rather than refusing to boot.
+        let srouter_dir = match &home {
+            Some(home) => home.join(".srouter"),
+            None => database_path
+                .parent()
+                .map(Path::to_path_buf)
+                .unwrap_or_else(|| PathBuf::from(".")),
         };
         let public_url = environment
             .get("SROUTER_PUBLIC_URL")
@@ -94,6 +111,7 @@ impl APIConfig {
                 .get("DATABASE_URL")
                 .filter(|url| !url.is_empty())
                 .cloned(),
+            srouter_dir,
         })
     }
 }
@@ -114,6 +132,7 @@ impl Debug for APIConfig {
             .field("access_log", &self.access_log)
             .field("web_dist_path", &self.web_dist_path)
             .field("database_path", &self.database_path)
+            .field("srouter_dir", &self.srouter_dir)
             .field(
                 "database_url",
                 &self.database_url.as_ref().map(|_| REDACTED),

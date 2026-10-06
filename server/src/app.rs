@@ -8,6 +8,7 @@ use crate::error::APIError;
 use crate::features::admin_auth::create_admin_router;
 use crate::features::api_keys::create_api_keys_router;
 use crate::features::catalog::create_quota_router;
+use crate::features::database_transfer::create_database_router;
 use crate::features::gateway::routes::{create_gateway_router, create_models_router};
 use crate::features::logs::create_logs_router;
 use crate::features::provider_auth::{
@@ -122,6 +123,10 @@ pub fn create_router(state: AppState) -> Router {
         create_settings_read_router().layer(from_fn_with_state(state.clone(), api_key_auth));
     let settings_mgmt_routes = create_settings_management_router()
         .layer(from_fn_with_state(state.clone(), require_admin_session));
+    // Database transfer is admin-session only; API keys and loopback do not
+    // authorize (`apps/api/src/routes/v1/database.ts:21`).
+    let database_routes =
+        create_database_router().layer(from_fn_with_state(state.clone(), require_admin_session));
     // Admin auth routes enforce their own session requirement per handler, so
     // they are mounted without a shared guard.
     // CSRF origin defense rejects cross-origin mutations using admin cookies before
@@ -146,6 +151,7 @@ pub fn create_router(state: AppState) -> Router {
         .merge(quota_routes)
         .merge(settings_read_routes)
         .merge(settings_mgmt_routes)
+        .merge(database_routes)
         .fallback(route_not_found)
         .layer(from_fn_with_state(state.clone(), csrf_origin_guard))
         .layer(from_fn(body_limit));

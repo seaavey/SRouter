@@ -51,7 +51,7 @@ pub async fn save_session(
     .bind(client_id)
     .bind(redirect_uri)
     .bind(now_ms())
-    .execute(pool)
+    .execute(&pool)
     .await
     .map_err(|error| {
         APIError::new(
@@ -81,7 +81,7 @@ pub async fn save_device_session(
     .bind(device_code)
     .bind(client_id)
     .bind(now_ms())
-    .execute(pool)
+    .execute(&pool)
     .await
     .map_err(|error| {
         APIError::new(
@@ -110,7 +110,7 @@ pub async fn claim_session(
     .bind(now)
     .bind(state)
     .bind(cutoff)
-    .execute(pool)
+    .execute(&pool)
     .await
     .map_err(|error| {
         APIError::new(
@@ -129,7 +129,7 @@ pub async fn claim_session(
          FROM oauth_sessions WHERE state = ?",
     )
     .bind(state)
-    .fetch_optional(pool)
+    .fetch_optional(&pool)
     .await
     .map_err(|error| {
         APIError::new(
@@ -147,7 +147,7 @@ pub async fn release_session(database: &AppDatabase, state: &str) -> Result<(), 
 
     sqlx::query("UPDATE oauth_sessions SET claimed_at = NULL WHERE state = ?")
         .bind(state)
-        .execute(pool)
+        .execute(&pool)
         .await
         .map_err(|error| {
             APIError::new(
@@ -165,7 +165,7 @@ pub async fn delete_session(database: &AppDatabase, state: &str) -> Result<(), A
 
     sqlx::query("DELETE FROM oauth_sessions WHERE state = ?")
         .bind(state)
-        .execute(pool)
+        .execute(&pool)
         .await
         .map_err(|error| {
             APIError::new(
@@ -186,7 +186,7 @@ pub async fn cleanup_expired_sessions(
 
     sqlx::query("DELETE FROM oauth_sessions WHERE created_at < ?")
         .bind(older_than_ms)
-        .execute(pool)
+        .execute(&pool)
         .await
         .map_err(|error| {
             APIError::new(

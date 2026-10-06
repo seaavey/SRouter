@@ -396,7 +396,7 @@ async fn an_expired_session_cannot_be_claimed() {
     .bind("old-state")
     .bind("verifier")
     .bind(now_ms() - SESSION_TTL_MS - 1_000)
-    .execute(db.sqlite_pool().expect("sqlite pool"))
+    .execute(&db.sqlite_pool().expect("sqlite pool"))
     .await
     .expect("expired session inserted");
 
@@ -433,7 +433,7 @@ async fn credentials_read_under_either_spelling() {
         r#"{"accessToken":"pt-node-token","refreshToken":"rt-node","provider_specific_data":{"userId":"user-node","name":"Node User","email":"node@example.com"}}"#,
     )
     .bind(now_ms())
-    .execute(pool)
+    .execute(&pool)
     .await
     .expect("node row inserted");
 
@@ -538,7 +538,7 @@ async fn cline_device_and_poll_connect_a_workos_device_account() {
     assert_eq!(fake.with(|fake| fake.recommended_requests), 1);
     let raw = sqlx::query_scalar::<_, String>("SELECT credentials FROM providers WHERE id = ?")
         .bind("user-1")
-        .fetch_one(db.sqlite_pool().expect("sqlite pool"))
+        .fetch_one(&db.sqlite_pool().expect("sqlite pool"))
         .await
         .expect("credentials JSON");
     let value: serde_json::Value = serde_json::from_str(&raw).expect("credentials JSON parses");

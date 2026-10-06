@@ -297,7 +297,7 @@ async fn the_snapshot_flips_with_the_connection() {
     let pool = temp.database.sqlite_pool().expect("sqlite pool");
     sqlx::query("DELETE FROM providers WHERE id = ?")
         .bind("antigravity_1")
-        .execute(pool)
+        .execute(&pool)
         .await
         .expect("connection deleted");
 

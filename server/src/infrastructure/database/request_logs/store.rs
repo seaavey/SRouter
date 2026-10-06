@@ -102,7 +102,7 @@ pub async fn list_request_logs(
         }
     };
     let total: i64 = sqlx::query_scalar(count_query)
-        .fetch_one(pool)
+        .fetch_one(&pool)
         .await
         .map_err(|error| {
             APIError::new(
@@ -115,7 +115,7 @@ pub async fn list_request_logs(
     let rows = sqlx::query(logs_query)
         .bind(limit)
         .bind(offset)
-        .fetch_all(pool)
+        .fetch_all(&pool)
         .await
         .map_err(|error| {
             APIError::new(
@@ -141,7 +141,7 @@ pub async fn get_request_log(
 ) -> Result<Option<RequestLog>, APIError> {
     let row = sqlx::query("SELECT * FROM request_logs WHERE id = ?")
         .bind(id.to_string())
-        .fetch_optional(database.sqlite_required(constants::database::REQUEST_LOGS_UNSUPPORTED)?)
+        .fetch_optional(&database.sqlite_required(constants::database::REQUEST_LOGS_UNSUPPORTED)?)
         .await
         .map_err(|error| {
             APIError::new(500, constants::database::could_not_read_request_log(&error))
@@ -290,7 +290,7 @@ pub async fn insert_request_log(
     .bind(input.error_message)
     .bind(input.api_key_id.filter(|id| Uuid::parse_str(id).is_err()))
     .bind(input.created_at)
-    .execute(pool)
+    .execute(&pool)
     .await
     .map_err(|error| {
         APIError::new(
@@ -308,7 +308,7 @@ pub async fn insert_request_log(
             .bind(input.usage.total_tokens)
             .bind(input.estimated_cost)
             .bind(key_id)
-            .execute(pool)
+            .execute(&pool)
             .await;
     }
     publish_request_log(log_uuid);

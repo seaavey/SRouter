@@ -131,7 +131,7 @@ async fn codex_models_disappear_after_the_last_connection_is_removed_and_registr
 
     let db = database.connect().await.expect("temporary database");
     let deleted = sqlx::query("DELETE FROM providers WHERE id = 'codex-account'")
-        .execute(db.sqlite_pool().expect("sqlite pool"))
+        .execute(&db.sqlite_pool().expect("sqlite pool"))
         .await
         .unwrap();
     assert_eq!(deleted.rows_affected(), 1);

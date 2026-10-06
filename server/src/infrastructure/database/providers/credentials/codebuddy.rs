@@ -49,7 +49,7 @@ pub async fn upsert_codebuddy_connection(
     .bind(credentials.to_string())
     .bind(&write.base_url)
     .bind(now_ms())
-    .execute(pool)
+    .execute(&pool)
     .await
     .map_err(|error| {
         APIError::new(
@@ -87,7 +87,7 @@ pub async fn load_codebuddy_credentials(
          LIMIT 1",
     )
     .bind(provider_id)
-    .fetch_all(pool)
+    .fetch_all(&pool)
     .await
     .map_err(|error| {
         APIError::new(

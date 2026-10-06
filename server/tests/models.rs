@@ -222,7 +222,7 @@ async fn favorite_model_ids_returns_lowercased_stored_ids() {
     sqlx::query("INSERT INTO favorite_models (model_id, created_at) VALUES (?, ?)")
         .bind("Zen/Space-Bunny-Free")
         .bind(1_700_000_000_i64)
-        .execute(database.sqlite_pool().unwrap())
+        .execute(&database.sqlite_pool().unwrap())
         .await
         .unwrap();
 
@@ -240,7 +240,7 @@ async fn models_list_marks_favorited_entries() {
     sqlx::query("INSERT INTO favorite_models (model_id, created_at) VALUES (?, ?)")
         .bind("zen/big-pickle")
         .bind(1_700_000_000_i64)
-        .execute(database.sqlite_pool().unwrap())
+        .execute(&database.sqlite_pool().unwrap())
         .await
         .unwrap();
 
@@ -277,7 +277,7 @@ async fn hidden_models_are_absent_from_the_catalog() {
     .bind("opencode_zen")
     .bind("zen/big-pickle")
     .bind(1_700_000_000_i64)
-    .execute(database.sqlite_pool().unwrap())
+    .execute(&database.sqlite_pool().unwrap())
     .await
     .unwrap();
 
@@ -325,7 +325,7 @@ async fn hidden_flags_match_however_the_row_was_spelled() {
     .bind("OpenCode_Zen")
     .bind("Zen/Big-Pickle")
     .bind(1_700_000_000_i64)
-    .execute(database.sqlite_pool().unwrap())
+    .execute(&database.sqlite_pool().unwrap())
     .await
     .unwrap();
 
@@ -476,7 +476,7 @@ async fn get_single_model_reports_favorite() {
     sqlx::query("INSERT INTO favorite_models (model_id, created_at) VALUES (?, ?)")
         .bind("zen/space-bunny-free")
         .bind(1_700_000_000_i64)
-        .execute(database.sqlite_pool().unwrap())
+        .execute(&database.sqlite_pool().unwrap())
         .await
         .unwrap();
 
@@ -574,7 +574,7 @@ async fn hiding_one_qoder_name_hides_the_model_under_both() {
     .bind("qoder")
     .bind("qd/qmodel")
     .bind(1_700_000_000_i64)
-    .execute(app_database.sqlite_pool().unwrap())
+    .execute(&app_database.sqlite_pool().unwrap())
     .await
     .unwrap();
 
@@ -607,7 +607,7 @@ async fn hiding_one_qoder_name_hides_the_model_under_both() {
     );
 
     sqlx::query("DELETE FROM provider_model_overrides WHERE model_id = 'qd/qmodel'")
-        .execute(app_database.sqlite_pool().unwrap())
+        .execute(&app_database.sqlite_pool().unwrap())
         .await
         .unwrap();
 
@@ -630,7 +630,7 @@ async fn a_qoder_favorite_shows_on_every_name_of_the_model() {
     sqlx::query("INSERT INTO favorite_models (model_id, created_at) VALUES (?, ?)")
         .bind("qd/qwen3.7-max")
         .bind(1_700_000_000_i64)
-        .execute(app_database.sqlite_pool().unwrap())
+        .execute(&app_database.sqlite_pool().unwrap())
         .await
         .unwrap();
 

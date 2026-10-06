@@ -25,7 +25,7 @@ pub async fn usage_stats(database: &AppDatabase) -> Result<serde_json::Value, AP
          COALESCE(SUM(reasoning_tokens), 0) AS reasoning_tokens, \
          COALESCE(SUM(estimated_cost), 0) AS estimated_cost FROM request_logs",
     )
-    .fetch_one(database.sqlite_required(constants::database::REQUEST_LOGS_UNSUPPORTED)?)
+    .fetch_one(&database.sqlite_required(constants::database::REQUEST_LOGS_UNSUPPORTED)?)
     .await
     .map_err(|error| APIError::new(500, constants::database::could_not_aggregate_request_logs(&error)))?;
     let total_requests: i64 = row.try_get("total_requests").map_err(log_row_error)?;
@@ -45,7 +45,7 @@ pub async fn usage_stats(database: &AppDatabase) -> Result<serde_json::Value, AP
          SUM(cached_tokens) AS cached_tokens, SUM(estimated_cost) AS estimated_cost \
          FROM request_logs GROUP BY model ORDER BY total_requests DESC",
     )
-    .fetch_all(database.sqlite_required(constants::database::REQUEST_LOGS_UNSUPPORTED)?)
+    .fetch_all(&database.sqlite_required(constants::database::REQUEST_LOGS_UNSUPPORTED)?)
     .await
     .map_err(|error| {
         APIError::new(
@@ -210,7 +210,7 @@ pub async fn analytics_report(
     .bind(bucket_size_ms)
     .bind(bucket_size_ms)
     .bind(since)
-    .fetch_all(pool)
+    .fetch_all(&pool)
     .await
     .map_err(|error| {
         APIError::new(
@@ -265,7 +265,7 @@ pub async fn analytics_report(
          GROUP BY model ORDER BY total_requests DESC LIMIT 10",
     )
     .bind(since)
-    .fetch_all(pool)
+    .fetch_all(&pool)
     .await
     .map_err(|error| {
         APIError::new(
@@ -291,7 +291,7 @@ pub async fn analytics_report(
          GROUP BY user_agent ORDER BY total_requests DESC LIMIT 10",
     )
     .bind(since)
-    .fetch_all(pool)
+    .fetch_all(&pool)
     .await
     .map_err(|error| {
         APIError::new(
@@ -317,7 +317,7 @@ pub async fn analytics_report(
          GROUP BY provider_id ORDER BY total_requests DESC",
     )
     .bind(since)
-    .fetch_all(pool)
+    .fetch_all(&pool)
     .await
     .map_err(|error| {
         APIError::new(
@@ -338,7 +338,7 @@ pub async fn analytics_report(
     let window_count: i64 =
         sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM request_logs WHERE created_at >= ?")
             .bind(since)
-            .fetch_one(pool)
+            .fetch_one(&pool)
             .await
             .map_err(|error| {
                 APIError::new(
@@ -355,7 +355,7 @@ pub async fn analytics_report(
     )
     .bind(since)
     .bind(offset)
-    .fetch_optional(pool)
+    .fetch_optional(&pool)
     .await
     .map_err(|error| {
         APIError::new(
@@ -368,7 +368,7 @@ pub async fn analytics_report(
     let recent_count: i64 =
         sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM request_logs WHERE created_at >= ?")
             .bind(now - 60_000)
-            .fetch_one(pool)
+            .fetch_one(&pool)
             .await
             .map_err(|error| {
                 APIError::new(

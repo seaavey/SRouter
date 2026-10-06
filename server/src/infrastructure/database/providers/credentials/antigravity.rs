@@ -64,7 +64,7 @@ pub async fn load_antigravity_credentials(
             OR id LIKE 'antigravity-%') \
          ORDER BY created_at DESC",
     )
-    .fetch_all(pool)
+    .fetch_all(&pool)
     .await
     .map_err(|error| {
         APIError::new(
@@ -162,7 +162,7 @@ pub async fn upsert_antigravity_connection(
     .bind(&write.name)
     .bind(credentials.to_string())
     .bind(now_ms())
-    .execute(pool)
+    .execute(&pool)
     .await
     .map_err(|error| {
         APIError::new(
@@ -188,7 +188,7 @@ pub async fn update_antigravity_tokens(
 
     let current = sqlx::query_scalar::<_, String>("SELECT credentials FROM providers WHERE id = ?")
         .bind(id)
-        .fetch_optional(pool)
+        .fetch_optional(&pool)
         .await
         .map_err(|error| {
             APIError::new(
@@ -215,7 +215,7 @@ pub async fn update_antigravity_tokens(
     )
     .bind(credentials.to_string())
     .bind(id)
-    .execute(pool)
+    .execute(&pool)
     .await
     .map_err(|error| {
         APIError::new(
@@ -239,7 +239,7 @@ pub async fn update_antigravity_project_id(
 
     let current = sqlx::query_scalar::<_, String>("SELECT credentials FROM providers WHERE id = ?")
         .bind(id)
-        .fetch_optional(pool)
+        .fetch_optional(&pool)
         .await
         .map_err(|error| {
             APIError::new(
@@ -257,7 +257,7 @@ pub async fn update_antigravity_project_id(
     sqlx::query("UPDATE providers SET credentials = ? WHERE id = ?")
         .bind(credentials.to_string())
         .bind(id)
-        .execute(pool)
+        .execute(&pool)
         .await
         .map_err(|error| {
             APIError::new(

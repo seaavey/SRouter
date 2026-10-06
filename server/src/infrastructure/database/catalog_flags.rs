@@ -19,7 +19,7 @@ pub async fn favorite_model_ids(database: &AppDatabase) -> Result<HashSet<String
     };
 
     let rows = sqlx::query("SELECT model_id FROM favorite_models")
-        .fetch_all(pool)
+        .fetch_all(&pool)
         .await
         .map_err(|error| {
             APIError::new(
@@ -50,7 +50,7 @@ pub async fn disabled_provider_ids(database: &AppDatabase) -> Result<HashSet<Str
     let rows = sqlx::query(
         "SELECT key FROM settings WHERE key LIKE 'provider_enabled_%' AND value = 'false'",
     )
-    .fetch_all(pool)
+    .fetch_all(&pool)
     .await
     .map_err(|error| {
         APIError::new(
@@ -86,7 +86,7 @@ pub async fn hidden_model_ids(database: &AppDatabase) -> Result<HashSet<String>,
     };
 
     let rows = sqlx::query("SELECT model_id FROM provider_model_overrides WHERE hidden = 1")
-        .fetch_all(pool)
+        .fetch_all(&pool)
         .await
         .map_err(|error| {
             APIError::new(

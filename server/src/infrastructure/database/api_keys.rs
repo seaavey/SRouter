@@ -35,7 +35,7 @@ impl SQLxAPIKeyStore {
         Self { database }
     }
 
-    fn pool(&self) -> Result<&SqlitePool, APIError> {
+    fn pool(&self) -> Result<SqlitePool, APIError> {
         self.database
             .sqlite_required(constants::database::API_KEYS_UNSUPPORTED)
     }
@@ -53,7 +53,7 @@ impl APIKeyStore for SQLxAPIKeyStore {
                  usage_cost, allowed_models FROM api_keys WHERE key_hash = ?",
             )
             .bind(hash_api_key(key))
-            .fetch_optional(pool)
+            .fetch_optional(&pool)
             .await
             .map_err(sql_error(constants::database::context::LOOK_UP_API_KEY))?;
 
@@ -67,7 +67,7 @@ impl APIKeyStore for SQLxAPIKeyStore {
             let value = sqlx::query_scalar::<_, String>(
                 "SELECT value FROM settings WHERE key = 'require_api_key'",
             )
-            .fetch_optional(pool)
+            .fetch_optional(&pool)
             .await
             .map_err(sql_error(
                 constants::database::context::READ_REQUIRE_API_KEY,
@@ -85,7 +85,7 @@ impl APIKeyRepository for SQLxAPIKeyStore {
             let statement =
                 format!("SELECT {KEY_COLUMNS} FROM api_keys ORDER BY created_at DESC, id");
             let rows = sqlx::raw_sql(sqlx::AssertSqlSafe(statement))
-                .fetch_all(pool)
+                .fetch_all(&pool)
                 .await
                 .map_err(sql_error(constants::database::context::LIST_API_KEYS))?;
 
@@ -120,7 +120,7 @@ impl APIKeyRepository for SQLxAPIKeyStore {
             .bind(input.credit_limit)
             .bind(allowed_models_json)
             .bind(created_at)
-            .execute(pool)
+            .execute(&pool)
             .await
             .map_err(sql_error(constants::database::context::CREATE_API_KEY))?;
 
@@ -244,7 +244,7 @@ impl APIKeyRepository for SQLxAPIKeyStore {
             let pool = self.pool()?;
             let result = sqlx::query("DELETE FROM api_keys WHERE id = ?")
                 .bind(id)
-                .execute(pool)
+                .execute(&pool)
                 .await
                 .map_err(sql_error(constants::database::context::DELETE_API_KEY))?;
 
@@ -274,7 +274,7 @@ impl APIKeyRepository for SQLxAPIKeyStore {
             .bind(reserved_tokens)
             .bind(id)
             .bind(reserved_tokens)
-            .execute(pool)
+            .execute(&pool)
             .await
             .map_err(sql_error(
                 constants::database::context::RESERVE_API_KEY_QUOTA,
@@ -302,7 +302,7 @@ impl APIKeyRepository for SQLxAPIKeyStore {
             sqlx::query("UPDATE api_keys SET usage_tokens = usage_tokens + ? WHERE id = ?")
                 .bind(difference)
                 .bind(id)
-                .execute(pool)
+                .execute(&pool)
                 .await
                 .map_err(sql_error(
                     constants::database::context::SETTLE_API_KEY_QUOTA,
@@ -329,7 +329,7 @@ impl APIKeyRepository for SQLxAPIKeyStore {
             .bind(tokens)
             .bind(cost)
             .bind(id)
-            .execute(pool)
+            .execute(&pool)
             .await
             .map_err(sql_error(
                 constants::database::context::INCREMENT_API_KEY_USAGE,

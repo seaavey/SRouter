@@ -470,7 +470,7 @@ async fn removing_a_qoder_connection_clears_its_registry_catalog() {
 
     let app_database = database.connect().await.expect("temporary database");
     sqlx::query("DELETE FROM providers WHERE id = 'qoder_1'")
-        .execute(app_database.sqlite_pool().unwrap())
+        .execute(&app_database.sqlite_pool().unwrap())
         .await
         .unwrap();
 

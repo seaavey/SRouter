@@ -62,7 +62,7 @@ pub async fn load_qoder_credentials(
             OR id = 'qoder' OR id LIKE 'qoder_%' OR id LIKE 'qoder-%' \
          ORDER BY created_at DESC",
     )
-    .fetch_all(pool)
+    .fetch_all(&pool)
     .await
     .map_err(|error| {
         APIError::new(
@@ -114,7 +114,7 @@ pub async fn upsert_qoder_connection(
     .bind(&write.name)
     .bind(credentials.to_string())
     .bind(now_ms())
-    .execute(pool)
+    .execute(&pool)
     .await
     .map_err(|error| {
         APIError::new(

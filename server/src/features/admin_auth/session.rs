@@ -1,6 +1,7 @@
 //! Admin session mechanics: cookie name, token hashing, and session lookup.
 //! Kept separate from API keys because admin login owns these values.
 
+use axum::http::HeaderValue;
 use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use futures_util::future::BoxFuture;
@@ -29,6 +30,41 @@ pub fn generate_session_token() -> Result<String, APIError> {
 /// `createHash("sha256").update(token).digest("hex")`.
 pub fn hash_session_token(token: &str) -> String {
     hex::encode(Sha256::digest(token.as_bytes()))
+}
+
+/// Builds the `Set-Cookie` value for a freshly minted session. Shared with the
+/// database importer, which clears the same cookie after a replacement.
+pub(crate) fn session_cookie(token: &str, secure: bool) -> Result<HeaderValue, APIError> {
+    let mut cookie = format!(
+        "{ADMIN_SESSION_COOKIE}={token}; Max-Age={}; Path=/; HttpOnly; SameSite=Lax",
+        ADMIN_SESSION_TTL_MS / 1000
+    );
+    if secure {
+        cookie.push_str("; Secure");
+    }
+
+    HeaderValue::from_str(&cookie).map_err(|error| {
+        APIError::new(
+            500,
+            constants::admin::could_not_build_session_cookie(&error),
+        )
+    })
+}
+
+/// Builds the `Set-Cookie` value that expires the session. The importer clears
+/// it after a successful replacement so the operator re-authenticates.
+pub(crate) fn cleared_cookie(secure: bool) -> Result<HeaderValue, APIError> {
+    let mut cookie = format!("{ADMIN_SESSION_COOKIE}=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax");
+    if secure {
+        cookie.push_str("; Secure");
+    }
+
+    HeaderValue::from_str(&cookie).map_err(|error| {
+        APIError::new(
+            500,
+            constants::admin::could_not_build_cleared_cookie(&error),
+        )
+    })
 }
 
 /// Source of admin session state. `token_hash` is always `hash_session_token`

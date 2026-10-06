@@ -141,6 +141,10 @@ The settings routes deviate from the route rows above by owner decision; the row
 
 The Rust build is SQLite-only. A configured `DATABASE_URL` is refused at boot with `500` naming the backend, rather than starting a process whose repositories have no statements: the settings, catalog-flag, provider-connection, admin-auth, and request-log stores all read through `sqlite_pool()` and would otherwise answer from empty defaults or `500` at request time. The Node runtime keeps PostgreSQL support until cutover. `server/.env.example` and `server/TODO.md` §10 record the refusal and what PostgreSQL support would require.
 
+### Database transfer in the Rust build
+
+The Rust build implements both transfer routes in `server/src/features/database_transfer/`, mounted inside `/v1` only (not the `/v1/v1` compat group) and guarded by the admin session. The wire contract matches the rows above; the four implementation deviations (version carrier, legacy migration, streaming parser, lock owner modes) are recorded in `docs/api-database-contract.md` §"Database transfer in the Rust build". Regression evidence: `server/tests/database_transfer.rs`.
+
 ## Compatibility aliases and retired routes
 
 The main listener mounts these compatibility paths under `/v1/v1`: `/chat/completions`, `/chat/completion`, `/chat`, `/messages`, `/messages/count_tokens`, `/images/generations`, `/models`, and `/models/:model`. They use the same route handlers and feature middleware as their `/v1` counterparts. The OAuth listener exposes only its `/v1` mounts, not `/v1/v1`.

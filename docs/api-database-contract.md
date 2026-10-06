@@ -78,6 +78,19 @@ This evidence does not establish the complete SQLite or PostgreSQL schema. In pa
 
 Errors use the standard API envelope `{error:{message,type,code?}}`. The main listener's global request-size middleware can reject an oversized `Content-Length` earlier with status `413` and `request_too_large`.
 
+### Database transfer in the Rust build
+
+The Rust port (`server/src/features/database_transfer/`) preserves the wire contract above. Four implementation deviations are documented here because they change observable behavior on edge inputs:
+
+- **Version carrier.** The candidate's schema version is read from `PRAGMA user_version` (3 = current), not from the `srouter_schema_meta` marker table, which v2 dropped (`docs/schemas-database.md` §7-F). A candidate reporting a version above 3 is `400 invalid_database`.
+- **Legacy candidate migration.** A v1/v2 candidate (marker table present, `user_version` below 3) is migrated on a scratch copy before validation and replacement, so a v1 export is accepted rather than refused. The uploaded bytes are never written to.
+- **Streaming parser.** The multipart body is streamed with `axum::extract::Multipart`; Node's hand-rolled boundary parser exists only because `Request.formData()` buffers and is not ported. The wire behavior (one file part named `database`, filename before or after the name, duplicates rejected, 25 MiB enforced while streaming) is unchanged.
+- **Transfer lock owner modes.** The `<db>.transfer.lock` file is ported with both owner modes: a `transfer` owner is reclaimed when its pid is dead or recycled, and an `operation` owner (the CLI) always answers `409 database_import_busy` without reclaiming.
+
+One branch is deliberately untested in the Rust suite: the replacement path after the file rename. Exercising it needs a fault hook in the replacement sequence, which is more machinery than the branch justifies, and the Node oracle does not cover it either. The path is written to fail closed: every replacement failure answers `500 database_recovery_failed` (matching Node, `databaseTransfer.ts:495-523`), restoring the retained backup when the rename had already happened and reopening the original otherwise.
+
+The frozen error table above is unchanged.
+
 ## Test isolation and evidence
 
 The baseline command for `database-route.test.ts` used `tests/setup.ts`. That setup redirects SQLite to a process-specific temporary file, deletes `DATABASE_URL`, and removes the temporary database at process exit. The route test covers export authorization and headers, import authorization and response fields, multipart parameter ordering, duplicate/missing/invalid/oversized uploads, transfer error mapping, cleanup, and `0700`/`0600` permissions. All 8 baseline cases passed.

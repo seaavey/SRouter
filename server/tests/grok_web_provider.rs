@@ -508,7 +508,7 @@ async fn models_are_advertised_only_while_a_connection_exists() {
 
     let db = database.connect().await.expect("temporary database");
     sqlx::query("DELETE FROM providers WHERE provider_id = 'grok-web'")
-        .execute(db.sqlite_pool().unwrap())
+        .execute(&db.sqlite_pool().unwrap())
         .await
         .unwrap();
     let router = app(&database, &fake).await;

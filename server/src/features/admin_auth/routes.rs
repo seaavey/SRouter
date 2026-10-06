@@ -4,7 +4,7 @@
 
 use axum::body::{Bytes, to_bytes};
 use axum::extract::{Request, State};
-use axum::http::{HeaderValue, StatusCode, header};
+use axum::http::{StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
@@ -17,6 +17,7 @@ use crate::request::{client_address, cookie_value, is_loopback_address};
 use crate::state::AppState;
 
 use super::password::{hash_admin_password, validate_admin_password, verify_admin_password};
+use super::session::{cleared_cookie, session_cookie};
 use super::{
     ADMIN_SESSION_COOKIE, ADMIN_SESSION_TTL_MS, generate_session_token, hash_session_token,
 };
@@ -246,37 +247,6 @@ fn attach_cleared_cookie(state: &AppState, response: &mut Response) -> Result<()
     );
 
     Ok(())
-}
-
-fn session_cookie(token: &str, secure: bool) -> Result<HeaderValue, APIError> {
-    let mut cookie = format!(
-        "{ADMIN_SESSION_COOKIE}={token}; Max-Age={}; Path=/; HttpOnly; SameSite=Lax",
-        ADMIN_SESSION_TTL_MS / 1000
-    );
-    if secure {
-        cookie.push_str("; Secure");
-    }
-
-    HeaderValue::from_str(&cookie).map_err(|error| {
-        APIError::new(
-            500,
-            constants::admin::could_not_build_session_cookie(&error),
-        )
-    })
-}
-
-fn cleared_cookie(secure: bool) -> Result<HeaderValue, APIError> {
-    let mut cookie = format!("{ADMIN_SESSION_COOKIE}=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax");
-    if secure {
-        cookie.push_str("; Secure");
-    }
-
-    HeaderValue::from_str(&cookie).map_err(|error| {
-        APIError::new(
-            500,
-            constants::admin::could_not_build_cleared_cookie(&error),
-        )
-    })
 }
 
 async fn json_body(request: Request, message: &str) -> Result<Value, APIError> {

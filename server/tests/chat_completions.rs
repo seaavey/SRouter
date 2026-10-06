@@ -566,7 +566,7 @@ async fn post_v1_chat_completions_logs_streaming_request() {
     let row = sqlx::query(
         "SELECT status_code, prompt_tokens, completion_tokens, total_tokens, path FROM request_logs",
     )
-    .fetch_one(database.sqlite_pool().unwrap())
+    .fetch_one(&database.sqlite_pool().unwrap())
     .await
     .expect("stream log row");
     assert_eq!(
@@ -590,7 +590,7 @@ async fn post_v1_chat_completions_logs_streaming_request() {
         "/v1/chat/completions"
     );
     let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM request_logs")
-        .fetch_one(database.sqlite_pool().unwrap())
+        .fetch_one(&database.sqlite_pool().unwrap())
         .await
         .unwrap();
     assert_eq!(count, 1);
@@ -618,7 +618,7 @@ async fn post_v1_chat_completions_logs_buffered_streaming_request() {
     let row = sqlx::query(
         "SELECT status_code, prompt_tokens, completion_tokens, total_tokens FROM request_logs",
     )
-    .fetch_one(database.sqlite_pool().unwrap())
+    .fetch_one(&database.sqlite_pool().unwrap())
     .await
     .expect("buffered stream log row");
     assert_eq!(
@@ -638,7 +638,7 @@ async fn post_v1_chat_completions_logs_buffered_streaming_request() {
         11
     );
     let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM request_logs")
-        .fetch_one(database.sqlite_pool().unwrap())
+        .fetch_one(&database.sqlite_pool().unwrap())
         .await
         .unwrap();
     assert_eq!(count, 1);
@@ -666,7 +666,7 @@ async fn post_v1_chat_completions_logs_unresolved_streaming_model() {
     let row = sqlx::query(
         "SELECT provider_id, model, resolved_model, status_code, error_message FROM request_logs",
     )
-    .fetch_one(database.sqlite_pool().unwrap())
+    .fetch_one(&database.sqlite_pool().unwrap())
     .await
     .expect("unresolved stream log row");
     assert_eq!(
@@ -713,7 +713,7 @@ async fn post_v1_chat_completions_logs_streaming_failure() {
     assert!(stream_body.contains("OpenAI Provider Stream Error (401)"));
 
     let row = sqlx::query("SELECT status_code, error_message FROM request_logs")
-        .fetch_one(database.sqlite_pool().unwrap())
+        .fetch_one(&database.sqlite_pool().unwrap())
         .await
         .expect("failure log row");
     assert_eq!(
@@ -856,7 +856,7 @@ async fn post_v1_chat_completions_records_log_with_cached_tokens_in_database() {
     let row = sqlx::query(
         "SELECT model, prompt_tokens, completion_tokens, total_tokens, cached_tokens, status_code FROM request_logs ORDER BY created_at DESC LIMIT 1"
     )
-    .fetch_one(pool)
+    .fetch_one(&pool)
     .await
     .expect("request log row must exist");
 

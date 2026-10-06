@@ -437,12 +437,12 @@ async fn v2_request_logs_keep_legacy_ids_when_upgraded_to_v3() {
 
     let database = test_database.connect().await.expect("upgrade v2 database");
     let pool = database.sqlite_pool().expect("SQLite pool");
-    assert_eq!(user_version(pool).await, 3);
+    assert_eq!(user_version(&pool).await, 3);
     let row = sqlx::query(
         "SELECT id, request_id, api_key_id, legacy_id, legacy_api_key_id, method, path \
          FROM request_logs WHERE legacy_id = 'log_existing'",
     )
-    .fetch_one(pool)
+    .fetch_one(&pool)
     .await
     .expect("upgraded request log");
     let id: String = row.try_get("id").unwrap();
