@@ -331,7 +331,7 @@ Shadow runs use alternate ports such as `PORT=3001` and `OAUTH_PORT=1456`; produ
 
 - [ ] In `catalog`, test models list/detail, hidden/custom model filtering, pricing, quota and the legacy `/v1/qouta` alias, plus any retained image capability metadata.
 - [ ] In `dashboard`, test logs pagination/detail/stats/events, analytics windows, and settings read/update authorization.
-- [ ] Assign favorites to `features/providers/` because their routes are mounted under `/providers`; assign fallback settings to `features/gateway/` because gateway execution consumes them.
+- [ ] Keep fallback settings in `features/gateway/` because gateway execution consumes them; the model-level operations (favorites, hidden, custom models) live with the model resource in `features/gateway/models.rs` under `/v1/models`, and provider-level writes in `features/providers/`.
 - [ ] Establish independent provenance for pricing and static catalog data before implementation. Stop and ask for an allowed source if parity requires unavailable package data.
 - [ ] Implement feature-local routes and services; keep shared SQL in repository adapters.
 - [ ] Run the corresponding existing `models-endpoint.test.ts`, `pricing-route.test.ts`, `quota-oauth-filter.test.ts`, `analytics.test.ts`, `logs-pagination.test.ts`, `settings-auth.test.ts`, and fallback tests individually; commit.

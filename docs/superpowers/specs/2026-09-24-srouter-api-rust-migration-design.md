@@ -45,7 +45,7 @@ Pemeriksaan akhir mencakup pencarian referensi package pada file Rust/Cargo/buil
 - Listener OAuth mempertahankan route callback dan proxy lokal untuk chat, messages, dan models.
 - Main listener mempertahankan `/health`, discovery `/v1`, seluruh route dashboard/API, dan compatibility routes `/v1/v1` untuk chat, messages, dan models.
 - Jika direktori web dist yang dipilih oleh `WEB_DIST_PATH` tersedia, server melayani static assets dan SPA fallback. Dalam mode API-only, root tetap memberikan informasi API.
-- Route domains yang dipertahankan mencakup admin, auth, chat completions, Anthropic messages, database import/export, images, keys, logs/analytics, models, pricing, providers/favorites, quota termasuk alias kompatibilitas yang ada, dan settings/fallbacks.
+- Route domains yang dipertahankan mencakup admin, auth, chat completions, Anthropic messages, database import/export, images, keys, logs/analytics, models (termasuk operasi level-model favorit/hidden/custom yang seluruhnya berada di bawah `/v1/models`), pricing, providers, quota termasuk alias kompatibilitas yang ada, dan settings/fallbacks.
 - Endpoint dan background task Cloudflare Tunnel tidak dimigrasikan. Node/Hono tetap memiliki perilaku lama selama periode fallback; endpoint tersebut tidak tersedia setelah cutover Rust.
 
 ### Middleware, error, dan keamanan

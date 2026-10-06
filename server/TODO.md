@@ -256,8 +256,9 @@ Everything below is still Node-only.
       (`apps/api/tests/verify-connection.test.ts`; blocked targets: non-HTTP(S), unresolved,
       private, loopback, link-local, CGNAT, multicast, metadata service; redirects must not bypass).
 - [x] `POST /v1/providers/connections/verify` — body `connection_id`; `400` invalid, `404` missing.
-- [x] `POST /v1/providers/{providerId}/models` — add custom model (`model_id`, `201`).
-- [x] `DELETE /v1/providers/{providerId}/models/{modelId}` — remove custom model.
+- [x] Custom models are managed at `/v1/models` (not the provider path): `POST /v1/models`
+      registers one (`model_id`, `201`/`200`), `PUT /v1/models/{*model}` upserts, and
+      `DELETE /v1/models/{*model}` removes it.
 - [x] `PATCH /v1/providers/{providerId}/round-robin` — `enabled` flag.
       (`apps/api/tests/round-robin-endpoint.test.ts`.)
 - [x] Second driver registered: `qoder` (`features/providers/qoder/`), COSY-signed chat with the
