@@ -12,6 +12,11 @@ node_modules
 apps/web/dist
 apps/api/dist
 packages/*/dist
+server/target
+server/logs
+
+# Local agent scratch
+.local
 
 # Databases & local persistent files
 *.db

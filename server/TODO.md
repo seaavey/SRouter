@@ -625,17 +625,28 @@ stale-while-revalidate=86400`, `refresh`/`force`/`no-cache` forcing a refresh.
   `cargo test --manifest-path server/Cargo.toml --locked` (766 tests), so the suite is guarded
   on every push/PR and a `Cargo.toml` edit that skips `server/Cargo.lock` fails the job. Still
   missing: the OpenAPI export drift check and the PostgreSQL service job.
-- [ ] `Dockerfile`: add a Rust builder stage and a Rust runtime target (binary, web dist, CA
-      certificates, tzdata, non-Node health check), keeping the Node target selectable for rollback.
-      Root `Dockerfile:21` still copies `apps/api/package.json` and `pnpm build` builds the Node API.
-- [ ] `docker-compose.yml`: drop the `:1455` port mapping and rewrite the `node -e` healthcheck for
-      the Rust target, which exposes `PORT` only (single-port ruling, section 1.4). Keep the Node
-      service definition intact for rollback until cutover.
+- [x] `Dockerfile`: four stages. `web-builder` (Node/pnpm, `pnpm --filter web build`), `server-builder`
+      (`rust:1.98-alpine` plus `build-base` and `perl`; aws-lc-sys compiles its C and assembly with
+      gcc/make, no cmake or nasm needed), `runner` (Node-free `alpine:3.22` with ca-certificates,
+      tzdata, and wget, carrying the binary and the web dist, health-checked with `wget`), and the
+      legacy `node-builder`/`node-runner`. The Node runtime stays the last stage, so a plain
+      `docker build` keeps producing the Node image until cutover and `--target runner` selects the
+      Rust build. Built and smoke-tested here (see the no-Node item below); the Node target still boots
+      both listeners. `.dockerignore` now excludes `server/target`, `server/logs`, and `.local`.
+- [x] `docker-compose.yml`: the default `srouter` service builds `target: runner`, publishes only
+      `${PORT:-3000}:3000` (the `:1455` mapping is gone), sets `WEB_DIST_PATH=/app/web/dist`, and
+      health-checks with `wget`, so the container needs no Node. The Node service is kept as
+      `srouter-node` behind a `node` profile: a plain `docker compose up` starts only the Rust
+      service, and `docker compose up -d srouter-node` is the rollback. `docker compose config`
+      confirms one published port and one default service.
 - [ ] Root `Procfile` (`web: node apps/api/dist/index.js`) → Docker-based Rust deployment; root
       `heroku.yml` does not exist yet although the plan creates/keeps one. `apps/api/heroku.yml`
       becomes obsolete with `apps/api`.
-- [ ] Verify the Rust runtime image contains no Node executable; smoke-test with a disposable
-      volume (health + static serving).
+- [x] Verified the Rust runtime image contains no Node executable (`node`, `npm`, and `nodejs` are
+      absent) and smoke-tested it on a disposable volume: `/health` 200, `/` serves the SPA shell, an
+      asset carries the immutable cache header, an unmatched route falls back to the shell without one,
+      `/v1` reports version `0.2.0`, and `logs/srouter-server.log` is written. A plain `docker build`
+      still lands on the Node runtime, so the production default is unchanged until cutover.
 - [ ] `docs/api-migration.md`: parity matrix results, tunnel exclusion write-up, staging steps,
       backup/rollback procedure, benchmark table (startup, idle/active memory, CPU/throughput, image
       size) measured under identical limits. No claimed improvement without numbers.
