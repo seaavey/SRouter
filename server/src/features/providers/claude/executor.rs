@@ -341,13 +341,9 @@ impl ClaudeExecutor {
         }
         write_catalog(&self.catalog).attempted_at_ms = now;
 
-        let Ok(credentials) = self
-            .ensure_fresh_token(false)
-            .await
-            .or(Ok::<_, APIError>(credentials))
-        else {
-            return;
-        };
+        // A refresh failure falls back to the credentials just loaded: the fetch
+        // then fails on the stale token and the landed catalog stays as it was.
+        let credentials = self.ensure_fresh_token(false).await.unwrap_or(credentials);
         // A failed fetch never empties a catalog that already landed.
         if let Ok(models) = self.fetch_models(&credentials).await {
             let mut catalog = write_catalog(&self.catalog);
