@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { ModelListResponse } from "@srouter/types";
 import { api } from "@/lib/api";
 
 const STORAGE_KEY = "srouter_favorite_models";
@@ -20,12 +21,17 @@ export function useFavorites() {
     const query = useQuery({
         queryKey: ["favorite-models"],
         queryFn: async () => {
-            const response = await api.get<{ models: string[] }>("/v1/favorites");
-            if (response.models.length > 0 || typeof window === "undefined") return response.models;
+            // Favorites are a flag on the catalog entry, so the list route is the
+            // read side and `PATCH /v1/models/:id` the write side.
+            const response = await api.get<ModelListResponse>("/v1/models");
+            const favorites = response.data
+                .filter((model) => model.favorite === true)
+                .map((model) => model.id);
+            if (favorites.length > 0 || typeof window === "undefined") return favorites;
 
             const legacyFavorites = loadLegacyFavorites();
             for (const modelId of legacyFavorites) {
-                await api.post("/v1/favorites", { model_id: modelId });
+                await api.patch(`/v1/models/${encodeURIComponent(modelId)}`, { favorite: true });
             }
             if (legacyFavorites.length > 0) localStorage.removeItem(STORAGE_KEY);
             return legacyFavorites;
@@ -34,9 +40,7 @@ export function useFavorites() {
 
     const mutation = useMutation({
         mutationFn: ({ modelId, favorite }: { modelId: string; favorite: boolean }) =>
-            favorite
-                ? api.post("/v1/favorites", { model_id: modelId })
-                : api.delete(`/v1/favorites/${encodeURIComponent(modelId)}`),
+            api.patch(`/v1/models/${encodeURIComponent(modelId)}`, { favorite }),
         onSuccess: () => {
             void queryClient.invalidateQueries({ queryKey: ["favorite-models"] });
         }

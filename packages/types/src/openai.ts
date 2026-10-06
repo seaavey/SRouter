@@ -154,6 +154,11 @@ export interface ModelObject {
     owned_by: string;
     /** True when the entry was manually added by the user (custom_models table). */
     custom?: boolean;
+    /** Set by the favorite flag; the entry is only marked, never filtered out. */
+    favorite?: boolean;
+    /** Set by the hidden flag. `GET /v1/models` omits hidden entries, so this is
+     *  only ever true on the provider detail payload. */
+    hidden?: boolean;
 }
 
 export interface ModelListResponse {

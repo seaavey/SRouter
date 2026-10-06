@@ -31,10 +31,14 @@ export function useProvider(providerId: string) {
     const hiddenModelsQuery = useQuery({
         queryKey: ["providers", providerId, "hidden-models"],
         queryFn: async () => {
-            const response = await api.get<{ models: string[] }>(
-                `/v1/providers/${providerId}/hidden-models`
-            );
-            if (response.models.length > 0 || typeof window === "undefined") return response;
+            // The provider detail already carries `hidden` per model, so the read
+            // side needs no separate listing route.
+            const provider = await api.get<ProviderDefinition>(`/v1/providers/${providerId}`);
+            const models = provider.models
+                .filter((model) => model.hidden === true)
+                .map((model) => model.id);
+            if (models.length > 0 || typeof window === "undefined") return { models };
+
             const legacyKey = `srouter_deleted_models_${providerId}`;
             let legacyModels: string[] = [];
             try {
@@ -49,7 +53,7 @@ export function useProvider(providerId: string) {
                 legacyModels = [];
             }
             for (const modelId of legacyModels) {
-                await api.post(`/v1/providers/${providerId}/hidden-models`, { model_id: modelId });
+                await api.patch(`/v1/models/${encodeURIComponent(modelId)}`, { hidden: true });
             }
             if (legacyModels.length > 0) localStorage.removeItem(legacyKey);
             return { models: legacyModels };
@@ -104,7 +108,7 @@ export function useProvider(providerId: string) {
 
     const toggleProviderMutation = useMutation({
         mutationFn: (enabled: boolean) =>
-            api.patch<ProviderDefinition>(`/v1/providers/${providerId}/enabled`, { enabled }),
+            api.patch<ProviderDefinition>(`/v1/providers/${providerId}`, { enabled }),
         onSuccess: (data) => {
             void queryClient.invalidateQueries({ queryKey: ["providers", providerId] });
             void queryClient.invalidateQueries({ queryKey: ["providers", "catalog"] });
@@ -115,8 +119,7 @@ export function useProvider(providerId: string) {
     });
 
     const addModelMutation = useMutation({
-        mutationFn: (modelId: string) =>
-            api.post<ModelObject>(`/v1/providers/${providerId}/models`, { model_id: modelId }),
+        mutationFn: (modelId: string) => api.post<ModelObject>("/v1/models", { model_id: modelId }),
         onSuccess: () => {
             void queryClient.invalidateQueries({ queryKey: ["providers", providerId] });
             void queryClient.invalidateQueries({ queryKey: ["models"] });
@@ -129,9 +132,7 @@ export function useProvider(providerId: string) {
 
     const deleteModelMutation = useMutation({
         mutationFn: (modelId: string) =>
-            api.delete<{ message: string }>(
-                `/v1/providers/${providerId}/models/${encodeURIComponent(modelId)}`
-            ),
+            api.delete<{ deleted: boolean }>(`/v1/models/${encodeURIComponent(modelId)}`),
         onSuccess: () => {
             void queryClient.invalidateQueries({ queryKey: ["providers", providerId] });
             void queryClient.invalidateQueries({ queryKey: ["models"] });
@@ -144,7 +145,7 @@ export function useProvider(providerId: string) {
 
     const hideModelMutation = useMutation({
         mutationFn: (modelId: string) =>
-            api.post(`/v1/providers/${providerId}/hidden-models`, { model_id: modelId }),
+            api.patch(`/v1/models/${encodeURIComponent(modelId)}`, { hidden: true }),
         onSuccess: () => {
             void queryClient.invalidateQueries({ queryKey: ["providers", providerId] });
             void queryClient.invalidateQueries({
@@ -155,7 +156,7 @@ export function useProvider(providerId: string) {
 
     const restoreModelMutation = useMutation({
         mutationFn: (modelId: string) =>
-            api.delete(`/v1/providers/${providerId}/hidden-models/${encodeURIComponent(modelId)}`),
+            api.patch(`/v1/models/${encodeURIComponent(modelId)}`, { hidden: false }),
         onSuccess: () => {
             void queryClient.invalidateQueries({ queryKey: ["providers", providerId] });
             void queryClient.invalidateQueries({
@@ -168,7 +169,7 @@ export function useProvider(providerId: string) {
         mutationFn: async (modelIds: string[]) => {
             await Promise.all(
                 modelIds.map((modelId) =>
-                    api.post(`/v1/providers/${providerId}/hidden-models`, { model_id: modelId })
+                    api.patch(`/v1/models/${encodeURIComponent(modelId)}`, { hidden: true })
                 )
             );
             return modelIds;
@@ -185,9 +186,7 @@ export function useProvider(providerId: string) {
         mutationFn: async (modelIds: string[]) => {
             await Promise.all(
                 modelIds.map((modelId) =>
-                    api.delete(
-                        `/v1/providers/${providerId}/hidden-models/${encodeURIComponent(modelId)}`
-                    )
+                    api.patch(`/v1/models/${encodeURIComponent(modelId)}`, { hidden: false })
                 )
             );
             return modelIds;
