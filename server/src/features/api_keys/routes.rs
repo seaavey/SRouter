@@ -94,16 +94,16 @@ fn not_found(id: &str) -> APIError {
     APIError::new(404, constants::keys::not_found(id))
 }
 
-#[derive(Serialize)]
-struct KeyListResponse {
+#[derive(Serialize, schemars::JsonSchema)]
+pub(crate) struct KeyListResponse {
     object: &'static str,
     data: Vec<APIKeyResponse>,
 }
 
 /// Management representation. `key_prefix` is the non-secret display prefix;
 /// the full secret is never stored, so it never appears here.
-#[derive(Serialize)]
-struct APIKeyResponse {
+#[derive(Serialize, schemars::JsonSchema)]
+pub(crate) struct APIKeyResponse {
     id: String,
     key_prefix: String,
     name: String,
@@ -136,8 +136,8 @@ impl From<&APIKey> for APIKeyResponse {
 }
 
 /// Creation response: the management fields plus the one-time full secret.
-#[derive(Serialize)]
-struct CreatedAPIKeyResponse {
+#[derive(Serialize, schemars::JsonSchema)]
+pub(crate) struct CreatedAPIKeyResponse {
     #[serde(flatten)]
     api_key: APIKeyResponse,
     key: String,

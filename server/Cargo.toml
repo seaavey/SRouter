@@ -29,6 +29,7 @@ md-5 = "0.11.0"
 aes = "0.9.3"
 cbc = { version = "0.2.1", features = ["alloc"] }
 rsa = { version = "0.9.10", features = ["pem"] }
+schemars = { version = "1.2.2", features = ["uuid1"] }
 
 [dev-dependencies]
 tower = { version = "0.5.3", features = ["util"] }

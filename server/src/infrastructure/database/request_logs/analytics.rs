@@ -13,7 +13,40 @@ use crate::infrastructure::database::AppDatabase;
 
 use super::store::{ObjectKind, log_row_error};
 
-pub async fn usage_stats(database: &AppDatabase) -> Result<serde_json::Value, APIError> {
+/// The all-time usage totals served by `GET /v1/logs/stats` and carried by the
+/// `usage.updated` event. The wire keys are snake_case, as documented in
+/// `docs/api-v1-contract.md`, "Logs in the Rust build".
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct UsageStatsReport {
+    pub object: ObjectKind,
+    pub total_requests: i64,
+    pub total_success_requests: i64,
+    pub total_tokens: i64,
+    pub total_prompt_tokens: i64,
+    pub total_completion_tokens: i64,
+    pub total_cached_tokens: i64,
+    pub total_cache_creation_tokens: i64,
+    pub total_reasoning_tokens: i64,
+    pub total_estimated_cost: f64,
+    pub total_input_tokens: i64,
+    pub total_output_tokens: i64,
+    pub cost_label: String,
+    pub estimated: bool,
+    pub by_model: Vec<UsageByModel>,
+}
+
+/// One `by_model` entry of [`UsageStatsReport`].
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct UsageByModel {
+    pub model: String,
+    pub total_requests: i64,
+    pub total_input_tokens: i64,
+    pub total_output_tokens: i64,
+    pub total_cached_tokens: i64,
+    pub est_cost: f64,
+}
+
+pub async fn usage_stats(database: &AppDatabase) -> Result<UsageStatsReport, APIError> {
     let row = sqlx::query(
         "SELECT COUNT(*) AS total_requests, \
          COALESCE(SUM(CASE WHEN status_code >= 200 AND status_code < 300 THEN 1 ELSE 0 END), 0) AS successes, \
@@ -23,7 +56,8 @@ pub async fn usage_stats(database: &AppDatabase) -> Result<serde_json::Value, AP
          COALESCE(SUM(cached_tokens), 0) AS cached_tokens, \
          COALESCE(SUM(cache_creation_tokens), 0) AS cache_creation_tokens, \
          COALESCE(SUM(reasoning_tokens), 0) AS reasoning_tokens, \
-         COALESCE(SUM(estimated_cost), 0) AS estimated_cost FROM request_logs",
+         CAST(COALESCE(SUM(estimated_cost), 0) AS REAL) AS estimated_cost \
+         FROM request_logs",
     )
     .fetch_one(&database.sqlite_required(constants::database::REQUEST_LOGS_UNSUPPORTED)?)
     .await
@@ -56,33 +90,33 @@ pub async fn usage_stats(database: &AppDatabase) -> Result<serde_json::Value, AP
     let by_model = model_rows
         .iter()
         .map(|row| {
-            Ok(serde_json::json!({
-                "model": row.try_get::<String, _>("model").map_err(log_row_error)?,
-                "total_requests": row.try_get::<i64, _>("total_requests").map_err(log_row_error)?,
-                "total_input_tokens": row.try_get::<i64, _>("input_tokens").map_err(log_row_error)?,
-                "total_output_tokens": row.try_get::<i64, _>("output_tokens").map_err(log_row_error)?,
-                "total_cached_tokens": row.try_get::<i64, _>("cached_tokens").map_err(log_row_error)?,
-                "est_cost": row.try_get::<f64, _>("estimated_cost").map_err(log_row_error)?,
-            }))
+            Ok(UsageByModel {
+                model: row.try_get::<String, _>("model").map_err(log_row_error)?,
+                total_requests: row.try_get("total_requests").map_err(log_row_error)?,
+                total_input_tokens: row.try_get("input_tokens").map_err(log_row_error)?,
+                total_output_tokens: row.try_get("output_tokens").map_err(log_row_error)?,
+                total_cached_tokens: row.try_get("cached_tokens").map_err(log_row_error)?,
+                est_cost: row.try_get("estimated_cost").map_err(log_row_error)?,
+            })
         })
         .collect::<Result<Vec<_>, APIError>>()?;
-    Ok(serde_json::json!({
-        "object": ObjectKind::Usage,
-        "total_requests": total_requests,
-        "total_success_requests": successes,
-        "total_tokens": total_tokens,
-        "total_prompt_tokens": input_tokens,
-        "total_completion_tokens": output_tokens,
-        "total_cached_tokens": cached_tokens,
-        "total_cache_creation_tokens": cache_creation_tokens,
-        "total_reasoning_tokens": reasoning_tokens,
-        "total_estimated_cost": estimated_cost,
-        "total_input_tokens": input_tokens,
-        "total_output_tokens": output_tokens,
-        "cost_label": format!("${estimated_cost:.4}"),
-        "estimated": true,
-        "by_model": by_model
-    }))
+    Ok(UsageStatsReport {
+        object: ObjectKind::Usage,
+        total_requests,
+        total_success_requests: successes,
+        total_tokens,
+        total_prompt_tokens: input_tokens,
+        total_completion_tokens: output_tokens,
+        total_cached_tokens: cached_tokens,
+        total_cache_creation_tokens: cache_creation_tokens,
+        total_reasoning_tokens: reasoning_tokens,
+        total_estimated_cost: estimated_cost,
+        total_input_tokens: input_tokens,
+        total_output_tokens: output_tokens,
+        cost_label: format!("${estimated_cost:.4}"),
+        estimated: true,
+        by_model,
+    })
 }
 
 /// A validated `window` query value plus its bucket geometry, mirroring
@@ -115,7 +149,7 @@ pub fn parse_analytics_window(raw: &str) -> Option<AnalyticsWindow> {
 ///
 /// Deliberate deviation from Node: this report serializes snake_case, matching
 /// the rest of the Rust `/v1/logs` surface, instead of Node's camelCase.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, schemars::JsonSchema)]
 pub struct AnalyticsBucket {
     pub bucket_start: i64,
     pub total_requests: i64,
@@ -144,7 +178,7 @@ impl AnalyticsBucket {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, schemars::JsonSchema)]
 pub struct AnalyticsTopModel {
     pub model: Option<String>,
     pub total_requests: i64,
@@ -152,7 +186,7 @@ pub struct AnalyticsTopModel {
     pub est_cost: f64,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, schemars::JsonSchema)]
 pub struct AnalyticsTopAgent {
     pub agent: String,
     pub raw_user_agent: String,
@@ -160,7 +194,7 @@ pub struct AnalyticsTopAgent {
     pub total_tokens: i64,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, schemars::JsonSchema)]
 pub struct AnalyticsProviderSlice {
     pub provider_id: String,
     pub total_requests: i64,
@@ -168,7 +202,7 @@ pub struct AnalyticsProviderSlice {
 
 /// The `GET /v1/logs/analytics` report. Field names and semantics follow the
 /// Node `LogsLogic.getAnalytics` result, but snake_case rather than camelCase.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, schemars::JsonSchema)]
 pub struct AnalyticsReport {
     pub object: &'static str,
     pub window: &'static str,

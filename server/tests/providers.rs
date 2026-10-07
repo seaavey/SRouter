@@ -154,7 +154,7 @@ async fn providers_list_returns_the_seeded_entry() {
     assert_eq!(entry["status"]["message"], "Free Tier Ready (Unlimited)");
     assert_eq!(entry["enabled"], serde_json::json!(true));
     assert_eq!(entry["models"], serde_json::json!([]));
-    assert!(entry.get("round_robin").is_none());
+    assert_eq!(entry["round_robin"], serde_json::json!(true));
     assert!(entry.get("connections").is_none());
 }
 
@@ -1301,7 +1301,7 @@ async fn the_round_robin_toggle_persists_the_flag_and_echoes_it() {
     let response = app.clone().oneshot(disable).await.unwrap();
     assert_eq!(response.status(), StatusCode::OK);
     let body = json_body(response).await;
-    assert_eq!(body["roundRobin"], serde_json::json!(false));
+    assert_eq!(body["round_robin"], serde_json::json!(false));
 
     let detail = json_body(
         app.clone()
@@ -1310,7 +1310,7 @@ async fn the_round_robin_toggle_persists_the_flag_and_echoes_it() {
             .unwrap(),
     )
     .await;
-    assert_eq!(detail["roundRobin"], serde_json::json!(false));
+    assert_eq!(detail["round_robin"], serde_json::json!(false));
 
     let catalog = json_body(
         app.clone()
@@ -1320,7 +1320,7 @@ async fn the_round_robin_toggle_persists_the_flag_and_echoes_it() {
     )
     .await;
     assert_eq!(
-        catalog["categories"]["oauth"][0]["roundRobin"],
+        catalog["categories"]["oauth"][0]["round_robin"],
         serde_json::json!(false),
         "the catalog payload carries the flag too"
     );
@@ -1333,7 +1333,7 @@ async fn the_round_robin_toggle_persists_the_flag_and_echoes_it() {
     let response = app.clone().oneshot(enable).await.unwrap();
     assert_eq!(response.status(), StatusCode::OK);
     let body = json_body(response).await;
-    assert_eq!(body["roundRobin"], serde_json::json!(true));
+    assert_eq!(body["round_robin"], serde_json::json!(true));
 }
 
 /// The catalog and detail payloads report rotation as on before anything is
@@ -1350,5 +1350,5 @@ async fn a_provider_without_a_stored_flag_reports_rotation_as_on() {
     )
     .await;
 
-    assert_eq!(detail["roundRobin"], serde_json::json!(true));
+    assert_eq!(detail["round_robin"], serde_json::json!(true));
 }

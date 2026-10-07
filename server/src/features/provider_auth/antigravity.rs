@@ -553,11 +553,11 @@ mod tests {
         };
         let value = serde_json::to_value(body).expect("login response serializes");
 
-        assert_eq!(value["authorizeUrl"], "https://example.test/authorize");
+        assert_eq!(value["authorize_url"], "https://example.test/authorize");
         assert_eq!(value["state"], "state-1");
-        assert_eq!(value["codeVerifier"], "verifier-1");
+        assert_eq!(value["code_verifier"], "verifier-1");
         assert_eq!(
-            value["redirectUri"],
+            value["redirect_uri"],
             "http://localhost:3000/v1/auth/antigravity/callback"
         );
     }

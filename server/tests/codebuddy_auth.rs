@@ -70,7 +70,7 @@ async fn login_returns_codebuddy_authorization_url_and_uses_its_oauth_state() {
         .unwrap();
     assert_eq!(fake.last_state_query("global"), "platform=ide");
     let body = json_body(state).await;
-    assert_eq!(body["authorizeUrl"], fake.authorize_url("global"));
+    assert_eq!(body["authorize_url"], fake.authorize_url("global"));
     assert_eq!(body["state"], fake.last_state("global"));
     assert_eq!(fake.last_platform("global"), "ide");
     assert_eq!(fake.last_ioa("global"), "");

@@ -49,16 +49,12 @@ pub fn create_cline_login_router() -> Router<AppState> {
         .route("/auth/cline/poll", get(poll).post(poll))
 }
 
-/// What `GET /v1/auth/cline/device` answers with. Field names stay camelCase
-/// because the web client reads them as written.
-#[derive(Serialize)]
-struct DeviceResponse {
-    #[serde(rename = "authorizeUrl")]
+/// What `GET /v1/auth/cline/device` answers with.
+#[derive(Serialize, schemars::JsonSchema)]
+pub(crate) struct DeviceResponse {
     authorize_url: String,
     state: String,
-    #[serde(rename = "userCode")]
     user_code: String,
-    #[serde(rename = "expiresIn")]
     expires_in: i64,
     interval: i64,
 }

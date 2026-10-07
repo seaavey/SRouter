@@ -18,8 +18,8 @@ use uuid::Uuid;
 use crate::constants;
 use crate::error::APIError;
 use crate::infrastructure::database::request_logs::{
-    AnalyticsReport, ObjectKind, RequestLog, analytics_report, get_request_log, list_request_logs,
-    parse_analytics_window, subscribe_request_logs, usage_stats,
+    AnalyticsReport, ObjectKind, RequestLog, UsageStatsReport, analytics_report, get_request_log,
+    list_request_logs, parse_analytics_window, subscribe_request_logs, usage_stats,
 };
 use crate::state::AppState;
 
@@ -42,16 +42,16 @@ struct LogsQuery {
     status: Option<String>,
 }
 
-#[derive(Serialize)]
-struct LogsResponse {
+#[derive(Serialize, schemars::JsonSchema)]
+pub(crate) struct LogsResponse {
     object: ObjectKind,
     data: Vec<RequestLog>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pagination: Option<Pagination>,
 }
 
-#[derive(Serialize)]
-struct Pagination {
+#[derive(Serialize, schemars::JsonSchema)]
+pub(crate) struct Pagination {
     page: i64,
     limit: i64,
     total: i64,
@@ -105,7 +105,7 @@ async fn list_logs(
 
 /// Usage totals over every recorded request, shaped like the `usage.updated`
 /// payload the event stream sends. `GET /v1/logs/stats`.
-async fn log_stats(State(state): State<AppState>) -> Result<Json<serde_json::Value>, APIError> {
+async fn log_stats(State(state): State<AppState>) -> Result<Json<UsageStatsReport>, APIError> {
     let database = state
         .database
         .as_ref()
@@ -227,13 +227,13 @@ async fn log_events(State(state): State<AppState>, request: Request) -> Result<R
     Ok(response)
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, schemars::JsonSchema)]
 #[serde(tag = "type")]
-enum LiveEvent {
+pub(crate) enum LiveEvent {
     #[serde(rename = "connected")]
     Connected,
     #[serde(rename = "usage.updated")]
-    UsageUpdated { stats: serde_json::Value },
+    UsageUpdated { stats: UsageStatsReport },
     #[serde(rename = "request.logged")]
     RequestLogged { log: Box<RequestLog> },
 }

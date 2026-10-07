@@ -91,7 +91,7 @@ async fn login_returns_the_google_authorize_url_with_pkce() {
         .unwrap();
     assert_eq!(response.status(), StatusCode::OK);
     let body = json_body(response).await;
-    let authorize_url = body["authorizeUrl"].as_str().expect("authorize url");
+    let authorize_url = body["authorize_url"].as_str().expect("authorize url");
     let state = body["state"].as_str().expect("state");
 
     assert!(
@@ -113,13 +113,13 @@ async fn login_returns_the_google_authorize_url_with_pkce() {
         "{authorize_url}"
     );
     assert_eq!(
-        body["codeVerifier"].as_str().expect("verifier").len(),
+        body["code_verifier"].as_str().expect("verifier").len(),
         43,
         "RFC 7636 wants a 43 character verifier"
     );
     assert_eq!(state.len(), 36);
     assert_eq!(
-        body["redirectUri"], "http://localhost:3000/v1/auth/antigravity/callback",
+        body["redirect_uri"], "http://localhost:3000/v1/auth/antigravity/callback",
         "D3 pins the redirect to loopback"
     );
 }

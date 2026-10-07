@@ -127,9 +127,8 @@ impl Flavor {
     }
 }
 
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct LoginResponse {
+#[derive(Serialize, schemars::JsonSchema)]
+pub(crate) struct CodeBuddyLoginResponse {
     authorize_url: String,
     state: String,
 }
@@ -185,7 +184,7 @@ async fn login(
             )
         })?;
     save_session(database, &authorization.state, "", "", "").await?;
-    let body = LoginResponse {
+    let body = CodeBuddyLoginResponse {
         authorize_url: authorization.authorize_url,
         state: authorization.state,
     };

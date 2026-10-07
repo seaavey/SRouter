@@ -37,16 +37,16 @@ use crate::http::middleware::security_headers::security_headers;
 use crate::http::static_files;
 use crate::state::AppState;
 
-#[derive(Serialize)]
-struct ApiInfo {
+#[derive(Serialize, schemars::JsonSchema)]
+pub(crate) struct ApiInfo {
     name: &'static str,
     status: &'static str,
     version: &'static str,
     documentation: &'static str,
 }
 
-#[derive(Serialize)]
-struct HealthResponse {
+#[derive(Serialize, schemars::JsonSchema)]
+pub(crate) struct HealthResponse {
     status: &'static str,
 }
 

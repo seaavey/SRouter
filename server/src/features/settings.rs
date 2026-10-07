@@ -25,7 +25,7 @@ pub fn create_settings_management_router() -> Router<AppState> {
     Router::new().route("/settings", patch(update_settings).post(update_settings))
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, schemars::JsonSchema)]
 pub struct SettingsResponse {
     pub require_api_key: bool,
 }

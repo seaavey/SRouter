@@ -34,7 +34,9 @@ pub use claude::{
     create_claude_callback_router, create_claude_callback_router_with_endpoints,
     create_claude_login_router,
 };
+pub(crate) use cline::DeviceResponse;
 pub use cline::create_cline_login_router;
+pub(crate) use codebuddy::CodeBuddyLoginResponse;
 pub use codebuddy::{
     CodeBuddyAuthEndpoints, create_codebuddy_login_router,
     create_codebuddy_login_router_with_endpoints,
@@ -52,7 +54,7 @@ pub use qoder::{
 pub use crate::features::providers::model::ProviderProtocol as Protocol;
 
 /// The connected provider, echoed back so the client can show what was stored.
-#[derive(Serialize)]
+#[derive(Serialize, schemars::JsonSchema)]
 struct ConnectedProvider {
     id: String,
     provider_id: String,
@@ -209,22 +211,18 @@ fn account_suffix(timestamp: i64) -> String {
 }
 
 /// The login answer of an authorization-code provider: the browser URL plus the
-/// PKCE material the client echoes back on the callback. The field names are
-/// the ones the web client reads, so they stay camelCase.
-#[derive(Serialize)]
-struct LoginResponse {
-    #[serde(rename = "authorizeUrl")]
+/// PKCE material the client echoes back on the callback.
+#[derive(Serialize, schemars::JsonSchema)]
+pub(crate) struct LoginResponse {
     authorize_url: String,
     state: String,
-    #[serde(rename = "codeVerifier")]
     code_verifier: String,
-    #[serde(rename = "redirectUri")]
     redirect_uri: String,
 }
 
 /// The JSON answer a finished callback returns.
-#[derive(Serialize)]
-struct CallbackResponse {
+#[derive(Serialize, schemars::JsonSchema)]
+pub(crate) struct CallbackResponse {
     success: bool,
     message: &'static str,
     provider: ConnectedProvider,

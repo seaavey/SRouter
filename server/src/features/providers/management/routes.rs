@@ -55,8 +55,8 @@ pub fn create_providers_management_router() -> Router<AppState> {
         )
 }
 
-#[derive(Serialize)]
-struct ProviderListResponse {
+#[derive(Serialize, schemars::JsonSchema)]
+pub(crate) struct ProviderListResponse {
     object: &'static str,
     data: Vec<ProviderEntry>,
 }

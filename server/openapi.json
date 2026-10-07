@@ -1,0 +1,4265 @@
+{
+  "components": {
+    "schemas": {
+      "APIKeyResponse": {
+        "description": "Management representation. `key_prefix` is the non-secret display prefix;\nthe full secret is never stored, so it never appears here.",
+        "properties": {
+          "allowed_models": {
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "created_at": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "credit_limit": {
+            "format": "double",
+            "type": "number"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string"
+          },
+          "key_prefix": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "quota_limit": {
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "rate_limit": {
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "usage_cost": {
+            "format": "double",
+            "type": "number"
+          },
+          "usage_tokens": {
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "key_prefix",
+          "name",
+          "enabled",
+          "rate_limit",
+          "quota_limit",
+          "usage_tokens",
+          "credit_limit",
+          "usage_cost",
+          "created_at"
+        ],
+        "title": "APIKeyResponse",
+        "type": "object"
+      },
+      "AdminStatus": {
+        "description": "`GET /v1/admin/status` — whether the install still needs its first admin\nand whether the caller holds a valid session cookie.",
+        "properties": {
+          "authenticated": {
+            "type": "boolean"
+          },
+          "setup_required": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "setup_required",
+          "authenticated"
+        ],
+        "title": "AdminStatus",
+        "type": "object"
+      },
+      "AnalyticsBucket": {
+        "description": "One time bucket of the analytics window. Missing buckets are zero-filled.\n\nDeliberate deviation from Node: this report serializes snake_case, matching\nthe rest of the Rust `/v1/logs` surface, instead of Node's camelCase.",
+        "properties": {
+          "avg_latency_ms": {
+            "format": "double",
+            "type": "number"
+          },
+          "bucket_start": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "cached_tokens": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "completion_tokens": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "error_requests": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "prompt_tokens": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "success_requests": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "total_requests": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "total_tokens": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "bucket_start",
+          "total_requests",
+          "success_requests",
+          "error_requests",
+          "avg_latency_ms",
+          "total_tokens",
+          "prompt_tokens",
+          "completion_tokens",
+          "cached_tokens"
+        ],
+        "type": "object"
+      },
+      "AnalyticsProviderSlice": {
+        "properties": {
+          "provider_id": {
+            "type": "string"
+          },
+          "total_requests": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "provider_id",
+          "total_requests"
+        ],
+        "type": "object"
+      },
+      "AnalyticsReport": {
+        "description": "The `GET /v1/logs/analytics` report. Field names and semantics follow the\nNode `LogsLogic.getAnalytics` result, but snake_case rather than camelCase.",
+        "properties": {
+          "bucket_size_ms": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "buckets": {
+            "items": {
+              "$ref": "#/components/schemas/AnalyticsBucket"
+            },
+            "type": "array"
+          },
+          "error_rate": {
+            "format": "double",
+            "type": "number"
+          },
+          "generated_at": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "object": {
+            "type": "string"
+          },
+          "p95_latency_ms": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "providers": {
+            "items": {
+              "$ref": "#/components/schemas/AnalyticsProviderSlice"
+            },
+            "type": "array"
+          },
+          "requests_per_second": {
+            "format": "double",
+            "type": "number"
+          },
+          "top_agents": {
+            "items": {
+              "$ref": "#/components/schemas/AnalyticsTopAgent"
+            },
+            "type": "array"
+          },
+          "top_models": {
+            "items": {
+              "$ref": "#/components/schemas/AnalyticsTopModel"
+            },
+            "type": "array"
+          },
+          "total_requests": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "window": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "object",
+          "window",
+          "bucket_size_ms",
+          "generated_at",
+          "requests_per_second",
+          "total_requests",
+          "error_rate",
+          "p95_latency_ms",
+          "buckets",
+          "top_models",
+          "top_agents",
+          "providers"
+        ],
+        "title": "AnalyticsReport",
+        "type": "object"
+      },
+      "AnalyticsTopAgent": {
+        "properties": {
+          "agent": {
+            "type": "string"
+          },
+          "raw_user_agent": {
+            "type": "string"
+          },
+          "total_requests": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "total_tokens": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "agent",
+          "raw_user_agent",
+          "total_requests",
+          "total_tokens"
+        ],
+        "type": "object"
+      },
+      "AnalyticsTopModel": {
+        "properties": {
+          "est_cost": {
+            "format": "double",
+            "type": "number"
+          },
+          "model": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "total_requests": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "total_tokens": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total_requests",
+          "total_tokens",
+          "est_cost"
+        ],
+        "type": "object"
+      },
+      "ApiInfo": {
+        "properties": {
+          "documentation": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "status",
+          "version",
+          "documentation"
+        ],
+        "title": "ApiInfo",
+        "type": "object"
+      },
+      "CallbackResponse": {
+        "description": "The JSON answer a finished callback returns.",
+        "properties": {
+          "message": {
+            "type": "string"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/ConnectedProvider"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success",
+          "message",
+          "provider"
+        ],
+        "title": "CallbackResponse",
+        "type": "object"
+      },
+      "CatalogModel": {
+        "description": "A catalog entry: the OpenAI model fields plus the operator's favorite flag\nand the custom-model marker Node adds in `MergeCustomModels`.",
+        "properties": {
+          "custom": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "favorite": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string"
+          },
+          "object": {
+            "type": "string"
+          },
+          "owned_by": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "object",
+          "owned_by",
+          "favorite"
+        ],
+        "title": "CatalogModel",
+        "type": "object"
+      },
+      "CatalogResponse": {
+        "description": "`GET /v1/providers/catalog`.",
+        "properties": {
+          "categories": {
+            "$ref": "#/components/schemas/GroupedCatalog"
+          },
+          "total": {
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "categories"
+        ],
+        "title": "CatalogResponse",
+        "type": "object"
+      },
+      "CodeBuddyLoginResponse": {
+        "properties": {
+          "authorize_url": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "authorize_url",
+          "state"
+        ],
+        "title": "CodeBuddyLoginResponse",
+        "type": "object"
+      },
+      "ConnectedProvider": {
+        "description": "The connected provider, echoed back so the client can show what was stored.",
+        "properties": {
+          "category": {
+            "type": "string"
+          },
+          "created_at": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "protocol": {
+            "$ref": "#/components/schemas/ProviderProtocol"
+          },
+          "provider_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "provider_id",
+          "name",
+          "category",
+          "protocol",
+          "enabled",
+          "created_at"
+        ],
+        "type": "object"
+      },
+      "CreateAPIKeyInput": {
+        "description": "Fields accepted by `POST /v1/keys`, mirroring `CreateAPIKeySchema`.",
+        "properties": {
+          "allowed_models": {
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "credit_limit": {
+            "format": "double",
+            "type": "number"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "quota_limit": {
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "rate_limit": {
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "enabled",
+          "rate_limit",
+          "quota_limit",
+          "credit_limit"
+        ],
+        "title": "CreateAPIKeyInput",
+        "type": "object"
+      },
+      "CreatedAPIKeyResponse": {
+        "description": "Creation response: the management fields plus the one-time full secret.",
+        "properties": {
+          "allowed_models": {
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "created_at": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "credit_limit": {
+            "format": "double",
+            "type": "number"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string"
+          },
+          "key": {
+            "type": "string"
+          },
+          "key_prefix": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "quota_limit": {
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "rate_limit": {
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "usage_cost": {
+            "format": "double",
+            "type": "number"
+          },
+          "usage_tokens": {
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "key_prefix",
+          "name",
+          "enabled",
+          "rate_limit",
+          "quota_limit",
+          "usage_tokens",
+          "credit_limit",
+          "usage_cost",
+          "created_at",
+          "key"
+        ],
+        "title": "CreatedAPIKeyResponse",
+        "type": "object"
+      },
+      "DatabaseImportResponse": {
+        "properties": {
+          "backup_path": {
+            "type": "string"
+          },
+          "ok": {
+            "type": "boolean"
+          },
+          "reauth_required": {
+            "type": "boolean"
+          },
+          "restart_required": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok",
+          "backup_path",
+          "restart_required",
+          "reauth_required"
+        ],
+        "type": "object"
+      },
+      "DeviceResponse": {
+        "description": "What `GET /v1/auth/cline/device` answers with.",
+        "properties": {
+          "authorize_url": {
+            "type": "string"
+          },
+          "expires_in": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "interval": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "state": {
+            "type": "string"
+          },
+          "user_code": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "authorize_url",
+          "state",
+          "user_code",
+          "expires_in",
+          "interval"
+        ],
+        "title": "DeviceResponse",
+        "type": "object"
+      },
+      "ErrorBody": {
+        "properties": {
+          "code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "param": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "message",
+          "type"
+        ],
+        "type": "object"
+      },
+      "ErrorEnvelope": {
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ErrorBody"
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "title": "ErrorEnvelope",
+        "type": "object"
+      },
+      "GroupedCatalog": {
+        "description": "The four fixed provider groups.",
+        "properties": {
+          "api_key": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderEntry"
+            },
+            "type": "array"
+          },
+          "custom_provider": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderEntry"
+            },
+            "type": "array"
+          },
+          "free_tier": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderEntry"
+            },
+            "type": "array"
+          },
+          "oauth": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderEntry"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "oauth",
+          "free_tier",
+          "api_key",
+          "custom_provider"
+        ],
+        "type": "object"
+      },
+      "HealthResponse": {
+        "properties": {
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "HealthResponse",
+        "type": "object"
+      },
+      "KeyListResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/APIKeyResponse"
+            },
+            "type": "array"
+          },
+          "object": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "object",
+          "data"
+        ],
+        "title": "KeyListResponse",
+        "type": "object"
+      },
+      "LiveEvent": {
+        "oneOf": [
+          {
+            "properties": {
+              "type": {
+                "const": "connected",
+                "type": "string"
+              }
+            },
+            "required": [
+              "type"
+            ],
+            "type": "object"
+          },
+          {
+            "properties": {
+              "stats": {
+                "$ref": "#/components/schemas/UsageStatsReport"
+              },
+              "type": {
+                "const": "usage.updated",
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "stats"
+            ],
+            "type": "object"
+          },
+          {
+            "properties": {
+              "log": {
+                "$ref": "#/components/schemas/RequestLog"
+              },
+              "type": {
+                "const": "request.logged",
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "log"
+            ],
+            "type": "object"
+          }
+        ],
+        "title": "LiveEvent"
+      },
+      "LiveModelQuotaItem": {
+        "description": "A specific rate-limit window or model quota entry.",
+        "properties": {
+          "limit": {
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "percentage": {
+            "type": "string"
+          },
+          "percentage_value": {
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "reset_in": {
+            "type": "string"
+          },
+          "reset_time": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string"
+          },
+          "used": {
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "used",
+          "limit",
+          "percentage",
+          "percentage_value",
+          "reset_in",
+          "status"
+        ],
+        "type": "object"
+      },
+      "LoginResponse": {
+        "description": "The login answer of an authorization-code provider: the browser URL plus the\nPKCE material the client echoes back on the callback.",
+        "properties": {
+          "authorize_url": {
+            "type": "string"
+          },
+          "code_verifier": {
+            "type": "string"
+          },
+          "redirect_uri": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "authorize_url",
+          "state",
+          "code_verifier",
+          "redirect_uri"
+        ],
+        "title": "LoginResponse",
+        "type": "object"
+      },
+      "LogsResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/RequestLog"
+            },
+            "type": "array"
+          },
+          "object": {
+            "$ref": "#/components/schemas/ObjectKind"
+          },
+          "pagination": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Pagination"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "object",
+          "data"
+        ],
+        "title": "LogsResponse",
+        "type": "object"
+      },
+      "ModelListResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/CatalogModel"
+            },
+            "type": "array"
+          },
+          "object": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "object",
+          "data"
+        ],
+        "title": "ModelListResponse",
+        "type": "object"
+      },
+      "ObjectKind": {
+        "enum": [
+          "list",
+          "usage"
+        ],
+        "type": "string"
+      },
+      "Pagination": {
+        "properties": {
+          "limit": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "page": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "total": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "total_pages": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "page",
+          "limit",
+          "total",
+          "total_pages"
+        ],
+        "type": "object"
+      },
+      "ProviderConnectionView": {
+        "description": "A connection as the detail response reports it. There is deliberately no\ncredential field: a stored API key never leaves the database.",
+        "properties": {
+          "alias": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "base_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "category": {
+            "type": "string"
+          },
+          "created_at": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "protocol": {
+            "type": "string"
+          },
+          "provider_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "provider_id",
+          "name",
+          "category",
+          "protocol",
+          "enabled",
+          "created_at"
+        ],
+        "type": "object"
+      },
+      "ProviderEntry": {
+        "description": "A provider as the list, catalog, and detail routes describe it.",
+        "properties": {
+          "category": {
+            "type": "string"
+          },
+          "connections": {
+            "description": "Detail only; the list and catalog omit it like Node does.",
+            "items": {
+              "$ref": "#/components/schemas/ProviderConnectionView"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "default_base_url": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string"
+          },
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderModel"
+            },
+            "type": "array"
+          },
+          "name": {
+            "type": "string"
+          },
+          "protocol": {
+            "$ref": "#/components/schemas/ProviderProtocol"
+          },
+          "requires_api_key": {
+            "type": "boolean"
+          },
+          "requires_oauth": {
+            "type": "boolean"
+          },
+          "round_robin": {
+            "description": "Whether requests rotate across this provider's accounts.",
+            "type": "boolean"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ProviderStatus"
+          },
+          "supports_custom_url": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "category",
+          "protocol",
+          "default_base_url",
+          "requires_api_key",
+          "requires_oauth",
+          "supports_custom_url",
+          "enabled",
+          "round_robin",
+          "status",
+          "models"
+        ],
+        "type": "object"
+      },
+      "ProviderListResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderEntry"
+            },
+            "type": "array"
+          },
+          "object": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "object",
+          "data"
+        ],
+        "title": "ProviderListResponse",
+        "type": "object"
+      },
+      "ProviderModel": {
+        "description": "A model line in the detail response. Hidden and favorited models stay in the\nlist so the admin view can restore them; `GET /v1/models` is the route that\ndrops them.",
+        "properties": {
+          "favorite": {
+            "type": "boolean"
+          },
+          "hidden": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string"
+          },
+          "object": {
+            "type": "string"
+          },
+          "owned_by": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "object",
+          "owned_by",
+          "hidden",
+          "favorite"
+        ],
+        "type": "object"
+      },
+      "ProviderProtocol": {
+        "description": "The wire protocol a provider speaks, as the catalog and the provider-auth\nresponses report it.\n\nThree variants, matching what the build actually serves. Node's\n`ProviderProtocol` union also lists `gemini`, but that value is dead: its only\nuser was the `gemini_cli` provider deleted with `packages/providers/src/catalog.ts`.",
+        "enum": [
+          "openai",
+          "anthropic",
+          "custom"
+        ],
+        "type": "string"
+      },
+      "ProviderQuotaAccount": {
+        "description": "An account's quota overview.",
+        "properties": {
+          "account": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "quota_type": {
+            "type": "string"
+          },
+          "quotas": {
+            "items": {
+              "$ref": "#/components/schemas/LiveModelQuotaItem"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "total_quotas": {
+            "format": "uint",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "usage_metrics": {
+            "items": true,
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "provider",
+          "account",
+          "enabled",
+          "quota_type"
+        ],
+        "type": "object"
+      },
+      "ProviderStatus": {
+        "description": "Connection state of a provider driver.",
+        "properties": {
+          "connected_count": {
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "message": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "message",
+          "connected_count"
+        ],
+        "type": "object"
+      },
+      "QuotaResponse": {
+        "description": "Top-level response for `GET /v1/quota` and `GET /v1/qouta`.",
+        "properties": {
+          "object": {
+            "type": "string"
+          },
+          "providers": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderQuotaAccount"
+            },
+            "type": "array"
+          },
+          "total_accounts": {
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "object",
+          "total_accounts",
+          "providers"
+        ],
+        "title": "QuotaResponse",
+        "type": "object"
+      },
+      "RequestLog": {
+        "properties": {
+          "api_key_id": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "cache_creation_tokens": {
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "cached_tokens": {
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "created_at": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "error_code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "error_message": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "estimated_cost": {
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "fallback_occurred": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "fallback_path": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fallback_reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "input_tokens": {
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "ip_address": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "latency_ms": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "method": {
+            "type": "string"
+          },
+          "model": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "output_tokens": {
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "path": {
+            "type": "string"
+          },
+          "provider": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reasoning_tokens": {
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "request_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "resolved_model": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status_code": {
+            "format": "int16",
+            "maximum": 32767,
+            "minimum": -32768,
+            "type": "integer"
+          },
+          "total_tokens": {
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "user_agent": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "user_id": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "request_id",
+          "method",
+          "path",
+          "status_code",
+          "latency_ms",
+          "created_at"
+        ],
+        "type": "object"
+      },
+      "SettingsResponse": {
+        "properties": {
+          "require_api_key": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "require_api_key"
+        ],
+        "title": "SettingsResponse",
+        "type": "object"
+      },
+      "UpdateAPIKeyInput": {
+        "description": "Partial update accepted by `PATCH /v1/keys/:id`. Every field is optional;\nabsent fields are left untouched. `allowed_models` distinguishes absent\n(`None`) from an explicit clear (`Some(None)`).",
+        "properties": {
+          "allowed_models": {
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "credit_limit": {
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "enabled": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "quota_limit": {
+            "format": "uint32",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "rate_limit": {
+            "format": "uint32",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "title": "UpdateAPIKeyInput",
+        "type": "object"
+      },
+      "UsageByModel": {
+        "description": "One `by_model` entry of [`UsageStatsReport`].",
+        "properties": {
+          "est_cost": {
+            "format": "double",
+            "type": "number"
+          },
+          "model": {
+            "type": "string"
+          },
+          "total_cached_tokens": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "total_input_tokens": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "total_output_tokens": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "total_requests": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "model",
+          "total_requests",
+          "total_input_tokens",
+          "total_output_tokens",
+          "total_cached_tokens",
+          "est_cost"
+        ],
+        "type": "object"
+      },
+      "UsageStatsReport": {
+        "description": "The all-time usage totals served by `GET /v1/logs/stats` and carried by the\n`usage.updated` event. The wire keys are snake_case, as documented in\n`docs/api-v1-contract.md`, \"Logs in the Rust build\".",
+        "properties": {
+          "by_model": {
+            "items": {
+              "$ref": "#/components/schemas/UsageByModel"
+            },
+            "type": "array"
+          },
+          "cost_label": {
+            "type": "string"
+          },
+          "estimated": {
+            "type": "boolean"
+          },
+          "object": {
+            "$ref": "#/components/schemas/ObjectKind"
+          },
+          "total_cache_creation_tokens": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "total_cached_tokens": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "total_completion_tokens": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "total_estimated_cost": {
+            "format": "double",
+            "type": "number"
+          },
+          "total_input_tokens": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "total_output_tokens": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "total_prompt_tokens": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "total_reasoning_tokens": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "total_requests": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "total_success_requests": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "total_tokens": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "object",
+          "total_requests",
+          "total_success_requests",
+          "total_tokens",
+          "total_prompt_tokens",
+          "total_completion_tokens",
+          "total_cached_tokens",
+          "total_cache_creation_tokens",
+          "total_reasoning_tokens",
+          "total_estimated_cost",
+          "total_input_tokens",
+          "total_output_tokens",
+          "cost_label",
+          "estimated",
+          "by_model"
+        ],
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "adminSession": {
+        "description": "The admin session cookie. It also satisfies API-key auth on the routes that accept it.",
+        "in": "cookie",
+        "name": "srouter_admin_session",
+        "type": "apiKey"
+      },
+      "bearerAuth": {
+        "description": "The same API key in the `Authorization` header.",
+        "scheme": "bearer",
+        "type": "http"
+      },
+      "srouterApiKey": {
+        "description": "An SRouter API key. `Authorization: Bearer <key>` carries the same credential.",
+        "in": "header",
+        "name": "x-api-key",
+        "type": "apiKey"
+      }
+    }
+  },
+  "info": {
+    "description": "Multi-provider OpenAI and Anthropic compatible LLM gateway, as served by the Rust build (`server/`). One listener on `PORT` carries the API, the dashboard SPA, and the provider callbacks; there is no secondary OAuth listener. Every response uses snake_case field names (owner ruling 2026-10-07), and errors use the `{error:{message,type,code?,param?}}` envelope. Cloudflare Tunnel routes and `/v1/settings/fallbacks/*` are excluded from this build by owner ruling; they do not appear below and answer `404`.",
+    "title": "SRouter API",
+    "version": "0.2.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiInfo"
+                }
+              },
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The API info object, or the SPA shell when a web dist is configured."
+          }
+        },
+        "security": [],
+        "summary": "Serve the dashboard or the API info object"
+      }
+    },
+    "/auth/antigravity/callback": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "HTML result page for the finished flow."
+          }
+        },
+        "security": [],
+        "summary": "Finish an OAuth flow in the browser"
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "HTML result page for the finished flow."
+          }
+        },
+        "security": [],
+        "summary": "Finish an OAuth flow in the browser"
+      }
+    },
+    "/auth/callback": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "HTML result page for the finished flow."
+          }
+        },
+        "security": [],
+        "summary": "Finish an OAuth flow in the browser"
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "HTML result page for the finished flow."
+          }
+        },
+        "security": [],
+        "summary": "Finish an OAuth flow in the browser"
+      }
+    },
+    "/auth/claude/callback": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "HTML result page for the finished flow."
+          }
+        },
+        "security": [],
+        "summary": "Finish an OAuth flow in the browser"
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "HTML result page for the finished flow."
+          }
+        },
+        "security": [],
+        "summary": "Finish an OAuth flow in the browser"
+      }
+    },
+    "/auth/openai/callback": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "HTML result page for the finished flow."
+          }
+        },
+        "security": [],
+        "summary": "Finish an OAuth flow in the browser"
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "HTML result page for the finished flow."
+          }
+        },
+        "security": [],
+        "summary": "Finish an OAuth flow in the browser"
+      }
+    },
+    "/auth/qoder/callback": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "HTML result page for the finished flow."
+          }
+        },
+        "security": [],
+        "summary": "Finish an OAuth flow in the browser"
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "HTML result page for the finished flow."
+          }
+        },
+        "security": [],
+        "summary": "Finish an OAuth flow in the browser"
+      }
+    },
+    "/health": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            },
+            "description": "Service is up."
+          }
+        },
+        "security": [],
+        "summary": "Liveness probe"
+      }
+    },
+    "/v1": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiInfo"
+                }
+              }
+            },
+            "description": "Name, status, version, and documentation."
+          }
+        },
+        "security": [],
+        "summary": "API info"
+      }
+    },
+    "/v1/admin/change-password": {
+      "post": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The password was updated."
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Change the admin password"
+      }
+    },
+    "/v1/admin/database/export": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "A snapshot with a fourteen-digit UTC attachment filename."
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Export the database"
+      }
+    },
+    "/v1/admin/database/import": {
+      "post": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseImportResponse"
+                }
+              }
+            },
+            "description": "The database was validated and replaced; the admin cookie is cleared."
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Import a database snapshot"
+      }
+    },
+    "/v1/admin/login": {
+      "post": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "authenticated": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "authenticated"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The password was accepted and the session cookie was set; five failures per address answer `429` for 15 minutes."
+          }
+        },
+        "security": [],
+        "summary": "Open an admin session"
+      }
+    },
+    "/v1/admin/logout": {
+      "post": {
+        "responses": {
+          "204": {
+            "description": "The session was revoked and its cookie cleared."
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Close the admin session"
+      }
+    },
+    "/v1/admin/setup": {
+      "post": {
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "authenticated": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "authenticated"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The account was created and the session cookie was set."
+          }
+        },
+        "security": [],
+        "summary": "Create the first admin account (loopback only)"
+      }
+    },
+    "/v1/admin/status": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminStatus"
+                }
+              }
+            },
+            "description": "Whether the install needs its first admin and whether the caller is authenticated."
+          }
+        },
+        "security": [],
+        "summary": "Report setup and session state"
+      }
+    },
+    "/v1/auth/antigravity/callback": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallbackResponse"
+                }
+              }
+            },
+            "description": "The connected provider; missing `code` or `state` answers `400`, an unknown state `500`."
+          }
+        },
+        "security": [],
+        "summary": "Finish an authorization-code flow"
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallbackResponse"
+                }
+              }
+            },
+            "description": "The connected provider; missing `code` or `state` answers `400`, an unknown state `500`."
+          }
+        },
+        "security": [],
+        "summary": "Finish an authorization-code flow"
+      }
+    },
+    "/v1/auth/antigravity/login": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            },
+            "description": "With `format=json`: the browser URL and the PKCE material the callback echoes."
+          },
+          "302": {
+            "description": "Without `format=json`: a redirect to the authorization URL."
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Start an authorization-code flow"
+      }
+    },
+    "/v1/auth/antigravity/token": {
+      "post": {
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallbackResponse"
+                }
+              }
+            },
+            "description": "The imported connection."
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Import tokens for a provider"
+      }
+    },
+    "/v1/auth/claude/callback": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallbackResponse"
+                }
+              }
+            },
+            "description": "The connected provider; missing `code` or `state` answers `400`, an unknown state `500`."
+          }
+        },
+        "security": [],
+        "summary": "Finish an authorization-code flow"
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallbackResponse"
+                }
+              }
+            },
+            "description": "The connected provider; missing `code` or `state` answers `400`, an unknown state `500`."
+          }
+        },
+        "security": [],
+        "summary": "Finish an authorization-code flow"
+      }
+    },
+    "/v1/auth/claude/login": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            },
+            "description": "With `format=json`: the browser URL and the PKCE material the callback echoes."
+          },
+          "302": {
+            "description": "Without `format=json`: a redirect to the authorization URL."
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Start an authorization-code flow"
+      }
+    },
+    "/v1/auth/claude/token": {
+      "post": {
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallbackResponse"
+                }
+              }
+            },
+            "description": "The imported connection."
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Import tokens for a provider"
+      }
+    },
+    "/v1/auth/cline/device": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceResponse"
+                }
+              }
+            },
+            "description": "The device authorization to open in a browser."
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Start the Cline device flow"
+      }
+    },
+    "/v1/auth/cline/poll": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The flow result: pending, denied, connected, or unknown state."
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Poll the Cline device flow"
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The flow result: pending, denied, connected, or unknown state."
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Poll the Cline device flow"
+      }
+    },
+    "/v1/auth/codebuddy-cn/login": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodeBuddyLoginResponse"
+                }
+              }
+            },
+            "description": "With `format=json`: the authorization URL."
+          },
+          "302": {
+            "description": "Without `format=json`: a redirect to the authorization URL."
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Start the CodeBuddy device flow"
+      }
+    },
+    "/v1/auth/codebuddy-cn/poll": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The flow result."
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Poll the CodeBuddy device flow"
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The flow result."
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Poll the CodeBuddy device flow"
+      }
+    },
+    "/v1/auth/codebuddy/login": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodeBuddyLoginResponse"
+                }
+              }
+            },
+            "description": "With `format=json`: the authorization URL."
+          },
+          "302": {
+            "description": "Without `format=json`: a redirect to the authorization URL."
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Start the CodeBuddy device flow"
+      }
+    },
+    "/v1/auth/codebuddy/poll": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The flow result."
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Poll the CodeBuddy device flow"
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The flow result."
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Poll the CodeBuddy device flow"
+      }
+    },
+    "/v1/auth/grok-web/connect": {
+      "post": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The connection was stored and its catalog refreshed."
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Connect a Grok Web session from a cookie"
+      }
+    },
+    "/v1/auth/openai/callback": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallbackResponse"
+                }
+              }
+            },
+            "description": "The connected provider; missing `code` or `state` answers `400`, an unknown state `500`."
+          }
+        },
+        "security": [],
+        "summary": "Finish an authorization-code flow"
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallbackResponse"
+                }
+              }
+            },
+            "description": "The connected provider; missing `code` or `state` answers `400`, an unknown state `500`."
+          }
+        },
+        "security": [],
+        "summary": "Finish an authorization-code flow"
+      }
+    },
+    "/v1/auth/openai/login": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            },
+            "description": "With `format=json`: the browser URL and the PKCE material the callback echoes."
+          },
+          "302": {
+            "description": "Without `format=json`: a redirect to the authorization URL."
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Start an authorization-code flow"
+      }
+    },
+    "/v1/auth/openai/token": {
+      "post": {
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallbackResponse"
+                }
+              }
+            },
+            "description": "The imported connection."
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Import tokens for a provider"
+      }
+    },
+    "/v1/auth/qoder/callback": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallbackResponse"
+                }
+              }
+            },
+            "description": "The connected provider; missing `code` or `state` answers `400`, an unknown state `500`."
+          }
+        },
+        "security": [],
+        "summary": "Finish an authorization-code flow"
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallbackResponse"
+                }
+              }
+            },
+            "description": "The connected provider; missing `code` or `state` answers `400`, an unknown state `500`."
+          }
+        },
+        "security": [],
+        "summary": "Finish an authorization-code flow"
+      }
+    },
+    "/v1/auth/qoder/login": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            },
+            "description": "With `format=json`: the browser URL and the PKCE material the callback echoes."
+          },
+          "302": {
+            "description": "Without `format=json`: a redirect to the authorization URL."
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Start an authorization-code flow"
+      }
+    },
+    "/v1/auth/qoder/poll": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The flow result."
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Poll the Qoder device flow"
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The flow result."
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Poll the Qoder device flow"
+      }
+    },
+    "/v1/chat": {
+      "post": {
+        "description": "API-key auth, the rate limiter, and the model allowlist apply.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "description": "OpenAI chat-completion JSON; `developer` messages normalize to `system`.",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "200": {
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  }
+                },
+                "text/event-stream": {
+                  "schema": {
+                    "type": "string"
+                  }
+                }
+              },
+              "description": "A completion, or an SSE stream of completion chunks ending in `[DONE]`."
+            }
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Error envelope; `error.type` follows the status class."
+          }
+        },
+        "security": [
+          {
+            "srouterApiKey": []
+          },
+          {
+            "bearerAuth": []
+          },
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Create a chat completion"
+      }
+    },
+    "/v1/chat/completion": {
+      "post": {
+        "description": "API-key auth, the rate limiter, and the model allowlist apply.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "description": "OpenAI chat-completion JSON; `developer` messages normalize to `system`.",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "200": {
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  }
+                },
+                "text/event-stream": {
+                  "schema": {
+                    "type": "string"
+                  }
+                }
+              },
+              "description": "A completion, or an SSE stream of completion chunks ending in `[DONE]`."
+            }
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Error envelope; `error.type` follows the status class."
+          }
+        },
+        "security": [
+          {
+            "srouterApiKey": []
+          },
+          {
+            "bearerAuth": []
+          },
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Create a chat completion"
+      }
+    },
+    "/v1/chat/completions": {
+      "post": {
+        "description": "API-key auth, the rate limiter, and the model allowlist apply.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "description": "OpenAI chat-completion JSON; `developer` messages normalize to `system`.",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "200": {
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  }
+                },
+                "text/event-stream": {
+                  "schema": {
+                    "type": "string"
+                  }
+                }
+              },
+              "description": "A completion, or an SSE stream of completion chunks ending in `[DONE]`."
+            }
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Error envelope; `error.type` follows the status class."
+          }
+        },
+        "security": [
+          {
+            "srouterApiKey": []
+          },
+          {
+            "bearerAuth": []
+          },
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Create a chat completion"
+      }
+    },
+    "/v1/images/generations": {
+      "post": {
+        "description": "API-key auth, the rate limiter, and the model allowlist apply. An unsupported image model answers `400`.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "model": {
+                    "type": "string"
+                  },
+                  "n": {
+                    "maximum": 10,
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "prompt": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "prompt",
+                  "model"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Provider image output."
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Error envelope; `error.type` follows the status class."
+          }
+        },
+        "security": [
+          {
+            "srouterApiKey": []
+          },
+          {
+            "bearerAuth": []
+          },
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Generate images"
+      }
+    },
+    "/v1/keys": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KeyListResponse"
+                }
+              }
+            },
+            "description": "Every key's management view; the secret is never returned."
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "List API keys"
+      },
+      "post": {
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedAPIKeyResponse"
+                }
+              }
+            },
+            "description": "The created key plus its one-time secret."
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Create an API key"
+      }
+    },
+    "/v1/keys/{id}": {
+      "delete": {
+        "parameters": [
+          {
+            "description": "Key id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The key was deleted; an unknown id answers `404`."
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Revoke an API key"
+      },
+      "patch": {
+        "parameters": [
+          {
+            "description": "Key id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIKeyResponse"
+                }
+              }
+            },
+            "description": "The updated key."
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Update an API key"
+      }
+    },
+    "/v1/keys/{id}/credit": {
+      "post": {
+        "parameters": [
+          {
+            "description": "Key id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIKeyResponse"
+                }
+              }
+            },
+            "description": "The updated key."
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Add credit to an API key"
+      }
+    },
+    "/v1/logs": {
+      "get": {
+        "parameters": [
+          {
+            "description": "Page number; sending it switches the reply to the paginated shape.",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Page size; defaults to 50.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "description": "`all`, `success`, or `error` (paginated listing only).",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "enum": [
+                "all",
+                "success",
+                "error"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LogsResponse"
+                }
+              }
+            },
+            "description": "Recent logs when only `limit` is sent; a paginated page with totals when `page` is present."
+          }
+        },
+        "security": [
+          {
+            "srouterApiKey": []
+          },
+          {
+            "bearerAuth": []
+          },
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "List request logs"
+      }
+    },
+    "/v1/logs/analytics": {
+      "get": {
+        "parameters": [
+          {
+            "description": "Bucket window; an unknown value answers `400`.",
+            "in": "query",
+            "name": "window",
+            "required": false,
+            "schema": {
+              "enum": [
+                "1h",
+                "24h",
+                "7d",
+                "30d"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyticsReport"
+                }
+              }
+            },
+            "description": "Zero-filled buckets, p95 latency, rolling RPS, and the top models, agents, and providers."
+          }
+        },
+        "security": [
+          {
+            "srouterApiKey": []
+          },
+          {
+            "bearerAuth": []
+          },
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Read the windowed analytics report"
+      }
+    },
+    "/v1/logs/events": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/LiveEvent"
+                }
+              }
+            },
+            "description": "`connected`, `usage.updated`, and `request.logged` frames with a 25 s heartbeat; more than 16 streams answer `429`."
+          }
+        },
+        "security": [
+          {
+            "srouterApiKey": []
+          },
+          {
+            "bearerAuth": []
+          },
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Stream log and usage events"
+      }
+    },
+    "/v1/logs/stats": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsageStatsReport"
+                }
+              }
+            },
+            "description": "All-time totals in the shape the `usage.updated` event carries; `cost_label` uses four decimals."
+          }
+        },
+        "security": [
+          {
+            "srouterApiKey": []
+          },
+          {
+            "bearerAuth": []
+          },
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Read the usage totals"
+      }
+    },
+    "/v1/logs/{id}": {
+      "get": {
+        "parameters": [
+          {
+            "description": "Log id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestLog"
+                }
+              }
+            },
+            "description": "The log row; an unknown id answers `404`."
+          }
+        },
+        "security": [
+          {
+            "srouterApiKey": []
+          },
+          {
+            "bearerAuth": []
+          },
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Read one request log"
+      }
+    },
+    "/v1/messages": {
+      "post": {
+        "description": "API-key auth, the rate limiter, and the model allowlist apply.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "description": "Anthropic Messages JSON (`model`, `messages`, `max_tokens`, optional `stream`).",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              },
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "An Anthropic message, or an SSE stream of Anthropic events."
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Error envelope; `error.type` follows the status class."
+          }
+        },
+        "security": [
+          {
+            "srouterApiKey": []
+          },
+          {
+            "bearerAuth": []
+          },
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Create an Anthropic message"
+      }
+    },
+    "/v1/messages/count_tokens": {
+      "post": {
+        "description": "API-key auth, the rate limiter, and the model allowlist apply.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The token count."
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Error envelope; `error.type` follows the status class."
+          }
+        },
+        "security": [
+          {
+            "srouterApiKey": []
+          },
+          {
+            "bearerAuth": []
+          },
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Count the tokens of a message batch"
+      }
+    },
+    "/v1/models": {
+      "get": {
+        "parameters": [
+          {
+            "description": "Force a refresh of the cached catalog before answering.",
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Force a refresh of the cached catalog before answering.",
+            "in": "query",
+            "name": "force",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelListResponse"
+                }
+              }
+            },
+            "description": "The allowlist-filtered catalog; hidden models and the models of disabled providers are dropped."
+          }
+        },
+        "security": [
+          {
+            "srouterApiKey": []
+          },
+          {
+            "bearerAuth": []
+          },
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "List the model catalog"
+      },
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "favorite": {
+                    "type": "boolean"
+                  },
+                  "hidden": {
+                    "type": "boolean"
+                  },
+                  "model_id": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "model_id"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogModel"
+                }
+              }
+            },
+            "description": "The model was already registered; the entry is returned."
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogModel"
+                }
+              }
+            },
+            "description": "The model was registered."
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Register a custom model"
+      }
+    },
+    "/v1/models/{model}": {
+      "delete": {
+        "parameters": [
+          {
+            "description": "Percent-encoded model id.",
+            "in": "path",
+            "name": "model",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "deleted": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "deleted"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The custom model was removed; a model that was not custom answers `404`."
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Remove a custom model"
+      },
+      "get": {
+        "parameters": [
+          {
+            "description": "Percent-encoded model id; the catch-all segment accepts an id that contains `/`.",
+            "in": "path",
+            "name": "model",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogModel"
+                }
+              }
+            },
+            "description": "One catalog entry."
+          }
+        },
+        "security": [
+          {
+            "srouterApiKey": []
+          },
+          {
+            "bearerAuth": []
+          },
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Read one model"
+      },
+      "patch": {
+        "parameters": [
+          {
+            "description": "Percent-encoded model id.",
+            "in": "path",
+            "name": "model",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "favorite": {
+                    "type": "boolean"
+                  },
+                  "hidden": {
+                    "type": "boolean"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": false
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogModel"
+                }
+              }
+            },
+            "description": "The entry with its new flags."
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Set the favorite or hidden flag"
+      },
+      "put": {
+        "parameters": [
+          {
+            "description": "Percent-encoded model id.",
+            "in": "path",
+            "name": "model",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "favorite": {
+                    "type": "boolean"
+                  },
+                  "hidden": {
+                    "type": "boolean"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": false
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogModel"
+                }
+              }
+            },
+            "description": "The stored entry."
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Upsert a custom model"
+      }
+    },
+    "/v1/providers": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderListResponse"
+                }
+              }
+            },
+            "description": "One entry per built-in driver."
+          }
+        },
+        "security": [
+          {
+            "srouterApiKey": []
+          },
+          {
+            "bearerAuth": []
+          },
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "List the providers this build serves"
+      }
+    },
+    "/v1/providers/catalog": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogResponse"
+                }
+              }
+            },
+            "description": "The four fixed groups."
+          }
+        },
+        "security": [
+          {
+            "srouterApiKey": []
+          },
+          {
+            "bearerAuth": []
+          },
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Read the provider catalog grouped by category"
+      }
+    },
+    "/v1/providers/{provider_id}": {
+      "get": {
+        "parameters": [
+          {
+            "description": "Provider id, for example `qoder`.",
+            "in": "path",
+            "name": "provider_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderEntry"
+                }
+              }
+            },
+            "description": "The provider detail entry, with its connections."
+          }
+        },
+        "security": [
+          {
+            "srouterApiKey": []
+          },
+          {
+            "bearerAuth": []
+          },
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Read one provider"
+      },
+      "patch": {
+        "parameters": [
+          {
+            "description": "Provider id, for example `qoder`.",
+            "in": "path",
+            "name": "provider_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderEntry"
+                }
+              }
+            },
+            "description": "The detail entry read back after the write."
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Toggle a provider or its model flags"
+      }
+    },
+    "/v1/providers/{provider_id}/round-robin": {
+      "patch": {
+        "parameters": [
+          {
+            "description": "Provider id, for example `qoder`.",
+            "in": "path",
+            "name": "provider_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderEntry"
+                }
+              }
+            },
+            "description": "The detail entry read back after the write."
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Turn account rotation on or off"
+      }
+    },
+    "/v1/qouta": {
+      "get": {
+        "parameters": [
+          {
+            "description": "Force a refresh of the cached catalog before answering.",
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Force a refresh of the cached catalog before answering.",
+            "in": "query",
+            "name": "force",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuotaResponse"
+                }
+              }
+            },
+            "description": "OAuth quota for the connected providers; non-OAuth providers are filtered out."
+          }
+        },
+        "security": [
+          {
+            "srouterApiKey": []
+          },
+          {
+            "bearerAuth": []
+          },
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Read provider OAuth quota"
+      }
+    },
+    "/v1/quota": {
+      "get": {
+        "parameters": [
+          {
+            "description": "Force a refresh of the cached catalog before answering.",
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Force a refresh of the cached catalog before answering.",
+            "in": "query",
+            "name": "force",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuotaResponse"
+                }
+              }
+            },
+            "description": "OAuth quota for the connected providers; non-OAuth providers are filtered out."
+          }
+        },
+        "security": [
+          {
+            "srouterApiKey": []
+          },
+          {
+            "bearerAuth": []
+          },
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Read provider OAuth quota"
+      }
+    },
+    "/v1/settings": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingsResponse"
+                }
+              }
+            },
+            "description": "The settings this build echoes."
+          }
+        },
+        "security": [
+          {
+            "srouterApiKey": []
+          },
+          {
+            "bearerAuth": []
+          },
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Read the settings"
+      },
+      "patch": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingsResponse"
+                }
+              }
+            },
+            "description": "The settings this build echoes; a `settings` map is persisted without being echoed."
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Update the settings"
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingsResponse"
+                }
+              }
+            },
+            "description": "The settings this build echoes; a `settings` map is persisted without being echoed."
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Update the settings"
+      }
+    },
+    "/v1/v1/chat": {
+      "post": {
+        "description": "API-key auth, the rate limiter, and the model allowlist apply.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "description": "OpenAI chat-completion JSON; `developer` messages normalize to `system`.",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "200": {
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  }
+                },
+                "text/event-stream": {
+                  "schema": {
+                    "type": "string"
+                  }
+                }
+              },
+              "description": "A completion, or an SSE stream of completion chunks ending in `[DONE]`."
+            }
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Error envelope; `error.type` follows the status class."
+          }
+        },
+        "security": [
+          {
+            "srouterApiKey": []
+          },
+          {
+            "bearerAuth": []
+          },
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Create a chat completion"
+      }
+    },
+    "/v1/v1/chat/completion": {
+      "post": {
+        "description": "API-key auth, the rate limiter, and the model allowlist apply.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "description": "OpenAI chat-completion JSON; `developer` messages normalize to `system`.",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "200": {
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  }
+                },
+                "text/event-stream": {
+                  "schema": {
+                    "type": "string"
+                  }
+                }
+              },
+              "description": "A completion, or an SSE stream of completion chunks ending in `[DONE]`."
+            }
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Error envelope; `error.type` follows the status class."
+          }
+        },
+        "security": [
+          {
+            "srouterApiKey": []
+          },
+          {
+            "bearerAuth": []
+          },
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Create a chat completion"
+      }
+    },
+    "/v1/v1/chat/completions": {
+      "post": {
+        "description": "API-key auth, the rate limiter, and the model allowlist apply.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "description": "OpenAI chat-completion JSON; `developer` messages normalize to `system`.",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "200": {
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  }
+                },
+                "text/event-stream": {
+                  "schema": {
+                    "type": "string"
+                  }
+                }
+              },
+              "description": "A completion, or an SSE stream of completion chunks ending in `[DONE]`."
+            }
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Error envelope; `error.type` follows the status class."
+          }
+        },
+        "security": [
+          {
+            "srouterApiKey": []
+          },
+          {
+            "bearerAuth": []
+          },
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Create a chat completion"
+      }
+    },
+    "/v1/v1/images/generations": {
+      "post": {
+        "description": "API-key auth, the rate limiter, and the model allowlist apply. An unsupported image model answers `400`.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "model": {
+                    "type": "string"
+                  },
+                  "n": {
+                    "maximum": 10,
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "prompt": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "prompt",
+                  "model"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Provider image output."
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Error envelope; `error.type` follows the status class."
+          }
+        },
+        "security": [
+          {
+            "srouterApiKey": []
+          },
+          {
+            "bearerAuth": []
+          },
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Generate images"
+      }
+    },
+    "/v1/v1/messages": {
+      "post": {
+        "description": "API-key auth, the rate limiter, and the model allowlist apply.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "description": "Anthropic Messages JSON (`model`, `messages`, `max_tokens`, optional `stream`).",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              },
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "An Anthropic message, or an SSE stream of Anthropic events."
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Error envelope; `error.type` follows the status class."
+          }
+        },
+        "security": [
+          {
+            "srouterApiKey": []
+          },
+          {
+            "bearerAuth": []
+          },
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Create an Anthropic message"
+      }
+    },
+    "/v1/v1/messages/count_tokens": {
+      "post": {
+        "description": "API-key auth, the rate limiter, and the model allowlist apply.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The token count."
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Error envelope; `error.type` follows the status class."
+          }
+        },
+        "security": [
+          {
+            "srouterApiKey": []
+          },
+          {
+            "bearerAuth": []
+          },
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Count the tokens of a message batch"
+      }
+    },
+    "/v1/v1/models": {
+      "get": {
+        "parameters": [
+          {
+            "description": "Force a refresh of the cached catalog before answering.",
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Force a refresh of the cached catalog before answering.",
+            "in": "query",
+            "name": "force",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelListResponse"
+                }
+              }
+            },
+            "description": "The allowlist-filtered catalog; hidden models and the models of disabled providers are dropped."
+          }
+        },
+        "security": [
+          {
+            "srouterApiKey": []
+          },
+          {
+            "bearerAuth": []
+          },
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "List the model catalog"
+      }
+    },
+    "/v1/v1/models/{model}": {
+      "get": {
+        "parameters": [
+          {
+            "description": "Percent-encoded model id; the catch-all segment accepts an id that contains `/`.",
+            "in": "path",
+            "name": "model",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogModel"
+                }
+              }
+            },
+            "description": "One catalog entry."
+          }
+        },
+        "security": [
+          {
+            "srouterApiKey": []
+          },
+          {
+            "bearerAuth": []
+          },
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Read one model"
+      }
+    }
+  }
+}

@@ -8,6 +8,7 @@ use axum::http::{StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
+use serde::Serialize;
 use serde_json::{Value, json};
 
 use crate::clock::now_ms;
@@ -24,6 +25,14 @@ use super::{
 
 /// Admin payloads are tiny; this only bounds a hostile upload before parsing.
 const MAX_ADMIN_BODY: usize = 1024 * 1024;
+
+/// `GET /v1/admin/status` — whether the install still needs its first admin
+/// and whether the caller holds a valid session cookie.
+#[derive(Serialize, schemars::JsonSchema)]
+pub struct AdminStatus {
+    setup_required: bool,
+    authenticated: bool,
+}
 
 /// Mounts the admin-auth routes. They are nested under `/v1`, so the paths are
 /// `/v1/admin/*`, and they carry no shared guard: each handler enforces its own
@@ -45,10 +54,10 @@ async fn admin_status(
     let authenticated = is_authenticated(&state, token.as_deref()).await?;
     let setup_required = !state.security.admin_auth.has_admin_account().await?;
 
-    Ok(Json(json!({
-        "setup_required": setup_required,
-        "authenticated": authenticated
-    }))
+    Ok(Json(AdminStatus {
+        setup_required,
+        authenticated,
+    })
     .into_response())
 }
 

@@ -33,7 +33,7 @@ impl ModelObject {
 /// Three variants, matching what the build actually serves. Node's
 /// `ProviderProtocol` union also lists `gemini`, but that value is dead: its only
 /// user was the `gemini_cli` provider deleted with `packages/providers/src/catalog.ts`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum ProviderProtocol {
     OpenAI,

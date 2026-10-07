@@ -31,7 +31,7 @@ use crate::state::AppState;
 const CACHE_TTL_SECS: u64 = 60;
 
 /// Top-level response for `GET /v1/quota` and `GET /v1/qouta`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct QuotaResponse {
     pub object: &'static str,
     pub total_accounts: usize,

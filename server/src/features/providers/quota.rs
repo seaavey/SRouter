@@ -4,7 +4,7 @@
 use serde::{Deserialize, Serialize};
 
 /// An account's quota overview.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct ProviderQuotaAccount {
     pub id: String,
     pub provider: String,
@@ -20,7 +20,7 @@ pub struct ProviderQuotaAccount {
 }
 
 /// A specific rate-limit window or model quota entry.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct LiveModelQuotaItem {
     pub name: String,
     pub used: u32,

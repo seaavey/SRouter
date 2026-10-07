@@ -112,7 +112,7 @@ async fn login_opens_the_device_flow_with_a_pkce_challenge() {
     let app = app(&database, &fake).await;
 
     let body = start_login(&app).await;
-    let authorize_url = body["authorizeUrl"].as_str().expect("authorize url");
+    let authorize_url = body["authorize_url"].as_str().expect("authorize url");
 
     assert!(
         authorize_url.starts_with("https://qoder.com/device/selectAccounts?"),
@@ -122,12 +122,12 @@ async fn login_opens_the_device_flow_with_a_pkce_challenge() {
     assert!(authorize_url.contains("challenge="));
     assert!(authorize_url.contains("nonce="));
     assert_eq!(
-        body["codeVerifier"].as_str().expect("verifier").len(),
+        body["code_verifier"].as_str().expect("verifier").len(),
         43,
         "RFC 7636 wants a 43 character verifier"
     );
     assert_eq!(body["state"].as_str().expect("state").len(), 36);
-    assert_eq!(body["redirectUri"], "");
+    assert_eq!(body["redirect_uri"], "");
 }
 
 #[tokio::test]
@@ -492,11 +492,11 @@ async fn cline_device_and_poll_connect_a_workos_device_account() {
     assert_eq!(device_response.status(), StatusCode::OK);
     let device = json_body(device_response).await;
     assert_eq!(
-        device["authorizeUrl"],
+        device["authorize_url"],
         format!("{}/device?user_code=ABCD-EFGH", fake.base_url())
     );
-    assert_eq!(device["userCode"], "ABCD-EFGH");
-    assert_eq!(device["expiresIn"], 300);
+    assert_eq!(device["user_code"], "ABCD-EFGH");
+    assert_eq!(device["expires_in"], 300);
     assert_eq!(device["interval"], 5);
     let state = device["state"].as_str().expect("device state").to_owned();
     assert_eq!(
@@ -756,7 +756,7 @@ async fn openai_login_opens_the_authorize_url_with_a_pkce_challenge() {
     let app = openai_app(&database, &fake).await;
 
     let body = start_openai_login(&app).await;
-    let authorize_url = body["authorizeUrl"].as_str().expect("authorize url");
+    let authorize_url = body["authorize_url"].as_str().expect("authorize url");
 
     assert!(
         authorize_url.starts_with("https://auth.openai.com/oauth/authorize?"),
@@ -766,13 +766,13 @@ async fn openai_login_opens_the_authorize_url_with_a_pkce_challenge() {
     assert!(authorize_url.contains("challenge="));
     assert!(authorize_url.contains("originator=codex_cli_rs"));
     assert_eq!(
-        body["codeVerifier"].as_str().expect("verifier").len(),
+        body["code_verifier"].as_str().expect("verifier").len(),
         43,
         "RFC 7636 wants a 43 character verifier"
     );
     assert_eq!(body["state"].as_str().expect("state").len(), 36);
     assert_eq!(
-        body["redirectUri"],
+        body["redirect_uri"],
         "http://localhost:3000/v1/auth/openai/callback"
     );
 }

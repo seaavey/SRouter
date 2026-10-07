@@ -9,7 +9,7 @@ use crate::features::providers::{ModelObject, ProviderMetadata, ProviderProtocol
 use crate::infrastructure::database::providers::ProviderConnection;
 
 /// A provider as the list, catalog, and detail routes describe it.
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, schemars::JsonSchema)]
 pub struct ProviderEntry {
     pub id: &'static str,
     pub name: &'static str,
@@ -20,9 +20,7 @@ pub struct ProviderEntry {
     pub requires_oauth: bool,
     pub supports_custom_url: bool,
     pub enabled: bool,
-    /// Whether requests rotate across this provider's accounts. Spelled the way
-    /// the web client reads it and the way Node emits it.
-    #[serde(rename = "roundRobin")]
+    /// Whether requests rotate across this provider's accounts.
     pub round_robin: bool,
     pub status: ProviderStatus,
     /// Detail only; the list and catalog omit it like Node does.
@@ -78,7 +76,7 @@ impl ProviderEntry {
 }
 
 /// Connection state of a provider driver.
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, schemars::JsonSchema)]
 pub struct ProviderStatus {
     pub state: &'static str,
     pub message: &'static str,
@@ -102,7 +100,7 @@ impl ProviderStatus {
 /// A model line in the detail response. Hidden and favorited models stay in the
 /// list so the admin view can restore them; `GET /v1/models` is the route that
 /// drops them.
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, schemars::JsonSchema)]
 pub struct ProviderModel {
     pub id: String,
     pub object: String,
@@ -131,7 +129,7 @@ impl ProviderModel {
 
 /// A connection as the detail response reports it. There is deliberately no
 /// credential field: a stored API key never leaves the database.
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, schemars::JsonSchema)]
 pub struct ProviderConnectionView {
     pub id: String,
     pub provider_id: String,
@@ -161,14 +159,14 @@ impl From<&ProviderConnection> for ProviderConnectionView {
 }
 
 /// `GET /v1/providers/catalog`.
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, schemars::JsonSchema)]
 pub struct CatalogResponse {
     pub total: usize,
     pub categories: GroupedCatalog,
 }
 
 /// The four fixed provider groups.
-#[derive(Clone, Debug, Default, Serialize)]
+#[derive(Clone, Debug, Default, Serialize, schemars::JsonSchema)]
 pub struct GroupedCatalog {
     pub oauth: Vec<ProviderEntry>,
     pub free_tier: Vec<ProviderEntry>,

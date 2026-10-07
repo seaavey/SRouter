@@ -818,7 +818,7 @@ async fn rotation_reaches_each_account_and_the_flag_pins_one() {
     let response = app.clone().oneshot(disable).await.unwrap();
     assert_eq!(response.status(), StatusCode::OK);
     let body = json_body(response).await;
-    assert_eq!(body["roundRobin"], serde_json::json!(false));
+    assert_eq!(body["round_robin"], serde_json::json!(false));
 
     let mut pinned: Option<String> = None;
     for _ in 0..3 {

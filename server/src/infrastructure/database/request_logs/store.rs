@@ -12,7 +12,7 @@ use crate::error::APIError;
 use crate::infrastructure::database::AppDatabase;
 use crate::protocol::usage::UsageBreakdown;
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, schemars::JsonSchema)]
 pub struct RequestLog {
     pub id: Uuid,
     pub request_id: Uuid,
@@ -50,7 +50,7 @@ pub struct LogsPage {
     pub total: i64,
 }
 
-#[derive(Clone, Copy, Debug, Serialize)]
+#[derive(Clone, Copy, Debug, Serialize, schemars::JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum ObjectKind {
     List,
