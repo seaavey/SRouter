@@ -875,7 +875,7 @@ fn paths() -> Map<String, Value> {
     // Pricing catalog.
     route(
         &mut paths,
-        "/v1/pricing/models",
+        "/v1/models/pricing",
         "get",
         with_parameters(
             operation(

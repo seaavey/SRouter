@@ -1,10 +1,10 @@
-//! Integration tests for model pricing: `GET /v1/pricing/models` and cost estimation.
+//! Integration tests for model pricing: `GET /v1/models/pricing` and cost estimation.
 //!
 //! Verifies:
 //! - Pricing catalog endpoint returns 200 with standard caching headers.
 //! - Non-loopback requests without an API key are rejected with 401 when configured.
 //! - `Cache-Control: no-cache` / query refresh params work gracefully.
-//! - Endpoint is NOT mounted under compat `/v1/v1/pricing/models` (returns 404).
+//! - Endpoint is NOT mounted under compat `/v1/v1/models/pricing` (returns 404).
 //! - Unit tests for `estimate_cost` function covering prompt, cached discount, completion tokens.
 
 mod support;
@@ -55,7 +55,7 @@ async fn pricing_endpoint_returns_catalog_with_caching_headers() {
     let app = test_app(SecurityState::unconfigured());
 
     let response = app
-        .oneshot(get_request("/v1/pricing/models"))
+        .oneshot(get_request("/v1/models/pricing"))
         .await
         .expect("response");
 
@@ -121,7 +121,7 @@ async fn pricing_endpoint_requires_api_key_auth() {
     let unauth_req = with_remote_client(
         Request::builder()
             .method("GET")
-            .uri("/v1/pricing/models")
+            .uri("/v1/models/pricing")
             .body(Body::empty())
             .expect("request"),
         "198.51.100.1",
@@ -133,7 +133,7 @@ async fn pricing_endpoint_requires_api_key_auth() {
     let auth_req = with_remote_client(
         Request::builder()
             .method("GET")
-            .uri("/v1/pricing/models")
+            .uri("/v1/models/pricing")
             .header(header::AUTHORIZATION, format!("Bearer {raw_key}"))
             .body(Body::empty())
             .expect("request"),
@@ -151,7 +151,7 @@ async fn pricing_endpoint_honors_refresh_and_no_cache() {
     let req = with_loopback_client(
         Request::builder()
             .method("GET")
-            .uri("/v1/pricing/models?refresh=true")
+            .uri("/v1/models/pricing?refresh=true")
             .body(Body::empty())
             .expect("request"),
     );
@@ -162,7 +162,7 @@ async fn pricing_endpoint_honors_refresh_and_no_cache() {
     let req = with_loopback_client(
         Request::builder()
             .method("GET")
-            .uri("/v1/pricing/models?force=1")
+            .uri("/v1/models/pricing?force=1")
             .body(Body::empty())
             .expect("request"),
     );
@@ -173,7 +173,7 @@ async fn pricing_endpoint_honors_refresh_and_no_cache() {
     let req = with_loopback_client(
         Request::builder()
             .method("GET")
-            .uri("/v1/pricing/models")
+            .uri("/v1/models/pricing")
             .header(header::CACHE_CONTROL, "no-cache")
             .body(Body::empty())
             .expect("request"),
@@ -186,17 +186,17 @@ async fn pricing_endpoint_honors_refresh_and_no_cache() {
 async fn pricing_endpoint_not_mounted_on_compat_v1_v1() {
     let app = test_app(SecurityState::unconfigured());
 
-    // /v1/pricing/models -> 200
+    // /v1/models/pricing -> 200
     let res_v1 = app
         .clone()
-        .oneshot(get_request("/v1/pricing/models"))
+        .oneshot(get_request("/v1/models/pricing"))
         .await
         .expect("response");
     assert_eq!(res_v1.status(), StatusCode::OK);
 
-    // /v1/v1/pricing/models -> 404 Not Found
+    // /v1/v1/models/pricing -> 404 Not Found
     let res_compat = app
-        .oneshot(get_request("/v1/v1/pricing/models"))
+        .oneshot(get_request("/v1/v1/models/pricing"))
         .await
         .expect("response");
     assert_eq!(res_compat.status(), StatusCode::NOT_FOUND);
@@ -273,9 +273,9 @@ async fn live_network_request_smoke_test() {
 
     let client = reqwest::Client::new();
 
-    // 1. Live GET /v1/pricing/models over real TCP socket
+    // 1. Live GET /v1/models/pricing over real TCP socket
     let res = client
-        .get(format!("http://127.0.0.1:{port}/v1/pricing/models"))
+        .get(format!("http://127.0.0.1:{port}/v1/models/pricing"))
         .send()
         .await
         .expect("send request");
@@ -297,9 +297,9 @@ async fn live_network_request_smoke_test() {
     assert!(total > 8000, "expected > 8000 models, got {total}");
     assert_eq!(body["data"].as_array().unwrap().len() as u64, total);
 
-    // 2. Live GET /v1/v1/pricing/models -> 404 Not Found
+    // 2. Live GET /v1/v1/models/pricing -> 404 Not Found
     let res_compat = client
-        .get(format!("http://127.0.0.1:{port}/v1/v1/pricing/models"))
+        .get(format!("http://127.0.0.1:{port}/v1/v1/models/pricing"))
         .send()
         .await
         .expect("send compat request");

@@ -143,7 +143,7 @@ static CATALOG: LazyLock<StaticPricingCatalog> = LazyLock::new(|| {
     StaticPricingCatalog { response, cost_map }
 });
 
-/// Handler for `GET /v1/pricing/models`.
+/// Handler for `GET /v1/models/pricing`.
 pub async fn get_pricing_models(
     Query(_query): Query<PricingQuery>,
     _headers: HeaderMap,
@@ -158,9 +158,9 @@ pub async fn get_pricing_models(
         .into_response()
 }
 
-/// Creates the router for pricing routes (`/pricing/models`).
+/// Creates the router for pricing routes (`/models/pricing`).
 pub fn create_pricing_router() -> Router<AppState> {
-    Router::new().route("/pricing/models", get(get_pricing_models))
+    Router::new().route("/models/pricing", get(get_pricing_models))
 }
 
 /// Detailed token cost breakdown in USD.

@@ -3601,6 +3601,54 @@
         "summary": "Register a custom model"
       }
     },
+    "/v1/models/pricing": {
+      "get": {
+        "parameters": [
+          {
+            "description": "Force a refresh of the cached catalog before answering.",
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Force a refresh of the cached catalog before answering.",
+            "in": "query",
+            "name": "force",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PricingListResponse"
+                }
+              }
+            },
+            "description": "The models.dev catalog with per-model cost and limit metadata."
+          }
+        },
+        "security": [
+          {
+            "srouterApiKey": []
+          },
+          {
+            "bearerAuth": []
+          },
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Read the models.dev pricing catalog"
+      }
+    },
     "/v1/models/{model}": {
       "delete": {
         "parameters": [
@@ -3775,54 +3823,6 @@
           }
         ],
         "summary": "Upsert a custom model"
-      }
-    },
-    "/v1/pricing/models": {
-      "get": {
-        "parameters": [
-          {
-            "description": "Force a refresh of the cached catalog before answering.",
-            "in": "query",
-            "name": "refresh",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "description": "Force a refresh of the cached catalog before answering.",
-            "in": "query",
-            "name": "force",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PricingListResponse"
-                }
-              }
-            },
-            "description": "The models.dev catalog with per-model cost and limit metadata."
-          }
-        },
-        "security": [
-          {
-            "srouterApiKey": []
-          },
-          {
-            "bearerAuth": []
-          },
-          {
-            "adminSession": []
-          }
-        ],
-        "summary": "Read the models.dev pricing catalog"
       }
     },
     "/v1/providers": {

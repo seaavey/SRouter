@@ -574,7 +574,7 @@ Qoder, Cline, OpenAI, Antigravity, and Claude routes exist in Rust. Source of tr
       metadata that `model/list` does return (`display_name`, `is_vl`, `format`, `max_input_tokens`,
       `price_factor`, `is_free`) is parsed away today. Adding it is a contract change and needs a
       consumer first.
-- [x] `GET /v1/pricing/models` — `Cache-Control: public, max-age=3600, stale-while-revalidate=86400`,
+- [x] `GET /v1/models/pricing` — `Cache-Control: public, max-age=3600, stale-while-revalidate=86400`,
       `refresh`/`force`/`no-cache` forcing a refresh (`features/catalog/pricing.rs`). Legacy evidence:
       `apps/api/tests/pricing-route.test.ts`. Sourced independently from official Models.dev data
       (`features/catalog/data/models-dev-pricing.json` and `.manifest.json`, maintained via
