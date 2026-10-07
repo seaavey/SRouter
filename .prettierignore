@@ -9,3 +9,4 @@ build
 .commandcode
 apps/web/src/routeTree.gen.ts
 apps/web/src/generated
+server/bindings.ts

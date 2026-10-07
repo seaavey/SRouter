@@ -9,11 +9,12 @@ on:
 jobs:
     # The Node job (pnpm install, `pnpm --filter web api:check`, `pnpm build`,
     # `pnpm test`) is parked while the Rust/Axum API rewrite is in flight. Its
-    # `api:check` step compares the committed `apps/web/src/generated/api.ts`
-    # against `server/openapi.json`, so every contract change on the server side
-    # fails it until the dashboard regenerates its types — which belongs to the
-    # web refactor (issue #150), not to this branch. CI for now enforces the
-    # server only, via `rust-lint` and `rust-test`.
+    # `api:check` step compared the committed `apps/web/src/generated/api.ts`
+    # against the OpenAPI document the Rust build used to publish; the build now
+    # exports `server/bindings.ts` instead and no web tooling reads it yet, so a
+    # restored job needs to consume that file. The work belongs to the web
+    # refactor (issue #150), not to this branch. CI for now enforces the server
+    # only, via `rust-lint` and `rust-test`.
     # Restore the job once the dashboard is regenerated:
     #   git show 795ecd1:.github/workflows/ci.yml
 
@@ -68,9 +69,9 @@ jobs:
               run: cargo test --manifest-path server/Cargo.toml --locked
 
             # Regenerates the contract document and fails on any drift. The same
-            # comparison is pinned by `server/tests/openapi.rs`, so the step
+            # comparison is pinned by `server/tests/bindings.rs`, so the step
             # makes the failure visible as its own check.
-            - name: Check the OpenAPI export is current
+            - name: Check the bindings are current
               run: |
-                  cargo run --manifest-path server/Cargo.toml --bin export_openapi
-                  git diff --exit-code -- server/openapi.json
+                  cargo run --manifest-path server/Cargo.toml --bin export_ts
+                  git diff --exit-code -- server/bindings.ts
