@@ -695,15 +695,28 @@ Qoder, Cline, OpenAI, Antigravity, and Claude routes exist in Rust. Source of tr
 - [x] Integer handling: `specta-typescript` refuses `i64`/`u64`/`usize`/`isize`/`i128`/`u128`
       outright, so each of the 57 such fields carries a `#[specta(type = …)]` override to the exact
       TypeScript number type (`Number`, `Option<Number>`, `Vec<Number>`), which keeps nullability and
-      optionality intact. `[specta(type = Option<Vec<specta_typescript::Unknown>>)]` covers
-      `ProviderQuotaAccount.usage_metrics`, whose `serde_json::Value` elements have no other mapping.
-      The `HttpMethod` fallback lives in `FromStr` instead of `#[serde(other)]`, which `specta-serde`
-      only accepts on tagged enums.
+      optionality intact. The `HttpMethod` fallback lives in `FromStr` instead of `#[serde(other)]`,
+      which `specta-serde` only accepts on tagged enums.
+- [x] Every conditional field is optional (`?:`), not merely nullable: the 44 fields the server omits
+      when they are null carry `#[specta(optional)]`, and so do the request fields a handler defaults
+      (`POST` fills `enabled: true` and zeroes) or leaves untouched (`PATCH`). `UpdateAPIKeyInput` was
+      reporting every field as required while the Rust type is all-`Option`.
+- [x] Closed unions where the build decides the value: `ProviderStatus.state` renders
+      `"connected" | "no_connections"` and `LiveModelQuotaItem.status` renders
+      `"exhausted" | "warning" | "ok"`, both through private `Type` impls that return
+      `specta_typescript::define`. `ProviderConnectionView.protocol`/`category` and
+      `ProviderEntry.category` deliberately stay `string`: the database import writes those columns
+      from a payload, so a closed union would misdescribe imported data.
+- [x] No opaque holes: the document carries no `unknown` and no `any`. `usage_metrics` is
+      `ProviderUsageMetric[] | null`, a typed struct whose shape is Node's
+      (`packages/types/src/quota.ts`); no driver in this build fills the field, but a client can read
+      it without casting.
 - [x] Naming: Specta emits one type per direction (`X_Serialize` / `X_Deserialize`) for definitions
       with directional serde metadata and then `X = X_Serialize | X_Deserialize`. That is the accurate
       description of the two phases; the `_Serialize` member is the shape the server sends.
-- [x] `server/tests/bindings.rs` (5 tests): byte-identical double render, the committed file matches a
-      regeneration, the document carries only type exports, every registered root is present, and the
+- [x] `server/tests/bindings.rs` (8 tests): byte-identical double render, the committed file matches a
+      regeneration, the document carries only type exports, every registered root is present, the
+      conditional fields are optional, the closed values are union literals, no opaque holes, and the
       integer overrides still render as the right number type. CI (`rust-test`) regenerates and runs
       `git diff --exit-code -- server/bindings.ts`.
 - Deviation: this document has no route, method, or security-scheme information, so the OpenAPI
