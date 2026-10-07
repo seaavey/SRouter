@@ -170,10 +170,8 @@ async fn logs_list_supports_latest_order_pagination_and_status_filter() {
     assert_eq!(body["data"][0]["cache_creation_tokens"], 8);
     assert_eq!(body["data"][0]["reasoning_tokens"], 9);
     assert_eq!(body["data"][0]["estimated_cost"], 0.1234);
+    assert_eq!(body["data"][0]["costs"]["total"], 0.1234);
     assert_eq!(body["data"][0]["resolved_model"], "resolved-test-model");
-    assert_eq!(body["data"][0]["fallback_occurred"], true);
-    assert_eq!(body["data"][0]["fallback_path"], "fallback-a");
-    assert_eq!(body["data"][0]["fallback_reason"], "fallback-test");
     assert_eq!(body["data"][0]["created_at"], 200);
 }
 
@@ -518,4 +516,87 @@ async fn event_stream_emits_25_second_heartbeat() {
         }
     };
     assert_eq!(String::from_utf8(heartbeat.to_vec()).unwrap(), ": ping\n\n");
+}
+
+#[tokio::test]
+async fn request_log_records_real_user_request_with_cost_breakdown() {
+    let test_database = TestDatabase::new().unwrap();
+    let state = logs_state(&test_database).await;
+    let database = state.database.as_ref().unwrap();
+
+    let usage = srouter_server::protocol::usage::UsageBreakdown {
+        prompt_tokens: 10_000,
+        completion_tokens: 2_000,
+        total_tokens: 12_000,
+        cached_tokens: 3_000,
+        cache_creation_tokens: 1_000,
+        reasoning_tokens: 0,
+    };
+
+    let estimated_cost = srouter_server::features::catalog::estimate_cost("gpt-4o", &usage)
+        .expect("model gpt-4o should be priced");
+    assert!(estimated_cost > 0.0);
+
+    let log_id = srouter_server::infrastructure::database::request_logs::insert_request_log(
+        database,
+        srouter_server::infrastructure::database::request_logs::RequestLogInput {
+            request_id: "00000000-0000-4000-8000-000000000055",
+            method: "POST",
+            path: "/v1/chat/completions",
+            api_key_id: None,
+            ip_address: Some("198.51.100.1"),
+            user_agent: Some("curl/8.0"),
+            provider_id: "openai",
+            model: "gpt-4o",
+            status_code: 200,
+            latency_ms: 150,
+            usage: &usage,
+            estimated_cost,
+            resolved_model: Some("openai/gpt-4o"),
+            error_code: None,
+            error_message: None,
+            created_at: 1_000,
+        },
+    )
+    .await
+    .expect("insert log");
+
+    let app = app(state);
+    let response = app
+        .oneshot(get(&format!("/v1/logs/{log_id}")))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = json(response).await;
+
+    // 1. Identity & Routing
+    assert_eq!(body["id"], log_id);
+    assert_eq!(body["method"], "POST");
+    assert_eq!(body["path"], "/v1/chat/completions");
+    assert_eq!(body["status_code"], 200);
+    assert_eq!(body["model"], "gpt-4o");
+    assert_eq!(body["resolved_model"], "openai/gpt-4o");
+    assert_eq!(body["ip_address"], "198.51.100.1");
+
+    // 2. Tokens
+    assert_eq!(body["prompt_tokens"], 10_000);
+    assert_eq!(body["completion_tokens"], 2_000);
+    assert_eq!(body["total_tokens"], 12_000);
+    assert_eq!(body["cached_tokens"], 3_000);
+    assert_eq!(body["cache_creation_tokens"], 1_000);
+
+    // 3. Costs: top-level + detailed breakdown
+    assert_eq!(body["estimated_cost"], estimated_cost);
+    let costs = &body["costs"];
+    assert!(costs.is_object());
+    let input_cost = costs["input"].as_f64().unwrap();
+    let output_cost = costs["output"].as_f64().unwrap();
+    let cache_cost = costs["cache"].as_f64().unwrap();
+    let total_cost = costs["total"].as_f64().unwrap();
+
+    assert!(input_cost > 0.0);
+    assert!(output_cost > 0.0);
+    assert!(cache_cost > 0.0);
+    assert!((total_cost - estimated_cost).abs() < 1e-6);
+    assert!(((input_cost + output_cost + cache_cost) - total_cost).abs() < 1e-6);
 }

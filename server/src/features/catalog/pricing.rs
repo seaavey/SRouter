@@ -163,11 +163,19 @@ pub fn create_pricing_router() -> Router<AppState> {
     Router::new().route("/pricing/models", get(get_pricing_models))
 }
 
-/// Estimates token cost in USD for a model and usage breakdown.
+/// Detailed token cost breakdown in USD.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct CostBreakdown {
+    pub input: f64,
+    pub output: f64,
+    pub cache: f64,
+    pub total: f64,
+}
+
+/// Estimates detailed token cost breakdown in USD for a model and usage breakdown.
 ///
 /// Returns `None` if the model rate is unpriced or unknown.
-/// Explicit zero rates return `Some(0.0)`.
-pub fn estimate_cost(model_id: &str, usage: &UsageBreakdown) -> Option<f64> {
+pub fn estimate_cost_breakdown(model_id: &str, usage: &UsageBreakdown) -> Option<CostBreakdown> {
     let normalized = model_id.trim().to_lowercase();
 
     let cost = CATALOG
@@ -196,10 +204,24 @@ pub fn estimate_cost(model_id: &str, usage: &UsageBreakdown) -> Option<f64> {
     let prompt_cost = non_cached_prompt as f64 * input_rate / 1_000_000.0;
     let cache_read_cost = usage.cached_tokens as f64 * cache_read_rate / 1_000_000.0;
     let cache_write_cost = usage.cache_creation_tokens as f64 * cache_write_rate / 1_000_000.0;
+    let cache_cost = cache_read_cost + cache_write_cost;
     let completion_cost = usage.completion_tokens as f64 * output_rate / 1_000_000.0;
 
-    let total = prompt_cost + cache_read_cost + cache_write_cost + completion_cost;
-    Some(total)
+    let total = prompt_cost + cache_cost + completion_cost;
+    Some(CostBreakdown {
+        input: prompt_cost,
+        output: completion_cost,
+        cache: cache_cost,
+        total,
+    })
+}
+
+/// Estimates token cost in USD for a model and usage breakdown.
+///
+/// Returns `None` if the model rate is unpriced or unknown.
+/// Explicit zero rates return `Some(0.0)`.
+pub fn estimate_cost(model_id: &str, usage: &UsageBreakdown) -> Option<f64> {
+    estimate_cost_breakdown(model_id, usage).map(|breakdown| breakdown.total)
 }
 
 #[cfg(test)]
