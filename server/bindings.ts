@@ -93,25 +93,7 @@ export type ApiInfo = {
  *  A catalog entry: the OpenAI model fields plus the operator's favorite flag
  *  and the custom-model marker Node adds in `MergeCustomModels`.
  */
-export type CatalogModel = CatalogModel_Serialize | CatalogModel_Deserialize;
-
-/**
- *  A catalog entry: the OpenAI model fields plus the operator's favorite flag
- *  and the custom-model marker Node adds in `MergeCustomModels`.
- */
-export type CatalogModel_Deserialize = {
-	id: string,
-	object: string,
-	owned_by: string,
-	favorite: boolean,
-	custom?: boolean | null,
-};
-
-/**
- *  A catalog entry: the OpenAI model fields plus the operator's favorite flag
- *  and the custom-model marker Node adds in `MergeCustomModels`.
- */
-export type CatalogModel_Serialize = {
+export type CatalogModel = {
 	id: string,
 	object: string,
 	owned_by: string,
@@ -120,18 +102,9 @@ export type CatalogModel_Serialize = {
 };
 
 /**  `GET /v1/providers/catalog`. */
-export type CatalogResponse = CatalogResponse_Serialize | CatalogResponse_Deserialize;
-
-/**  `GET /v1/providers/catalog`. */
-export type CatalogResponse_Deserialize = {
+export type CatalogResponse = {
 	total: number,
-	categories: GroupedCatalog_Deserialize,
-};
-
-/**  `GET /v1/providers/catalog`. */
-export type CatalogResponse_Serialize = {
-	total: number,
-	categories: GroupedCatalog_Serialize,
+	categories: GroupedCatalog,
 };
 
 /**  Fields accepted by `POST /v1/keys`, mirroring `CreateAPIKeySchema`. */
@@ -149,49 +122,23 @@ export type CreatedAPIKeyResponse = {
 	key: string,
 } & APIKeyResponse;
 
-export type ErrorBody = ErrorBody_Serialize | ErrorBody_Deserialize;
-
-export type ErrorBody_Deserialize = {
+export type ErrorBody = {
 	message: string,
 	type: string,
 	code?: string | null,
 	param?: string | null,
 };
 
-export type ErrorBody_Serialize = {
-	message: string,
-	type: string,
-	code?: string | null,
-	param?: string | null,
-};
-
-export type ErrorEnvelope = ErrorEnvelope_Serialize | ErrorEnvelope_Deserialize;
-
-export type ErrorEnvelope_Deserialize = {
-	error: ErrorBody_Deserialize,
-};
-
-export type ErrorEnvelope_Serialize = {
-	error: ErrorBody_Serialize,
+export type ErrorEnvelope = {
+	error: ErrorBody,
 };
 
 /**  The four fixed provider groups. */
-export type GroupedCatalog = GroupedCatalog_Serialize | GroupedCatalog_Deserialize;
-
-/**  The four fixed provider groups. */
-export type GroupedCatalog_Deserialize = {
-	oauth: ProviderEntry_Deserialize[],
-	free_tier: ProviderEntry_Deserialize[],
-	api_key: ProviderEntry_Deserialize[],
-	custom_provider: ProviderEntry_Deserialize[],
-};
-
-/**  The four fixed provider groups. */
-export type GroupedCatalog_Serialize = {
-	oauth: ProviderEntry_Serialize[],
-	free_tier: ProviderEntry_Serialize[],
-	api_key: ProviderEntry_Serialize[],
-	custom_provider: ProviderEntry_Serialize[],
+export type GroupedCatalog = {
+	oauth: ProviderEntry[],
+	free_tier: ProviderEntry[],
+	api_key: ProviderEntry[],
+	custom_provider: ProviderEntry[],
 };
 
 export type HealthResponse = {
@@ -212,29 +159,10 @@ export type KeyListResponse = {
 	data: APIKeyResponse[],
 };
 
-export type LiveEvent = LiveEvent_Serialize | LiveEvent_Deserialize;
-
-export type LiveEvent_Deserialize = ({ type: "connected" }) & { log?: never; stats?: never } | ({ type: "usage.updated"; stats: UsageStatsReport }) & { log?: never } | ({ type: "request.logged"; log: RequestLog_Deserialize }) & { stats?: never };
-
-export type LiveEvent_Serialize = ({ type: "connected" }) & { log?: never; stats?: never } | ({ type: "usage.updated"; stats: UsageStatsReport }) & { log?: never } | ({ type: "request.logged"; log: RequestLog_Serialize }) & { stats?: never };
+export type LiveEvent = { type: "connected" } | { type: "usage.updated"; stats: UsageStatsReport } | { type: "request.logged"; log: RequestLog };
 
 /**  A specific rate-limit window or model quota entry. */
-export type LiveModelQuotaItem = LiveModelQuotaItem_Serialize | LiveModelQuotaItem_Deserialize;
-
-/**  A specific rate-limit window or model quota entry. */
-export type LiveModelQuotaItem_Deserialize = {
-	name: string,
-	used: number,
-	limit: number,
-	percentage: string,
-	percentage_value: number,
-	reset_in: string,
-	reset_time?: string | null,
-	status: "exhausted" | "warning" | "ok",
-};
-
-/**  A specific rate-limit window or model quota entry. */
-export type LiveModelQuotaItem_Serialize = {
+export type LiveModelQuotaItem = {
 	name: string,
 	used: number,
 	limit: number,
@@ -246,33 +174,13 @@ export type LiveModelQuotaItem_Serialize = {
 };
 
 /**  Client identification metadata for a logged request. */
-export type LogClient = LogClient_Serialize | LogClient_Deserialize;
-
-/**  Client identification metadata for a logged request. */
-export type LogClient_Deserialize = {
-	ip_address?: string | null,
-	user_agent?: string | null,
-};
-
-/**  Client identification metadata for a logged request. */
-export type LogClient_Serialize = {
+export type LogClient = {
 	ip_address?: string | null,
 	user_agent?: string | null,
 };
 
 /**  Estimated cost breakdown formatted in fixed 4-decimal USD for a logged request. */
-export type LogCost = LogCost_Serialize | LogCost_Deserialize;
-
-/**  Estimated cost breakdown formatted in fixed 4-decimal USD for a logged request. */
-export type LogCost_Deserialize = {
-	input?: string | null,
-	output?: string | null,
-	cache?: string | null,
-	total?: string | null,
-};
-
-/**  Estimated cost breakdown formatted in fixed 4-decimal USD for a logged request. */
-export type LogCost_Serialize = {
+export type LogCost = {
 	input?: string | null,
 	output?: string | null,
 	cache?: string | null,
@@ -280,25 +188,13 @@ export type LogCost_Serialize = {
 };
 
 /**  Error / diagnostics information for a failed request. */
-export type LogError = LogError_Serialize | LogError_Deserialize;
-
-/**  Error / diagnostics information for a failed request. */
-export type LogError_Deserialize = {
-	error_code?: string | null,
-	error_message?: string | null,
-};
-
-/**  Error / diagnostics information for a failed request. */
-export type LogError_Serialize = {
+export type LogError = {
 	error_code?: string | null,
 	error_message?: string | null,
 };
 
 /**  Token usage breakdown for a logged request. */
-export type LogTokenUsage = LogTokenUsage_Serialize | LogTokenUsage_Deserialize;
-
-/**  Token usage breakdown for a logged request. */
-export type LogTokenUsage_Deserialize = {
+export type LogTokenUsage = {
 	input?: number | null,
 	output?: number | null,
 	cache?: number | null,
@@ -308,46 +204,18 @@ export type LogTokenUsage_Deserialize = {
 	total?: number | null,
 };
 
-/**  Token usage breakdown for a logged request. */
-export type LogTokenUsage_Serialize = {
-	input?: number | null,
-	output?: number | null,
-	cache?: number | null,
-	cache_read?: number | null,
-	cache_creation?: number | null,
-	reasoning?: number | null,
-	total?: number | null,
-};
-
-export type LogsResponse = LogsResponse_Serialize | LogsResponse_Deserialize;
-
-export type LogsResponse_Deserialize = {
+export type LogsResponse = {
 	object: ObjectKind,
-	data: RequestLog_Deserialize[],
+	data: RequestLog[],
 	pagination?: Pagination | null,
 };
 
-export type LogsResponse_Serialize = {
-	object: ObjectKind,
-	data: RequestLog_Serialize[],
-	pagination?: Pagination | null,
-};
-
-export type ModelListResponse = ModelListResponse_Serialize | ModelListResponse_Deserialize;
-
-export type ModelListResponse_Deserialize = {
+export type ModelListResponse = {
 	object: string,
-	data: CatalogModel_Deserialize[],
+	data: CatalogModel[],
 };
 
-export type ModelListResponse_Serialize = {
-	object: string,
-	data: CatalogModel_Serialize[],
-};
-
-export type ModelPricingCost = ModelPricingCost_Serialize | ModelPricingCost_Deserialize;
-
-export type ModelPricingCost_Deserialize = {
+export type ModelPricingCost = {
 	input?: number | null,
 	output?: number | null,
 	cache_read?: number | null,
@@ -357,19 +225,7 @@ export type ModelPricingCost_Deserialize = {
 	output_audio?: number | null,
 };
 
-export type ModelPricingCost_Serialize = {
-	input?: number | null,
-	output?: number | null,
-	cache_read?: number | null,
-	cache_write?: number | null,
-	reasoning?: number | null,
-	input_audio?: number | null,
-	output_audio?: number | null,
-};
-
-export type ModelPricingItem = ModelPricingItem_Serialize | ModelPricingItem_Deserialize;
-
-export type ModelPricingItem_Deserialize = {
+export type ModelPricingItem = {
 	id: string,
 	name: string,
 	description: string,
@@ -384,51 +240,17 @@ export type ModelPricingItem_Deserialize = {
 	knowledge?: string | null,
 	release_date: string,
 	last_updated: string,
-	cost?: ModelPricingCost_Deserialize | null,
-	limit?: ModelPricingLimit_Deserialize | null,
-	modalities?: ModelPricingModalities_Deserialize | null,
+	cost?: ModelPricingCost | null,
+	limit?: ModelPricingLimit | null,
+	modalities?: ModelPricingModalities | null,
 };
 
-export type ModelPricingItem_Serialize = {
-	id: string,
-	name: string,
-	description: string,
-	family?: string | null,
-	provider: string,
-	attachment: boolean,
-	reasoning: boolean,
-	tool_call: boolean,
-	temperature?: boolean | null,
-	structured_output?: boolean | null,
-	open_weights: boolean,
-	knowledge?: string | null,
-	release_date: string,
-	last_updated: string,
-	cost?: ModelPricingCost_Serialize | null,
-	limit?: ModelPricingLimit_Serialize | null,
-	modalities?: ModelPricingModalities_Serialize | null,
-};
-
-export type ModelPricingLimit = ModelPricingLimit_Serialize | ModelPricingLimit_Deserialize;
-
-export type ModelPricingLimit_Deserialize = {
+export type ModelPricingLimit = {
 	context?: number | null,
 	output?: number | null,
 };
 
-export type ModelPricingLimit_Serialize = {
-	context?: number | null,
-	output?: number | null,
-};
-
-export type ModelPricingModalities = ModelPricingModalities_Serialize | ModelPricingModalities_Deserialize;
-
-export type ModelPricingModalities_Deserialize = {
-	input?: string[] | null,
-	output?: string[] | null,
-};
-
-export type ModelPricingModalities_Serialize = {
+export type ModelPricingModalities = {
 	input?: string[] | null,
 	output?: string[] | null,
 };
@@ -442,20 +264,11 @@ export type Pagination = {
 	total_pages: number,
 };
 
-export type PricingListResponse = PricingListResponse_Serialize | PricingListResponse_Deserialize;
-
-export type PricingListResponse_Deserialize = {
+export type PricingListResponse = {
 	object: string,
 	total: number,
 	updated_at?: string | null,
-	data: ModelPricingItem_Deserialize[],
-};
-
-export type PricingListResponse_Serialize = {
-	object: string,
-	total: number,
-	updated_at?: string | null,
-	data: ModelPricingItem_Serialize[],
+	data: ModelPricingItem[],
 };
 
 /**
@@ -475,10 +288,7 @@ export type ProviderConnectionView = {
 };
 
 /**  A provider as the list, catalog, and detail routes describe it. */
-export type ProviderEntry = ProviderEntry_Serialize | ProviderEntry_Deserialize;
-
-/**  A provider as the list, catalog, and detail routes describe it. */
-export type ProviderEntry_Deserialize = {
+export type ProviderEntry = {
 	id: string,
 	name: string,
 	category: string,
@@ -496,35 +306,9 @@ export type ProviderEntry_Deserialize = {
 	models: ProviderModel[],
 };
 
-/**  A provider as the list, catalog, and detail routes describe it. */
-export type ProviderEntry_Serialize = {
-	id: string,
-	name: string,
-	category: string,
-	protocol: ProviderProtocol,
-	default_base_url: string,
-	requires_api_key: boolean,
-	requires_oauth: boolean,
-	supports_custom_url: boolean,
-	enabled: boolean,
-	/**  Whether requests rotate across this provider's accounts. */
-	round_robin: boolean,
-	status: ProviderStatus,
-	/**  Detail only; the list and catalog omit it like Node does. */
-	connections?: ProviderConnectionView[] | null,
-	models: ProviderModel[],
-};
-
-export type ProviderListResponse = ProviderListResponse_Serialize | ProviderListResponse_Deserialize;
-
-export type ProviderListResponse_Deserialize = {
+export type ProviderListResponse = {
 	object: string,
-	data: ProviderEntry_Deserialize[],
-};
-
-export type ProviderListResponse_Serialize = {
-	object: string,
-	data: ProviderEntry_Serialize[],
+	data: ProviderEntry[],
 };
 
 /**
@@ -551,29 +335,14 @@ export type ProviderModel = {
 export type ProviderProtocol = "openai" | "anthropic" | "custom";
 
 /**  An account's quota overview. */
-export type ProviderQuotaAccount = ProviderQuotaAccount_Serialize | ProviderQuotaAccount_Deserialize;
-
-/**  An account's quota overview. */
-export type ProviderQuotaAccount_Deserialize = {
+export type ProviderQuotaAccount = {
 	id: string,
 	provider: string,
 	account: string,
 	enabled: boolean,
 	quota_type: string,
 	total_quotas?: number | null,
-	quotas?: LiveModelQuotaItem_Deserialize[] | null,
-	usage_metrics?: ProviderUsageMetric[] | null,
-};
-
-/**  An account's quota overview. */
-export type ProviderQuotaAccount_Serialize = {
-	id: string,
-	provider: string,
-	account: string,
-	enabled: boolean,
-	quota_type: string,
-	total_quotas?: number | null,
-	quotas?: LiveModelQuotaItem_Serialize[] | null,
+	quotas?: LiveModelQuotaItem[] | null,
 	usage_metrics?: ProviderUsageMetric[] | null,
 };
 
@@ -603,33 +372,17 @@ export type ProviderUsageMetric = {
 };
 
 /**  Top-level response for `GET /v1/quota` and `GET /v1/qouta`. */
-export type QuotaResponse = QuotaResponse_Serialize | QuotaResponse_Deserialize;
-
-/**  Top-level response for `GET /v1/quota` and `GET /v1/qouta`. */
-export type QuotaResponse_Deserialize = {
+export type QuotaResponse = {
 	object: string,
 	total_accounts: number,
-	providers: ProviderQuotaAccount_Deserialize[],
-};
-
-/**  Top-level response for `GET /v1/quota` and `GET /v1/qouta`. */
-export type QuotaResponse_Serialize = {
-	object: string,
-	total_accounts: number,
-	providers: ProviderQuotaAccount_Serialize[],
+	providers: ProviderQuotaAccount[],
 };
 
 /**
  *  A single request-log record. Categorized into cohesive domain structs
  *  while preserving the flat snake_case JSON wire representation.
  */
-export type RequestLog = RequestLog_Serialize | RequestLog_Deserialize;
-
-/**
- *  A single request-log record. Categorized into cohesive domain structs
- *  while preserving the flat snake_case JSON wire representation.
- */
-export type RequestLog_Deserialize = {
+export type RequestLog = {
 	id: string,
 	request_id: string,
 	user_id: string | null,
@@ -642,30 +395,9 @@ export type RequestLog_Deserialize = {
 	provider: string | null,
 	model: string | null,
 	resolved_model: string | null,
-	tokens: LogTokenUsage_Deserialize,
-	costs?: LogCost_Deserialize | null,
-} & LogClient_Deserialize & LogError_Deserialize;
-
-/**
- *  A single request-log record. Categorized into cohesive domain structs
- *  while preserving the flat snake_case JSON wire representation.
- */
-export type RequestLog_Serialize = {
-	id: string,
-	request_id: string,
-	user_id: string | null,
-	api_key_id: string | null,
-	method: HttpMethod,
-	path: string,
-	status_code: number,
-	latency_ms: number,
-	created_at: number,
-	provider: string | null,
-	model: string | null,
-	resolved_model: string | null,
-	tokens: LogTokenUsage_Serialize,
-	costs?: LogCost_Serialize | null,
-} & LogClient_Serialize & LogError_Serialize;
+	tokens: LogTokenUsage,
+	costs?: LogCost | null,
+} & LogClient & LogError;
 
 export type SettingsResponse = {
 	require_api_key: boolean,

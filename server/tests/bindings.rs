@@ -108,33 +108,27 @@ fn every_registered_root_is_exported() {
 }
 
 #[test]
-fn the_conditional_fields_render_as_optional() {
+fn one_shape_is_exported_per_type() {
     let document = committed();
 
-    // A field the server omits when it is null is absent from the payload, so the
-    // property has to be optional rather than merely nullable.
+    // `skip_serializing_if` makes `specta-serde` export `X_Serialize` and
+    // `X_Deserialize` for every type that reaches such a field, and a union
+    // `X = X_Serialize | X_Deserialize` beside them. A response reader only ever
+    // sees one of the two shapes, so the document exports one shape per type; the
+    // live checks in `server/tests/wire.rs` pin that the shapes it describes
+    // match the bytes the server writes.
     assert!(
-        document.contains("\tpagination?: Pagination | null,"),
-        "a `skip_serializing_if` field lost its `?:`"
+        !document.contains("_Serialize") && !document.contains("_Deserialize"),
+        "a type is split into per-direction shapes again"
     );
     assert!(
-        document.contains("\tcustom?: boolean | null,"),
-        "`CatalogModel.custom` lost its `?:`"
-    );
-
-    // The request bodies accept absent fields: `POST` fills a default, `PATCH`
-    // leaves the field untouched.
-    assert!(
-        document.contains("\tenabled?: boolean,"),
-        "a request field the server defaults lost its `?:`"
+        document
+            .contains("export type LogsResponse = {\n\tobject: ObjectKind,\n\tdata: RequestLog[],"),
+        "`LogsResponse` no longer renders as a single shape"
     );
     assert!(
-        document.contains("\tname?: string | null,"),
-        "a `PATCH` field lost its `?:`"
-    );
-    assert!(
-        document.contains("\tname: string,"),
-        "the one required `POST` field stopped being required"
+        !document.contains("log?: never"),
+        "the discriminator union carries phase noise again"
     );
 }
 
@@ -180,7 +174,7 @@ fn the_wire_integer_fields_render_as_numbers() {
     // `Number` override. If an override is dropped the render fails outright; this
     // test pins the observable result instead of relying on that failure.
     assert!(
-        document.contains("export type RequestLog_Serialize"),
+        document.contains("export type RequestLog = {"),
         "RequestLog is missing"
     );
     assert!(

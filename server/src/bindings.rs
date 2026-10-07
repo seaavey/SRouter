@@ -35,7 +35,10 @@
 //! | `LiveEvent`             | the `/v1/logs/stream` SSE payloads         |
 //! | `ErrorEnvelope`         | every error response                       |
 
-use specta::Types;
+use std::borrow::Cow;
+
+use specta::datatype::{DataType, Enum, Fields, NamedDataType, Reference, Struct, Variant};
+use specta::{Format, FormatError, Types};
 
 use crate::app::{ApiInfo, HealthResponse};
 use crate::error::ErrorEnvelope;
@@ -97,5 +100,106 @@ pub fn types() -> Types {
 
 /// Renders the TypeScript bindings for [`types`].
 pub fn export() -> Result<String, specta_typescript::Error> {
-    specta_typescript::Typescript::default().export(&types(), specta_serde::PhasesFormat)
+    specta_typescript::Typescript::default().export(&types(), WireShapes)
 }
+
+/// Renders one shape per type through `specta-serde`'s unified formatter.
+///
+/// The unified formatter refuses `skip_serializing_if`, and the phase formatter
+/// answers that by exporting `X_Serialize` and `X_Deserialize` for every type
+/// that reaches such a field, plus `X = X_Serialize | X_Deserialize`. The
+/// distinction is real — a field the server omits when it is null is also a field
+/// a request body may simply leave out — but a response reader only ever sees one
+/// of the two shapes, and every one of those fields already carries
+/// `#[specta(optional)]`, which describes the same fact without splitting the
+/// graph.
+///
+/// So this formatter hands the unified formatter a copy of the graph with the
+/// runtime attribute removed from the fields. Only the exported document changes:
+/// the serializers still omit the field, and the drift test that compares
+/// `server/bindings.ts` with a regeneration still holds.
+struct WireShapes;
+
+impl Format for WireShapes {
+    fn map_types(&self, types: &Types) -> Result<Cow<'_, Types>, FormatError> {
+        let mut unified = types.clone();
+        unified.iter_mut(strip);
+
+        specta_serde::Format.map_types(&unified)
+    }
+
+    fn map_type(&self, types: &Types, ty: &DataType) -> Result<Cow<'_, DataType>, FormatError> {
+        specta_serde::Format.map_type(types, ty)
+    }
+}
+
+/// Recursively drops the conditional-omission runtime attribute.
+fn strip(ty: &mut NamedDataType) {
+    if let Some(ty) = ty.ty.as_mut() {
+        strip_datatype(ty);
+    }
+}
+
+fn strip_datatype(ty: &mut DataType) {
+    match ty {
+        DataType::Struct(strct) => strip_struct(strct),
+        DataType::Enum(enm) => strip_enum(enm),
+        DataType::List(list) => strip_datatype(&mut list.ty),
+        DataType::Tuple(tuple) => tuple.elements.iter_mut().for_each(strip_datatype),
+        DataType::Nullable(inner) => strip_datatype(inner),
+        DataType::Intersection(parts) => parts.iter_mut().for_each(strip_datatype),
+        DataType::Map(map) => {
+            strip_datatype(map.key_ty_mut());
+            strip_datatype(map.value_ty_mut());
+        }
+        DataType::Reference(reference) => {
+            if let Reference::Named(named) = reference
+                && let specta::datatype::NamedReferenceType::Inline { dt, .. } = &mut named.inner
+            {
+                strip_datatype(dt);
+            }
+        }
+        DataType::Primitive(_) | DataType::Generic(_) => {}
+    }
+}
+
+fn strip_struct(strct: &mut Struct) {
+    strip_fields(&mut strct.fields);
+}
+
+fn strip_enum(enm: &mut Enum) {
+    for (_, variant) in &mut enm.variants {
+        strip_variant(variant);
+    }
+}
+
+fn strip_variant(variant: &mut Variant) {
+    strip_fields(&mut variant.fields);
+}
+
+fn strip_fields(fields: &mut Fields) {
+    match fields {
+        Fields::Unit => {}
+        Fields::Unnamed(unnamed) => {
+            for field in &mut unnamed.fields {
+                strip_field(field);
+            }
+        }
+        Fields::Named(named) => {
+            for (_, field) in &mut named.fields {
+                strip_field(field);
+            }
+        }
+    }
+}
+
+fn strip_field(field: &mut specta::datatype::Field) {
+    field.attributes.remove(CONDITIONAL_OMISSION);
+    if let Some(ty) = field.ty.as_mut() {
+        strip_datatype(ty);
+    }
+}
+
+/// The wire attribute that makes Serde omit a field, and the one marker that
+/// forces `specta-serde` into its phase split.
+const CONDITIONAL_OMISSION: &str = "serde:field:skip_serializing_if";
