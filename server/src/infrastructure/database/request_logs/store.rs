@@ -15,9 +15,12 @@ use crate::infrastructure::database::AppDatabase;
 use crate::protocol::usage::UsageBreakdown;
 
 /// Standard HTTP request methods.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
+///
+/// The wire and stored values are always one of the logged methods; a stored
+/// row that carries anything else parses to `Other` through [`FromStr`], which
+/// is where the tolerant fallback lives.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "UPPERCASE")]
-#[schemars(rename_all = "UPPERCASE")]
 pub enum HttpMethod {
     Get,
     Post,
@@ -28,7 +31,6 @@ pub enum HttpMethod {
     Options,
     Connect,
     Trace,
-    #[serde(other)]
     Other,
 }
 
@@ -69,26 +71,33 @@ impl fmt::Display for HttpMethod {
 }
 
 /// Token usage breakdown for a logged request.
-#[derive(Clone, Debug, Default, Serialize, Deserialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, specta::Type)]
 pub struct LogTokenUsage {
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[specta(type = Option<specta_typescript::Number>)]
     pub input: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[specta(type = Option<specta_typescript::Number>)]
     pub output: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[specta(type = Option<specta_typescript::Number>)]
     pub cache: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[specta(type = Option<specta_typescript::Number>)]
     pub cache_read: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[specta(type = Option<specta_typescript::Number>)]
     pub cache_creation: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[specta(type = Option<specta_typescript::Number>)]
     pub reasoning: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[specta(type = Option<specta_typescript::Number>)]
     pub total: Option<i64>,
 }
 
 /// Estimated cost breakdown formatted in fixed 4-decimal USD for a logged request.
-#[derive(Clone, Debug, Default, Serialize, Deserialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, specta::Type)]
 pub struct LogCost {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub input: Option<String>,
@@ -105,7 +114,7 @@ fn format_cost_usd(cost: f64) -> String {
 }
 
 /// Client identification metadata for a logged request.
-#[derive(Clone, Debug, Default, Serialize, Deserialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, specta::Type)]
 pub struct LogClient {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ip_address: Option<String>,
@@ -114,7 +123,7 @@ pub struct LogClient {
 }
 
 /// Error / diagnostics information for a failed request.
-#[derive(Clone, Debug, Default, Serialize, Deserialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, specta::Type)]
 pub struct LogError {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error_code: Option<String>,
@@ -124,7 +133,7 @@ pub struct LogError {
 
 /// A single request-log record. Categorized into cohesive domain structs
 /// while preserving the flat snake_case JSON wire representation.
-#[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, specta::Type)]
 pub struct RequestLog {
     pub id: Uuid,
     pub request_id: Uuid,
@@ -133,7 +142,9 @@ pub struct RequestLog {
     pub method: HttpMethod,
     pub path: String,
     pub status_code: i16,
+    #[specta(type = specta_typescript::Number)]
     pub latency_ms: i64,
+    #[specta(type = specta_typescript::Number)]
     pub created_at: i64,
 
     pub provider: Option<String>,
@@ -157,9 +168,8 @@ pub struct LogsPage {
     pub total: i64,
 }
 
-#[derive(Clone, Copy, Debug, Serialize, schemars::JsonSchema)]
+#[derive(Clone, Copy, Debug, Serialize, specta::Type)]
 #[serde(rename_all = "lowercase")]
-#[schemars(rename_all = "lowercase")]
 pub enum ObjectKind {
     List,
     Usage,

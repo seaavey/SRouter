@@ -50,12 +50,14 @@ pub fn create_cline_login_router() -> Router<AppState> {
 }
 
 /// What `GET /v1/auth/cline/device` answers with.
-#[derive(Serialize, schemars::JsonSchema)]
+#[derive(Serialize, specta::Type)]
 pub(crate) struct DeviceResponse {
     authorize_url: String,
     state: String,
     user_code: String,
+    #[specta(type = specta_typescript::Number)]
     expires_in: i64,
+    #[specta(type = specta_typescript::Number)]
     interval: i64,
 }
 

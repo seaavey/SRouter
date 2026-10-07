@@ -37,7 +37,7 @@ pub struct ModelsQuery {
     force: Option<String>,
 }
 
-#[derive(Debug, Serialize, schemars::JsonSchema)]
+#[derive(Debug, Serialize, specta::Type)]
 pub(crate) struct ModelListResponse {
     object: String,
     data: Vec<CatalogModel>,
@@ -45,7 +45,7 @@ pub(crate) struct ModelListResponse {
 
 /// A catalog entry: the OpenAI model fields plus the operator's favorite flag
 /// and the custom-model marker Node adds in `MergeCustomModels`.
-#[derive(Debug, Serialize, schemars::JsonSchema)]
+#[derive(Debug, Serialize, specta::Type)]
 pub(crate) struct CatalogModel {
     id: String,
     object: String,

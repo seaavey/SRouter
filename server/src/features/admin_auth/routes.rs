@@ -28,7 +28,7 @@ const MAX_ADMIN_BODY: usize = 1024 * 1024;
 
 /// `GET /v1/admin/status` — whether the install still needs its first admin
 /// and whether the caller holds a valid session cookie.
-#[derive(Serialize, schemars::JsonSchema)]
+#[derive(Serialize, specta::Type)]
 pub struct AdminStatus {
     setup_required: bool,
     authenticated: bool,

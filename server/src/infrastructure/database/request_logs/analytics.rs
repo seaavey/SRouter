@@ -16,19 +16,29 @@ use super::store::{ObjectKind, log_row_error};
 /// The all-time usage totals served by `GET /v1/logs/stats` and carried by the
 /// `usage.updated` event. The wire keys are snake_case, as documented in
 /// `docs/api-v1-contract.md`, "Logs in the Rust build".
-#[derive(Debug, Serialize, schemars::JsonSchema)]
+#[derive(Debug, Serialize, specta::Type)]
 pub struct UsageStatsReport {
     pub object: ObjectKind,
+    #[specta(type = specta_typescript::Number)]
     pub total_requests: i64,
+    #[specta(type = specta_typescript::Number)]
     pub total_success_requests: i64,
+    #[specta(type = specta_typescript::Number)]
     pub total_tokens: i64,
+    #[specta(type = specta_typescript::Number)]
     pub total_prompt_tokens: i64,
+    #[specta(type = specta_typescript::Number)]
     pub total_completion_tokens: i64,
+    #[specta(type = specta_typescript::Number)]
     pub total_cached_tokens: i64,
+    #[specta(type = specta_typescript::Number)]
     pub total_cache_creation_tokens: i64,
+    #[specta(type = specta_typescript::Number)]
     pub total_reasoning_tokens: i64,
     pub total_estimated_cost: f64,
+    #[specta(type = specta_typescript::Number)]
     pub total_input_tokens: i64,
+    #[specta(type = specta_typescript::Number)]
     pub total_output_tokens: i64,
     pub cost_label: String,
     pub estimated: bool,
@@ -36,12 +46,16 @@ pub struct UsageStatsReport {
 }
 
 /// One `by_model` entry of [`UsageStatsReport`].
-#[derive(Debug, Serialize, schemars::JsonSchema)]
+#[derive(Debug, Serialize, specta::Type)]
 pub struct UsageByModel {
     pub model: String,
+    #[specta(type = specta_typescript::Number)]
     pub total_requests: i64,
+    #[specta(type = specta_typescript::Number)]
     pub total_input_tokens: i64,
+    #[specta(type = specta_typescript::Number)]
     pub total_output_tokens: i64,
+    #[specta(type = specta_typescript::Number)]
     pub total_cached_tokens: i64,
     pub est_cost: f64,
 }
@@ -149,16 +163,25 @@ pub fn parse_analytics_window(raw: &str) -> Option<AnalyticsWindow> {
 ///
 /// Deliberate deviation from Node: this report serializes snake_case, matching
 /// the rest of the Rust `/v1/logs` surface, instead of Node's camelCase.
-#[derive(Debug, Serialize, schemars::JsonSchema)]
+#[derive(Debug, Serialize, specta::Type)]
 pub struct AnalyticsBucket {
+    #[specta(type = specta_typescript::Number)]
     pub bucket_start: i64,
+    #[specta(type = specta_typescript::Number)]
     pub total_requests: i64,
+    #[specta(type = specta_typescript::Number)]
     pub success_requests: i64,
+    #[specta(type = specta_typescript::Number)]
     pub error_requests: i64,
+    #[specta(type = Option<specta_typescript::Number>)]
     pub avg_latency_ms: f64,
+    #[specta(type = specta_typescript::Number)]
     pub total_tokens: i64,
+    #[specta(type = specta_typescript::Number)]
     pub prompt_tokens: i64,
+    #[specta(type = specta_typescript::Number)]
     pub completion_tokens: i64,
+    #[specta(type = specta_typescript::Number)]
     pub cached_tokens: i64,
 }
 
@@ -178,39 +201,48 @@ impl AnalyticsBucket {
     }
 }
 
-#[derive(Debug, Serialize, schemars::JsonSchema)]
+#[derive(Debug, Serialize, specta::Type)]
 pub struct AnalyticsTopModel {
     pub model: Option<String>,
+    #[specta(type = specta_typescript::Number)]
     pub total_requests: i64,
+    #[specta(type = specta_typescript::Number)]
     pub total_tokens: i64,
     pub est_cost: f64,
 }
 
-#[derive(Debug, Serialize, schemars::JsonSchema)]
+#[derive(Debug, Serialize, specta::Type)]
 pub struct AnalyticsTopAgent {
     pub agent: String,
     pub raw_user_agent: String,
+    #[specta(type = specta_typescript::Number)]
     pub total_requests: i64,
+    #[specta(type = specta_typescript::Number)]
     pub total_tokens: i64,
 }
 
-#[derive(Debug, Serialize, schemars::JsonSchema)]
+#[derive(Debug, Serialize, specta::Type)]
 pub struct AnalyticsProviderSlice {
     pub provider_id: String,
+    #[specta(type = specta_typescript::Number)]
     pub total_requests: i64,
 }
 
 /// The `GET /v1/logs/analytics` report. Field names and semantics follow the
 /// Node `LogsLogic.getAnalytics` result, but snake_case rather than camelCase.
-#[derive(Debug, Serialize, schemars::JsonSchema)]
+#[derive(Debug, Serialize, specta::Type)]
 pub struct AnalyticsReport {
     pub object: &'static str,
     pub window: &'static str,
+    #[specta(type = specta_typescript::Number)]
     pub bucket_size_ms: i64,
+    #[specta(type = specta_typescript::Number)]
     pub generated_at: i64,
     pub requests_per_second: f64,
+    #[specta(type = specta_typescript::Number)]
     pub total_requests: i64,
     pub error_rate: f64,
+    #[specta(type = specta_typescript::Number)]
     pub p95_latency_ms: i64,
     pub buckets: Vec<AnalyticsBucket>,
     pub top_models: Vec<AnalyticsTopModel>,

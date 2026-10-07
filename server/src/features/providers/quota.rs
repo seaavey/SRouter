@@ -4,7 +4,7 @@
 use serde::{Deserialize, Serialize};
 
 /// An account's quota overview.
-#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 pub struct ProviderQuotaAccount {
     pub id: String,
     pub provider: String,
@@ -12,15 +12,18 @@ pub struct ProviderQuotaAccount {
     pub enabled: bool,
     pub quota_type: &'static str,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[specta(type = Option<specta_typescript::Number>)]
     pub total_quotas: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub quotas: Option<Vec<LiveModelQuotaItem>>,
+    /// Vendor-shaped usage metrics, kept opaque: this build never populates them.
+    #[specta(type = Option<Vec<specta_typescript::Unknown>>)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub usage_metrics: Option<Vec<serde_json::Value>>,
 }
 
 /// A specific rate-limit window or model quota entry.
-#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 pub struct LiveModelQuotaItem {
     pub name: String,
     pub used: u32,

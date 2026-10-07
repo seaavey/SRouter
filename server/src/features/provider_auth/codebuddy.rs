@@ -127,7 +127,7 @@ impl Flavor {
     }
 }
 
-#[derive(Serialize, schemars::JsonSchema)]
+#[derive(Serialize, specta::Type)]
 pub(crate) struct CodeBuddyLoginResponse {
     authorize_url: String,
     state: String,

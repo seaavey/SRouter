@@ -42,7 +42,7 @@ struct LogsQuery {
     status: Option<String>,
 }
 
-#[derive(Serialize, schemars::JsonSchema)]
+#[derive(Serialize, specta::Type)]
 pub(crate) struct LogsResponse {
     object: ObjectKind,
     data: Vec<RequestLog>,
@@ -50,11 +50,15 @@ pub(crate) struct LogsResponse {
     pagination: Option<Pagination>,
 }
 
-#[derive(Serialize, schemars::JsonSchema)]
+#[derive(Serialize, specta::Type)]
 pub(crate) struct Pagination {
+    #[specta(type = specta_typescript::Number)]
     page: i64,
+    #[specta(type = specta_typescript::Number)]
     limit: i64,
+    #[specta(type = specta_typescript::Number)]
     total: i64,
+    #[specta(type = specta_typescript::Number)]
     total_pages: i64,
 }
 
@@ -227,7 +231,7 @@ async fn log_events(State(state): State<AppState>, request: Request) -> Result<R
     Ok(response)
 }
 
-#[derive(Serialize, schemars::JsonSchema)]
+#[derive(Serialize, specta::Type)]
 #[serde(tag = "type")]
 pub(crate) enum LiveEvent {
     #[serde(rename = "connected")]

@@ -1,4 +1,5 @@
 pub mod app;
+pub mod bindings;
 pub mod clock;
 pub mod config;
 pub mod constants;
@@ -6,7 +7,6 @@ pub mod error;
 pub mod features;
 pub mod http;
 pub mod infrastructure;
-pub mod openapi;
 pub mod protocol;
 pub mod request;
 pub mod state;

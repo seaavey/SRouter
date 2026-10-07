@@ -18,16 +18,17 @@ use crate::state::AppState;
 
 const PRICING_JSON: &str = include_str!("data/models-dev-pricing.json");
 
-#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 pub struct PricingListResponse {
     pub object: String,
+    #[specta(type = specta_typescript::Number)]
     pub total: usize,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub updated_at: Option<String>,
     pub data: Vec<ModelPricingItem>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 pub struct ModelPricingItem {
     pub id: String,
     pub name: String,
@@ -55,7 +56,7 @@ pub struct ModelPricingItem {
     pub modalities: Option<ModelPricingModalities>,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, schemars::JsonSchema)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, specta::Type)]
 pub struct ModelPricingCost {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub input: Option<f64>,
@@ -73,15 +74,17 @@ pub struct ModelPricingCost {
     pub output_audio: Option<f64>,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, schemars::JsonSchema)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, specta::Type)]
 pub struct ModelPricingLimit {
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[specta(type = Option<specta_typescript::Number>)]
     pub context: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[specta(type = Option<specta_typescript::Number>)]
     pub output: Option<i64>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 pub struct ModelPricingModalities {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub input: Option<Vec<String>>,

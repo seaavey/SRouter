@@ -94,12 +94,12 @@ impl IntoResponse for APIError {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, specta::Type)]
 pub struct ErrorEnvelope {
     pub error: ErrorBody,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, specta::Type)]
 pub struct ErrorBody {
     pub message: String,
     #[serde(rename = "type")]

@@ -51,7 +51,7 @@ pub struct CreatedAPIKey {
 }
 
 /// Fields accepted by `POST /v1/keys`, mirroring `CreateAPIKeySchema`.
-#[derive(Clone, Debug, PartialEq, schemars::JsonSchema)]
+#[derive(Clone, Debug, PartialEq, specta::Type)]
 pub struct CreateAPIKeyInput {
     pub name: String,
     pub enabled: bool,
@@ -64,7 +64,7 @@ pub struct CreateAPIKeyInput {
 /// Partial update accepted by `PATCH /v1/keys/:id`. Every field is optional;
 /// absent fields are left untouched. `allowed_models` distinguishes absent
 /// (`None`) from an explicit clear (`Some(None)`).
-#[derive(Clone, Debug, Default, PartialEq, schemars::JsonSchema)]
+#[derive(Clone, Debug, Default, PartialEq, specta::Type)]
 pub struct UpdateAPIKeyInput {
     pub name: Option<String>,
     pub enabled: Option<bool>,

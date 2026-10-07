@@ -9,7 +9,7 @@ use crate::features::providers::{ModelObject, ProviderMetadata, ProviderProtocol
 use crate::infrastructure::database::providers::ProviderConnection;
 
 /// A provider as the list, catalog, and detail routes describe it.
-#[derive(Clone, Debug, Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, Serialize, specta::Type)]
 pub struct ProviderEntry {
     pub id: &'static str,
     pub name: &'static str,
@@ -76,10 +76,11 @@ impl ProviderEntry {
 }
 
 /// Connection state of a provider driver.
-#[derive(Clone, Debug, Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, Serialize, specta::Type)]
 pub struct ProviderStatus {
     pub state: &'static str,
     pub message: &'static str,
+    #[specta(type = specta_typescript::Number)]
     pub connected_count: usize,
 }
 
@@ -100,7 +101,7 @@ impl ProviderStatus {
 /// A model line in the detail response. Hidden and favorited models stay in the
 /// list so the admin view can restore them; `GET /v1/models` is the route that
 /// drops them.
-#[derive(Clone, Debug, Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, Serialize, specta::Type)]
 pub struct ProviderModel {
     pub id: String,
     pub object: String,
@@ -129,7 +130,7 @@ impl ProviderModel {
 
 /// A connection as the detail response reports it. There is deliberately no
 /// credential field: a stored API key never leaves the database.
-#[derive(Clone, Debug, Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, Serialize, specta::Type)]
 pub struct ProviderConnectionView {
     pub id: String,
     pub provider_id: String,
@@ -139,6 +140,7 @@ pub struct ProviderConnectionView {
     pub protocol: String,
     pub base_url: Option<String>,
     pub enabled: bool,
+    #[specta(type = specta_typescript::Number)]
     pub created_at: i64,
 }
 
@@ -159,14 +161,15 @@ impl From<&ProviderConnection> for ProviderConnectionView {
 }
 
 /// `GET /v1/providers/catalog`.
-#[derive(Clone, Debug, Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, Serialize, specta::Type)]
 pub struct CatalogResponse {
+    #[specta(type = specta_typescript::Number)]
     pub total: usize,
     pub categories: GroupedCatalog,
 }
 
 /// The four fixed provider groups.
-#[derive(Clone, Debug, Default, Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, Default, Serialize, specta::Type)]
 pub struct GroupedCatalog {
     pub oauth: Vec<ProviderEntry>,
     pub free_tier: Vec<ProviderEntry>,

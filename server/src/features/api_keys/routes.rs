@@ -94,7 +94,7 @@ fn not_found(id: &str) -> APIError {
     APIError::new(404, constants::keys::not_found(id))
 }
 
-#[derive(Serialize, schemars::JsonSchema)]
+#[derive(Serialize, specta::Type)]
 pub(crate) struct KeyListResponse {
     object: &'static str,
     data: Vec<APIKeyResponse>,
@@ -102,7 +102,7 @@ pub(crate) struct KeyListResponse {
 
 /// Management representation. `key_prefix` is the non-secret display prefix;
 /// the full secret is never stored, so it never appears here.
-#[derive(Serialize, schemars::JsonSchema)]
+#[derive(Serialize, specta::Type)]
 pub(crate) struct APIKeyResponse {
     id: String,
     key_prefix: String,
@@ -110,10 +110,12 @@ pub(crate) struct APIKeyResponse {
     enabled: bool,
     rate_limit: u32,
     quota_limit: u32,
+    #[specta(type = specta_typescript::Number)]
     usage_tokens: u64,
     credit_limit: f64,
     usage_cost: f64,
     allowed_models: Option<Vec<String>>,
+    #[specta(type = specta_typescript::Number)]
     created_at: i64,
 }
 
@@ -136,7 +138,7 @@ impl From<&APIKey> for APIKeyResponse {
 }
 
 /// Creation response: the management fields plus the one-time full secret.
-#[derive(Serialize, schemars::JsonSchema)]
+#[derive(Serialize, specta::Type)]
 pub(crate) struct CreatedAPIKeyResponse {
     #[serde(flatten)]
     api_key: APIKeyResponse,
