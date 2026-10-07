@@ -730,16 +730,20 @@ Qoder, Cline, OpenAI, Antigravity, and Claude routes exist in Rust. Source of tr
 ## 12. CI, Docker, cutover plumbing
 
 - [x] `.github/workflows/ci.yml`: added a `rust-lint` job with the stable Rust toolchain,
-      `cargo fmt --check`, and `cargo clippy --all-targets --all-features --locked -- -D warnings`,
-      as an addition to the existing Node/pnpm job (which still runs `pnpm build` + `pnpm test`).
+      `cargo fmt --check`, and `cargo clippy --all-targets --all-features --locked -- -D warnings`.
+      The Node/pnpm job (`build-and-test`) sat beside it until `bf01134` parked it: its
+      `pnpm --filter web api:check` step fails on every server-side contract change until
+      `apps/web` regenerates its types, which belongs to the web refactor (issue #150). The
+      workflow file carries the parking note and the command that restores it from `795ecd1`.
       The crate is clippy-clean: no `allow` attributes were needed, and the long-standing warnings
       (`collapsible_if`, `manual_div_ceil`, `unnecessary_cast`, `new_without_default`,
       `assertions_on_constants`, `large_enum_variant`, `result_large_err`) are fixed at the source.
-- [~] `.github/workflows/ci.yml`: the `rust-test` job now runs
+- [~] `.github/workflows/ci.yml`: the `rust-test` job runs
   `cargo test --manifest-path server/Cargo.toml --locked` (835 tests), so the suite is guarded
   on every push/PR and a `Cargo.toml` edit that skips `server/Cargo.lock` fails the job. The
-  OpenAPI export drift check landed in that job (regenerate + `git diff --exit-code`), and the Node
-  job gained `pnpm --filter web api:check`. Still missing: the PostgreSQL service job.
+  OpenAPI export drift check runs in that job (regenerate + `git diff --exit-code`). The Node
+  job's `pnpm --filter web api:check` half is parked with the job itself (`bf01134`), so the
+  drift check currently exists on the Rust side only. Still missing: the PostgreSQL service job.
 - [x] `Dockerfile`: four stages. `web-builder` (Node/pnpm, `pnpm --filter web build`), `server-builder`
       (`rust:1.98-alpine` plus `build-base` and `perl`; aws-lc-sys compiles its C and assembly with
       gcc/make, no cmake or nasm needed), `runner` (Node-free `alpine:3.22` with ca-certificates,
@@ -784,10 +788,14 @@ Qoder, Cline, OpenAI, Antigravity, and Claude routes exist in Rust. Source of tr
 Do not start until every section above is checked, the parity matrix passes, and the rollback window
 has closed. Then delete, in one commit:
 
-- Web coupling (since 2026-10-06): `apps/web` talks to the Rust surface only. Favorites, hidden
-  models, custom models, and the provider `enabled` flag go through `/v1/models` and the provider
-  `PATCH`, none of which `apps/api` serves. A rollback to `apps/api` has to ship the web bundle
-  from the same commit; the reverse is free.
+- Web coupling: `apps/web` writes to the Rust-only surfaces — favorites, hidden models, custom
+  models, and the provider `enabled` flag go through `/v1/models` and the provider `PATCH`. Four
+  surfaces stay Node-shaped because Rust deliberately drops them: `/v1/settings/fallbacks`
+  (`apps/web/src/hooks/useFallbacks.ts`, consumed by the `/combo` page), both verify routes
+  (`providers.connection-form.tsx`, `providers.custom-provider-dialog.tsx`,
+  `routes/providers/$providerId.tsx`), and `/v1/tunnel/*` (`apps/web/src/hooks/useTunnel.ts`, no
+  importer today). Those calls answer `404` on the Rust build, so a rollback to `apps/api` has to
+  ship the web bundle from the same commit; the reverse is free.
 
 - [ ] `apps/api/src/**/*.ts`, `apps/api/tests/**/*.ts`, `apps/api/package.json`,
       `apps/api/tsconfig.json`, `apps/api/tsup.config.ts`, `apps/api/heroku.yml`,
