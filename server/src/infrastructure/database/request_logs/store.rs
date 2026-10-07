@@ -71,17 +71,19 @@ impl fmt::Display for HttpMethod {
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct LogTokenUsage {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub prompt_tokens: Option<i64>,
+    pub input: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub completion_tokens: Option<i64>,
+    pub output: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub total_tokens: Option<i64>,
+    pub cache: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub cached_tokens: Option<i64>,
+    pub cache_read: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub cache_creation_tokens: Option<i64>,
+    pub cache_creation: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub reasoning_tokens: Option<i64>,
+    pub reasoning: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub total: Option<i64>,
 }
 
 /// Estimated cost breakdown in USD for a logged request.
@@ -316,12 +318,18 @@ fn map_request_log(row: &sqlx::sqlite::SqliteRow) -> Result<RequestLog, APIError
             user_agent: row.try_get("user_agent").map_err(log_row_error)?,
         },
         tokens: LogTokenUsage {
-            prompt_tokens,
-            completion_tokens,
-            total_tokens,
-            cached_tokens,
-            cache_creation_tokens,
-            reasoning_tokens,
+            input: prompt_tokens,
+            output: completion_tokens,
+            cache: match (cached_tokens, cache_creation_tokens) {
+                (Some(read), Some(write)) => Some(read + write),
+                (Some(read), None) => Some(read),
+                (None, Some(write)) => Some(write),
+                (None, None) => None,
+            },
+            cache_read: cached_tokens,
+            cache_creation: cache_creation_tokens,
+            reasoning: reasoning_tokens,
+            total: total_tokens,
         },
         costs,
         error: LogError {
