@@ -683,49 +683,40 @@ Qoder, Cline, OpenAI, Antigravity, and Claude routes exist in Rust. Source of tr
 - [ ] Optional PostgreSQL integration test behind an isolated CI database URL (skip when unset);
       it belongs with the "PostgreSQL support" item above.
 
-## 11. Contract publication (OpenAPI → web types)
+## 11. Contract publication (TypeScript bindings)
 
-- [x] `server/src/openapi.rs` + `server/src/bin/export_openapi.rs` + `server/openapi.json`:
-      deterministic document generated from Rust models only, covering every retained route and auth
-      scheme, the `/v1/v1` aliases, and excluding tunnel routes.
-      `schemars` (`Cargo.toml`, with the `uuid1` feature for `RequestLog`) derives 42 component
-      schemas from the Rust models; the response bodies a handler builds inline (the admin answers,
-      the database-import answer, the model-write bodies, the delete/credit messages) are declared
-      beside their path. 65 paths / 87 operations, three security schemes (`x-api-key`,
-      `Authorization: Bearer`, the admin session cookie read from `ADMIN_SESSION_COOKIE`), and the
-      eight `/v1/v1` aliases cloned from the `/v1` operations they repeat. `document_json()` renders
-      pretty JSON with one trailing newline; every map keeps a fixed ordering, no timestamp or
-      absolute path is embedded, and the only version source is `CARGO_PKG_VERSION`. `OpenAPI` is
-      `3.1.0`. Covered by `server/tests/openapi.rs`.
-- [x] `apps/web`: `openapi-typescript` is a devDependency of `web`, `api:generate` renders
-      `apps/web/src/generated/api.ts` from `../../server/openapi.json`, `api:check` fails when that
-      file is stale, and `apps/web/src/generated` sits in `.prettierignore` so formatting can never
-      drift from regeneration. The contract types now come from that module (54 files switched off
-      `@srouter/types`): responses read `components.schemas`, and `AnalyticsWindow` is derived from
-      the document's `paths` entry in `apps/web/src/lib/types.ts`. No workspace alias, no cross-app
-      import. Types with no Rust route stay on `@srouter/types` on purpose: `FallbackRule`,
-      `CreateFallbackRuleInput`, `ModelPricingItem`, `PricingListResponse`, `CreateProviderZod`,
-      `AuthPollStatus`, `ProviderCategory`, and `ProviderUsageMetric` (the last two are client-side
-      unions; `usage_metrics` is never populated by this build).
-      The switch also forced the field migration that the owner ruled on 2026-10-07 (contract
-      section "Field naming in the Rust build"): the dashboard now reads `status_code`,
-      `created_at`, `input_tokens`/`output_tokens` for a log row, `prompt_tokens`/`completion_tokens`
-      for an analytics bucket, `by_model`, `cost_label`, `round_robin`, `key_prefix`, and the
-      snake_case OAuth answers. Three fields Node exposed and Rust does not are gone from the UI
-      rather than faked: the stored key list shows `key_prefix` (the full secret exists only in the
-      creation response), a log row no longer shows an API key _name_ (only `api_key_id`), and the
-      per-category cost split collapses to the single `estimated_cost` total (the detail rows show
-      `—`). `pnpm --filter web run lint` (`tsc --noEmit`) is green.
-- [x] Determinism test: two consecutive generations leave both files byte-identical —
-      `two_generations_are_byte_identical` renders the document twice and
-      `the_committed_document_matches_a_regeneration` compares it with the committed
-      `server/openapi.json`. Coverage is pinned by `every_documented_operation_is_mounted`
-      (every documented path answers `405` to an unregistered method, so nothing is documented
-      without being routed) and `every_route_literal_in_the_source_is_documented` (every `.route("…")`
-      literal under `server/src` appears in the document). `the_documented_response_schemas_match_the_wire`
-      compares ten live responses plus a provider entry against their schema. CI runs the drift check
-      twice: the `rust-test` job regenerates and `git diff --exit-code -- server/openapi.json`, and
-      the Node job runs `pnpm --filter web api:check`.
+- [x] `server/src/bindings.rs` + `server/src/bin/export_ts.rs` + `server/bindings.ts`: the
+      TypeScript view of the JSON wire shapes, rendered with `specta` (`=2.0.0-rc.25`, features
+      `derive`, `collect`, `uuid`) and `specta-typescript` (`=0.0.12`). `bindings::types()` registers
+      29 response roots and the render pulls in every type they reference; `bindings::export()`
+      renders them through `specta-serde` (`=0.0.12`) so the serde attributes that shape the wire
+      (`rename_all`, `skip_serializing_if`, flattening) are reflected. Output: 92 exported types,
+      703 lines, JSDoc taken from the Rust doc comments.
+- [x] Integer handling: `specta-typescript` refuses `i64`/`u64`/`usize`/`isize`/`i128`/`u128`
+      outright, so each of the 57 such fields carries a `#[specta(type = …)]` override to the exact
+      TypeScript number type (`Number`, `Option<Number>`, `Vec<Number>`), which keeps nullability and
+      optionality intact. `[specta(type = Option<Vec<specta_typescript::Unknown>>)]` covers
+      `ProviderQuotaAccount.usage_metrics`, whose `serde_json::Value` elements have no other mapping.
+      The `HttpMethod` fallback lives in `FromStr` instead of `#[serde(other)]`, which `specta-serde`
+      only accepts on tagged enums.
+- [x] Naming: Specta emits one type per direction (`X_Serialize` / `X_Deserialize`) for definitions
+      with directional serde metadata and then `X = X_Serialize | X_Deserialize`. That is the accurate
+      description of the two phases; the `_Serialize` member is the shape the server sends.
+- [x] `server/tests/bindings.rs` (5 tests): byte-identical double render, the committed file matches a
+      regeneration, the document carries only type exports, every registered root is present, and the
+      integer overrides still render as the right number type. CI (`rust-test`) regenerates and runs
+      `git diff --exit-code -- server/bindings.ts`.
+- Deviation: this document has no route, method, or security-scheme information, so the OpenAPI
+  sweep that a route change used to fail (`every_route_literal_in_the_source_is_documented`) has no
+  replacement here. Which endpoint answers a shape is documented in the `bindings.rs` table and
+  pinned by the route tests, not by this file.
+- Removed 2026-10-07 by owner ruling: the Rust build no longer publishes an OpenAPI document.
+  Deleted `server/src/openapi.rs`, `server/src/bin/export_openapi.rs`, `server/openapi.json`, and
+  `server/tests/openapi.rs`, plus the `schemars` dependency (and the 51 model derives it fed).
+- [ ] `apps/web` still imports the frozen `apps/web/src/generated/api.ts` (52 files) that
+      `openapi-typescript` generated from the deleted `server/openapi.json` (`api:generate` /
+      `api:check` in `apps/web/package.json`). Kept on purpose for the web refactor (issue #150): the
+      `api:check` job is already parked (`bf01134`), and nothing reads `server/bindings.ts` yet.
 
 ## 12. CI, Docker, cutover plumbing
 
@@ -739,11 +730,12 @@ Qoder, Cline, OpenAI, Antigravity, and Claude routes exist in Rust. Source of tr
       (`collapsible_if`, `manual_div_ceil`, `unnecessary_cast`, `new_without_default`,
       `assertions_on_constants`, `large_enum_variant`, `result_large_err`) are fixed at the source.
 - [~] `.github/workflows/ci.yml`: the `rust-test` job runs
-  `cargo test --manifest-path server/Cargo.toml --locked` (835 tests), so the suite is guarded
+  `cargo test --manifest-path server/Cargo.toml --locked`, so the suite is guarded
   on every push/PR and a `Cargo.toml` edit that skips `server/Cargo.lock` fails the job. The
-  OpenAPI export drift check runs in that job (regenerate + `git diff --exit-code`). The Node
-  job's `pnpm --filter web api:check` half is parked with the job itself (`bf01134`), so the
-  drift check currently exists on the Rust side only. Still missing: the PostgreSQL service job.
+  bindings drift check runs in that job (regenerate `server/bindings.ts` + `git diff --exit-code`);
+  it covers types only, not the routes. The Node job's `pnpm --filter web api:check` half is parked
+  with the job itself (`bf01134`), so `apps/web/src/generated/api.ts` is frozen. Still missing: the
+  PostgreSQL service job.
 - [x] `Dockerfile`: four stages. `web-builder` (Node/pnpm, `pnpm --filter web build`), `server-builder`
       (`rust:1.98-alpine` plus `build-base` and `perl`; aws-lc-sys compiles its C and assembly with
       gcc/make, no cmake or nasm needed), `runner` (Node-free `alpine:3.22` with ca-certificates,
@@ -813,6 +805,6 @@ cargo tree --manifest-path server/Cargo.toml --locked
 cargo fmt --manifest-path server/Cargo.toml -- --check
 cargo clippy --manifest-path server/Cargo.toml --all-targets --all-features -- -D warnings
 cargo test --manifest-path server/Cargo.toml --locked
-cargo run --manifest-path server/Cargo.toml --bin export_openapi && git diff --exit-code -- server/openapi.json
+cargo run --manifest-path server/Cargo.toml --bin export_ts && git diff --exit-code -- server/bindings.ts
 git diff --check
 ```
