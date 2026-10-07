@@ -35,6 +35,12 @@ jobs:
             - name: Install dependencies
               run: pnpm install --frozen-lockfile
 
+            # The dashboard's API types are generated from `server/openapi.json`;
+            # this fails when the committed `apps/web/src/generated/api.ts` no
+            # longer matches the contract document.
+            - name: Check the generated API types
+              run: pnpm --filter web api:check
+
             - name: Build monorepo packages & web application
               run: pnpm build
 
@@ -90,3 +96,11 @@ jobs:
             # never `~/.srouter/srouter.db` or a production `DATABASE_URL`.
             - name: Run tests
               run: cargo test --manifest-path server/Cargo.toml --locked
+
+            # Regenerates the contract document and fails on any drift. The same
+            # comparison is pinned by `server/tests/openapi.rs`, so the step
+            # makes the failure visible as its own check.
+            - name: Check the OpenAPI export is current
+              run: |
+                  cargo run --manifest-path server/Cargo.toml --bin export_openapi
+                  git diff --exit-code -- server/openapi.json
