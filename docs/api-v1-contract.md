@@ -134,7 +134,7 @@ The Rust provider registry contains the built-in drivers. Live model catalogs ar
   behind the admin session and answers with the provider detail entry read back after the write;
   an unknown provider or an `enabled` value that is not a real boolean returns `400`. Every
   provider response (`GET /v1/providers`, `GET /v1/providers/catalog`, `GET /v1/providers/{id}`)
-  carries `roundRobin`. The flag turns rotation off, never on: **a missing settings row reads as
+  carries `round_robin`. The flag turns rotation off, never on: **a missing settings row reads as
   on**, where Node defaults it off (`packages/db/src/settings.ts`). With a single connection
   rotation is a no-op, so the flag is an escape hatch rather than a setup step. Rotation walks the
   enabled connections newest-first inside the executor that loads credentials (`qoder`, `cline`,
@@ -195,6 +195,10 @@ When serving the web dist, asset paths ending in `js`, `css`, `map`, `woff`, `wo
 ### Version in the Rust build (owner ruling 2026-10-02)
 
 Every version the Rust build reports comes from `package.version` in `server/Cargo.toml` (currently `0.2.0`), never from Node's `API_VERSION` (`packages/constants/src/version.ts`, currently `0.1.8`). That covers the `X-Version` header, the `version` field of `GET /` and `GET /v1`, and the upstream `User-Agent` (`srouter-server/<crate version>`). Releasing the Rust API means bumping `package.version` in `server/Cargo.toml`; the Rust build reads no other version source. No API consumer breaks on the differing number: the dashboard renders its own build-time `APP_VERSION` constant, and the CLI reports `CLI_VERSION`, so neither reads the version from the API.
+
+### Field naming in the Rust build (owner ruling 2026-10-07)
+
+Every JSON object the Rust build returns uses snake_case field names, with no camelCase exception. Three answers that used to be camelCase because the dashboard read them as written are now snake_case: the provider entry's `round_robin` (was `roundRobin`), the authorization-code login answer `{authorize_url, state, code_verifier, redirect_uri}` (was `{authorizeUrl, state, codeVerifier, redirectUri}`), and the Cline device answer `{authorize_url, state, user_code, expires_in, interval}` (was `{authorizeUrl, state, userCode, expiresIn, interval}`); the CodeBuddy login answer is `{authorize_url, state}`. `apps/web` reads the snake_case spelling. Payloads the server only forwards or stores keep the upstream spelling (for example Cline's stored `provider_specific_data.authMethod` or a vendor token response).
 
 ### Authentication, CSRF, rate limits, and request size
 

@@ -263,7 +263,7 @@ Everything below is still Node-only.
       `features/providers/management/routes.rs` behind the admin guard: `400` for an unknown
       provider or an `enabled` value that is not a real boolean, and the provider detail entry is
       read back after the write so the response reports stored state. The list, catalog, and
-      detail payloads all carry `roundRobin`.
+      detail payloads all carry `round_robin`.
       Rotation itself is Rust-native, not a port: `features/providers/rotation.rs` holds one
       `AccountRotator` per provider executor (shared through `Arc`, because the registry stores a
       clone per lookup key) and picks the connection where the credentials load for `qoder`,
@@ -681,15 +681,47 @@ stale-while-revalidate=86400`, `refresh`/`force`/`no-cache` forcing a refresh.
 
 ## 11. Contract publication (OpenAPI → web types)
 
-- [ ] `server/src/openapi.rs` + `server/src/bin/export_openapi.rs` + `server/openapi.json`:
+- [x] `server/src/openapi.rs` + `server/src/bin/export_openapi.rs` + `server/openapi.json`:
       deterministic document generated from Rust models only, covering every retained route and auth
-      scheme, the `/v1/v1` aliases, and excluding tunnel routes. Nothing exists today (no Utoipa
-      dependency in `Cargo.toml`).
-- [ ] `apps/web`: add `openapi-typescript`, generate `apps/web/src/generated/api.ts` from
-      `../../server/openapi.json`, add `api:generate` / `api:check` scripts, and switch API contract
-      types to that module. No workspace alias, no cross-app imports.
-- [ ] Determinism test: two consecutive generations leave both files byte-identical; wire the drift
-      check into CI.
+      scheme, the `/v1/v1` aliases, and excluding tunnel routes.
+      `schemars` (`Cargo.toml`, with the `uuid1` feature for `RequestLog`) derives 42 component
+      schemas from the Rust models; the response bodies a handler builds inline (the admin answers,
+      the database-import answer, the model-write bodies, the delete/credit messages) are declared
+      beside their path. 65 paths / 87 operations, three security schemes (`x-api-key`,
+      `Authorization: Bearer`, the admin session cookie read from `ADMIN_SESSION_COOKIE`), and the
+      eight `/v1/v1` aliases cloned from the `/v1` operations they repeat. `document_json()` renders
+      pretty JSON with one trailing newline; every map keeps a fixed ordering, no timestamp or
+      absolute path is embedded, and the only version source is `CARGO_PKG_VERSION`. `OpenAPI` is
+      `3.1.0`. Covered by `server/tests/openapi.rs`.
+- [x] `apps/web`: `openapi-typescript` is a devDependency of `web`, `api:generate` renders
+      `apps/web/src/generated/api.ts` from `../../server/openapi.json`, `api:check` fails when that
+      file is stale, and `apps/web/src/generated` sits in `.prettierignore` so formatting can never
+      drift from regeneration. The contract types now come from that module (54 files switched off
+      `@srouter/types`): responses read `components.schemas`, and `AnalyticsWindow` is derived from
+      the document's `paths` entry in `apps/web/src/lib/types.ts`. No workspace alias, no cross-app
+      import. Types with no Rust route stay on `@srouter/types` on purpose: `FallbackRule`,
+      `CreateFallbackRuleInput`, `ModelPricingItem`, `PricingListResponse`, `CreateProviderZod`,
+      `AuthPollStatus`, `ProviderCategory`, and `ProviderUsageMetric` (the last two are client-side
+      unions; `usage_metrics` is never populated by this build).
+      The switch also forced the field migration that the owner ruled on 2026-10-07 (contract
+      section "Field naming in the Rust build"): the dashboard now reads `status_code`,
+      `created_at`, `input_tokens`/`output_tokens` for a log row, `prompt_tokens`/`completion_tokens`
+      for an analytics bucket, `by_model`, `cost_label`, `round_robin`, `key_prefix`, and the
+      snake_case OAuth answers. Three fields Node exposed and Rust does not are gone from the UI
+      rather than faked: the stored key list shows `key_prefix` (the full secret exists only in the
+      creation response), a log row no longer shows an API key _name_ (only `api_key_id`), and the
+      per-category cost split collapses to the single `estimated_cost` total (the detail rows show
+      `—`). `pnpm --filter web run lint` (`tsc --noEmit`) is green.
+- [x] Determinism test: two consecutive generations leave both files byte-identical —
+      `two_generations_are_byte_identical` renders the document twice and
+      `the_committed_document_matches_a_regeneration` compares it with the committed
+      `server/openapi.json`. Coverage is pinned by `every_documented_operation_is_mounted`
+      (every documented path answers `405` to an unregistered method, so nothing is documented
+      without being routed) and `every_route_literal_in_the_source_is_documented` (every `.route("…")`
+      literal under `server/src` appears in the document). `the_documented_response_schemas_match_the_wire`
+      compares ten live responses plus a provider entry against their schema. CI runs the drift check
+      twice: the `rust-test` job regenerates and `git diff --exit-code -- server/openapi.json`, and
+      the Node job runs `pnpm --filter web api:check`.
 
 ## 12. CI, Docker, cutover plumbing
 
@@ -700,9 +732,10 @@ stale-while-revalidate=86400`, `refresh`/`force`/`no-cache` forcing a refresh.
       (`collapsible_if`, `manual_div_ceil`, `unnecessary_cast`, `new_without_default`,
       `assertions_on_constants`, `large_enum_variant`, `result_large_err`) are fixed at the source.
 - [~] `.github/workflows/ci.yml`: the `rust-test` job now runs
-  `cargo test --manifest-path server/Cargo.toml --locked` (766 tests), so the suite is guarded
-  on every push/PR and a `Cargo.toml` edit that skips `server/Cargo.lock` fails the job. Still
-  missing: the OpenAPI export drift check and the PostgreSQL service job.
+  `cargo test --manifest-path server/Cargo.toml --locked` (835 tests), so the suite is guarded
+  on every push/PR and a `Cargo.toml` edit that skips `server/Cargo.lock` fails the job. The
+  OpenAPI export drift check landed in that job (regenerate + `git diff --exit-code`), and the Node
+  job gained `pnpm --filter web api:check`. Still missing: the PostgreSQL service job.
 - [x] `Dockerfile`: four stages. `web-builder` (Node/pnpm, `pnpm --filter web build`), `server-builder`
       (`rust:1.98-alpine` plus `build-base` and `perl`; aws-lc-sys compiles its C and assembly with
       gcc/make, no cmake or nasm needed), `runner` (Node-free `alpine:3.22` with ca-certificates,
