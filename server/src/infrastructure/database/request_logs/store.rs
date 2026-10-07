@@ -135,10 +135,7 @@ pub struct RequestLog {
 
     #[serde(flatten)]
     pub client: LogClient,
-    #[serde(flatten)]
     pub tokens: LogTokenUsage,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub estimated_cost: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub costs: Option<LogCost>,
     #[serde(flatten)]
@@ -326,7 +323,6 @@ fn map_request_log(row: &sqlx::sqlite::SqliteRow) -> Result<RequestLog, APIError
             cache_creation_tokens,
             reasoning_tokens,
         },
-        estimated_cost,
         costs,
         error: LogError {
             error_code: row.try_get("error_code").map_err(log_row_error)?,

@@ -166,10 +166,9 @@ async fn logs_list_supports_latest_order_pagination_and_status_filter() {
         })
     );
     assert_eq!(body["data"][0]["status_code"], 500);
-    assert_eq!(body["data"][0]["cached_tokens"], 7);
-    assert_eq!(body["data"][0]["cache_creation_tokens"], 8);
-    assert_eq!(body["data"][0]["reasoning_tokens"], 9);
-    assert_eq!(body["data"][0]["estimated_cost"], 0.1234);
+    assert_eq!(body["data"][0]["tokens"]["cached_tokens"], 7);
+    assert_eq!(body["data"][0]["tokens"]["cache_creation_tokens"], 8);
+    assert_eq!(body["data"][0]["tokens"]["reasoning_tokens"], 9);
     assert_eq!(body["data"][0]["costs"]["total"], 0.1234);
     assert_eq!(body["data"][0]["resolved_model"], "resolved-test-model");
     assert_eq!(body["data"][0]["created_at"], 200);
@@ -579,14 +578,14 @@ async fn request_log_records_real_user_request_with_cost_breakdown() {
     assert_eq!(body["ip_address"], "198.51.100.1");
 
     // 2. Tokens
-    assert_eq!(body["prompt_tokens"], 10_000);
-    assert_eq!(body["completion_tokens"], 2_000);
-    assert_eq!(body["total_tokens"], 12_000);
-    assert_eq!(body["cached_tokens"], 3_000);
-    assert_eq!(body["cache_creation_tokens"], 1_000);
+    assert_eq!(body["tokens"]["prompt_tokens"], 10_000);
+    assert_eq!(body["tokens"]["completion_tokens"], 2_000);
+    assert_eq!(body["tokens"]["total_tokens"], 12_000);
+    assert_eq!(body["tokens"]["cached_tokens"], 3_000);
+    assert_eq!(body["tokens"]["cache_creation_tokens"], 1_000);
 
-    // 3. Costs: top-level + detailed breakdown
-    assert_eq!(body["estimated_cost"], estimated_cost);
+    // 3. Costs: detailed breakdown (no top-level estimated_cost)
+    assert!(body.get("estimated_cost").is_none());
     let costs = &body["costs"];
     assert!(costs.is_object());
     let input_cost = costs["input"].as_f64().unwrap();
