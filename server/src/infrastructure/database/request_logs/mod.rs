@@ -13,6 +13,7 @@ pub use analytics::{
     usage_stats,
 };
 pub use store::{
-    LogsPage, ObjectKind, RequestLog, RequestLogInput, generate_log_id, get_request_log,
-    insert_request_log, list_request_logs, subscribe_request_logs,
+    HttpMethod, LogClient, LogCost, LogError, LogTokenUsage, LogsPage, ObjectKind, RequestLog,
+    RequestLogInput, generate_log_id, get_request_log, insert_request_log, list_request_logs,
+    subscribe_request_logs,
 };

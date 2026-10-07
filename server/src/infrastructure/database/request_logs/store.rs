@@ -1,9 +1,11 @@
 //! Request-log rows: the wire shape, the newest-first listing, the live event
 //! stream, and the insert path.
 
+use std::fmt;
+use std::str::FromStr;
 use std::sync::OnceLock;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sqlx::Row;
 use uuid::Uuid;
 
@@ -12,34 +14,139 @@ use crate::error::APIError;
 use crate::infrastructure::database::AppDatabase;
 use crate::protocol::usage::UsageBreakdown;
 
-#[derive(Clone, Debug, Serialize, schemars::JsonSchema)]
+/// Standard HTTP request methods.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "UPPERCASE")]
+#[schemars(rename_all = "UPPERCASE")]
+pub enum HttpMethod {
+    Get,
+    Post,
+    Put,
+    Patch,
+    Delete,
+    Head,
+    Options,
+    Connect,
+    Trace,
+    #[serde(other)]
+    Other,
+}
+
+impl FromStr for HttpMethod {
+    type Err = std::convert::Infallible;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_ascii_uppercase().as_str() {
+            "GET" => Ok(Self::Get),
+            "POST" => Ok(Self::Post),
+            "PUT" => Ok(Self::Put),
+            "PATCH" => Ok(Self::Patch),
+            "DELETE" => Ok(Self::Delete),
+            "HEAD" => Ok(Self::Head),
+            "OPTIONS" => Ok(Self::Options),
+            "CONNECT" => Ok(Self::Connect),
+            "TRACE" => Ok(Self::Trace),
+            _ => Ok(Self::Other),
+        }
+    }
+}
+
+impl fmt::Display for HttpMethod {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Get => write!(f, "GET"),
+            Self::Post => write!(f, "POST"),
+            Self::Put => write!(f, "PUT"),
+            Self::Patch => write!(f, "PATCH"),
+            Self::Delete => write!(f, "DELETE"),
+            Self::Head => write!(f, "HEAD"),
+            Self::Options => write!(f, "OPTIONS"),
+            Self::Connect => write!(f, "CONNECT"),
+            Self::Trace => write!(f, "TRACE"),
+            Self::Other => write!(f, "OTHER"),
+        }
+    }
+}
+
+/// Token usage breakdown for a logged request.
+#[derive(Clone, Debug, Default, Serialize, Deserialize, schemars::JsonSchema)]
+pub struct LogTokenUsage {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub input: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub output: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cache: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cache_read: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cache_creation: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reasoning: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub total: Option<i64>,
+}
+
+/// Estimated cost breakdown formatted in fixed 4-decimal USD for a logged request.
+#[derive(Clone, Debug, Default, Serialize, Deserialize, schemars::JsonSchema)]
+pub struct LogCost {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub input: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub output: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cache: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub total: Option<String>,
+}
+
+fn format_cost_usd(cost: f64) -> String {
+    format!("${cost:.4}")
+}
+
+/// Client identification metadata for a logged request.
+#[derive(Clone, Debug, Default, Serialize, Deserialize, schemars::JsonSchema)]
+pub struct LogClient {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ip_address: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user_agent: Option<String>,
+}
+
+/// Error / diagnostics information for a failed request.
+#[derive(Clone, Debug, Default, Serialize, Deserialize, schemars::JsonSchema)]
+pub struct LogError {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_code: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_message: Option<String>,
+}
+
+/// A single request-log record. Categorized into cohesive domain structs
+/// while preserving the flat snake_case JSON wire representation.
+#[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct RequestLog {
     pub id: Uuid,
     pub request_id: Uuid,
     pub user_id: Option<Uuid>,
     pub api_key_id: Option<Uuid>,
-    pub method: String,
+    pub method: HttpMethod,
     pub path: String,
     pub status_code: i16,
-    pub ip_address: Option<String>,
-    pub user_agent: Option<String>,
+    pub latency_ms: i64,
+    pub created_at: i64,
+
     pub provider: Option<String>,
     pub model: Option<String>,
-    pub input_tokens: Option<i64>,
-    pub output_tokens: Option<i64>,
-    pub total_tokens: Option<i64>,
-    pub cached_tokens: Option<i64>,
-    pub cache_creation_tokens: Option<i64>,
-    pub reasoning_tokens: Option<i64>,
-    pub estimated_cost: Option<f64>,
     pub resolved_model: Option<String>,
-    pub fallback_occurred: Option<bool>,
-    pub fallback_path: Option<String>,
-    pub fallback_reason: Option<String>,
-    pub latency_ms: i64,
-    pub error_code: Option<String>,
-    pub error_message: Option<String>,
-    pub created_at: i64,
+
+    #[serde(flatten)]
+    pub client: LogClient,
+    pub tokens: LogTokenUsage,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub costs: Option<LogCost>,
+    #[serde(flatten)]
+    pub error: LogError,
 }
 
 #[derive(Debug)]
@@ -52,6 +159,7 @@ pub struct LogsPage {
 
 #[derive(Clone, Copy, Debug, Serialize, schemars::JsonSchema)]
 #[serde(rename_all = "lowercase")]
+#[schemars(rename_all = "lowercase")]
 pub enum ObjectKind {
     List,
     Usage,
@@ -153,41 +261,87 @@ fn map_request_log(row: &sqlx::sqlite::SqliteRow) -> Result<RequestLog, APIError
     let id: String = row.try_get("id").map_err(log_row_error)?;
     let request_id: String = row.try_get("request_id").map_err(log_row_error)?;
     let provider_id: Option<String> = row.try_get("provider_id").map_err(log_row_error)?;
+    let model: Option<String> = row.try_get("model").map_err(log_row_error)?;
+    let resolved_model: Option<String> = row.try_get("resolved_model").map_err(log_row_error)?;
     let status_code: i64 = row.try_get("status_code").map_err(log_row_error)?;
+    let method_str: String = row.try_get("method").map_err(log_row_error)?;
+    let method: HttpMethod = method_str.parse().unwrap_or(HttpMethod::Other);
+
+    let prompt_tokens: Option<i64> = row.try_get("prompt_tokens").map_err(log_row_error)?;
+    let completion_tokens: Option<i64> = row.try_get("completion_tokens").map_err(log_row_error)?;
+    let total_tokens: Option<i64> = row.try_get("total_tokens").map_err(log_row_error)?;
+    let cached_tokens: Option<i64> = row.try_get("cached_tokens").map_err(log_row_error)?;
+    let cache_creation_tokens: Option<i64> = row
+        .try_get("cache_creation_tokens")
+        .map_err(log_row_error)?;
+    let reasoning_tokens: Option<i64> = row.try_get("reasoning_tokens").map_err(log_row_error)?;
+    let estimated_cost: Option<f64> = row.try_get("estimated_cost").map_err(log_row_error)?;
+
+    let model_for_cost = resolved_model.as_deref().or(model.as_deref());
+    let costs = model_for_cost
+        .and_then(|m| {
+            let usage = UsageBreakdown {
+                prompt_tokens: prompt_tokens.unwrap_or(0),
+                completion_tokens: completion_tokens.unwrap_or(0),
+                total_tokens: total_tokens.unwrap_or(0),
+                cached_tokens: cached_tokens.unwrap_or(0),
+                cache_creation_tokens: cache_creation_tokens.unwrap_or(0),
+                reasoning_tokens: reasoning_tokens.unwrap_or(0),
+            };
+            crate::features::catalog::estimate_cost_breakdown(m, &usage).map(|b| LogCost {
+                input: Some(format_cost_usd(b.input)),
+                output: Some(format_cost_usd(b.output)),
+                cache: Some(format_cost_usd(b.cache)),
+                total: Some(format_cost_usd(b.total)),
+            })
+        })
+        .or_else(|| {
+            estimated_cost.map(|c| LogCost {
+                input: None,
+                output: None,
+                cache: None,
+                total: Some(format_cost_usd(c)),
+            })
+        });
+
     Ok(RequestLog {
         id: Uuid::parse_str(&id).map_err(log_row_error)?,
         request_id: Uuid::parse_str(&request_id).map_err(log_row_error)?,
         user_id: optional_uuid(row, "user_id")?,
         api_key_id: optional_uuid(row, "api_key_id")?,
-        method: row.try_get("method").map_err(log_row_error)?,
+        method,
         path: row.try_get("path").map_err(log_row_error)?,
         status_code: i16::try_from(status_code).map_err(|error| {
             APIError::new(500, constants::database::log_status_code_invalid(error))
         })?,
-        ip_address: row.try_get("ip_address").map_err(log_row_error)?,
-        user_agent: row.try_get("user_agent").map_err(log_row_error)?,
-        provider: provider_id,
-        model: row.try_get("model").map_err(log_row_error)?,
-        input_tokens: row.try_get("prompt_tokens").map_err(log_row_error)?,
-        output_tokens: row.try_get("completion_tokens").map_err(log_row_error)?,
-        total_tokens: row.try_get("total_tokens").map_err(log_row_error)?,
-        cached_tokens: row.try_get("cached_tokens").map_err(log_row_error)?,
-        cache_creation_tokens: row
-            .try_get("cache_creation_tokens")
-            .map_err(log_row_error)?,
-        reasoning_tokens: row.try_get("reasoning_tokens").map_err(log_row_error)?,
-        estimated_cost: row.try_get("estimated_cost").map_err(log_row_error)?,
-        resolved_model: row.try_get("resolved_model").map_err(log_row_error)?,
-        fallback_occurred: row
-            .try_get::<Option<i64>, _>("fallback_occurred")
-            .map_err(log_row_error)?
-            .map(|value| value != 0),
-        fallback_path: row.try_get("fallback_path").map_err(log_row_error)?,
-        fallback_reason: row.try_get("fallback_reason").map_err(log_row_error)?,
         latency_ms: row.try_get("latency_ms").map_err(log_row_error)?,
-        error_code: row.try_get("error_code").map_err(log_row_error)?,
-        error_message: row.try_get("error_message").map_err(log_row_error)?,
         created_at: row.try_get("created_at").map_err(log_row_error)?,
+        provider: provider_id,
+        model,
+        resolved_model,
+        client: LogClient {
+            ip_address: row.try_get("ip_address").map_err(log_row_error)?,
+            user_agent: row.try_get("user_agent").map_err(log_row_error)?,
+        },
+        tokens: LogTokenUsage {
+            input: prompt_tokens,
+            output: completion_tokens,
+            cache: match (cached_tokens, cache_creation_tokens) {
+                (Some(read), Some(write)) => Some(read + write),
+                (Some(read), None) => Some(read),
+                (None, Some(write)) => Some(write),
+                (None, None) => None,
+            },
+            cache_read: cached_tokens,
+            cache_creation: cache_creation_tokens,
+            reasoning: reasoning_tokens,
+            total: total_tokens,
+        },
+        costs,
+        error: LogError {
+            error_code: row.try_get("error_code").map_err(log_row_error)?,
+            error_message: row.try_get("error_message").map_err(log_row_error)?,
+        },
     })
 }
 
@@ -215,9 +369,6 @@ pub struct RequestLogInput<'a> {
     pub latency_ms: i64,
     pub usage: &'a UsageBreakdown,
     pub estimated_cost: f64,
-    pub fallback_occurred: bool,
-    pub fallback_path: Option<&'a str>,
-    pub fallback_reason: Option<&'a str>,
     pub resolved_model: Option<&'a str>,
     pub error_code: Option<&'a str>,
     pub error_message: Option<&'a str>,
@@ -282,9 +433,9 @@ pub async fn insert_request_log(
     .bind(input.usage.cache_creation_tokens)
     .bind(input.usage.reasoning_tokens)
     .bind(input.estimated_cost)
-    .bind(i64::from(input.fallback_occurred))
-    .bind(input.fallback_path)
-    .bind(input.fallback_reason)
+    .bind(0_i64)
+    .bind(None::<&str>)
+    .bind(None::<&str>)
     .bind(input.resolved_model)
     .bind(input.error_code)
     .bind(input.error_message)

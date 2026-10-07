@@ -7,11 +7,12 @@ use crate::constants;
 use crate::error::APIError;
 use crate::features::admin_auth::create_admin_router;
 use crate::features::api_keys::create_api_keys_router;
-use crate::features::catalog::create_quota_router;
-use crate::features::database_transfer::create_database_router;
-use crate::features::gateway::routes::{
-    create_gateway_router, create_models_read_router, create_models_write_router,
+use crate::features::catalog::{
+    create_models_read_router, create_models_write_router, create_pricing_router,
+    create_quota_router,
 };
+use crate::features::database_transfer::create_database_router;
+use crate::features::gateway::routes::create_gateway_router;
 use crate::features::logs::create_logs_router;
 use crate::features::provider_auth::{
     create_antigravity_callback_pages_router, create_antigravity_callback_router,
@@ -130,6 +131,8 @@ pub fn create_router(state: AppState) -> Router {
     let claude_callback_pages = create_claude_callback_pages_router().layer(from_fn(body_limit));
     let logs_routes = create_logs_router().layer(from_fn_with_state(state.clone(), api_key_auth));
     let quota_routes = create_quota_router().layer(from_fn_with_state(state.clone(), api_key_auth));
+    let pricing_routes =
+        create_pricing_router().layer(from_fn_with_state(state.clone(), api_key_auth));
     let settings_read_routes =
         create_settings_read_router().layer(from_fn_with_state(state.clone(), api_key_auth));
     let settings_mgmt_routes = create_settings_management_router()
@@ -163,6 +166,7 @@ pub fn create_router(state: AppState) -> Router {
         .merge(providers_mgmt_routes)
         .merge(logs_routes)
         .merge(quota_routes)
+        .merge(pricing_routes)
         .merge(settings_read_routes)
         .merge(settings_mgmt_routes)
         .merge(database_routes)

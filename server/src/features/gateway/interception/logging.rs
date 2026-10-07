@@ -20,6 +20,13 @@ pub(crate) async fn log_request(
     usage: &UsageBreakdown,
     error_message: Option<&str>,
 ) {
+    let estimated_cost = if status_code == 200 {
+        crate::features::catalog::estimate_cost(resolved_model.unwrap_or(model), usage)
+            .unwrap_or(0.0)
+    } else {
+        0.0
+    };
+
     if let Some(db) = &state.database {
         let _ = insert_request_log(
             db,
@@ -35,10 +42,7 @@ pub(crate) async fn log_request(
                 status_code,
                 latency_ms: clock::now_ms() - context.start_time,
                 usage,
-                estimated_cost: 0.0,
-                fallback_occurred: false,
-                fallback_path: None,
-                fallback_reason: error_message,
+                estimated_cost,
                 resolved_model,
                 error_code: None,
                 error_message,
@@ -77,8 +81,8 @@ async fn apply_usage_accounting(
         let _ = repository
             .settle_quota(api_key_id, reserved, usage.total_tokens)
             .await;
-        // Pricing is not ported yet, so the recorded cost is always zero; the
-        // call keeps the column accounting path in place for when it lands.
+        // Token quota is settled above. API-key usage_cost is reserved for
+        // billing invoices rather than informational reference rates.
         let _ = repository.increment_usage(api_key_id, 0, 0.0).await;
     } else {
         let _ = repository.settle_quota(api_key_id, reserved, 0).await;

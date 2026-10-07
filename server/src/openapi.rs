@@ -27,8 +27,9 @@ use crate::features::admin_auth::ADMIN_SESSION_COOKIE;
 use crate::features::admin_auth::routes::AdminStatus;
 use crate::features::api_keys::routes::{APIKeyResponse, CreatedAPIKeyResponse, KeyListResponse};
 use crate::features::api_keys::{CreateAPIKeyInput, UpdateAPIKeyInput};
+use crate::features::catalog::models::{CatalogModel, ModelListResponse};
 use crate::features::catalog::quota::QuotaResponse;
-use crate::features::gateway::models::{CatalogModel, ModelListResponse};
+use crate::features::catalog::{ModelPricingItem, PricingListResponse};
 use crate::features::logs::{LiveEvent, LogsResponse};
 use crate::features::providers::management::model::{CatalogResponse, ProviderEntry};
 use crate::features::providers::management::routes::ProviderListResponse;
@@ -871,6 +872,24 @@ fn paths() -> Map<String, Value> {
         );
     }
 
+    // Pricing catalog.
+    route(
+        &mut paths,
+        "/v1/pricing/models",
+        "get",
+        with_parameters(
+            operation(
+                "Read the models.dev pricing catalog",
+                Auth::ApiKey,
+                json!({"200": json_body(
+                    "The models.dev catalog with per-model cost and limit metadata.",
+                    schema_ref("PricingListResponse")
+                )}),
+            ),
+            flag_query(),
+        ),
+    );
+
     // Settings.
     route(
         &mut paths,
@@ -1119,6 +1138,8 @@ fn schemas() -> Map<String, Value> {
         model::<UpdateAPIKeyInput>(),
         model::<ModelListResponse>(),
         model::<CatalogModel>(),
+        model::<PricingListResponse>(),
+        model::<ModelPricingItem>(),
         model::<LogsResponse>(),
         model::<RequestLog>(),
         model::<UsageStatsReport>(),

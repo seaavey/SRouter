@@ -120,6 +120,8 @@ pub mod headers {
 
         /// Model catalog caching.
         pub const MODEL_CACHE_CONTROL: &str = "public, max-age=60, stale-while-revalidate=300";
+        pub const PRICING_CACHE_CONTROL: &str =
+            "public, max-age=3600, stale-while-revalidate=86400";
     }
 }
 
