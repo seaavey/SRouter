@@ -711,13 +711,22 @@ Qoder, Cline, OpenAI, Antigravity, and Claude routes exist in Rust. Source of tr
       `ProviderUsageMetric[] | null`, a typed struct whose shape is Node's
       (`packages/types/src/quota.ts`); no driver in this build fills the field, but a client can read
       it without casting.
-- [x] Naming: Specta emits one type per direction (`X_Serialize` / `X_Deserialize`) for definitions
-      with directional serde metadata and then `X = X_Serialize | X_Deserialize`. That is the accurate
-      description of the two phases; the `_Serialize` member is the shape the server sends.
+- [x] One shape per type, not one per direction. `skip_serializing_if` makes `specta-serde` export
+      `X_Serialize` and `X_Deserialize` for every type reaching such a field, plus
+      `X = X_Serialize | X_Deserialize`, which doubled the document (93 names, duplicated JSDoc) even
+      though a response reader only ever sees one shape. `bindings.rs` therefore renders through a
+      `WireShapes` formatter: it hands `specta_serde::Format` a copy of the graph with the
+      `serde:field:skip_serializing_if` runtime attribute removed from the fields, so the unified
+      formatter accepts it and emits a single shape. Output is 47 types in 451 lines, and `LiveEvent`
+      loses the `& { log?: never; stats?: never }` phase noise.
+      This changes the exported document only: the serializers still omit the field, the source keeps
+      every `#[serde(skip_serializing_if)]`, and `server/tests/wire.rs` reads live responses to pin
+      that an omitted field is absent rather than null, that a present one carries the shape the
+      document describes, and that required fields are always present.
 - [x] `server/tests/bindings.rs` (8 tests): byte-identical double render, the committed file matches a
-      regeneration, the document carries only type exports, every registered root is present, the
-      conditional fields are optional, the closed values are union literals, no opaque holes, and the
-      integer overrides still render as the right number type. CI (`rust-test`) regenerates and runs
+      regeneration, the document carries only type exports, every registered root is present, one
+      shape per type, the closed values are union literals, no opaque holes, and the integer overrides
+      still render as the right number type. CI (`rust-test`) regenerates and runs
       `git diff --exit-code -- server/bindings.ts`.
 - Deviation: this document has no route, method, or security-scheme information, so the OpenAPI
   sweep that a route change used to fail (`every_route_literal_in_the_source_is_documented`) has no
