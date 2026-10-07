@@ -108,6 +108,71 @@ fn every_registered_root_is_exported() {
 }
 
 #[test]
+fn the_conditional_fields_render_as_optional() {
+    let document = committed();
+
+    // A field the server omits when it is null is absent from the payload, so the
+    // property has to be optional rather than merely nullable.
+    assert!(
+        document.contains("\tpagination?: Pagination | null,"),
+        "a `skip_serializing_if` field lost its `?:`"
+    );
+    assert!(
+        document.contains("\tcustom?: boolean | null,"),
+        "`CatalogModel.custom` lost its `?:`"
+    );
+
+    // The request bodies accept absent fields: `POST` fills a default, `PATCH`
+    // leaves the field untouched.
+    assert!(
+        document.contains("\tenabled?: boolean,"),
+        "a request field the server defaults lost its `?:`"
+    );
+    assert!(
+        document.contains("\tname?: string | null,"),
+        "a `PATCH` field lost its `?:`"
+    );
+    assert!(
+        document.contains("\tname: string,"),
+        "the one required `POST` field stopped being required"
+    );
+}
+
+#[test]
+fn the_closed_value_fields_render_as_union_literals() {
+    let document = committed();
+
+    // Both are computed by the build rather than read from storage, so the union
+    // is closed and the client can switch on it exhaustively.
+    assert!(
+        document.contains("\tstate: \"connected\" | \"no_connections\","),
+        "`ProviderStatus.state` stopped rendering as a closed union"
+    );
+    assert!(
+        document.contains("\tstatus: \"exhausted\" | \"warning\" | \"ok\","),
+        "`LiveModelQuotaItem.status` stopped rendering as a closed union"
+    );
+}
+
+#[test]
+fn the_document_has_no_opaque_holes() {
+    let document = committed();
+
+    // Every field is a named type or a primitive. `unknown`/`any` would let a
+    // client compile against a value it cannot read, so neither belongs here.
+    assert!(
+        !document.contains("unknown"),
+        "the bindings carry an `unknown`"
+    );
+    for line in document.lines() {
+        assert!(
+            !line.contains(": any") && !line.contains(":any"),
+            "the bindings carry an `any`: {line:?}"
+        );
+    }
+}
+
+#[test]
 fn the_wire_integer_fields_render_as_numbers() {
     let document = committed();
 

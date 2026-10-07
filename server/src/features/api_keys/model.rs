@@ -54,10 +54,15 @@ pub struct CreatedAPIKey {
 #[derive(Clone, Debug, PartialEq, specta::Type)]
 pub struct CreateAPIKeyInput {
     pub name: String,
+    #[specta(optional)]
     pub enabled: bool,
+    #[specta(optional)]
     pub rate_limit: u32,
+    #[specta(optional)]
     pub quota_limit: u32,
+    #[specta(optional)]
     pub credit_limit: f64,
+    #[specta(optional)]
     pub allowed_models: Option<Vec<String>>,
 }
 
@@ -66,11 +71,17 @@ pub struct CreateAPIKeyInput {
 /// (`None`) from an explicit clear (`Some(None)`).
 #[derive(Clone, Debug, Default, PartialEq, specta::Type)]
 pub struct UpdateAPIKeyInput {
+    #[specta(optional)]
     pub name: Option<String>,
+    #[specta(optional)]
     pub enabled: Option<bool>,
+    #[specta(optional)]
     pub rate_limit: Option<u32>,
+    #[specta(optional)]
     pub quota_limit: Option<u32>,
+    #[specta(optional)]
     pub credit_limit: Option<f64>,
+    #[specta(optional)]
     pub allowed_models: Option<Option<Vec<String>>>,
 }
 

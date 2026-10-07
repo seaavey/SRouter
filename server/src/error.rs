@@ -105,8 +105,10 @@ pub struct ErrorBody {
     #[serde(rename = "type")]
     pub error_type: String,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
     pub code: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
     pub param: Option<String>,
 }
 

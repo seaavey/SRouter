@@ -13,13 +13,47 @@ pub struct ProviderQuotaAccount {
     pub quota_type: &'static str,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[specta(type = Option<specta_typescript::Number>)]
+    #[specta(optional)]
     pub total_quotas: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
     pub quotas: Option<Vec<LiveModelQuotaItem>>,
-    /// Vendor-shaped usage metrics, kept opaque: this build never populates them.
-    #[specta(type = Option<Vec<specta_typescript::Unknown>>)]
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub usage_metrics: Option<Vec<serde_json::Value>>,
+    #[specta(optional)]
+    pub usage_metrics: Option<Vec<ProviderUsageMetric>>,
+}
+
+/// One `usage_metrics` row: what a provider driver reports about a model's
+/// logged usage.
+///
+/// No driver in this build fills it (`usage_metrics` is always `None`), but the
+/// shape is the one Node declares (`packages/types/src/quota.ts`,
+/// `ProviderUsageMetric`), so a client can read the field without a hole in its
+/// types.
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+pub struct ProviderUsageMetric {
+    pub model: String,
+    #[specta(type = specta_typescript::Number)]
+    pub total_requests: i64,
+    #[specta(type = specta_typescript::Number)]
+    pub total_tokens: i64,
+    #[specta(type = specta_typescript::Number)]
+    pub prompt_tokens: i64,
+    #[specta(type = specta_typescript::Number)]
+    pub completion_tokens: i64,
+    pub last_used_at: Option<String>,
+}
+
+/// The three verdicts a fetch reports for a quota window. Rendered as a closed
+/// union because the fetchers compute it from the remaining percentage.
+struct QuotaStatus;
+
+impl specta::Type for QuotaStatus {
+    fn definition(_: &mut specta::Types) -> specta::datatype::DataType {
+        specta::datatype::DataType::Reference(specta_typescript::define(
+            "\"exhausted\" | \"warning\" | \"ok\"",
+        ))
+    }
 }
 
 /// A specific rate-limit window or model quota entry.
@@ -32,6 +66,8 @@ pub struct LiveModelQuotaItem {
     pub percentage_value: u32,
     pub reset_in: String,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
     pub reset_time: Option<String>,
+    #[specta(type = QuotaStatus)]
     pub status: &'static str,
 }

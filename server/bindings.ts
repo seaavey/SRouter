@@ -104,7 +104,7 @@ export type CatalogModel_Deserialize = {
 	object: string,
 	owned_by: string,
 	favorite: boolean,
-	custom: boolean | null,
+	custom?: boolean | null,
 };
 
 /**
@@ -137,11 +137,11 @@ export type CatalogResponse_Serialize = {
 /**  Fields accepted by `POST /v1/keys`, mirroring `CreateAPIKeySchema`. */
 export type CreateAPIKeyInput = {
 	name: string,
-	enabled: boolean,
-	rate_limit: number,
-	quota_limit: number,
-	credit_limit: number | null,
-	allowed_models: string[] | null,
+	enabled?: boolean,
+	rate_limit?: number,
+	quota_limit?: number,
+	credit_limit?: number | null,
+	allowed_models?: string[] | null,
 };
 
 /**  Creation response: the management fields plus the one-time full secret. */
@@ -154,8 +154,8 @@ export type ErrorBody = ErrorBody_Serialize | ErrorBody_Deserialize;
 export type ErrorBody_Deserialize = {
 	message: string,
 	type: string,
-	code: string | null,
-	param: string | null,
+	code?: string | null,
+	param?: string | null,
 };
 
 export type ErrorBody_Serialize = {
@@ -229,8 +229,8 @@ export type LiveModelQuotaItem_Deserialize = {
 	percentage: string,
 	percentage_value: number,
 	reset_in: string,
-	reset_time: string | null,
-	status: string,
+	reset_time?: string | null,
+	status: "exhausted" | "warning" | "ok",
 };
 
 /**  A specific rate-limit window or model quota entry. */
@@ -242,7 +242,7 @@ export type LiveModelQuotaItem_Serialize = {
 	percentage_value: number,
 	reset_in: string,
 	reset_time?: string | null,
-	status: string,
+	status: "exhausted" | "warning" | "ok",
 };
 
 /**  Client identification metadata for a logged request. */
@@ -250,8 +250,8 @@ export type LogClient = LogClient_Serialize | LogClient_Deserialize;
 
 /**  Client identification metadata for a logged request. */
 export type LogClient_Deserialize = {
-	ip_address: string | null,
-	user_agent: string | null,
+	ip_address?: string | null,
+	user_agent?: string | null,
 };
 
 /**  Client identification metadata for a logged request. */
@@ -265,10 +265,10 @@ export type LogCost = LogCost_Serialize | LogCost_Deserialize;
 
 /**  Estimated cost breakdown formatted in fixed 4-decimal USD for a logged request. */
 export type LogCost_Deserialize = {
-	input: string | null,
-	output: string | null,
-	cache: string | null,
-	total: string | null,
+	input?: string | null,
+	output?: string | null,
+	cache?: string | null,
+	total?: string | null,
 };
 
 /**  Estimated cost breakdown formatted in fixed 4-decimal USD for a logged request. */
@@ -284,8 +284,8 @@ export type LogError = LogError_Serialize | LogError_Deserialize;
 
 /**  Error / diagnostics information for a failed request. */
 export type LogError_Deserialize = {
-	error_code: string | null,
-	error_message: string | null,
+	error_code?: string | null,
+	error_message?: string | null,
 };
 
 /**  Error / diagnostics information for a failed request. */
@@ -299,13 +299,13 @@ export type LogTokenUsage = LogTokenUsage_Serialize | LogTokenUsage_Deserialize;
 
 /**  Token usage breakdown for a logged request. */
 export type LogTokenUsage_Deserialize = {
-	input: number | null,
-	output: number | null,
-	cache: number | null,
-	cache_read: number | null,
-	cache_creation: number | null,
-	reasoning: number | null,
-	total: number | null,
+	input?: number | null,
+	output?: number | null,
+	cache?: number | null,
+	cache_read?: number | null,
+	cache_creation?: number | null,
+	reasoning?: number | null,
+	total?: number | null,
 };
 
 /**  Token usage breakdown for a logged request. */
@@ -324,7 +324,7 @@ export type LogsResponse = LogsResponse_Serialize | LogsResponse_Deserialize;
 export type LogsResponse_Deserialize = {
 	object: ObjectKind,
 	data: RequestLog_Deserialize[],
-	pagination: Pagination | null,
+	pagination?: Pagination | null,
 };
 
 export type LogsResponse_Serialize = {
@@ -348,13 +348,13 @@ export type ModelListResponse_Serialize = {
 export type ModelPricingCost = ModelPricingCost_Serialize | ModelPricingCost_Deserialize;
 
 export type ModelPricingCost_Deserialize = {
-	input: number | null,
-	output: number | null,
-	cache_read: number | null,
-	cache_write: number | null,
-	reasoning: number | null,
-	input_audio: number | null,
-	output_audio: number | null,
+	input?: number | null,
+	output?: number | null,
+	cache_read?: number | null,
+	cache_write?: number | null,
+	reasoning?: number | null,
+	input_audio?: number | null,
+	output_audio?: number | null,
 };
 
 export type ModelPricingCost_Serialize = {
@@ -373,20 +373,20 @@ export type ModelPricingItem_Deserialize = {
 	id: string,
 	name: string,
 	description: string,
-	family: string | null,
+	family?: string | null,
 	provider: string,
 	attachment: boolean,
 	reasoning: boolean,
 	tool_call: boolean,
-	temperature: boolean | null,
-	structured_output: boolean | null,
+	temperature?: boolean | null,
+	structured_output?: boolean | null,
 	open_weights: boolean,
-	knowledge: string | null,
+	knowledge?: string | null,
 	release_date: string,
 	last_updated: string,
-	cost: ModelPricingCost_Deserialize | null,
-	limit: ModelPricingLimit_Deserialize | null,
-	modalities: ModelPricingModalities_Deserialize | null,
+	cost?: ModelPricingCost_Deserialize | null,
+	limit?: ModelPricingLimit_Deserialize | null,
+	modalities?: ModelPricingModalities_Deserialize | null,
 };
 
 export type ModelPricingItem_Serialize = {
@@ -412,8 +412,8 @@ export type ModelPricingItem_Serialize = {
 export type ModelPricingLimit = ModelPricingLimit_Serialize | ModelPricingLimit_Deserialize;
 
 export type ModelPricingLimit_Deserialize = {
-	context: number | null,
-	output: number | null,
+	context?: number | null,
+	output?: number | null,
 };
 
 export type ModelPricingLimit_Serialize = {
@@ -424,8 +424,8 @@ export type ModelPricingLimit_Serialize = {
 export type ModelPricingModalities = ModelPricingModalities_Serialize | ModelPricingModalities_Deserialize;
 
 export type ModelPricingModalities_Deserialize = {
-	input: string[] | null,
-	output: string[] | null,
+	input?: string[] | null,
+	output?: string[] | null,
 };
 
 export type ModelPricingModalities_Serialize = {
@@ -447,7 +447,7 @@ export type PricingListResponse = PricingListResponse_Serialize | PricingListRes
 export type PricingListResponse_Deserialize = {
 	object: string,
 	total: number,
-	updated_at: string | null,
+	updated_at?: string | null,
 	data: ModelPricingItem_Deserialize[],
 };
 
@@ -492,7 +492,7 @@ export type ProviderEntry_Deserialize = {
 	round_robin: boolean,
 	status: ProviderStatus,
 	/**  Detail only; the list and catalog omit it like Node does. */
-	connections: ProviderConnectionView[] | null,
+	connections?: ProviderConnectionView[] | null,
 	models: ProviderModel[],
 };
 
@@ -560,10 +560,9 @@ export type ProviderQuotaAccount_Deserialize = {
 	account: string,
 	enabled: boolean,
 	quota_type: string,
-	total_quotas: number | null,
-	quotas: LiveModelQuotaItem_Deserialize[] | null,
-	/**  Vendor-shaped usage metrics, kept opaque: this build never populates them. */
-	usage_metrics: unknown[] | null,
+	total_quotas?: number | null,
+	quotas?: LiveModelQuotaItem_Deserialize[] | null,
+	usage_metrics?: ProviderUsageMetric[] | null,
 };
 
 /**  An account's quota overview. */
@@ -575,15 +574,32 @@ export type ProviderQuotaAccount_Serialize = {
 	quota_type: string,
 	total_quotas?: number | null,
 	quotas?: LiveModelQuotaItem_Serialize[] | null,
-	/**  Vendor-shaped usage metrics, kept opaque: this build never populates them. */
-	usage_metrics?: unknown[] | null,
+	usage_metrics?: ProviderUsageMetric[] | null,
 };
 
 /**  Connection state of a provider driver. */
 export type ProviderStatus = {
-	state: string,
+	state: "connected" | "no_connections",
 	message: string,
 	connected_count: number,
+};
+
+/**
+ *  One `usage_metrics` row: what a provider driver reports about a model's
+ *  logged usage.
+ * 
+ *  No driver in this build fills it (`usage_metrics` is always `None`), but the
+ *  shape is the one Node declares (`packages/types/src/quota.ts`,
+ *  `ProviderUsageMetric`), so a client can read the field without a hole in its
+ *  types.
+ */
+export type ProviderUsageMetric = {
+	model: string,
+	total_requests: number,
+	total_tokens: number,
+	prompt_tokens: number,
+	completion_tokens: number,
+	last_used_at: string | null,
 };
 
 /**  Top-level response for `GET /v1/quota` and `GET /v1/qouta`. */
@@ -627,7 +643,7 @@ export type RequestLog_Deserialize = {
 	model: string | null,
 	resolved_model: string | null,
 	tokens: LogTokenUsage_Deserialize,
-	costs: LogCost_Deserialize | null,
+	costs?: LogCost_Deserialize | null,
 } & LogClient_Deserialize & LogError_Deserialize;
 
 /**
@@ -661,12 +677,12 @@ export type SettingsResponse = {
  *  (`None`) from an explicit clear (`Some(None)`).
  */
 export type UpdateAPIKeyInput = {
-	name: string | null,
-	enabled: boolean | null,
-	rate_limit: number | null,
-	quota_limit: number | null,
-	credit_limit: number | null,
-	allowed_models: string[] | null,
+	name?: string | null,
+	enabled?: boolean | null,
+	rate_limit?: number | null,
+	quota_limit?: number | null,
+	credit_limit?: number | null,
+	allowed_models?: string[] | null,
 };
 
 /**  One `by_model` entry of [`UsageStatsReport`]. */

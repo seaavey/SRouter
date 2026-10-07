@@ -75,24 +75,31 @@ impl fmt::Display for HttpMethod {
 pub struct LogTokenUsage {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[specta(type = Option<specta_typescript::Number>)]
+    #[specta(optional)]
     pub input: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[specta(type = Option<specta_typescript::Number>)]
+    #[specta(optional)]
     pub output: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[specta(type = Option<specta_typescript::Number>)]
+    #[specta(optional)]
     pub cache: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[specta(type = Option<specta_typescript::Number>)]
+    #[specta(optional)]
     pub cache_read: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[specta(type = Option<specta_typescript::Number>)]
+    #[specta(optional)]
     pub cache_creation: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[specta(type = Option<specta_typescript::Number>)]
+    #[specta(optional)]
     pub reasoning: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[specta(type = Option<specta_typescript::Number>)]
+    #[specta(optional)]
     pub total: Option<i64>,
 }
 
@@ -100,12 +107,16 @@ pub struct LogTokenUsage {
 #[derive(Clone, Debug, Default, Serialize, Deserialize, specta::Type)]
 pub struct LogCost {
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
     pub input: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
     pub output: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
     pub cache: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
     pub total: Option<String>,
 }
 
@@ -117,8 +128,10 @@ fn format_cost_usd(cost: f64) -> String {
 #[derive(Clone, Debug, Default, Serialize, Deserialize, specta::Type)]
 pub struct LogClient {
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
     pub ip_address: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
     pub user_agent: Option<String>,
 }
 
@@ -126,8 +139,10 @@ pub struct LogClient {
 #[derive(Clone, Debug, Default, Serialize, Deserialize, specta::Type)]
 pub struct LogError {
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
     pub error_code: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
     pub error_message: Option<String>,
 }
 
@@ -155,6 +170,7 @@ pub struct RequestLog {
     pub client: LogClient,
     pub tokens: LogTokenUsage,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
     pub costs: Option<LogCost>,
     #[serde(flatten)]
     pub error: LogError,

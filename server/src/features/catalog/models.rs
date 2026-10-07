@@ -52,6 +52,7 @@ pub(crate) struct CatalogModel {
     owned_by: String,
     favorite: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
     custom: Option<bool>,
 }
 

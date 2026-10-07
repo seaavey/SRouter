@@ -25,6 +25,7 @@ pub struct ProviderEntry {
     pub status: ProviderStatus,
     /// Detail only; the list and catalog omit it like Node does.
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
     pub connections: Option<Vec<ProviderConnectionView>>,
     pub models: Vec<ProviderModel>,
 }
@@ -75,9 +76,23 @@ impl ProviderEntry {
     }
 }
 
+/// The two connection states [`ProviderStatus::new`] can report. Rendered as a
+/// closed union because the value is computed from the connection count, never
+/// read from storage.
+struct ProviderState;
+
+impl specta::Type for ProviderState {
+    fn definition(_: &mut specta::Types) -> specta::datatype::DataType {
+        specta::datatype::DataType::Reference(specta_typescript::define(
+            "\"connected\" | \"no_connections\"",
+        ))
+    }
+}
+
 /// Connection state of a provider driver.
 #[derive(Clone, Debug, Serialize, specta::Type)]
 pub struct ProviderStatus {
+    #[specta(type = ProviderState)]
     pub state: &'static str,
     pub message: &'static str,
     #[specta(type = specta_typescript::Number)]

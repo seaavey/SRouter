@@ -24,6 +24,7 @@ pub struct PricingListResponse {
     #[specta(type = specta_typescript::Number)]
     pub total: usize,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
     pub updated_at: Option<String>,
     pub data: Vec<ModelPricingItem>,
 }
@@ -34,43 +35,57 @@ pub struct ModelPricingItem {
     pub name: String,
     pub description: String,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
     pub family: Option<String>,
     pub provider: String,
     pub attachment: bool,
     pub reasoning: bool,
     pub tool_call: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
     pub temperature: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
     pub structured_output: Option<bool>,
     pub open_weights: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
     pub knowledge: Option<String>,
     pub release_date: String,
     pub last_updated: String,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
     pub cost: Option<ModelPricingCost>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
     pub limit: Option<ModelPricingLimit>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
     pub modalities: Option<ModelPricingModalities>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, specta::Type)]
 pub struct ModelPricingCost {
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
     pub input: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
     pub output: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
     pub cache_read: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
     pub cache_write: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
     pub reasoning: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
     pub input_audio: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
     pub output_audio: Option<f64>,
 }
 
@@ -78,17 +93,21 @@ pub struct ModelPricingCost {
 pub struct ModelPricingLimit {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[specta(type = Option<specta_typescript::Number>)]
+    #[specta(optional)]
     pub context: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[specta(type = Option<specta_typescript::Number>)]
+    #[specta(optional)]
     pub output: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 pub struct ModelPricingModalities {
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
     pub input: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
     pub output: Option<Vec<String>>,
 }
 
