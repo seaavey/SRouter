@@ -17,15 +17,13 @@ pub mod images;
 pub mod interception;
 pub mod interceptor;
 pub mod messages;
-pub mod models;
 pub mod routes;
 pub mod search;
 pub mod token_saver;
 pub mod translation;
 
 pub use images::create_image;
-pub use routes::{create_gateway_router, create_models_read_router, create_models_write_router};
-
+pub use routes::create_gateway_router;
 #[derive(Clone)]
 pub(crate) struct RequestLogContext {
     pub request_id: String,

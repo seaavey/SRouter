@@ -561,7 +561,7 @@ Qoder, Cline, OpenAI, Antigravity, and Claude routes exist in Rust. Source of tr
 
 - [x] `GET /v1/models` with `Cache-Control: public, max-age=60, stale-while-revalidate=300`,
       `refresh`/`force` params, `no-cache`/`no-store` revalidation, allowlist filtering, hidden and
-      disabled-provider filtering, favorite flag (`features/gateway/models.rs`). A filter applies to the
+      disabled-provider filtering, favorite flag (`features/catalog/models.rs`). A filter applies to the
       model, so a Qoder name pair shares one verdict: `model_id_variants` expands a request or a stored
       hidden/favorite id into every id that reaches the same upstream key, and `names_of` expands the
       sets read from the database. Closed 2026-10-04: the two clauses that lacked Rust evidence are now
@@ -574,18 +574,22 @@ Qoder, Cline, OpenAI, Antigravity, and Claude routes exist in Rust. Source of tr
       metadata that `model/list` does return (`display_name`, `is_vl`, `format`, `max_input_tokens`,
       `price_factor`, `is_free`) is parsed away today. Adding it is a contract change and needs a
       consumer first.
-- [ ] `GET /v1/pricing/models` — `Cache-Control: public, max-age=3600,
-stale-while-revalidate=86400`, `refresh`/`force`/`no-cache` forcing a refresh.
-      Legacy evidence: `apps/api/tests/pricing-route.test.ts`.
-      Blocked on provenance: the Node catalog data comes from `packages/pricing`; an independent
-      allowed source must be recorded before implementing (design doc "Static catalog/pricing").
+- [x] `GET /v1/pricing/models` — `Cache-Control: public, max-age=3600, stale-while-revalidate=86400`,
+      `refresh`/`force`/`no-cache` forcing a refresh (`features/catalog/pricing.rs`). Legacy evidence:
+      `apps/api/tests/pricing-route.test.ts`. Sourced independently from official Models.dev data
+      (`features/catalog/data/models-dev-pricing.json` and `.manifest.json`, maintained via
+      `server/scripts/update_models_dev_pricing.py`). Pre-parsed into memory at startup via `LazyLock`,
+      providing sub-millisecond responses without allocations, and drives token cost estimation in
+      `estimate_cost` linked to `request_logs`. Covered by `server/tests/pricing.rs`.
 - [x] `GET /v1/quota` and the retained misspelling alias `GET /v1/qouta` — provider OAuth quota data,
       `refresh`/`force` refresh. Legacy evidence: `apps/api/tests/quota-oauth-filter.test.ts`.
       Implemented in `features/catalog/quota.rs` and mounted in `app.rs`: 60-second in-memory cache,
       coalesced concurrent requests, filters out non-OAuth providers, parses live ChatGPT rate limit
       windows (`wham/usage`), and handles upstream errors gracefully. Covered by `server/tests/quota.rs`.
-- [ ] Create `features/catalog/` per the plan layout and move the model/pricing/quota routes there
-      when they land (quota lands in `features/catalog/quota.rs`; models and pricing to follow).
+- [x] Create `features/catalog/` per the plan layout and move the model/pricing/quota routes there:
+      `models.rs` relocated from `features/gateway/` to `features/catalog/models.rs`, and all catalog
+      subsystems (`models`, `pricing`, `quota`) are cleanly exported from `features/catalog/mod.rs`
+      and mounted into the application router. Covered by `server/tests/models.rs` and `pricing.rs`.
 
 ## 8. Dashboard: logs, analytics, settings
 

@@ -7,11 +7,12 @@
 use std::collections::HashSet;
 
 use axum::{
-    Json,
+    Json, Router,
     body::Bytes,
     extract::{Extension, Path, Query, State},
     http::HeaderMap,
     response::{IntoResponse, Response},
+    routing::{get, post, put},
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -508,6 +509,25 @@ fn find_model<'a>(models: &'a [ModelObject], requested: &str) -> Option<&'a Mode
             || entry.id.ends_with(&format!("/{clean}"))
             || clean.ends_with(&format!("/{}", entry.id))
     })
+}
+
+/// The model reads: the catalog list and one model. Node applies only
+/// `ApiKeyAuth` here, never the rate limiter, so catalog polling must not
+/// consume the chat/messages window.
+pub fn create_models_read_router() -> Router<AppState> {
+    Router::new()
+        .route("/models", get(list_models))
+        .route("/models/{*model}", get(get_model))
+}
+
+/// The model writes: create, upsert, update state, and delete a model. Every
+/// model-level operation lives under `/v1/models`, so a model is managed here
+/// and nowhere else. The composition root layers the admin-session guard.
+pub fn create_models_write_router() -> Router<AppState> {
+    Router::new().route("/models", post(create_model)).route(
+        "/models/{*model}",
+        put(put_model).patch(patch_model).delete(delete_model),
+    )
 }
 
 #[cfg(test)]
