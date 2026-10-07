@@ -170,7 +170,7 @@ async fn logs_list_supports_latest_order_pagination_and_status_filter() {
     assert_eq!(body["data"][0]["tokens"]["cache_read"], 7);
     assert_eq!(body["data"][0]["tokens"]["cache_creation"], 8);
     assert_eq!(body["data"][0]["tokens"]["reasoning"], 9);
-    assert_eq!(body["data"][0]["costs"]["total"], 0.1234);
+    assert_eq!(body["data"][0]["costs"]["total"], "$0.1234");
     assert_eq!(body["data"][0]["resolved_model"], "resolved-test-model");
     assert_eq!(body["data"][0]["created_at"], 200);
 }
@@ -591,16 +591,15 @@ async fn request_log_records_real_user_request_with_cost_breakdown() {
     assert!(body.get("estimated_cost").is_none());
     let costs = &body["costs"];
     assert!(costs.is_object());
-    let input_cost = costs["input"].as_f64().unwrap();
-    let output_cost = costs["output"].as_f64().unwrap();
-    let cache_cost = costs["cache"].as_f64().unwrap();
-    let total_cost = costs["total"].as_f64().unwrap();
+    let input_cost = costs["input"].as_str().unwrap();
+    let output_cost = costs["output"].as_str().unwrap();
+    let cache_cost = costs["cache"].as_str().unwrap();
+    let total_cost = costs["total"].as_str().unwrap();
 
-    assert!(input_cost > 0.0);
-    assert!(output_cost > 0.0);
-    assert!(cache_cost > 0.0);
-    assert!((total_cost - estimated_cost).abs() < 1e-6);
-    assert!(((input_cost + output_cost + cache_cost) - total_cost).abs() < 1e-6);
+    assert!(input_cost.starts_with('$'));
+    assert!(output_cost.starts_with('$'));
+    assert!(cache_cost.starts_with('$'));
+    assert_eq!(total_cost, &format!("${estimated_cost:.4}"));
 }
 
 #[tokio::test]
@@ -690,10 +689,10 @@ async fn live_real_curl_request_test() {
     assert_eq!(parsed["tokens"]["reasoning"], 500);
     assert_eq!(parsed["tokens"]["total"], 19_000);
 
-    assert!(parsed["costs"]["input"].as_f64().unwrap() > 0.0);
-    assert!(parsed["costs"]["output"].as_f64().unwrap() > 0.0);
-    assert!(parsed["costs"]["cache"].as_f64().unwrap() > 0.0);
-    assert!(parsed["costs"]["total"].as_f64().unwrap() > 0.0);
+    assert!(parsed["costs"]["input"].as_str().unwrap().starts_with('$'));
+    assert!(parsed["costs"]["output"].as_str().unwrap().starts_with('$'));
+    assert!(parsed["costs"]["cache"].as_str().unwrap().starts_with('$'));
+    assert!(parsed["costs"]["total"].as_str().unwrap().starts_with('$'));
 
     server_handle.abort();
 }

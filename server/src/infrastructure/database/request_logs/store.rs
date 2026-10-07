@@ -86,17 +86,21 @@ pub struct LogTokenUsage {
     pub total: Option<i64>,
 }
 
-/// Estimated cost breakdown in USD for a logged request.
+/// Estimated cost breakdown formatted in fixed 4-decimal USD for a logged request.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct LogCost {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub input: Option<f64>,
+    pub input: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub output: Option<f64>,
+    pub output: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub cache: Option<f64>,
+    pub cache: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub total: Option<f64>,
+    pub total: Option<String>,
+}
+
+fn format_cost_usd(cost: f64) -> String {
+    format!("${cost:.4}")
 }
 
 /// Client identification metadata for a logged request.
@@ -283,10 +287,10 @@ fn map_request_log(row: &sqlx::sqlite::SqliteRow) -> Result<RequestLog, APIError
                 reasoning_tokens: reasoning_tokens.unwrap_or(0),
             };
             crate::features::catalog::estimate_cost_breakdown(m, &usage).map(|b| LogCost {
-                input: Some(b.input),
-                output: Some(b.output),
-                cache: Some(b.cache),
-                total: Some(b.total),
+                input: Some(format_cost_usd(b.input)),
+                output: Some(format_cost_usd(b.output)),
+                cache: Some(format_cost_usd(b.cache)),
+                total: Some(format_cost_usd(b.total)),
             })
         })
         .or_else(|| {
@@ -294,7 +298,7 @@ fn map_request_log(row: &sqlx::sqlite::SqliteRow) -> Result<RequestLog, APIError
                 input: None,
                 output: None,
                 cache: None,
-                total: Some(c),
+                total: Some(format_cost_usd(c)),
             })
         });
 
