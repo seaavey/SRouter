@@ -1,9 +1,9 @@
 import { Link } from "@tanstack/react-router";
-import type { ProviderDefinition } from "@srouter/types";
+import type { ProviderEntry } from "@/generated/api";
 import { ProviderIcon, ProviderStatusBadge } from "@/components/providers";
 import { getConnectedCount, isProviderEnabled } from "@/utils/provider.utils";
 
-export default function ProviderCard({ provider }: { provider: ProviderDefinition }) {
+export default function ProviderCard({ provider }: { provider: ProviderEntry }) {
     const connectedCount = getConnectedCount(provider);
     const isConnected = connectedCount > 0;
     const isEnabled = isProviderEnabled(provider);

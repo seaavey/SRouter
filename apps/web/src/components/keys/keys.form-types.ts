@@ -1,4 +1,4 @@
-import type { APIKeyZod, CreateAPIKeyZod } from "@srouter/types";
+import type { APIKeyResponse, CreateAPIKeyInput } from "@/generated/api";
 
 export type ModelScope = "all" | "restricted";
 
@@ -95,7 +95,7 @@ export function parseLimitValue(value: string, integer = false): number | undefi
     return integer ? Math.round(scaled) : scaled;
 }
 
-export function parseKeyPayload(form: KeyFormData): CreateAPIKeyZod & { enabled: boolean } {
+export function parseKeyPayload(form: KeyFormData): CreateAPIKeyInput & { enabled: boolean } {
     const rate_num = parseLimitValue(form.rate_limit, true);
     const quota_num = parseLimitValue(form.quota_limit, true);
     const credit_num = parseLimitValue(form.credit_limit);
@@ -107,9 +107,9 @@ export function parseKeyPayload(form: KeyFormData): CreateAPIKeyZod & { enabled:
     return {
         name: form.name.trim(),
         enabled: form.enabled,
-        rate_limit: rate_num,
-        quota_limit: quota_num,
-        credit_limit: credit_num,
+        rate_limit: rate_num ?? 0,
+        quota_limit: quota_num ?? 0,
+        credit_limit: credit_num ?? 0,
         allowed_models
     };
 }

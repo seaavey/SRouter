@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { AuthPollStatus, type ProviderConfig, type ProviderDefinition } from "@srouter/types";
+import type { ProviderConnectionView, ProviderEntry } from "@/generated/api";
+import { AuthPollStatus } from "@srouter/types";
 import { api } from "@/lib/api";
 import resolveOAuthFlow, {
     type OAuthFlowConfig
@@ -9,7 +10,7 @@ import resolveOAuthFlow, {
 import { authProviderIdOf, splitTokenLines } from "@/utils/provider-oauth.utils";
 
 interface UseOAuthConnectOptions {
-    provider: ProviderDefinition | null;
+    provider: ProviderEntry | null;
     open: boolean;
     onOpenChange: (open: boolean) => void;
 }
@@ -143,9 +144,10 @@ export function useOAuthConnect({ provider, open, onOpenChange }: UseOAuthConnec
         const pollEndpoint = flow.pollEndpoint;
         const interval = setInterval(async () => {
             try {
-                const res = await api.get<{ status: AuthPollStatus; provider?: ProviderConfig }>(
-                    `${pollEndpoint}?state=${encodeURIComponent(oauthState)}`
-                );
+                const res = await api.get<{
+                    status: AuthPollStatus;
+                    provider?: ProviderConnectionView;
+                }>(`${pollEndpoint}?state=${encodeURIComponent(oauthState)}`);
                 if (res && res.status === AuthPollStatus.OK) {
                     completeConnection();
                 }

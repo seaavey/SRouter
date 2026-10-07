@@ -11,7 +11,7 @@ import {
     TokenUsageChart,
     BreakdownTabsCard
 } from "@/components/analytics";
-import type { AnalyticsWindow } from "@srouter/types";
+import type { AnalyticsWindow } from "@/lib/types";
 
 export const Route = createFileRoute("/analytics")({
     staticData: { title: "Analytics" },
@@ -46,17 +46,17 @@ function AnalyticsPage() {
         );
     }
 
-    const hasData = data.totalRequests > 0;
+    const hasData = data.total_requests > 0;
 
-    const totalCachedTokens = data.buckets.reduce((acc, b) => acc + (b.cachedTokens ?? 0), 0);
-    const totalPromptTokensRaw = data.buckets.reduce((acc, b) => acc + (b.promptTokens ?? 0), 0);
+    const totalCachedTokens = data.buckets.reduce((acc, b) => acc + (b.cached_tokens ?? 0), 0);
+    const totalPromptTokensRaw = data.buckets.reduce((acc, b) => acc + (b.prompt_tokens ?? 0), 0);
     const totalPromptTokens = Math.max(0, totalPromptTokensRaw - totalCachedTokens);
     const totalCompletionTokens = data.buckets.reduce(
-        (acc, b) => acc + (b.completionTokens ?? 0),
+        (acc, b) => acc + (b.completion_tokens ?? 0),
         0
     );
     const totalTokensAll = data.buckets.reduce(
-        (acc, b) => acc + (b.totalTokens ?? (b.promptTokens ?? 0) + (b.completionTokens ?? 0)),
+        (acc, b) => acc + (b.total_tokens ?? (b.prompt_tokens ?? 0) + (b.completion_tokens ?? 0)),
         0
     );
 
@@ -69,13 +69,13 @@ function AnalyticsPage() {
             <AnalyticsHeader
                 window={window}
                 onWindowChange={setWindow}
-                lastUpdated={data.generatedAt}
+                lastUpdated={data.generated_at}
             />
 
             <AnalyticsStatCards
-                totalRequests={data.totalRequests}
-                errorRate={data.errorRate}
-                p95LatencyMs={data.p95LatencyMs}
+                totalRequests={data.total_requests}
+                errorRate={data.error_rate}
+                p95LatencyMs={data.p95_latency_ms}
                 totalTokens={totalTokensAll}
                 promptTokens={totalPromptTokens}
                 completionTokens={totalCompletionTokens}
@@ -83,15 +83,15 @@ function AnalyticsPage() {
             />
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <TrafficChart buckets={data.buckets} bucketSizeMs={data.bucketSizeMs} />
-                <LatencyChart buckets={data.buckets} bucketSizeMs={data.bucketSizeMs} />
+                <TrafficChart buckets={data.buckets} bucketSizeMs={data.bucket_size_ms} />
+                <LatencyChart buckets={data.buckets} bucketSizeMs={data.bucket_size_ms} />
             </div>
-            <TokenUsageChart buckets={data.buckets} bucketSizeMs={data.bucketSizeMs} />
+            <TokenUsageChart buckets={data.buckets} bucketSizeMs={data.bucket_size_ms} />
             <BreakdownTabsCard
-                models={data.topModels}
-                agents={data.topAgents}
+                models={data.top_models}
+                agents={data.top_agents}
                 providers={data.providers}
-                totalRequests={data.totalRequests}
+                totalRequests={data.total_requests}
             />
         </div>
     );

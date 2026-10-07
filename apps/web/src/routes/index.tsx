@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { ArrowDownToLine, ArrowUpFromLine, Database, RefreshCw, TriangleAlert } from "lucide-react";
 import { api } from "@/lib/api";
 import { formatCompactNumber } from "@/lib/utils";
-import type { UsageStats } from "@srouter/types";
+import type { UsageStatsReport } from "@/generated/api";
 import { ModelUsageOverview, UsageByModelTable } from "@/components/dashboard";
 import { CountUp } from "@/components/ui/count-up";
 import { GatewayTopologyMap } from "@/components/dashboard/topology";
@@ -83,7 +83,7 @@ function DashboardPage() {
         refetch
     } = useQuery({
         queryKey: ["stats"],
-        queryFn: () => api.get<UsageStats>("/v1/logs/stats"),
+        queryFn: () => api.get<UsageStatsReport>("/v1/logs/stats"),
         refetchInterval: false
     });
 
@@ -126,7 +126,7 @@ function DashboardPage() {
         return <DashboardSkeleton />;
     }
 
-    const uncachedInputTokens = Math.max(0, stats.totalInputTokens - stats.totalCachedTokens);
+    const uncachedInputTokens = Math.max(0, stats.total_input_tokens - stats.total_cached_tokens);
 
     return (
         <div className="mx-auto flex w-full min-w-0 max-w-[1360px] flex-col gap-6 px-4 sm:gap-8 sm:px-5 xl:px-0">
@@ -152,34 +152,34 @@ function DashboardPage() {
             >
                 <StatCard
                     label="Total Requests"
-                    value={stats.totalRequests}
-                    animatedValue={stats.totalRequests}
+                    value={stats.total_requests}
+                    animatedValue={stats.total_requests}
                     tooltip={
                         stats
-                            ? `${stats.totalRequests.toLocaleString()} recorded requests`
+                            ? `${stats.total_requests.toLocaleString()} recorded requests`
                             : undefined
                     }
                     detail="All recorded requests"
                 />
                 <StatCard
                     label="Total Tokens"
-                    value={stats.totalTokens}
-                    animatedValue={stats.totalTokens}
+                    value={stats.total_tokens}
+                    animatedValue={stats.total_tokens}
                     tooltip={
                         stats
-                            ? `${stats.totalTokens.toLocaleString()} total tokens (${uncachedInputTokens.toLocaleString()} input, ${stats.totalOutputTokens.toLocaleString()} output, ${stats.totalCachedTokens.toLocaleString()} cached)`
+                            ? `${stats.total_tokens.toLocaleString()} total tokens (${uncachedInputTokens.toLocaleString()} input, ${stats.total_output_tokens.toLocaleString()} output, ${stats.total_cached_tokens.toLocaleString()} cached)`
                             : undefined
                     }
                     detail={
                         stats
-                            ? `${formatCompactNumber(uncachedInputTokens)} input, ${formatCompactNumber(stats.totalOutputTokens)} output, ${formatCompactNumber(stats.totalCachedTokens)} cached`
+                            ? `${formatCompactNumber(uncachedInputTokens)} input, ${formatCompactNumber(stats.total_output_tokens)} output, ${formatCompactNumber(stats.total_cached_tokens)} cached`
                             : "0 input, 0 output, 0 cached"
                     }
                     detailContent={
                         <div
                             className="mt-4 grid grid-cols-3 gap-2 border-t border-hairline-soft pt-3 font-mono text-[11px] text-text-muted sm:gap-1"
-                            title={`${formatCompactNumber(uncachedInputTokens)} input, ${formatCompactNumber(stats.totalOutputTokens)} output, ${formatCompactNumber(stats.totalCachedTokens)} cached`}
-                            aria-label={`${formatCompactNumber(uncachedInputTokens)} input, ${formatCompactNumber(stats.totalOutputTokens)} output, ${formatCompactNumber(stats.totalCachedTokens)} cached`}
+                            title={`${formatCompactNumber(uncachedInputTokens)} input, ${formatCompactNumber(stats.total_output_tokens)} output, ${formatCompactNumber(stats.total_cached_tokens)} cached`}
+                            aria-label={`${formatCompactNumber(uncachedInputTokens)} input, ${formatCompactNumber(stats.total_output_tokens)} output, ${formatCompactNumber(stats.total_cached_tokens)} cached`}
                         >
                             <span
                                 className="flex min-w-0 items-center gap-1"
@@ -196,7 +196,7 @@ function DashboardPage() {
                                 <ArrowUpFromLine className="size-3 shrink-0" aria-hidden="true" />
                                 <span className="sr-only">Output</span>
                                 <CountUp
-                                    to={stats.totalOutputTokens}
+                                    to={stats.total_output_tokens}
                                     format={formatCompactNumber}
                                 />
                             </span>
@@ -207,7 +207,7 @@ function DashboardPage() {
                                 <Database className="size-3 shrink-0" aria-hidden="true" />
                                 <span className="sr-only">Cached</span>
                                 <CountUp
-                                    to={stats.totalCachedTokens}
+                                    to={stats.total_cached_tokens}
                                     format={formatCompactNumber}
                                 />
                             </span>
@@ -216,8 +216,8 @@ function DashboardPage() {
                 />
                 <StatCard
                     label="Estimated Cost"
-                    value={stats?.costLabel ?? "$0.0000"}
-                    animatedValue={stats.totalEstimatedCost}
+                    value={stats?.cost_label ?? "$0.0000"}
+                    animatedValue={stats.total_estimated_cost}
                     animatedFormat={(value) => `$${value.toFixed(4)}`}
                     detail={
                         stats?.estimated ? "Calculated from pricing catalog" : "Recorded token cost"
@@ -225,14 +225,14 @@ function DashboardPage() {
                 />
             </section>
             <section aria-label="Model traffic" className="w-full min-w-0">
-                <ModelUsageOverview models={stats?.byModel ?? []} />
+                <ModelUsageOverview models={stats?.by_model ?? []} />
             </section>
             <section aria-label="Topology" className="w-full min-w-0">
                 <div className="min-w-0 rounded-3xl border border-hairline-soft bg-canvas-soft overflow-hidden p-0">
                     <GatewayTopologyMap />
                 </div>
             </section>
-            <UsageByModelTable models={stats?.byModel ?? []} />
+            <UsageByModelTable models={stats?.by_model ?? []} />
         </div>
     );
 }

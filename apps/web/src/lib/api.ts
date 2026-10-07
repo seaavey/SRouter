@@ -1,4 +1,5 @@
-import type { AnalyticsReport, AnalyticsWindow } from "@srouter/types";
+import type { AnalyticsReport } from "@/generated/api";
+import type { AnalyticsWindow } from "@/lib/types";
 import { exportDatabase, importDatabase, type DatabaseImportResult } from "./databaseTransfer";
 import { ApiError, responseError } from "./apiError";
 

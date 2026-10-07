@@ -2,7 +2,7 @@ import { useState } from "react";
 import { ProviderIcon } from "@/components/providers";
 import { AgentBadgeIcon } from "./analytics.agent-icons";
 import { parseUserAgent } from "@/utils/agent-detector";
-import type { AnalyticsTopModel, AnalyticsProviderSlice, AnalyticsTopAgent } from "@srouter/types";
+import type { AnalyticsProviderSlice, AnalyticsTopAgent, AnalyticsTopModel } from "@/generated/api";
 
 interface Props {
     models: AnalyticsTopModel[];
@@ -47,15 +47,15 @@ export function BreakdownTabsCard({ models, providers, agents = [], totalRequest
         { agentName: string; totalRequests: number; totalTokens: number }
     >();
     for (const item of agents) {
-        const parsed = parseUserAgent(item.rawUserAgent || item.agent);
+        const parsed = parseUserAgent(item.raw_user_agent || item.agent);
         const key = parsed.name;
         const existing = aggregatedAgents.get(key) || {
             agentName: key,
             totalRequests: 0,
             totalTokens: 0
         };
-        existing.totalRequests += item.totalRequests;
-        existing.totalTokens += item.totalTokens;
+        existing.totalRequests += item.total_requests;
+        existing.totalTokens += item.total_tokens;
         aggregatedAgents.set(key, existing);
     }
     const sortedAgents = Array.from(aggregatedAgents.values()).sort(
@@ -118,9 +118,9 @@ export function BreakdownTabsCard({ models, providers, agents = [], totalRequest
                         </p>
                     ) : (
                         models.map((m) => {
-                            const { provider, name } = parseModelIdentifier(m.model);
+                            const { provider, name } = parseModelIdentifier(m.model ?? "");
                             const share =
-                                totalRequests > 0 ? (m.totalRequests / totalRequests) * 100 : 0;
+                                totalRequests > 0 ? (m.total_requests / totalRequests) * 100 : 0;
                             return (
                                 <div key={m.model} className="py-3.5 flex items-center gap-3.5">
                                     <div className="flex size-9 shrink-0 items-center justify-center rounded-2xl border border-hairline-soft bg-field p-1.5">
@@ -132,7 +132,7 @@ export function BreakdownTabsCard({ models, providers, agents = [], totalRequest
                                                 {name}
                                             </span>
                                             <span className="text-xs font-mono text-text-muted tabular-nums whitespace-nowrap">
-                                                {m.totalRequests.toLocaleString()} req{" "}
+                                                {m.total_requests.toLocaleString()} req{" "}
                                                 <span className="text-text-faint">
                                                     ({share.toFixed(1)}%)
                                                 </span>
@@ -146,7 +146,7 @@ export function BreakdownTabsCard({ models, providers, agents = [], totalRequest
                                         </div>
                                         <div className="flex justify-between text-[11px] font-mono text-text-muted mt-1">
                                             <span className="capitalize">{provider}</span>
-                                            <span>{m.totalTokens.toLocaleString()} tokens</span>
+                                            <span>{m.total_tokens.toLocaleString()} tokens</span>
                                         </div>
                                     </div>
                                 </div>
@@ -212,25 +212,25 @@ export function BreakdownTabsCard({ models, providers, agents = [], totalRequest
                     ) : (
                         providers.map((p) => {
                             const share =
-                                totalRequests > 0 ? (p.totalRequests / totalRequests) * 100 : 0;
+                                totalRequests > 0 ? (p.total_requests / totalRequests) * 100 : 0;
                             return (
                                 <div
-                                    key={p.providerId}
+                                    key={p.provider_id}
                                     className="py-3.5 flex items-center gap-3.5"
                                 >
                                     <div className="flex size-9 shrink-0 items-center justify-center rounded-2xl border border-hairline-soft bg-field p-1.5">
                                         <ProviderIcon
-                                            providerId={p.providerId}
+                                            providerId={p.provider_id}
                                             className="size-5"
                                         />
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-baseline justify-between gap-2">
                                             <span className="text-xs font-semibold text-ink capitalize truncate">
-                                                {p.providerId}
+                                                {p.provider_id}
                                             </span>
                                             <span className="text-xs font-mono text-text-muted tabular-nums whitespace-nowrap">
-                                                {p.totalRequests.toLocaleString()} req{" "}
+                                                {p.total_requests.toLocaleString()} req{" "}
                                                 <span className="text-text-faint">
                                                     ({share.toFixed(1)}%)
                                                 </span>

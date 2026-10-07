@@ -2,15 +2,20 @@ import { useCallback, useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
-import type { CreateAPIKeyZod, APIKeyZod, UpdateAPIKeyZod } from "@srouter/types";
+import type {
+    APIKeyResponse,
+    CreateAPIKeyInput,
+    CreatedAPIKeyResponse,
+    UpdateAPIKeyInput
+} from "@/generated/api";
 
 type KeysResponse = {
-    data: APIKeyZod[];
+    data: APIKeyResponse[];
 };
 
 type UpdateKeyVariables = {
     id: string;
-    data: UpdateAPIKeyZod;
+    data: UpdateAPIKeyInput;
 };
 
 const KEYS_QUERY_KEY = ["keys"] as const;
@@ -21,7 +26,7 @@ function getErrorMessage(error: unknown, fallback: string): string {
 
 export function useKeys() {
     const queryClient = useQueryClient();
-    const [newlyCreatedKey, setNewlyCreatedKey] = useState<APIKeyZod | null>(null);
+    const [newlyCreatedKey, setNewlyCreatedKey] = useState<CreatedAPIKeyResponse | null>(null);
 
     const keysQuery = useQuery({
         queryKey: KEYS_QUERY_KEY,
@@ -36,7 +41,7 @@ export function useKeys() {
     }, [keysQuery.error]);
 
     const createMutation = useMutation({
-        mutationFn: (data: CreateAPIKeyZod) => api.post<APIKeyZod>("/v1/keys", data),
+        mutationFn: (data: CreateAPIKeyInput) => api.post<CreatedAPIKeyResponse>("/v1/keys", data),
         onSuccess: (created) => {
             queryClient.setQueryData<KeysResponse>(KEYS_QUERY_KEY, (current) =>
                 current ? { ...current, data: [created, ...current.data] } : current
@@ -52,7 +57,7 @@ export function useKeys() {
 
     const updateMutation = useMutation({
         mutationFn: ({ id, data }: UpdateKeyVariables) =>
-            api.patch<APIKeyZod>(`/v1/keys/${id}`, data),
+            api.patch<APIKeyResponse>(`/v1/keys/${id}`, data),
         onSuccess: (updated) => {
             queryClient.setQueryData<KeysResponse>(KEYS_QUERY_KEY, (current) =>
                 current
@@ -87,7 +92,7 @@ export function useKeys() {
     });
 
     const createKey = useCallback(
-        async (data: CreateAPIKeyZod) => {
+        async (data: CreateAPIKeyInput) => {
             if (!data.name.trim()) {
                 toast.error("Key name is required");
                 return null;
@@ -103,7 +108,7 @@ export function useKeys() {
     );
 
     const updateKey = useCallback(
-        async (id: string, data: UpdateAPIKeyZod) => {
+        async (id: string, data: UpdateAPIKeyInput) => {
             try {
                 return await updateMutation.mutateAsync({ id, data });
             } catch {

@@ -25,7 +25,7 @@ import type { UsageByModelTableProps } from "./usage-by-model.typed";
 
 export function UsageByModelTable({ models }: UsageByModelTableProps) {
     const [search_model, set_search_model] = useState("");
-    const [sorting, set_sorting] = useState<SortingState>([{ id: "totalRequests", desc: true }]);
+    const [sorting, set_sorting] = useState<SortingState>([{ id: "total_requests", desc: true }]);
     const [pagination, set_pagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 10 });
 
     const filtered_models = useMemo(() => {

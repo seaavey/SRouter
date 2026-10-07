@@ -3,13 +3,13 @@ import { Zap } from "lucide-react";
 import { ProviderIcon } from "@/components/providers";
 import { getGatewayBaseUrl } from "@/lib/api";
 import { getConnectedCount } from "@/utils/provider.utils";
-import type { ProviderDefinition } from "@srouter/types";
+import type { ProviderEntry } from "@/generated/api";
 
 export function ProviderMatrixView({
     displayedProviders,
     activeProviderIds
 }: {
-    displayedProviders: ProviderDefinition[];
+    displayedProviders: ProviderEntry[];
     activeProviderIds: Set<string>;
 }) {
     const apiBase = getGatewayBaseUrl();

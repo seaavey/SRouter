@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { Cpu, Layers } from "lucide-react";
-import type { UsageStats } from "@srouter/types";
+import type { UsageStatsReport } from "@/generated/api";
 import { ProviderIcon } from "@/components/providers";
 import {
     Empty,
@@ -12,7 +12,7 @@ import {
 import { formatCompactNumber } from "@/lib/utils";
 
 type ModelUsageOverviewProps = {
-    models: UsageStats["byModel"];
+    models: UsageStatsReport["by_model"];
 };
 
 function parseModelIdentifier(fullModel: string) {
@@ -36,23 +36,23 @@ export function ModelUsageOverview({ models }: ModelUsageOverviewProps) {
         return [...models]
             .sort(
                 (a, b) =>
-                    b.totalInputTokens +
-                    b.totalOutputTokens -
-                    (a.totalInputTokens + a.totalOutputTokens)
+                    b.total_input_tokens +
+                    b.total_output_tokens -
+                    (a.total_input_tokens + a.total_output_tokens)
             )
             .slice(0, 5);
     }, [models]);
 
     const maxTokens = useMemo(() => {
         return Math.max(
-            ...topModels.map((model) => model.totalInputTokens + model.totalOutputTokens),
+            ...topModels.map((model) => model.total_input_tokens + model.total_output_tokens),
             0
         );
     }, [topModels]);
 
     const totalTopVolume = useMemo(() => {
         return topModels.reduce(
-            (acc, model) => acc + model.totalInputTokens + model.totalOutputTokens,
+            (acc, model) => acc + model.total_input_tokens + model.total_output_tokens,
             0
         );
     }, [topModels]);
@@ -116,7 +116,7 @@ export function ModelUsageOverview({ models }: ModelUsageOverviewProps) {
             ) : (
                 <div className="mt-4 space-y-2.5" aria-label="Top models by token volume">
                     {topModels.map((model, index) => {
-                        const totalTokens = model.totalInputTokens + model.totalOutputTokens;
+                        const totalTokens = model.total_input_tokens + model.total_output_tokens;
                         const width =
                             maxTokens > 0 ? Math.max((totalTokens / maxTokens) * 100, 1.5) : 0;
                         const sharePercent =
@@ -124,9 +124,9 @@ export function ModelUsageOverview({ models }: ModelUsageOverviewProps) {
                                 ? ((totalTokens / totalTopVolume) * 100).toFixed(1)
                                 : "0.0";
                         const { provider, name } = parseModelIdentifier(model.model);
-                        const inputRatio = (model.totalInputTokens / (totalTokens || 1)) * 100;
-                        const outputRatio = (model.totalOutputTokens / (totalTokens || 1)) * 100;
-                        const breakdown = `${model.totalInputTokens.toLocaleString()} input (${inputRatio.toFixed(1)}%), ${model.totalOutputTokens.toLocaleString()} output (${outputRatio.toFixed(1)}%)${model.totalCachedTokens ? `, ${model.totalCachedTokens.toLocaleString()} cached` : ""}`;
+                        const inputRatio = (model.total_input_tokens / (totalTokens || 1)) * 100;
+                        const outputRatio = (model.total_output_tokens / (totalTokens || 1)) * 100;
+                        const breakdown = `${model.total_input_tokens.toLocaleString()} input (${inputRatio.toFixed(1)}%), ${model.total_output_tokens.toLocaleString()} output (${outputRatio.toFixed(1)}%)${model.total_cached_tokens ? `, ${model.total_cached_tokens.toLocaleString()} cached` : ""}`;
 
                         return (
                             <div
@@ -163,17 +163,17 @@ export function ModelUsageOverview({ models }: ModelUsageOverviewProps) {
                                     <div className="flex items-center justify-between sm:justify-end gap-3 font-mono tabular-nums text-xs">
                                         <span
                                             className="text-left sm:w-16 sm:text-right text-text-muted"
-                                            title={`Requests: ${model.totalRequests.toLocaleString()}`}
+                                            title={`Requests: ${model.total_requests.toLocaleString()}`}
                                         >
-                                            {formatCompactNumber(model.totalRequests)}{" "}
+                                            {formatCompactNumber(model.total_requests)}{" "}
                                             <span className="text-[10px] opacity-70">req</span>
                                         </span>
                                         <span
                                             className="text-right sm:w-20 text-text-muted"
-                                            title={`Prompt Tokens: ${model.totalInputTokens.toLocaleString()}`}
+                                            title={`Prompt Tokens: ${model.total_input_tokens.toLocaleString()}`}
                                         >
                                             <strong className="font-semibold text-ink">
-                                                {formatCompactNumber(model.totalInputTokens)}
+                                                {formatCompactNumber(model.total_input_tokens)}
                                             </strong>
                                             <span className="text-[10px] opacity-70 ml-0.5">
                                                 in
@@ -181,10 +181,10 @@ export function ModelUsageOverview({ models }: ModelUsageOverviewProps) {
                                         </span>
                                         <span
                                             className="text-right sm:w-20 text-text-muted"
-                                            title={`Completion Tokens: ${model.totalOutputTokens.toLocaleString()}`}
+                                            title={`Completion Tokens: ${model.total_output_tokens.toLocaleString()}`}
                                         >
                                             <strong className="font-semibold text-ink">
-                                                {formatCompactNumber(model.totalOutputTokens)}
+                                                {formatCompactNumber(model.total_output_tokens)}
                                             </strong>
                                             <span className="text-[10px] opacity-70 ml-0.5">
                                                 out
@@ -219,12 +219,12 @@ export function ModelUsageOverview({ models }: ModelUsageOverviewProps) {
                                                 <span
                                                     className="h-full bg-ink/30"
                                                     style={{ width: `${inputRatio}%` }}
-                                                    title={`Input: ${model.totalInputTokens.toLocaleString()}`}
+                                                    title={`Input: ${model.total_input_tokens.toLocaleString()}`}
                                                 />
                                                 <span
                                                     className="h-full bg-ink"
                                                     style={{ width: `${outputRatio}%` }}
-                                                    title={`Output: ${model.totalOutputTokens.toLocaleString()}`}
+                                                    title={`Output: ${model.total_output_tokens.toLocaleString()}`}
                                                 />
                                             </div>
                                         </div>

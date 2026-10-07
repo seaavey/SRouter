@@ -1,14 +1,14 @@
 import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import type { LogsStreamEvent } from "@srouter/types";
+import type { LiveEvent } from "@/generated/api";
 import { getGatewayBaseUrl } from "@/lib/api";
 
 type UseLogsStreamOptions = {
     invalidateLogs?: boolean;
-    onEvent?: (event: LogsStreamEvent) => void;
+    onEvent?: (event: LiveEvent) => void;
 };
 
-function IsLogsStreamEvent(value: unknown): value is LogsStreamEvent {
+function IsLogsStreamEvent(value: unknown): value is LiveEvent {
     if (typeof value !== "object" || value === null || !("type" in value)) return false;
 
     const type = value.type;

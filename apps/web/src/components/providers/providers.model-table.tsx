@@ -22,7 +22,7 @@ import {
     Trash2,
     X
 } from "lucide-react";
-import type { ModelObject } from "@srouter/types";
+import type { CatalogModel } from "@/generated/api";
 import {
     Table,
     TableHeader,
@@ -36,7 +36,7 @@ import { useFavorites } from "@/hooks/useFavorites";
 import { toast } from "sonner";
 
 interface ProviderModelTableProps {
-    models: ModelObject[];
+    models: CatalogModel[];
     copied: string | null;
     onCopy: (modelId: string) => void;
     onDelete?: (modelId: string) => void;
@@ -140,7 +140,7 @@ export default function ProviderModelTable({
         }
     };
 
-    const columns = useMemo<ColumnDef<ModelObject>[]>(
+    const columns = useMemo<ColumnDef<CatalogModel>[]>(
         () => [
             {
                 id: "select",

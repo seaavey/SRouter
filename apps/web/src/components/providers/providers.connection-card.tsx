@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Check, Copy, KeyRound, Plus, RefreshCw, ShieldCheck, Trash2 } from "lucide-react";
-import type { ProviderConfig } from "@srouter/types";
+import type { ProviderConnectionView } from "@/generated/api";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { useCopy } from "@/hooks/useCopy";
@@ -18,7 +18,7 @@ import {
 
 interface ConnectionCardProps {
     providerName: string;
-    connections: ProviderConfig[];
+    connections: ProviderConnectionView[];
     roundRobin: boolean;
     providerEnabled: boolean;
     isDeleting: boolean;
@@ -32,7 +32,7 @@ interface ConnectionCardProps {
     onVerify: (connectionId: string) => Promise<{ success: boolean; message: string }>;
 }
 
-function getConnectionDisplayTitle(connection: ProviderConfig): string {
+function getConnectionDisplayTitle(connection: ProviderConnectionView): string {
     return getConnectionDisplayName(connection) ?? connection.name ?? "";
 }
 

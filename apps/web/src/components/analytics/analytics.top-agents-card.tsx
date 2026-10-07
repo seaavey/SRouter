@@ -1,4 +1,4 @@
-import type { AnalyticsTopAgent } from "@srouter/types";
+import type { AnalyticsTopAgent } from "@/generated/api";
 import { AgentBadgeIcon } from "./analytics.agent-icons";
 import { parseUserAgent } from "@/utils/agent-detector";
 
@@ -24,15 +24,15 @@ export function TopCodingAgentsCard({ agents = [], totalRequests }: Props) {
         { agentName: string; totalRequests: number; totalTokens: number }
     >();
     for (const item of agents) {
-        const parsed = parseUserAgent(item.rawUserAgent || item.agent);
+        const parsed = parseUserAgent(item.raw_user_agent || item.agent);
         const key = parsed.name;
         const existing = aggregated.get(key) || {
             agentName: key,
             totalRequests: 0,
             totalTokens: 0
         };
-        existing.totalRequests += item.totalRequests;
-        existing.totalTokens += item.totalTokens;
+        existing.totalRequests += item.total_requests;
+        existing.totalTokens += item.total_tokens;
         aggregated.set(key, existing);
     }
 

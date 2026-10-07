@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Activity } from "lucide-react";
 import { api } from "@/lib/api";
 import { formatCompactNumber } from "@/lib/utils";
-import type { RequestLogEntry } from "@srouter/types";
+import type { RequestLog } from "@/generated/api";
 import type { ListResponse } from "@/lib/types";
 
 function formatTimeAgo(timestamp: number): string {
@@ -19,7 +19,7 @@ function formatTimeAgo(timestamp: number): string {
 export function RecentRequestsFeed() {
     const { data, isLoading } = useQuery({
         queryKey: ["recent-logs-feed"],
-        queryFn: () => api.get<ListResponse<RequestLogEntry>>("/v1/logs?limit=6"),
+        queryFn: () => api.get<ListResponse<RequestLog>>("/v1/logs?limit=6"),
         refetchInterval: 3000,
         refetchIntervalInBackground: false
     });
@@ -77,7 +77,7 @@ export function RecentRequestsFeed() {
                     ) : (
                         <div className="divide-y divide-hairline-soft">
                             {logs.map((log) => {
-                                const isSuccess = log.statusCode >= 200 && log.statusCode < 300;
+                                const isSuccess = log.status_code >= 200 && log.status_code < 300;
                                 return (
                                     <div
                                         key={log.id}
@@ -88,30 +88,31 @@ export function RecentRequestsFeed() {
                                                 className={`size-2 shrink-0 rounded-full ${
                                                     isSuccess ? "bg-emerald-500" : "bg-rose-500"
                                                 }`}
-                                                title={`HTTP ${log.statusCode}`}
-                                                aria-label={`Status ${log.statusCode}`}
+                                                title={`HTTP ${log.status_code}`}
+                                                aria-label={`Status ${log.status_code}`}
                                             />
                                             <div className="min-w-0">
                                                 <p
                                                     className="truncate font-sans text-sm font-medium text-ink"
-                                                    title={log.model}
+                                                    title={log.model ?? ""}
                                                 >
                                                     {log.model}
                                                 </p>
                                                 <p className="font-mono text-xs text-text-muted">
-                                                    {formatCompactNumber(log.promptTokens)} in ·{" "}
-                                                    {formatCompactNumber(log.completionTokens)} out
+                                                    {formatCompactNumber(log.input_tokens ?? 0)} in
+                                                    · {formatCompactNumber(log.output_tokens ?? 0)}{" "}
+                                                    out
                                                 </p>
                                             </div>
                                         </div>
 
                                         <div className="flex shrink-0 flex-col items-end gap-0.5">
                                             <span className="font-mono text-xs text-text-faint">
-                                                {formatTimeAgo(log.createdAt)}
+                                                {formatTimeAgo(log.created_at)}
                                             </span>
-                                            {log.latencyMs !== undefined && (
+                                            {log.latency_ms !== undefined && (
                                                 <span className="font-mono text-[11px] text-text-faint/80">
-                                                    {log.latencyMs}ms
+                                                    {log.latency_ms}ms
                                                 </span>
                                             )}
                                         </div>

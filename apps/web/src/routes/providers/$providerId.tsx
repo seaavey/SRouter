@@ -126,7 +126,7 @@ function ProviderDetailPage() {
         const payload: AddConnectionPayload = {
             id: `${provider.id}-${Date.now()}`,
             name: input.name?.trim() || `${provider.name} Key`,
-            category: provider.category,
+            category: provider.category as AddConnectionPayload["category"],
             protocol: provider.protocol,
             base_url: input.base_url || provider.default_base_url || undefined,
             api_key: input.api_key
@@ -327,7 +327,7 @@ function ProviderDetailPage() {
             <ConnectionCard
                 providerName={provider.name}
                 connections={connections}
-                roundRobin={provider.roundRobin ?? false}
+                roundRobin={provider.round_robin ?? false}
                 providerEnabled={provider.enabled ?? true}
                 isDeleting={deleteMutation.isPending}
                 requiresOAuth={provider.requires_oauth}

@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { KNOWN_PROVIDERS } from "@srouter/constants";
-import type { ProviderDefinition } from "@srouter/types";
+import type { ProviderEntry } from "@/generated/api";
 import {
     buildFilterOptions,
     buildGroups,
@@ -12,20 +12,25 @@ import {
     type FilterValue
 } from "@/utils/catalog.utils";
 
-const STATIC_DEFAULT_PROVIDERS: ProviderDefinition[] = KNOWN_PROVIDERS.map((kp) => ({
+const STATIC_DEFAULT_PROVIDERS: ProviderEntry[] = KNOWN_PROVIDERS.map((kp) => ({
     id: kp.id,
     name: kp.name,
     category: kp.category,
-    protocol: kp.protocol,
-    default_base_url: kp.base_url,
+    // The Rust enum carries three values; Node's union still lists the dead
+    // `gemini`, which no seeded provider uses (`docs/api-v1-contract.md`,
+    // "Providers in the Rust build").
+    protocol: kp.protocol as ProviderEntry["protocol"],
+    default_base_url: kp.base_url ?? "",
     requires_api_key: kp.requires_api_key,
-    requires_oauth: kp.requires_oauth,
+    requires_oauth: kp.requires_oauth ?? false,
     supports_custom_url: kp.supports_custom_url ?? true,
     status: {
         state: !kp.requires_api_key && !kp.requires_oauth ? "connected" : "no_connections",
         message: kp.status_message,
-        connectedCount: !kp.requires_api_key && !kp.requires_oauth ? 1 : 0
+        connected_count: !kp.requires_api_key && !kp.requires_oauth ? 1 : 0
     },
+    enabled: true,
+    round_robin: true,
     models: [],
     connections: []
 }));
@@ -44,7 +49,7 @@ export function useCatalog() {
 
     const allProviders = useMemo(() => {
         // Base list from static known providers
-        const providerMap = new Map<string, ProviderDefinition>();
+        const providerMap = new Map<string, ProviderEntry>();
 
         for (const p of STATIC_DEFAULT_PROVIDERS) {
             providerMap.set(p.id, { ...p });
@@ -83,7 +88,7 @@ export function useCatalog() {
 
     const syntheticCatalogSummary: CatalogSummary | undefined = useMemo(() => {
         if (!liveData) return undefined;
-        const categories: Record<string, ProviderDefinition[]> = {
+        const categories: Record<string, ProviderEntry[]> = {
             oauth: allProviders.filter((p) => p.category === "oauth"),
             api_key: allProviders.filter((p) => p.category === "api_key"),
             custom_provider: allProviders.filter((p) => p.category === "custom_provider"),

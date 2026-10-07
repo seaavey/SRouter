@@ -1,15 +1,16 @@
 import { CATEGORY_DESCRIPTIONS, CATEGORY_LABELS, CATEGORY_ORDER } from "@srouter/constants";
-import type { ProviderCategory, ProviderDefinition } from "@srouter/types";
+import type { ProviderEntry } from "@/generated/api";
+import type { ProviderCategory } from "@srouter/types";
 import { getConnectedCount } from "@/utils/provider.utils";
 
 export interface CatalogSummary {
     total: number;
-    categories: Record<ProviderCategory, ProviderDefinition[]>;
+    categories: Record<ProviderCategory, ProviderEntry[]>;
 }
 
 export type FilterValue = "all" | ProviderCategory;
 
-export function flattenCatalog(data: CatalogSummary): ProviderDefinition[] {
+export function flattenCatalog(data: CatalogSummary): ProviderEntry[] {
     return CATEGORY_ORDER.flatMap((category) => data.categories[category] ?? []);
 }
 
@@ -21,7 +22,7 @@ export interface CatalogSummaryItems {
 
 export function buildSummaryItems(
     data: CatalogSummary,
-    allProviders: ProviderDefinition[]
+    allProviders: ProviderEntry[]
 ): CatalogSummaryItems[] {
     const connectedProviders = allProviders.filter((provider) => getConnectedCount(provider) > 0);
     const totalConnections = allProviders.reduce(
@@ -56,7 +57,7 @@ export function buildSummaryItems(
 
 export function buildFilterOptions(
     data: CatalogSummary,
-    allProviders: ProviderDefinition[]
+    allProviders: ProviderEntry[]
 ): { value: FilterValue; label: string; count: number }[] {
     return [
         { value: "all", label: "All", count: allProviders.length },
@@ -69,7 +70,7 @@ export function buildFilterOptions(
 }
 
 export function matchesProvider(
-    provider: ProviderDefinition,
+    provider: ProviderEntry,
     filter: FilterValue,
     normalizedSearch: string
 ): boolean {
@@ -83,9 +84,9 @@ export function matchesProvider(
 }
 
 export function buildGroups(
-    providers: ProviderDefinition[],
+    providers: ProviderEntry[],
     filter: FilterValue
-): { category: ProviderCategory; providers: ProviderDefinition[] }[] {
+): { category: ProviderCategory; providers: ProviderEntry[] }[] {
     if (filter === "all") {
         return CATEGORY_ORDER.map((category) => ({
             category,

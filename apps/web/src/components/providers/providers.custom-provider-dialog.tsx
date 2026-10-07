@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Plug, CheckCircle2, Globe, Key, X } from "lucide-react";
 import { toast } from "sonner";
-import type { CreateProviderZod, ProviderDefinition, ProviderProtocol } from "@srouter/types";
+import type { ProviderEntry, ProviderProtocol } from "@/generated/api";
+import type { CreateProviderZod } from "@srouter/types";
 import {
     Dialog,
     DialogContent,
@@ -61,7 +62,7 @@ export default function CustomProviderDialog({ open, onOpenChange }: CustomProvi
 
     const saveMutation = useMutation({
         mutationFn: (payload: CreateProviderZod) =>
-            api.post<ProviderDefinition>("/v1/providers", payload),
+            api.post<ProviderEntry>("/v1/providers", payload),
         onSuccess: (provider) => {
             invalidateCatalog();
             toast.success(`Provider "${provider.name}" added`);

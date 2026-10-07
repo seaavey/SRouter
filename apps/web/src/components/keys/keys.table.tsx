@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
-import { Check, Copy, KeyRound, Pencil, Plus, Trash2, Search, X } from "lucide-react";
-import type { APIKeyZod } from "@srouter/types";
+import { KeyRound, Pencil, Plus, Trash2, Search, X } from "lucide-react";
+import type { APIKeyResponse } from "@/generated/api";
 import { formatCompactNumber } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,15 +12,13 @@ import {
     EmptyTitle
 } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
-import { useCopy } from "@/hooks/useCopy";
-import { maskKey } from "./keys.form-types";
 
 type KeyTableProps = {
-    keys: APIKeyZod[];
+    keys: APIKeyResponse[];
     deletingId: string | null;
     onCreateClick: () => void;
-    onEditClick: (key: APIKeyZod) => void;
-    onDeleteClick: (key: APIKeyZod) => void;
+    onEditClick: (key: APIKeyResponse) => void;
+    onDeleteClick: (key: APIKeyResponse) => void;
 };
 
 export default function KeyTable({
@@ -30,7 +28,6 @@ export default function KeyTable({
     onEditClick,
     onDeleteClick
 }: KeyTableProps) {
-    const { copied, copy } = useCopy();
     const [searchQuery, setSearchQuery] = useState("");
 
     const filteredKeys = useMemo(() => {
@@ -39,7 +36,7 @@ export default function KeyTable({
         return keys.filter(
             (k) =>
                 k.name.toLowerCase().includes(query) ||
-                k.key.toLowerCase().includes(query) ||
+                k.key_prefix.toLowerCase().includes(query) ||
                 (k.allowed_models && k.allowed_models.some((m) => m.toLowerCase().includes(query)))
         );
     }, [keys, searchQuery]);
@@ -155,7 +152,7 @@ export default function KeyTable({
                         </thead>
                         <tbody className="divide-y divide-hairline-soft">
                             {filteredKeys.map((k) => {
-                                const isCopied = copied === k.key;
+                                const prefix = k.key_prefix;
                                 const isDeleting = deletingId === k.id;
                                 const quotaLimit = k.quota_limit ?? 0;
                                 const usageTokens = k.usage_tokens ?? 0;
@@ -189,31 +186,12 @@ export default function KeyTable({
                                                 {k.name}
                                             </div>
                                             <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                                                <button
-                                                    type="button"
-                                                    onClick={() =>
-                                                        void copy(
-                                                            k.key,
-                                                            "API key copied to clipboard"
-                                                        )
-                                                    }
-                                                    aria-label={`Copy API key ${k.name}`}
-                                                    className="inline-flex items-center gap-1.5 rounded-full bg-field px-2.5 py-1 font-mono text-xs text-text-muted hover:text-ink hover:bg-canvas-soft transition-colors cursor-pointer"
-                                                    title="Click to copy full key token"
+                                                <span
+                                                    className="inline-flex items-center gap-1.5 rounded-full bg-field px-2.5 py-1 font-mono text-xs text-text-muted"
+                                                    title="Key prefix; the full secret exists only in the response that created the key"
                                                 >
-                                                    <span>{maskKey(k.key)}</span>
-                                                    {isCopied ? (
-                                                        <Check
-                                                            className="size-3 text-emerald-500 shrink-0"
-                                                            aria-hidden="true"
-                                                        />
-                                                    ) : (
-                                                        <Copy
-                                                            className="size-3 opacity-60 shrink-0"
-                                                            aria-hidden="true"
-                                                        />
-                                                    )}
-                                                </button>
+                                                    {prefix}
+                                                </span>
                                                 <span className="font-mono text-xs text-text-muted/70">
                                                     {new Date(k.created_at).toLocaleDateString()}
                                                 </span>

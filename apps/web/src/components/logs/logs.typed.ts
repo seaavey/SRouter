@@ -1,9 +1,9 @@
-import type { RequestLogEntry } from "@srouter/types";
+import type { RequestLog } from "@/generated/api";
 
 export interface LogTableProps {
-    logs: RequestLogEntry[];
+    logs: RequestLog[];
     requireApiKey?: boolean;
-    onSelect: (log: RequestLogEntry) => void;
+    onSelect: (log: RequestLog) => void;
     page?: number;
     pageSize?: number;
     pageCount?: number;

@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { formatCompactNumber } from "@/lib/utils";
-import type { APIKeyZod, PaginatedLogsResponse, RequestLogEntry, UsageStats } from "@srouter/types";
+import type { APIKeyResponse, LogsResponse, RequestLog, UsageStatsReport } from "@/generated/api";
 import type { ListResponse } from "@/lib/types";
 import { LogsSkeleton } from "@/components/skeletons";
 import { useLogs, type LogStatusFilter } from "@/hooks/useLogs";
@@ -48,9 +48,9 @@ function LogsPage() {
     const requireApiKey = Boolean(serverSettings?.require_api_key ?? serverSettings?.requireApiKey);
 
     // Fetch API Keys list if requireApiKey is enabled to enrich filters
-    const { data: keysData } = useQuery<{ data: APIKeyZod[] }>({
+    const { data: keysData } = useQuery<{ data: APIKeyResponse[] }>({
         queryKey: ["api_keys_list"],
-        queryFn: () => api.get<{ data: APIKeyZod[] }>("/v1/keys"),
+        queryFn: () => api.get<{ data: APIKeyResponse[] }>("/v1/keys"),
         enabled: requireApiKey
     });
 
@@ -60,37 +60,37 @@ function LogsPage() {
         queryKey: ["logs", page, pageSize, statusFilter],
         queryFn: () => {
             const statusParam = statusFilter !== "all" ? `&status=${statusFilter}` : "";
-            return api.get<PaginatedLogsResponse>(
+            return api.get<LogsResponse>(
                 `/v1/logs?page=${page}&limit=${pageSize}${statusParam}`
             );
         },
         refetchInterval: 10000
     });
 
-    const { data: globalStats } = useQuery<UsageStats>({
+    const { data: globalStats } = useQuery<UsageStatsReport>({
         queryKey: ["stats"],
-        queryFn: () => api.get<UsageStats>("/v1/logs/stats"),
+        queryFn: () => api.get<UsageStatsReport>("/v1/logs/stats"),
         refetchInterval: false
     });
 
     useLogsStream({ invalidateLogs: true });
 
-    const logs: RequestLogEntry[] = data?.data ?? [];
+    const logs: RequestLog[] = data?.data ?? [];
     const filter = useLogs(logs);
 
     // Calculate aggregated metrics from all-time stats, with fallback to loaded logs
     const stats = useMemo(() => {
         if (globalStats) {
-            const totalRequests = globalStats.totalRequests;
-            const successRequests = globalStats.totalSuccessRequests ?? totalRequests;
+            const totalRequests = globalStats.total_requests;
+            const successRequests = globalStats.total_success_requests ?? totalRequests;
             const successRate = totalRequests > 0 ? (successRequests / totalRequests) * 100 : 100;
             return {
                 totalRequests,
-                totalTokens: globalStats.totalTokens,
-                totalInputTokens: globalStats.totalInputTokens,
-                totalOutputTokens: globalStats.totalOutputTokens,
-                totalCost: globalStats.totalEstimatedCost,
-                cachedTokens: globalStats.totalCachedTokens,
+                totalTokens: globalStats.total_tokens,
+                totalInputTokens: globalStats.total_input_tokens,
+                totalOutputTokens: globalStats.total_output_tokens,
+                totalCost: globalStats.total_estimated_cost,
+                cachedTokens: globalStats.total_cached_tokens,
                 successRate,
                 isGlobal: true
             };
@@ -104,12 +104,12 @@ function LogsPage() {
         let successCount = 0;
 
         for (const log of logs) {
-            totalTokens += log.totalTokens;
-            totalInputTokens += log.promptTokens;
-            totalOutputTokens += log.completionTokens;
-            totalCost += log.costBreakdown?.totalCost ?? log.estimatedCost ?? 0;
-            cachedTokens += log.cachedTokens ?? 0;
-            if (log.statusCode >= 200 && log.statusCode < 300) {
+            totalTokens += log.total_tokens ?? 0;
+            totalInputTokens += log.input_tokens ?? 0;
+            totalOutputTokens += log.output_tokens ?? 0;
+            totalCost += log.estimated_cost ?? 0;
+            cachedTokens += log.cached_tokens ?? 0;
+            if (log.status_code >= 200 && log.status_code < 300) {
                 successCount++;
             }
         }

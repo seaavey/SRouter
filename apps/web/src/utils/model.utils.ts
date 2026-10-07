@@ -1,6 +1,6 @@
-import type { ModelObject } from "@srouter/types";
+import type { CatalogModel } from "@/generated/api";
 
-export function providerFor(model: ModelObject): string {
+export function providerFor(model: CatalogModel): string {
     return model.owned_by ?? model.id.split("/")[0] ?? "srouter";
 }
 

@@ -1,11 +1,11 @@
 import { AlertCircle, Check, Copy } from "lucide-react";
-import type { APIKeyZod } from "@srouter/types";
+import type { CreatedAPIKeyResponse } from "@/generated/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useCopy } from "@/hooks/useCopy";
 
 interface KeySecretContentProps {
-    apiKey: APIKeyZod;
+    apiKey: CreatedAPIKeyResponse;
 }
 
 export default function KeySecretContent({ apiKey }: KeySecretContentProps) {
@@ -63,7 +63,7 @@ export default function KeySecretContent({ apiKey }: KeySecretContentProps) {
     );
 }
 
-function KeyLimitsSummary({ apiKey }: { apiKey: APIKeyZod }) {
+function KeyLimitsSummary({ apiKey }: { apiKey: CreatedAPIKeyResponse }) {
     const hasLimits = apiKey.credit_limit > 0 || apiKey.quota_limit > 0 || apiKey.rate_limit > 0;
     if (!hasLimits) return null;
 

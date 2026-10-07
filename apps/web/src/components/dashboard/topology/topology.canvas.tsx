@@ -51,8 +51,8 @@ function GatewayTopologyCanvas() {
 
             setActivePings((prev) => ({
                 ...prev,
-                [event.log.providerId.toLowerCase()]: {
-                    latency: event.log.latencyMs,
+                [(event.log.provider ?? "").toLowerCase()]: {
+                    latency: event.log.latency_ms,
                     expires_at: Date.now() + 5000
                 }
             }));
@@ -91,7 +91,7 @@ function GatewayTopologyCanvas() {
                 p.id === "opencode" ||
                 (!p.requires_api_key && !p.requires_oauth) ||
                 isProviderConnected(p) ||
-                (p.status?.connectedCount ?? 0) > 0 ||
+                (p.status?.connected_count ?? 0) > 0 ||
                 p.status?.state === "connected" ||
                 (p.connections && p.connections.length > 0)
         );

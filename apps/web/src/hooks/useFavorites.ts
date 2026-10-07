@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { ModelListResponse } from "@srouter/types";
+import type { ModelListResponse } from "@/generated/api";
 import { api } from "@/lib/api";
 
 const STORAGE_KEY = "srouter_favorite_models";

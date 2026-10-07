@@ -2,7 +2,7 @@ import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Check, ChevronDown, ChevronRight, Copy } from "lucide-react";
-import type { RequestLogEntry } from "@srouter/types";
+import type { RequestLog } from "@/generated/api";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -78,12 +78,12 @@ function LogDetailPage() {
         );
     }
 
-    const isOk = log.statusCode >= 200 && log.statusCode < 300;
-    const totalCost = log.costBreakdown?.totalCost ?? log.estimatedCost ?? 0;
+    const isOk = log.status_code >= 200 && log.status_code < 300;
+    const totalCost = log.estimated_cost ?? 0;
     const hasRoutingNotice = Boolean(
-        (log.resolvedModel && log.resolvedModel !== log.model) || log.fallbackOccurred
+        (log.resolved_model && log.resolved_model !== log.model) || log.fallback_occurred
     );
-    const occurredAt = new Date(log.createdAt);
+    const occurredAt = new Date(log.created_at);
     const occurredLabel = occurredAt.toLocaleString([], {
         month: "short",
         day: "numeric",
@@ -108,17 +108,17 @@ function LogDetailPage() {
             <header className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] lg:items-start">
                 <div className="flex min-w-0 flex-col gap-3">
                     <div className="flex flex-wrap items-center gap-2.5">
-                        <Badge variant={isOk ? "emerald" : "destructive"}>{log.statusCode}</Badge>
+                        <Badge variant={isOk ? "emerald" : "destructive"}>{log.status_code}</Badge>
                         <span className="font-mono text-xs text-text-muted tabular-nums">
                             {occurredLabel}
                         </span>
                     </div>
                     <h1 className="text-2xl font-semibold tracking-tight text-balance text-ink sm:text-3xl">
-                        {log.resolvedModel ?? log.model}
+                        {log.resolved_model ?? log.model}
                     </h1>
                     <p className="font-mono text-xs text-text-muted">
-                        {log.providerId} · {formatDuration(log.latencyMs)} ·{" "}
-                        {log.totalTokens.toLocaleString()} tokens · ${totalCost.toFixed(4)}
+                        {log.provider} · {formatDuration(log.latency_ms)} ·{" "}
+                        {(log.total_tokens ?? 0).toLocaleString()} tokens · ${totalCost.toFixed(4)}
                     </p>
                     <div className="flex max-w-full items-center gap-2">
                         <code className="min-w-0 flex-1 truncate rounded-lg border border-hairline-soft bg-field px-3 py-2 font-mono text-xs text-text-muted">
@@ -213,9 +213,9 @@ function LogDetailPage() {
 }
 
 function useLogDetail(logId: string) {
-    return useQuery<RequestLogEntry>({
+    return useQuery<RequestLog>({
         queryKey: ["logs", logId],
-        queryFn: () => api.get<RequestLogEntry>(`/v1/logs/${encodeURIComponent(logId)}`),
+        queryFn: () => api.get<RequestLog>(`/v1/logs/${encodeURIComponent(logId)}`),
         enabled: Boolean(logId)
     });
 }

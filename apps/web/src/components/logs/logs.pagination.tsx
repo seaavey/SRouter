@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import type { PaginationState, Table } from "@tanstack/react-table";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import type { RequestLogEntry } from "@srouter/types";
+import type { RequestLog } from "@/generated/api";
 
 interface LogPaginationProps {
-    table: Table<RequestLogEntry>;
+    table: Table<RequestLog>;
     pageCount: number;
     currentPage: number;
     pageSize: number;

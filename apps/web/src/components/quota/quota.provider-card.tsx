@@ -1,6 +1,7 @@
 import { ChevronDown, RefreshCw } from "lucide-react";
 import { ProviderIcon } from "@/components/providers";
-import type { LiveModelQuotaItem, ProviderUsageMetric } from "@srouter/types";
+import type { LiveModelQuotaItem } from "@/generated/api";
+import type { ProviderUsageMetric } from "@srouter/types";
 import { QuotaTableView } from "./quota.table-view";
 import { UsageMetricsTable } from "./quota.metrics-table";
 
@@ -9,7 +10,7 @@ export interface QuotaAccountItem {
     account: string;
     provider: string;
     enabled: boolean;
-    quotas?: LiveModelQuotaItem[];
+    quotas?: LiveModelQuotaItem[] | null;
     usageMetrics?: ProviderUsageMetric[];
 }
 
@@ -131,7 +132,7 @@ export function QuotaProviderCard({
 
                                 {hasQuotas ? (
                                     <div className="space-y-2">
-                                        <QuotaTableView quotas={acc.quotas} dense />
+                                        <QuotaTableView quotas={acc.quotas ?? []} dense />
                                     </div>
                                 ) : (
                                     <div className="text-xs text-text-muted py-2 font-mono">

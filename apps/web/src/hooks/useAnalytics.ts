@@ -1,6 +1,6 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Api } from "@/lib/api";
-import type { AnalyticsWindow } from "@srouter/types";
+import type { AnalyticsWindow } from "@/lib/types";
 
 export function useAnalytics(window: AnalyticsWindow) {
     return useQuery({

@@ -1,5 +1,5 @@
 import { X } from "lucide-react";
-import type { ProviderDefinition } from "@srouter/types";
+import type { ProviderEntry } from "@/generated/api";
 import {
     Dialog,
     DialogContent,
@@ -15,7 +15,7 @@ import OAuthPatTab from "./providers.oauth-pat-tab";
 import { OAuthErrorBanner, OAuthTabBar } from "./providers.oauth-shared";
 
 interface ConnectOAuthModalProps {
-    provider: ProviderDefinition | null;
+    provider: ProviderEntry | null;
     open: boolean;
     onOpenChange: (open: boolean) => void;
 }

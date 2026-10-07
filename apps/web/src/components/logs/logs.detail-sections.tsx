@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { RequestLogEntry } from "@srouter/types";
+import type { RequestLog } from "@/generated/api";
 import { formatTime } from "@/utils/format";
 import { parseUserAgent } from "@/utils/agent-detector";
 
@@ -17,25 +17,20 @@ function DetailRow({ label, children }: DetailRowProps) {
     );
 }
 
-export function LogOverview({
-    log,
-    requireApiKey
-}: {
-    log: RequestLogEntry;
-    requireApiKey: boolean;
-}) {
-    const clientInfo = parseUserAgent(log.userAgent);
+export function LogOverview({ log, requireApiKey }: { log: RequestLog; requireApiKey: boolean }) {
+    const clientInfo = parseUserAgent(log.user_agent);
 
     return (
         <dl className="divide-y divide-hairline-soft rounded-2xl border border-hairline-soft">
             <DetailRow label="Timestamp">
                 <span className="font-mono text-xs text-ink tabular-nums">
-                    {new Date(log.createdAt).toLocaleDateString()} {formatTime(log.createdAt, true)}
+                    {new Date(log.created_at).toLocaleDateString()}{" "}
+                    {formatTime(log.created_at, true)}
                 </span>
             </DetailRow>
             <DetailRow label="Provider and model">
                 <span className="font-mono text-xs text-ink">
-                    {log.providerId} / {log.model}
+                    {log.provider} / {log.model}
                 </span>
             </DetailRow>
             <DetailRow label="Client">
@@ -44,35 +39,33 @@ export function LogOverview({
                     title={clientInfo.raw || clientInfo.name}
                 >
                     {clientInfo.name}
-                    {clientInfo.isKnownAgent ? " (agent)" : ""} · {log.ipAddress || "127.0.0.1"}
+                    {clientInfo.isKnownAgent ? " (agent)" : ""} · {log.ip_address || "127.0.0.1"}
                 </span>
             </DetailRow>
-            {(requireApiKey || log.apiKeyId) && (
+            {(requireApiKey || log.api_key_id) && (
                 <DetailRow label="Key">
-                    <span className="font-mono text-xs text-ink">
-                        {log.apiKeyName || "Virtual key"} ({log.apiKeyId || "bypass"})
-                    </span>
+                    <span className="font-mono text-xs text-ink">{log.api_key_id || "bypass"}</span>
                 </DetailRow>
             )}
         </dl>
     );
 }
 
-export function LogRoutingNotices({ log }: { log: RequestLogEntry }) {
+export function LogRoutingNotices({ log }: { log: RequestLog }) {
     return (
         <div className="flex flex-col gap-3">
-            {log.resolvedModel && log.resolvedModel !== log.model && (
+            {log.resolved_model && log.resolved_model !== log.model && (
                 <p className="rounded-2xl border border-hairline-soft px-4 py-3 font-mono text-xs leading-relaxed text-text-muted">
                     Requested <span className="text-ink">{log.model}</span> routed to{" "}
-                    <span className="text-ink">{log.resolvedModel}</span>
+                    <span className="text-ink">{log.resolved_model}</span>
                 </p>
             )}
-            {log.fallbackOccurred && (
+            {log.fallback_occurred && (
                 <div className="flex flex-col gap-1 rounded-2xl border border-hairline-soft px-4 py-3">
                     <p className="text-xs font-medium text-ink">Used a fallback provider</p>
-                    {log.fallbackReason && (
+                    {log.fallback_reason && (
                         <p className="font-mono text-xs leading-relaxed text-text-muted">
-                            {log.fallbackReason}
+                            {log.fallback_reason}
                         </p>
                     )}
                 </div>
@@ -97,11 +90,13 @@ interface MixSegment {
     widthPct: number;
 }
 
-export function LogTokenMix({ log }: { log: RequestLogEntry }) {
-    const cachedTokens = log.cachedTokens ?? 0;
-    const reasoningTokens = log.reasoningTokens ?? 0;
-    const plainInput = Math.max(0, log.promptTokens - cachedTokens);
-    const total = Math.max(1, log.totalTokens);
+export function LogTokenMix({ log }: { log: RequestLog }) {
+    const cachedTokens = log.cached_tokens ?? 0;
+    const reasoningTokens = log.reasoning_tokens ?? 0;
+    const input_tokens = log.input_tokens ?? 0;
+    const output_tokens = log.output_tokens ?? 0;
+    const plainInput = Math.max(0, input_tokens - cachedTokens);
+    const total = Math.max(1, log.total_tokens ?? 0);
     const segments: MixSegment[] = [
         { key: "input", label: "Input", tokens: plainInput, widthPct: (plainInput / total) * 100 },
         {
@@ -113,8 +108,8 @@ export function LogTokenMix({ log }: { log: RequestLogEntry }) {
         {
             key: "output",
             label: "Output",
-            tokens: log.completionTokens,
-            widthPct: (log.completionTokens / total) * 100
+            tokens: output_tokens,
+            widthPct: (output_tokens / total) * 100
         },
         {
             key: "reasoning",
@@ -127,14 +122,14 @@ export function LogTokenMix({ log }: { log: RequestLogEntry }) {
         (winner, segment) => (segment.tokens > winner.tokens ? segment : winner),
         segments[0] ?? { key: "none", label: "No tokens", tokens: 0, widthPct: 0 }
     );
-    const cacheShare = total > 0 ? Math.round((cachedTokens / log.totalTokens) * 100) : 0;
+    const cacheShare = total > 0 ? Math.round((cachedTokens / total) * 100) : 0;
 
     return (
         <div className="flex flex-col gap-2 rounded-2xl border border-hairline-soft p-4">
             <div className="flex items-baseline justify-between gap-3">
                 <span className="text-xs text-text-muted">Token mix</span>
                 <span className="font-mono text-xs text-text-muted tabular-nums">
-                    {log.totalTokens.toLocaleString()} total
+                    {(log.total_tokens ?? 0).toLocaleString()} total
                 </span>
             </div>
             <div
@@ -166,57 +161,49 @@ export function LogTokenMix({ log }: { log: RequestLogEntry }) {
     );
 }
 
-export function LogUsageSummary({ log }: { log: RequestLogEntry }) {
-    const costBreakdown = log.costBreakdown;
-    const totalCost = costBreakdown?.totalCost ?? log.estimatedCost ?? 0;
-    const inputCost = costBreakdown?.inputCost ?? 0;
-    const outputCost = costBreakdown?.outputCost ?? 0;
-    const cacheReadCost = costBreakdown?.cacheReadCost ?? 0;
-    const cacheCreationCost = costBreakdown?.cacheCreationCost ?? 0;
-    const reasoningCost = Math.max(
-        0,
-        totalCost - inputCost - outputCost - cacheReadCost - cacheCreationCost
-    );
-    const cachedTokens = log.cachedTokens ?? 0;
-    const cacheCreationTokens = log.cacheCreationTokens ?? 0;
-    const reasoningTokens = log.reasoningTokens ?? 0;
+export function LogUsageSummary({ log }: { log: RequestLog }) {
+    // The Rust build records one estimated total per request; the per-category
+    // split Node logged is not part of the contract, so only the total is known.
+    const totalCost = log.estimated_cost ?? 0;
+    const UNPRICED = {
+        cost: "—",
+        costTitle: "Not recorded by this build"
+    } as const;
+    const cachedTokens = log.cached_tokens ?? 0;
+    const cacheCreationTokens = log.cache_creation_tokens ?? 0;
+    const reasoningTokens = log.reasoning_tokens ?? 0;
 
     const rows: { label: string; tokens: string; cost: string; costTitle: string }[] = [
         {
             label: "Input",
-            tokens: log.promptTokens.toLocaleString(),
-            cost: formatCost(inputCost),
-            costTitle: `$${inputCost.toFixed(4)}`
+            tokens: (log.input_tokens ?? 0).toLocaleString(),
+            ...UNPRICED
         },
         {
             label: "Output",
-            tokens: log.completionTokens.toLocaleString(),
-            cost: formatCost(outputCost),
-            costTitle: `$${outputCost.toFixed(4)}`
+            tokens: (log.output_tokens ?? 0).toLocaleString(),
+            ...UNPRICED
         }
     ];
-    if (cachedTokens > 0 || cacheReadCost > 0) {
+    if (cachedTokens > 0) {
         rows.push({
             label: "Cache read",
             tokens: cachedTokens.toLocaleString(),
-            cost: formatCost(cacheReadCost),
-            costTitle: `$${cacheReadCost.toFixed(4)}`
+            ...UNPRICED
         });
     }
-    if (cacheCreationTokens > 0 || cacheCreationCost > 0) {
+    if (cacheCreationTokens > 0) {
         rows.push({
             label: "Cache write",
             tokens: cacheCreationTokens.toLocaleString(),
-            cost: formatCost(cacheCreationCost),
-            costTitle: `$${cacheCreationCost.toFixed(4)}`
+            ...UNPRICED
         });
     }
-    if (reasoningTokens > 0 || reasoningCost > 0) {
+    if (reasoningTokens > 0) {
         rows.push({
             label: "Reasoning",
             tokens: reasoningTokens.toLocaleString(),
-            cost: formatCost(reasoningCost),
-            costTitle: `$${reasoningCost.toFixed(4)}`
+            ...UNPRICED
         });
     }
 
@@ -237,7 +224,7 @@ export function LogUsageSummary({ log }: { log: RequestLogEntry }) {
                                 scope="col"
                                 className="px-4 py-3 text-right text-sm font-semibold text-ink tabular-nums"
                             >
-                                {log.totalTokens.toLocaleString()}
+                                {(log.total_tokens ?? 0).toLocaleString()}
                             </th>
                             <th
                                 scope="col"

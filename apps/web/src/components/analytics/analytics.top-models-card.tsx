@@ -1,5 +1,5 @@
 import { ProviderIcon } from "@/components/providers";
-import type { AnalyticsTopModel } from "@srouter/types";
+import type { AnalyticsTopModel } from "@/generated/api";
 
 interface Props {
     models: AnalyticsTopModel[];
@@ -35,8 +35,8 @@ export function TopModelsCard({ models, totalRequests }: Props) {
 
             <div className="divide-y divide-hairline-soft">
                 {models.map((m) => {
-                    const { provider, name } = parseModelIdentifier(m.model);
-                    const share = totalRequests > 0 ? (m.totalRequests / totalRequests) * 100 : 0;
+                    const { provider, name } = parseModelIdentifier(m.model ?? "");
+                    const share = totalRequests > 0 ? (m.total_requests / totalRequests) * 100 : 0;
                     return (
                         <div key={m.model} className="py-3 flex items-center gap-3">
                             <div className="flex size-9 shrink-0 items-center justify-center rounded-2xl border border-hairline-soft bg-field p-1.5">
@@ -48,7 +48,7 @@ export function TopModelsCard({ models, totalRequests }: Props) {
                                         {name}
                                     </span>
                                     <span className="text-xs font-mono text-text-muted tabular-nums whitespace-nowrap">
-                                        {m.totalRequests.toLocaleString()} req
+                                        {m.total_requests.toLocaleString()} req
                                     </span>
                                 </div>
                                 <div className="mt-1.5 h-1.5 w-full rounded-full bg-canvas-soft overflow-hidden">
@@ -59,8 +59,8 @@ export function TopModelsCard({ models, totalRequests }: Props) {
                                 </div>
                                 <div className="flex justify-between text-[10.5px] font-mono text-text-muted mt-1">
                                     <span>{share.toFixed(1)}% share</span>
-                                    <span>{m.totalTokens.toLocaleString()} tokens</span>
-                                    {m.estCost > 0 && <span>${m.estCost.toFixed(4)}</span>}
+                                    <span>{m.total_tokens.toLocaleString()} tokens</span>
+                                    {m.est_cost > 0 && <span>${m.est_cost.toFixed(4)}</span>}
                                 </div>
                             </div>
                         </div>

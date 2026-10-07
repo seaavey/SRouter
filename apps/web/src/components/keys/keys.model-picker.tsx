@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Check, Search, X } from "lucide-react";
-import type { ModelListResponse } from "@srouter/types";
+import type { ModelListResponse } from "@/generated/api";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";

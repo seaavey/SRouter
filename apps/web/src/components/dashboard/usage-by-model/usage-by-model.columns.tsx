@@ -66,52 +66,52 @@ export function CreateUsageByModelColumns(): ColumnDef<ModelUsageItem>[] {
             )
         },
         {
-            accessorKey: "totalRequests",
+            accessorKey: "total_requests",
             header: ({ column }) => <SortableHeader column={column} label="Requests" />,
             cell: ({ row }) => (
                 <NumberCell
-                    value={row.original.totalRequests}
-                    title={`Requests: ${row.original.totalRequests.toLocaleString()}`}
+                    value={row.original.total_requests}
+                    title={`Requests: ${row.original.total_requests.toLocaleString()}`}
                     emphasized
                 />
             )
         },
         {
-            accessorKey: "totalInputTokens",
+            accessorKey: "total_input_tokens",
             header: ({ column }) => <SortableHeader column={column} label="Input" />,
             cell: ({ row }) => (
                 <NumberCell
-                    value={row.original.totalInputTokens}
-                    title={`Prompt Tokens: ${row.original.totalInputTokens.toLocaleString()}`}
+                    value={row.original.total_input_tokens}
+                    title={`Prompt Tokens: ${row.original.total_input_tokens.toLocaleString()}`}
                 />
             )
         },
         {
-            accessorKey: "totalOutputTokens",
+            accessorKey: "total_output_tokens",
             header: ({ column }) => <SortableHeader column={column} label="Output" />,
             cell: ({ row }) => (
                 <NumberCell
-                    value={row.original.totalOutputTokens}
-                    title={`Completion Tokens: ${row.original.totalOutputTokens.toLocaleString()}`}
+                    value={row.original.total_output_tokens}
+                    title={`Completion Tokens: ${row.original.total_output_tokens.toLocaleString()}`}
                 />
             )
         },
         {
-            accessorKey: "totalCachedTokens",
+            accessorKey: "total_cached_tokens",
             header: ({ column }) => <SortableHeader column={column} label="Cached" />,
             cell: ({ row }) => (
                 <NumberCell
-                    value={row.original.totalCachedTokens}
-                    title={`Cached Tokens: ${row.original.totalCachedTokens.toLocaleString()}`}
+                    value={row.original.total_cached_tokens}
+                    title={`Cached Tokens: ${row.original.total_cached_tokens.toLocaleString()}`}
                 />
             )
         },
         {
             id: "total",
-            accessorFn: (row) => row.totalInputTokens + row.totalOutputTokens,
+            accessorFn: (row) => row.total_input_tokens + row.total_output_tokens,
             header: ({ column }) => <SortableHeader column={column} label="Total" />,
             cell: ({ row }) => {
-                const total = row.original.totalInputTokens + row.original.totalOutputTokens;
+                const total = row.original.total_input_tokens + row.original.total_output_tokens;
                 return (
                     <NumberCell
                         value={total}
@@ -122,11 +122,11 @@ export function CreateUsageByModelColumns(): ColumnDef<ModelUsageItem>[] {
             }
         },
         {
-            accessorKey: "estCost",
+            accessorKey: "est_cost",
             header: ({ column }) => <SortableHeader column={column} label="Est. cost" />,
             cell: ({ row }) => (
                 <span className="font-mono text-xs font-semibold text-ink tabular-nums">
-                    ${row.original.estCost.toFixed(4)}
+                    ${row.original.est_cost.toFixed(4)}
                 </span>
             )
         }

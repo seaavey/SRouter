@@ -1,12 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
-import type {
-    ModelObject,
-    CreateProviderZod,
-    ProviderDefinition,
-    ProviderProtocol
-} from "@srouter/types";
+import type { CatalogModel, ProviderEntry, ProviderProtocol } from "@/generated/api";
+import type { CreateProviderZod } from "@srouter/types";
 
 export type AddConnectionPayload = Pick<
     CreateProviderZod,
@@ -24,7 +20,7 @@ export function useProvider(providerId: string) {
 
     const query = useQuery({
         queryKey: ["providers", providerId],
-        queryFn: () => api.get<ProviderDefinition>(`/v1/providers/${providerId}`),
+        queryFn: () => api.get<ProviderEntry>(`/v1/providers/${providerId}`),
         enabled: Boolean(providerId)
     });
 
@@ -33,7 +29,7 @@ export function useProvider(providerId: string) {
         queryFn: async () => {
             // The provider detail already carries `hidden` per model, so the read
             // side needs no separate listing route.
-            const provider = await api.get<ProviderDefinition>(`/v1/providers/${providerId}`);
+            const provider = await api.get<ProviderEntry>(`/v1/providers/${providerId}`);
             const models = provider.models
                 .filter((model) => model.hidden === true)
                 .map((model) => model.id);
@@ -63,7 +59,7 @@ export function useProvider(providerId: string) {
 
     const addMutation = useMutation({
         mutationFn: (payload: AddConnectionPayload) =>
-            api.post<ProviderDefinition>("/v1/providers", payload),
+            api.post<ProviderEntry>("/v1/providers", payload),
         onSuccess: (_data, variables) => {
             void queryClient.invalidateQueries({ queryKey: ["providers", providerId] });
             void queryClient.invalidateQueries({ queryKey: ["providers", "catalog"] });
@@ -91,12 +87,12 @@ export function useProvider(providerId: string) {
 
     const toggleRoundRobinMutation = useMutation({
         mutationFn: (enabled: boolean) =>
-            api.patch<ProviderDefinition>(`/v1/providers/${providerId}/round-robin`, { enabled }),
+            api.patch<ProviderEntry>(`/v1/providers/${providerId}/round-robin`, { enabled }),
         onSuccess: (data) => {
             void queryClient.invalidateQueries({ queryKey: ["providers", providerId] });
             void queryClient.invalidateQueries({ queryKey: ["providers", "catalog"] });
             toast.success(
-                data.roundRobin
+                data.round_robin
                     ? "Round-robin load balancing enabled"
                     : "Round-robin load balancing disabled"
             );
@@ -108,7 +104,7 @@ export function useProvider(providerId: string) {
 
     const toggleProviderMutation = useMutation({
         mutationFn: (enabled: boolean) =>
-            api.patch<ProviderDefinition>(`/v1/providers/${providerId}`, { enabled }),
+            api.patch<ProviderEntry>(`/v1/providers/${providerId}`, { enabled }),
         onSuccess: (data) => {
             void queryClient.invalidateQueries({ queryKey: ["providers", providerId] });
             void queryClient.invalidateQueries({ queryKey: ["providers", "catalog"] });
@@ -119,7 +115,8 @@ export function useProvider(providerId: string) {
     });
 
     const addModelMutation = useMutation({
-        mutationFn: (modelId: string) => api.post<ModelObject>("/v1/models", { model_id: modelId }),
+        mutationFn: (modelId: string) =>
+            api.post<CatalogModel>("/v1/models", { model_id: modelId }),
         onSuccess: () => {
             void queryClient.invalidateQueries({ queryKey: ["providers", providerId] });
             void queryClient.invalidateQueries({ queryKey: ["models"] });

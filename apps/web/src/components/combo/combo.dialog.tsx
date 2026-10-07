@@ -4,7 +4,7 @@ import { Brain, Eye, Layers, Search, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { ProviderIcon } from "@/components/providers";
 import { ANTIGRAVITY_MODELS, KNOWN_PROVIDERS } from "@srouter/constants";
-import type { ModelListResponse } from "@srouter/types";
+import type { ModelListResponse } from "@/generated/api";
 
 export interface ComboModelItem {
     id: string;

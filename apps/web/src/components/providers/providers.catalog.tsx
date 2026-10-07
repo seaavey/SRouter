@@ -1,12 +1,12 @@
 import { CATEGORY_DESCRIPTIONS, CATEGORY_LABELS } from "@srouter/constants";
 import { Search } from "lucide-react";
-import type { ProviderDefinition } from "@srouter/types";
+import type { ProviderEntry } from "@/generated/api";
 import ProviderRow from "./providers.row";
 import ProviderCard from "./providers.card";
 
 interface CatalogGroup {
     category: string;
-    providers: ProviderDefinition[];
+    providers: ProviderEntry[];
 }
 
 interface CatalogProps {

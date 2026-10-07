@@ -10,14 +10,14 @@ import {
     ChevronRight,
     Database
 } from "lucide-react";
-import type { RequestLogEntry } from "@srouter/types";
+import type { RequestLog } from "@/generated/api";
 import { formatTime } from "@/utils/format";
 import { parseUserAgent } from "@/utils/agent-detector";
 import { cn } from "@/lib/utils";
 
 interface LogColumnsOptions {
     requireApiKey: boolean;
-    onSelect: (log: RequestLogEntry) => void;
+    onSelect: (log: RequestLog) => void;
 }
 
 function SortableColumnHeader<TData, TValue>({
@@ -50,35 +50,37 @@ function SortableColumnHeader<TData, TValue>({
 export default function createLogColumns({
     requireApiKey,
     onSelect
-}: LogColumnsOptions): ColumnDef<RequestLogEntry>[] {
-    const columns: ColumnDef<RequestLogEntry>[] = [
+}: LogColumnsOptions): ColumnDef<RequestLog>[] {
+    const columns: ColumnDef<RequestLog>[] = [
         {
-            accessorKey: "createdAt",
+            accessorKey: "created_at",
             header: ({ column }) => <SortableColumnHeader column={column} label="Time" />,
             cell: ({ row }) => {
-                const client = parseUserAgent(row.original.userAgent);
+                const client = parseUserAgent(row.original.user_agent);
                 return (
                     <div className="whitespace-nowrap flex flex-col font-mono leading-tight">
                         <span className="text-xs font-medium text-ink">
-                            {formatTime(row.original.createdAt, true)}
+                            {formatTime(row.original.created_at, true)}
                         </span>
                         <span
                             className="mt-0.5 max-w-[100px] truncate text-[10px] text-text-muted"
-                            title={row.original.userAgent || row.original.ipAddress || "127.0.0.1"}
+                            title={
+                                row.original.user_agent || row.original.ip_address || "127.0.0.1"
+                            }
                         >
                             {client.isKnownAgent
                                 ? client.name
-                                : row.original.ipAddress || "127.0.0.1"}
+                                : row.original.ip_address || "127.0.0.1"}
                         </span>
                     </div>
                 );
             }
         },
         {
-            accessorKey: "statusCode",
+            accessorKey: "status_code",
             header: "Status",
             cell: ({ row }) => {
-                const status = row.original.statusCode;
+                const status = row.original.status_code;
                 const is2xx = status >= 200 && status < 300;
 
                 return (
@@ -111,8 +113,8 @@ export default function createLogColumns({
             header: ({ column }) => <SortableColumnHeader column={column} label="Route" />,
             cell: ({ row }) => {
                 const model = row.original.model;
-                const provider = row.original.providerId;
-                const resolved = row.original.resolvedModel;
+                const provider = row.original.provider;
+                const resolved = row.original.resolved_model;
 
                 return (
                     <div className="flex flex-col min-w-0 max-w-sm leading-tight">
@@ -120,7 +122,7 @@ export default function createLogColumns({
                             <span className="text-xs font-medium text-ink truncate font-sans">
                                 {model}
                             </span>
-                            {row.original.fallbackOccurred && (
+                            {row.original.fallback_occurred && (
                                 <span className="shrink-0 text-[9px] text-text-muted bg-canvas-soft border border-hairline-soft px-1.5 py-0.2 rounded-full font-mono">
                                     fallback
                                 </span>
@@ -138,20 +140,19 @@ export default function createLogColumns({
 
     if (requireApiKey) {
         columns.push({
-            accessorKey: "apiKeyId",
+            accessorKey: "api_key_id",
             header: "Key",
             cell: ({ row }) => {
-                const keyName = row.original.apiKeyName;
-                const keyId = row.original.apiKeyId;
+                const keyId = row.original.api_key_id;
                 if (!keyId) {
                     return <span className="font-mono text-xs text-text-faint">—</span>;
                 }
                 return (
                     <span
                         className="font-mono text-xs text-text-muted truncate block max-w-[120px]"
-                        title={keyName || keyId}
+                        title={keyId}
                     >
-                        {keyName || `${keyId.slice(0, 8)}…`}
+                        {`${keyId.slice(0, 8)}…`}
                     </span>
                 );
             }
@@ -160,24 +161,22 @@ export default function createLogColumns({
 
     columns.push(
         {
-            accessorKey: "totalTokens",
+            accessorKey: "total_tokens",
             header: ({ column }) => <SortableColumnHeader column={column} label="Tokens" />,
             cell: ({ row }) => {
-                const {
-                    promptTokens,
-                    completionTokens,
-                    totalTokens,
-                    cachedTokens = 0
-                } = row.original;
-                const inputTokens = Math.max(0, promptTokens - cachedTokens);
+                const input_tokens = row.original.input_tokens ?? 0;
+                const output_tokens = row.original.output_tokens ?? 0;
+                const total_tokens = row.original.total_tokens ?? 0;
+                const cached_tokens = row.original.cached_tokens ?? 0;
+                const inputTokens = Math.max(0, input_tokens - cached_tokens);
 
                 return (
                     <div
                         className="flex flex-col font-mono leading-tight tabular-nums"
-                        title={`${totalTokens.toLocaleString()} total · ${inputTokens.toLocaleString()} input · ${completionTokens.toLocaleString()} output · ${cachedTokens.toLocaleString()} cached`}
+                        title={`${total_tokens.toLocaleString()} total · ${inputTokens.toLocaleString()} input · ${output_tokens.toLocaleString()} output · ${cached_tokens.toLocaleString()} cached`}
                     >
                         <span className="text-xs font-medium text-ink">
-                            {totalTokens.toLocaleString()}
+                            {total_tokens.toLocaleString()}
                         </span>
                         <span className="mt-1 flex items-center gap-1.5 text-[10px] text-text-muted">
                             <span className="inline-flex shrink-0 items-center gap-0.5">
@@ -187,12 +186,12 @@ export default function createLogColumns({
                             <span className="text-text-faint">·</span>
                             <span className="inline-flex shrink-0 items-center gap-0.5">
                                 <ArrowUpFromLine className="size-2.5" aria-hidden="true" />
-                                {completionTokens.toLocaleString()}
+                                {output_tokens.toLocaleString()}
                             </span>
                             <span className="text-text-faint">·</span>
                             <span className="inline-flex shrink-0 items-center gap-0.5">
                                 <Database className="size-2.5" aria-hidden="true" />
-                                {cachedTokens.toLocaleString()}
+                                {cached_tokens.toLocaleString()}
                             </span>
                         </span>
                     </div>
@@ -200,10 +199,10 @@ export default function createLogColumns({
             }
         },
         {
-            accessorKey: "latencyMs",
+            accessorKey: "latency_ms",
             header: ({ column }) => <SortableColumnHeader column={column} label="Latency" />,
             cell: ({ row }) => {
-                const ms = row.original.latencyMs;
+                const ms = row.original.latency_ms;
                 const display = ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`;
                 return (
                     <span className="font-mono text-xs text-text-muted tabular-nums">
@@ -213,11 +212,10 @@ export default function createLogColumns({
             }
         },
         {
-            accessorKey: "estimatedCost",
+            accessorKey: "estimated_cost",
             header: "Cost",
             cell: ({ row }) => {
-                const totalCost =
-                    row.original.costBreakdown?.totalCost ?? row.original.estimatedCost ?? 0;
+                const totalCost = row.original.estimated_cost ?? 0;
                 return (
                     <span
                         className="font-mono text-xs text-ink tabular-nums"

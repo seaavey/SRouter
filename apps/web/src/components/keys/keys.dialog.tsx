@@ -1,7 +1,12 @@
 import { useEffect, useState, type SubmitEvent } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { AlertTriangle, KeyRound, ShieldCheck } from "lucide-react";
-import type { APIKeyZod, CreateAPIKeyZod, UpdateAPIKeyZod } from "@srouter/types";
+import type {
+    APIKeyResponse,
+    CreateAPIKeyInput,
+    CreatedAPIKeyResponse,
+    UpdateAPIKeyInput
+} from "@/generated/api";
 import { cn } from "@/lib/utils";
 import { useKeyForm } from "@/hooks/useKeyForm";
 import { Button } from "@/components/ui/button";
@@ -17,7 +22,7 @@ import {
 import KeyFormFields from "./keys.form-fields";
 import KeyModelPicker from "./keys.model-picker";
 import KeySecretContent from "./keys.secret-content";
-import { maskKey, parseKeyPayload } from "./keys.form-types";
+import { parseKeyPayload } from "./keys.form-types";
 import KeyTelemetryCard from "./keys.telemetry-card";
 
 interface KeyFormDialogProps {
@@ -25,7 +30,7 @@ interface KeyFormDialogProps {
     onOpenChange: (open: boolean) => void;
     title: string;
     description: string;
-    apiKey?: APIKeyZod | null;
+    apiKey?: APIKeyResponse | null;
     submitLabel: string;
     submittingLabel: string;
     isSubmitting: boolean;
@@ -36,26 +41,26 @@ type CreateKeyDialogProps = {
     open: boolean;
     creating: boolean;
     onOpenChange: (open: boolean) => void;
-    onSubmit: (data: CreateAPIKeyZod) => Promise<boolean>;
+    onSubmit: (data: CreateAPIKeyInput) => Promise<boolean>;
 };
 
 type EditKeyDialogProps = {
-    apiKey: APIKeyZod | null;
+    apiKey: APIKeyResponse | null;
     open: boolean;
     updating: boolean;
     onOpenChange: (open: boolean) => void;
-    onSubmit: (id: string, data: UpdateAPIKeyZod) => Promise<boolean>;
+    onSubmit: (id: string, data: UpdateAPIKeyInput) => Promise<boolean>;
 };
 
 type KeyDeleteDialogProps = {
-    apiKey: APIKeyZod | null;
+    apiKey: APIKeyResponse | null;
     deleting: boolean;
     onClose: () => void;
     onConfirm: (keyId: string) => Promise<void>;
 };
 
 type KeySecretDialogProps = {
-    newKey: APIKeyZod | null;
+    newKey: CreatedAPIKeyResponse | null;
     onClose: () => void;
 };
 
@@ -281,7 +286,7 @@ export function KeyDeleteDialog({ apiKey, deleting, onClose, onConfirm }: KeyDel
                             Token identifier
                         </div>
                         <code className="block truncate text-xs text-ink font-mono">
-                            {activeKey ? maskKey(activeKey.key) : ""}
+                            {activeKey ? activeKey.key_prefix : ""}
                         </code>
                     </div>
                 </div>
@@ -340,8 +345,8 @@ export function KeySecretDialog({ newKey, onClose }: KeySecretDialogProps) {
     );
 }
 
-function useCachedKey(apiKey: APIKeyZod | null) {
-    const [cachedKey, setCachedKey] = useState<APIKeyZod | null>(apiKey);
+function useCachedKey(apiKey: APIKeyResponse | null) {
+    const [cachedKey, setCachedKey] = useState<APIKeyResponse | null>(apiKey);
 
     useEffect(() => {
         if (apiKey) setCachedKey(apiKey);

@@ -8,3 +8,4 @@ build
 *.db-shm
 .commandcode
 apps/web/src/routeTree.gen.ts
+apps/web/src/generated

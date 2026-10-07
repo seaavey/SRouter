@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Key, X, Eye, EyeOff, Loader2, Plug, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
-import type { ProviderProtocol } from "@srouter/types";
+import type { ProviderProtocol } from "@/generated/api";
 import {
     Dialog,
     DialogContent,

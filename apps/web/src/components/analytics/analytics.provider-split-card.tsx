@@ -1,5 +1,5 @@
 import { ProviderIcon } from "@/components/providers";
-import type { AnalyticsProviderSlice } from "@srouter/types";
+import type { AnalyticsProviderSlice } from "@/generated/api";
 
 interface Props {
     providers: AnalyticsProviderSlice[];
@@ -19,9 +19,9 @@ export function ProviderSplitCard({ providers, totalRequests }: Props) {
     }
 
     const data = providers.map((p) => ({
-        name: p.providerId,
-        requests: p.totalRequests,
-        share: totalRequests > 0 ? Math.round((p.totalRequests / totalRequests) * 100) : 0
+        name: p.provider_id,
+        requests: p.total_requests,
+        share: totalRequests > 0 ? Math.round((p.total_requests / totalRequests) * 100) : 0
     }));
 
     return (

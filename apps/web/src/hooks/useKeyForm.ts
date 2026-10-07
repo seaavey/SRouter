@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { APIKeyZod } from "@srouter/types";
+import type { APIKeyResponse } from "@/generated/api";
 import { parseKeyPayload, type KeyFormData } from "@/components/keys/keys.form-types";
 
 const DEFAULT_FORM_DATA: KeyFormData = {
@@ -12,7 +12,7 @@ const DEFAULT_FORM_DATA: KeyFormData = {
     selected_models: []
 };
 
-function getKeyFormData(data?: APIKeyZod | null): KeyFormData {
+function getKeyFormData(data?: APIKeyResponse | null): KeyFormData {
     if (!data) return DEFAULT_FORM_DATA;
     return {
         name: data.name || "",
@@ -27,7 +27,7 @@ function getKeyFormData(data?: APIKeyZod | null): KeyFormData {
 
 // Callers must remount this hook's owner (via `key`) when the dialog opens or the
 // target key changes; form state is derived once at mount rather than synced by effect.
-export function useKeyForm(data: APIKeyZod | null | undefined) {
+export function useKeyForm(data: APIKeyResponse | null | undefined) {
     const [form, setForm] = useState<KeyFormData>(() => getKeyFormData(data));
 
     const updateField = <K extends keyof KeyFormData>(field: K, val: KeyFormData[K]) => {

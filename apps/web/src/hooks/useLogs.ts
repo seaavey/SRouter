@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
-import type { RequestLogEntry } from "@srouter/types";
+import type { RequestLog } from "@/generated/api";
 
 export type LogStatusFilter = "all" | "success" | "error";
 
-export function useLogs(logs: RequestLogEntry[]) {
+export function useLogs(logs: RequestLog[]) {
     const [searchQuery, setSearchQuery] = useState("");
     const [statusFilter, setStatusFilter] = useState<LogStatusFilter>("all");
     const [apiKeyFilter, setApiKeyFilter] = useState<string>("all");
@@ -14,22 +14,21 @@ export function useLogs(logs: RequestLogEntry[]) {
                 const query = searchQuery.toLowerCase().trim();
                 const matchesQuery =
                     !query ||
-                    log.model.toLowerCase().includes(query) ||
-                    log.providerId.toLowerCase().includes(query) ||
+                    (log.model ?? "").toLowerCase().includes(query) ||
+                    (log.provider ?? "").toLowerCase().includes(query) ||
                     log.id.toLowerCase().includes(query) ||
-                    (log.ipAddress && log.ipAddress.toLowerCase().includes(query)) ||
-                    (log.resolvedModel && log.resolvedModel.toLowerCase().includes(query)) ||
-                    (log.apiKeyName && log.apiKeyName.toLowerCase().includes(query)) ||
-                    (log.apiKeyId && log.apiKeyId.toLowerCase().includes(query));
+                    (log.ip_address && log.ip_address.toLowerCase().includes(query)) ||
+                    (log.resolved_model && log.resolved_model.toLowerCase().includes(query)) ||
+                    (log.api_key_id && log.api_key_id.toLowerCase().includes(query));
 
-                const isSuccess = log.statusCode >= 200 && log.statusCode < 300;
+                const isSuccess = log.status_code >= 200 && log.status_code < 300;
                 if (statusFilter === "success" && !isSuccess) return false;
                 if (statusFilter === "error" && isSuccess) return false;
 
                 if (apiKeyFilter !== "all") {
                     if (apiKeyFilter === "none") {
-                        if (log.apiKeyId) return false;
-                    } else if (log.apiKeyId !== apiKeyFilter) {
+                        if (log.api_key_id) return false;
+                    } else if (log.api_key_id !== apiKeyFilter) {
                         return false;
                     }
                 }

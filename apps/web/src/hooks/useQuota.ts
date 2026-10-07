@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import type { QuotaResponse } from "@srouter/types";
+import type { QuotaResponse } from "@/generated/api";
 
 export function useQuota(forceRefresh = false) {
     return useQuery({

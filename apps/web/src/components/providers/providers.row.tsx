@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { ArrowUpRight, Layers } from "lucide-react";
-import type { ProviderDefinition } from "@srouter/types";
+import type { ProviderEntry } from "@/generated/api";
 import { ProviderIcon, ProviderStatusBadge } from "@/components/providers";
 import { getConnectedCount, isProviderEnabled } from "@/utils/provider.utils";
 
@@ -11,14 +11,14 @@ const protocolLabels: Record<string, string> = {
     custom: "Custom"
 };
 
-function authLabel(provider: ProviderDefinition): string {
+function authLabel(provider: ProviderEntry): string {
     if (provider.requires_oauth && provider.requires_api_key) return "OAuth / API Key";
     if (provider.requires_oauth) return "OAuth 2.0";
     if (provider.requires_api_key) return "API Key";
     return "Public";
 }
 
-export default function ProviderRow({ provider }: { provider: ProviderDefinition }) {
+export default function ProviderRow({ provider }: { provider: ProviderEntry }) {
     const connectedCount = getConnectedCount(provider);
     const isConnected = connectedCount > 0;
     const isEnabled = isProviderEnabled(provider);

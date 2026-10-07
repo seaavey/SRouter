@@ -1,7 +1,7 @@
 import { formatTime, formatTimeUnit, formatTooltipTime } from "@/utils/format";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import type { TooltipValueType } from "recharts";
-import type { AnalyticsBucket } from "@srouter/types";
+import type { AnalyticsBucket } from "@/generated/api";
 
 interface Props {
     buckets: AnalyticsBucket[];
@@ -10,9 +10,9 @@ interface Props {
 
 export function TrafficChart({ buckets, bucketSizeMs }: Props) {
     const data = buckets.map((b) => ({
-        bucketStart: b.bucketStart,
-        success: b.successRequests,
-        error: b.errorRequests
+        bucketStart: b.bucket_start,
+        success: b.success_requests,
+        error: b.error_requests
     }));
 
     const bucketLabel = formatTimeUnit(bucketSizeMs);

@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { type ColumnDef, flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table";
-import type { LiveModelQuotaItem } from "@srouter/types";
+import type { LiveModelQuotaItem } from "@/generated/api";
 import {
     Table,
     TableBody,
@@ -89,7 +89,7 @@ export function QuotaTableView({ quotas = [], dense = false }: QuotaTableViewPro
                                           : "bg-accent"
                                 }`}
                                 style={{
-                                    width: `${Math.min(100, row.original.percentageValue)}%`
+                                    width: `${Math.min(100, row.original.percentage_value)}%`
                                 }}
                             />
                         </div>
@@ -97,20 +97,20 @@ export function QuotaTableView({ quotas = [], dense = false }: QuotaTableViewPro
                 }
             },
             {
-                accessorKey: "resetIn",
+                accessorKey: "reset_in",
                 header: () => <div className="text-right">Resets In</div>,
                 cell: ({ row }) => (
                     <div className="text-right font-mono text-xs text-text-muted tabular-nums">
-                        {row.original.resetIn || "—"}
+                        {row.original.reset_in || "—"}
                     </div>
                 )
             },
             {
-                accessorKey: "resetTime",
+                accessorKey: "reset_time",
                 header: () => <div className="text-right hidden md:block">Reset Time</div>,
                 cell: ({ row }) => (
                     <div className="text-right font-mono text-xs text-text-muted hidden md:block tabular-nums">
-                        {row.original.resetTime ? formatResetTime(row.original.resetTime) : "—"}
+                        {row.original.reset_time ? formatResetTime(row.original.reset_time) : "—"}
                     </div>
                 )
             }

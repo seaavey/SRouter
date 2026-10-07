@@ -1,7 +1,7 @@
-import type { UsageStats } from "@srouter/types";
+import type { UsageStatsReport } from "@/generated/api";
 
-export type ModelUsageItem = UsageStats["byModel"][number];
+export type ModelUsageItem = UsageStatsReport["by_model"][number];
 
 export type UsageByModelTableProps = {
-    models: UsageStats["byModel"];
+    models: UsageStatsReport["by_model"];
 };

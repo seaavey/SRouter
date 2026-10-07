@@ -24,7 +24,7 @@ export default function LogTable({
 }: LogTableProps) {
     const isServerPaginated = page !== undefined && onPageChange !== undefined;
 
-    const [sorting, setSorting] = useState<SortingState>([{ id: "createdAt", desc: true }]);
+    const [sorting, setSorting] = useState<SortingState>([{ id: "created_at", desc: true }]);
     const [clientPagination, setClientPagination] = useState<PaginationState>({
         pageIndex: 0,
         pageSize: 25

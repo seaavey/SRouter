@@ -16,7 +16,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useQuota } from "@/hooks/useQuota";
 import { api } from "@/lib/api";
-import type { QuotaResponse } from "@srouter/types";
+import type { QuotaResponse } from "@/generated/api";
 import { QuotaProviderCard, type QuotaAccountItem } from "@/components/quota";
 
 export const Route = createFileRoute("/quota")({
@@ -90,7 +90,7 @@ function QuotaPage() {
     const allProviders = data?.providers ?? [];
     // Only display provider cards that actually have live quotas or recorded usage metrics
     const activeProviders = allProviders.filter(
-        (p) => (p.quotas && p.quotas.length > 0) || (p.usageMetrics && p.usageMetrics.length > 0)
+        (p) => (p.quotas && p.quotas.length > 0) || (p.usage_metrics && p.usage_metrics.length > 0)
     );
 
     const isAllCollapsed =

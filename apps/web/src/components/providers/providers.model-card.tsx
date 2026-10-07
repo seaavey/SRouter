@@ -1,9 +1,9 @@
 import { Bot, Check, Copy, Star, Trash2 } from "lucide-react";
-import type { ModelObject } from "@srouter/types";
+import type { CatalogModel } from "@/generated/api";
 import { useFavorites } from "@/hooks/useFavorites";
 
 interface ProviderModelCardProps {
-    model: ModelObject;
+    model: CatalogModel;
     copied: boolean;
     onCopy: (modelId: string) => void;
     onDelete?: (modelId: string) => void;

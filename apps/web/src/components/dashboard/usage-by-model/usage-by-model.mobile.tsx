@@ -11,7 +11,7 @@ export function UsageByModelMobile({ rows }: UsageByModelMobileProps) {
         <div className="space-y-2 p-4 lg:hidden">
             {rows.map((row) => {
                 const model = row.original;
-                const total = model.totalInputTokens + model.totalOutputTokens;
+                const total = model.total_input_tokens + model.total_output_tokens;
                 return (
                     <article
                         key={row.id}
@@ -32,25 +32,25 @@ export function UsageByModelMobile({ rows }: UsageByModelMobileProps) {
                             <div>
                                 <dt>Requests</dt>
                                 <dd className="mt-0.5 font-semibold text-ink">
-                                    {formatCompactNumber(model.totalRequests)}
+                                    {formatCompactNumber(model.total_requests)}
                                 </dd>
                             </div>
                             <div>
                                 <dt>Input</dt>
                                 <dd className="mt-0.5 font-semibold text-ink">
-                                    {formatCompactNumber(model.totalInputTokens)}
+                                    {formatCompactNumber(model.total_input_tokens)}
                                 </dd>
                             </div>
                             <div>
                                 <dt>Output</dt>
                                 <dd className="mt-0.5 font-semibold text-ink">
-                                    {formatCompactNumber(model.totalOutputTokens)}
+                                    {formatCompactNumber(model.total_output_tokens)}
                                 </dd>
                             </div>
                             <div>
                                 <dt>Est. cost</dt>
                                 <dd className="mt-0.5 font-semibold text-ink">
-                                    ${model.estCost.toFixed(4)}
+                                    ${model.est_cost.toFixed(4)}
                                 </dd>
                             </div>
                         </dl>

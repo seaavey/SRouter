@@ -2,7 +2,7 @@ import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Plus } from "lucide-react";
 import { useKeys } from "@/hooks/useKeys";
-import type { CreateAPIKeyZod, APIKeyZod } from "@srouter/types";
+import type { APIKeyResponse, CreateAPIKeyInput } from "@/generated/api";
 import { Button } from "@/components/ui/button";
 import { KeysSkeleton } from "@/components/skeletons";
 
@@ -35,14 +35,14 @@ function KeysPage() {
     } = useKeys();
 
     const [isCreateOpen, setIsCreateOpen] = useState(false);
-    const [keyToDelete, setKeyToDelete] = useState<APIKeyZod | null>(null);
-    const [keyToEdit, setKeyToEdit] = useState<APIKeyZod | null>(null);
+    const [keyToDelete, setKeyToDelete] = useState<APIKeyResponse | null>(null);
+    const [keyToEdit, setKeyToEdit] = useState<APIKeyResponse | null>(null);
 
     const totalUsageTokens = keys.reduce((acc, k) => acc + (k.usage_tokens || 0), 0);
     const totalUsageCost = keys.reduce((acc, k) => acc + (k.usage_cost || 0), 0);
     const activeKeysCount = keys.filter((k) => k.enabled).length;
 
-    const handleCreateKey = async (data: CreateAPIKeyZod): Promise<boolean> => {
+    const handleCreateKey = async (data: CreateAPIKeyInput): Promise<boolean> => {
         const res = await createKey(data);
         if (res) {
             setIsCreateOpen(false);
