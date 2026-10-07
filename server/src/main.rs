@@ -14,6 +14,7 @@ use srouter_server::{
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    dotenvy::dotenv().ok();
     telemetry::init();
     let environment: HashMap<String, String> = std::env::vars().collect();
     let config = APIConfig::from_env_map(&environment)?;

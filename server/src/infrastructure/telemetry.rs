@@ -13,13 +13,22 @@ use tracing_subscriber::registry;
 
 const LOG_FILE: &str = "srouter-server.log";
 
-/// Installs the subscriber before anything else runs. File logging is unconditional so a
-/// non-production run leaves a visible trail in `logs/`, stdout mirrors it for journald and
-/// Docker, and `RUST_LOG` overrides the default `info` level. Falls back to stdout-only when
-/// the folder cannot be created or opened.
+/// Installs the subscriber before anything else runs. By default, logs only to stdout
+/// (for terminal, journald, and Docker) so no `srouter-server.log` file is written.
+/// File logging under `logs/srouter-server.log` can be explicitly enabled with `SROUTER_FILE_LOG=true`.
 pub fn init() {
-    if let Err(error) = init_in(Path::new("logs")) {
-        eprintln!("file logging under logs/ is disabled: {error}");
+    let enable_file_log = std::env::var("SROUTER_FILE_LOG")
+        .map(|value| value.eq_ignore_ascii_case("true") || value == "1")
+        .unwrap_or(false);
+
+    if enable_file_log {
+        if let Err(error) = init_in(Path::new("logs")) {
+            eprintln!("file logging under logs/ is disabled: {error}");
+            let _ = tracing_subscriber::fmt()
+                .with_env_filter(filter())
+                .try_init();
+        }
+    } else {
         let _ = tracing_subscriber::fmt()
             .with_env_filter(filter())
             .try_init();
