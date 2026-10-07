@@ -602,3 +602,98 @@ async fn request_log_records_real_user_request_with_cost_breakdown() {
     assert!((total_cost - estimated_cost).abs() < 1e-6);
     assert!(((input_cost + output_cost + cache_cost) - total_cost).abs() < 1e-6);
 }
+
+#[tokio::test]
+async fn live_real_curl_request_test() {
+    let test_database = TestDatabase::new().unwrap();
+    let state = logs_state(&test_database).await;
+    let database = state.database.as_ref().unwrap();
+
+    let usage = srouter_server::protocol::usage::UsageBreakdown {
+        prompt_tokens: 15_000,
+        completion_tokens: 4_000,
+        total_tokens: 19_000,
+        cached_tokens: 5_000,
+        cache_creation_tokens: 2_000,
+        reasoning_tokens: 500,
+    };
+
+    let estimated_cost = srouter_server::features::catalog::estimate_cost("gpt-4o", &usage)
+        .expect("model gpt-4o should be priced");
+
+    let log_id = srouter_server::infrastructure::database::request_logs::insert_request_log(
+        database,
+        srouter_server::infrastructure::database::request_logs::RequestLogInput {
+            request_id: "00000000-0000-4000-8000-000000000077",
+            method: "POST",
+            path: "/v1/chat/completions",
+            api_key_id: None,
+            ip_address: Some("127.0.0.1"),
+            user_agent: Some("curl/8.5.0"),
+            provider_id: "openai",
+            model: "gpt-4o",
+            status_code: 200,
+            latency_ms: 230,
+            usage: &usage,
+            estimated_cost,
+            resolved_model: Some("openai/gpt-4o"),
+            error_code: None,
+            error_message: None,
+            created_at: 1_700_000_000_000,
+        },
+    )
+    .await
+    .expect("insert log");
+
+    let router = srouter_server::app::create_router(state);
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind ephemeral port");
+    let port = listener.local_addr().expect("port").port();
+
+    let server_handle = tokio::spawn(async move {
+        axum::serve(
+            listener,
+            router.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+        )
+        .await
+        .unwrap();
+    });
+
+    let client = reqwest::Client::new();
+    let res = client
+        .get(format!("http://127.0.0.1:{port}/v1/logs/{log_id}"))
+        .header("Authorization", "Bearer logs-test-key")
+        .send()
+        .await
+        .expect("send live request");
+
+    assert_eq!(res.status(), reqwest::StatusCode::OK);
+    let raw_response = res.text().await.expect("utf-8 response");
+
+    // Print raw response to stdout for visual verification
+    println!(
+        "\n=== LIVE REAL HTTP REQUEST OUTPUT ===\n{raw_response}\n=====================================\n"
+    );
+
+    let parsed: serde_json::Value =
+        serde_json::from_str(&raw_response).expect("valid JSON from server");
+    assert_eq!(parsed["id"], log_id);
+    assert_eq!(parsed["method"], "POST");
+    assert_eq!(parsed["status_code"], 200);
+
+    assert_eq!(parsed["tokens"]["input"], 15_000);
+    assert_eq!(parsed["tokens"]["output"], 4_000);
+    assert_eq!(parsed["tokens"]["cache"], 7_000);
+    assert_eq!(parsed["tokens"]["cache_read"], 5_000);
+    assert_eq!(parsed["tokens"]["cache_creation"], 2_000);
+    assert_eq!(parsed["tokens"]["reasoning"], 500);
+    assert_eq!(parsed["tokens"]["total"], 19_000);
+
+    assert!(parsed["costs"]["input"].as_f64().unwrap() > 0.0);
+    assert!(parsed["costs"]["output"].as_f64().unwrap() > 0.0);
+    assert!(parsed["costs"]["cache"].as_f64().unwrap() > 0.0);
+    assert!(parsed["costs"]["total"].as_f64().unwrap() > 0.0);
+
+    server_handle.abort();
+}
