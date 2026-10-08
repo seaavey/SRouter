@@ -9,8 +9,9 @@ mod store;
 
 pub use analytics::{
     AnalyticsBucket, AnalyticsProviderSlice, AnalyticsReport, AnalyticsTopAgent, AnalyticsTopModel,
-    AnalyticsWindow, UsageByModel, UsageStatsReport, analytics_report, parse_analytics_window,
-    usage_stats,
+    AnalyticsWindow, UsageByModel, UsageCacheTokens, UsageCostTotals, UsageData,
+    UsageRequestTotals, UsageStatsReport, UsageTokenTotals, UsageTotals, analytics_report,
+    parse_analytics_window, usage_stats,
 };
 pub use store::{
     HttpMethod, LogClient, LogCost, LogError, LogTokenUsage, LogsPage, ObjectKind, RequestLog,

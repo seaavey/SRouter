@@ -16,33 +16,73 @@ use super::store::{ObjectKind, log_row_error};
 /// The all-time usage totals served by `GET /v1/logs/stats` and carried by the
 /// `usage.updated` event. The wire keys are snake_case, as documented in
 /// `docs/api-v1-contract.md`, "Logs in the Rust build".
+///
+/// The counters are grouped instead of flat, so the report reads as
+/// `{ object, data: { totals, by_model } }` rather than a dozen loose numbers
+/// sitting beside the discriminator.
 #[derive(Debug, Serialize, specta::Type)]
 pub struct UsageStatsReport {
     pub object: ObjectKind,
-    #[specta(type = specta_typescript::Number)]
-    pub total_requests: i64,
-    #[specta(type = specta_typescript::Number)]
-    pub total_success_requests: i64,
-    #[specta(type = specta_typescript::Number)]
-    pub total_tokens: i64,
-    #[specta(type = specta_typescript::Number)]
-    pub total_prompt_tokens: i64,
-    #[specta(type = specta_typescript::Number)]
-    pub total_completion_tokens: i64,
-    #[specta(type = specta_typescript::Number)]
-    pub total_cached_tokens: i64,
-    #[specta(type = specta_typescript::Number)]
-    pub total_cache_creation_tokens: i64,
-    #[specta(type = specta_typescript::Number)]
-    pub total_reasoning_tokens: i64,
-    pub total_estimated_cost: f64,
-    #[specta(type = specta_typescript::Number)]
-    pub total_input_tokens: i64,
-    #[specta(type = specta_typescript::Number)]
-    pub total_output_tokens: i64,
-    pub cost_label: String,
-    pub estimated: bool,
+    pub data: UsageData,
+}
+
+#[derive(Debug, Serialize, specta::Type)]
+pub struct UsageData {
+    pub totals: UsageTotals,
     pub by_model: Vec<UsageByModel>,
+}
+
+/// Every counter [`UsageStatsReport`] aggregates over the request log, grouped by
+/// what it counts. Each group drops the `total_` prefix of the flat shape,
+/// because the field it lives under already says it.
+#[derive(Debug, Serialize, specta::Type)]
+pub struct UsageTotals {
+    pub requests: UsageRequestTotals,
+    pub tokens: UsageTokenTotals,
+    pub cost: UsageCostTotals,
+}
+
+#[derive(Debug, Serialize, specta::Type)]
+pub struct UsageRequestTotals {
+    #[specta(type = specta_typescript::Number)]
+    pub total: i64,
+    #[specta(type = specta_typescript::Number)]
+    pub success: i64,
+    #[specta(type = specta_typescript::Number)]
+    pub failed: i64,
+}
+
+#[derive(Debug, Serialize, specta::Type)]
+pub struct UsageTokenTotals {
+    #[specta(type = specta_typescript::Number)]
+    pub input: i64,
+    #[specta(type = specta_typescript::Number)]
+    pub output: i64,
+    #[specta(type = specta_typescript::Number)]
+    pub total: i64,
+    #[specta(type = specta_typescript::Number)]
+    pub reasoning: i64,
+    pub cache: UsageCacheTokens,
+}
+
+/// Cache tokens split by direction: `write` is what the provider had to store
+/// (`cache_creation_tokens`), `read` is what it served back (`cached_tokens`).
+#[derive(Debug, Serialize, specta::Type)]
+pub struct UsageCacheTokens {
+    #[specta(type = specta_typescript::Number)]
+    pub write: i64,
+    #[specta(type = specta_typescript::Number)]
+    pub read: i64,
+}
+
+/// The logged cost. Only the sum is stored per request, so `total` is the whole
+/// breakdown the database can honestly report; `label` is the display form and
+/// `estimated` flags that it is an estimate.
+#[derive(Debug, Serialize, specta::Type)]
+pub struct UsageCostTotals {
+    pub total: f64,
+    pub label: String,
+    pub estimated: bool,
 }
 
 /// One `by_model` entry of [`UsageStatsReport`].
@@ -64,6 +104,7 @@ pub async fn usage_stats(database: &AppDatabase) -> Result<UsageStatsReport, API
     let row = sqlx::query(
         "SELECT COUNT(*) AS total_requests, \
          COALESCE(SUM(CASE WHEN status_code >= 200 AND status_code < 300 THEN 1 ELSE 0 END), 0) AS successes, \
+         COALESCE(SUM(CASE WHEN status_code < 200 OR status_code >= 300 THEN 1 ELSE 0 END), 0) AS failures, \
          COALESCE(SUM(total_tokens), 0) AS total_tokens, \
          COALESCE(SUM(prompt_tokens), 0) AS input_tokens, \
          COALESCE(SUM(completion_tokens), 0) AS output_tokens, \
@@ -78,6 +119,7 @@ pub async fn usage_stats(database: &AppDatabase) -> Result<UsageStatsReport, API
     .map_err(|error| APIError::new(500, constants::database::could_not_aggregate_request_logs(&error)))?;
     let total_requests: i64 = row.try_get("total_requests").map_err(log_row_error)?;
     let successes: i64 = row.try_get("successes").map_err(log_row_error)?;
+    let failures: i64 = row.try_get("failures").map_err(log_row_error)?;
     let total_tokens: i64 = row.try_get("total_tokens").map_err(log_row_error)?;
     let input_tokens: i64 = row.try_get("input_tokens").map_err(log_row_error)?;
     let output_tokens: i64 = row.try_get("output_tokens").map_err(log_row_error)?;
@@ -116,20 +158,31 @@ pub async fn usage_stats(database: &AppDatabase) -> Result<UsageStatsReport, API
         .collect::<Result<Vec<_>, APIError>>()?;
     Ok(UsageStatsReport {
         object: ObjectKind::Usage,
-        total_requests,
-        total_success_requests: successes,
-        total_tokens,
-        total_prompt_tokens: input_tokens,
-        total_completion_tokens: output_tokens,
-        total_cached_tokens: cached_tokens,
-        total_cache_creation_tokens: cache_creation_tokens,
-        total_reasoning_tokens: reasoning_tokens,
-        total_estimated_cost: estimated_cost,
-        total_input_tokens: input_tokens,
-        total_output_tokens: output_tokens,
-        cost_label: format!("${estimated_cost:.4}"),
-        estimated: true,
-        by_model,
+        data: UsageData {
+            totals: UsageTotals {
+                requests: UsageRequestTotals {
+                    total: total_requests,
+                    success: successes,
+                    failed: failures,
+                },
+                tokens: UsageTokenTotals {
+                    input: input_tokens,
+                    output: output_tokens,
+                    total: total_tokens,
+                    reasoning: reasoning_tokens,
+                    cache: UsageCacheTokens {
+                        write: cache_creation_tokens,
+                        read: cached_tokens,
+                    },
+                },
+                cost: UsageCostTotals {
+                    total: estimated_cost,
+                    label: format!("${estimated_cost:.4}"),
+                    estimated: true,
+                },
+            },
+            by_model,
+        },
     })
 }
 

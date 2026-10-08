@@ -428,24 +428,65 @@ export type UsageByModel = {
 };
 
 /**
+ *  Cache tokens split by direction: `write` is what the provider had to store
+ *  (`cache_creation_tokens`), `read` is what it served back (`cached_tokens`).
+ */
+export type UsageCacheTokens = {
+	write: number,
+	read: number,
+};
+
+/**
+ *  The logged cost. Only the sum is stored per request, so `total` is the whole
+ *  breakdown the database can honestly report; `label` is the display form and
+ *  `estimated` flags that it is an estimate.
+ */
+export type UsageCostTotals = {
+	total: number | null,
+	label: string,
+	estimated: boolean,
+};
+
+export type UsageData = {
+	totals: UsageTotals,
+	by_model: UsageByModel[],
+};
+
+export type UsageRequestTotals = {
+	total: number,
+	success: number,
+	failed: number,
+};
+
+/**
  *  The all-time usage totals served by `GET /v1/logs/stats` and carried by the
  *  `usage.updated` event. The wire keys are snake_case, as documented in
  *  `docs/api-v1-contract.md`, "Logs in the Rust build".
+ * 
+ *  The counters are grouped instead of flat, so the report reads as
+ *  `{ object, data: { totals, by_model } }` rather than a dozen loose numbers
+ *  sitting beside the discriminator.
  */
 export type UsageStatsReport = {
 	object: ObjectKind,
-	total_requests: number,
-	total_success_requests: number,
-	total_tokens: number,
-	total_prompt_tokens: number,
-	total_completion_tokens: number,
-	total_cached_tokens: number,
-	total_cache_creation_tokens: number,
-	total_reasoning_tokens: number,
-	total_estimated_cost: number | null,
-	total_input_tokens: number,
-	total_output_tokens: number,
-	cost_label: string,
-	estimated: boolean,
-	by_model: UsageByModel[],
+	data: UsageData,
+};
+
+export type UsageTokenTotals = {
+	input: number,
+	output: number,
+	total: number,
+	reasoning: number,
+	cache: UsageCacheTokens,
+};
+
+/**
+ *  Every counter [`UsageStatsReport`] aggregates over the request log, grouped by
+ *  what it counts. Each group drops the `total_` prefix of the flat shape,
+ *  because the field it lives under already says it.
+ */
+export type UsageTotals = {
+	requests: UsageRequestTotals,
+	tokens: UsageTokenTotals,
+	cost: UsageCostTotals,
 };

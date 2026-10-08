@@ -97,6 +97,12 @@ fn every_registered_root_is_exported() {
         "LogsResponse",
         "RequestLog",
         "UsageStatsReport",
+        "UsageData",
+        "UsageTotals",
+        "UsageRequestTotals",
+        "UsageTokenTotals",
+        "UsageCacheTokens",
+        "UsageCostTotals",
         "AnalyticsReport",
         "LiveEvent",
     ] {

@@ -31,6 +31,8 @@
 //! | `LogsResponse`          | `GET /v1/logs`                             |
 //! | `RequestLog`            | one entry of that list, `GET /v1/logs/:id` |
 //! | `UsageStatsReport`      | `GET /v1/logs/stats`                       |
+//! | `UsageData`             | that report's `data` object                |
+//! | `UsageTotals`           | the per-category totals inside `data`      |
 //! | `AnalyticsReport`       | `GET /v1/logs/analytics`                   |
 //! | `LiveEvent`             | the `/v1/logs/stream` SSE payloads         |
 //! | `ErrorEnvelope`         | every error response                       |
@@ -58,7 +60,8 @@ use crate::features::providers::model::ProviderProtocol;
 use crate::features::providers::quota::{LiveModelQuotaItem, ProviderQuotaAccount};
 use crate::features::settings::SettingsResponse;
 use crate::infrastructure::database::request_logs::{
-    AnalyticsReport, RequestLog, UsageStatsReport,
+    AnalyticsReport, RequestLog, UsageCacheTokens, UsageCostTotals, UsageData, UsageRequestTotals,
+    UsageStatsReport, UsageTokenTotals, UsageTotals,
 };
 
 /// Registers the wire types the bindings export.
@@ -94,6 +97,12 @@ pub fn types() -> Types {
         .register::<LogsResponse>()
         .register::<RequestLog>()
         .register::<UsageStatsReport>()
+        .register::<UsageData>()
+        .register::<UsageTotals>()
+        .register::<UsageRequestTotals>()
+        .register::<UsageTokenTotals>()
+        .register::<UsageCacheTokens>()
+        .register::<UsageCostTotals>()
         .register::<AnalyticsReport>()
         .register::<LiveEvent>()
 }

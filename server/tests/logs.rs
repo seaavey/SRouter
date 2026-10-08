@@ -222,20 +222,22 @@ async fn logs_stats_aggregate_usage_and_by_model() {
     assert_eq!(response.status(), StatusCode::OK);
     let body = json(response).await;
     assert_eq!(body["object"], "usage");
-    assert_eq!(body["total_requests"], 2);
-    assert_eq!(body["total_success_requests"], 1);
-    assert_eq!(body["total_tokens"], 10);
-    assert_eq!(body["total_prompt_tokens"], 4);
-    assert_eq!(body["total_completion_tokens"], 6);
-    assert_eq!(body["total_input_tokens"], 4);
-    assert_eq!(body["total_output_tokens"], 6);
-    assert_eq!(body["estimated"], true);
-    assert_eq!(body["cost_label"], "$0.1234");
-    assert_eq!(body["by_model"][0]["model"], "test-model");
-    assert_eq!(body["by_model"][0]["total_requests"], 2);
-    assert_eq!(body["by_model"][0]["total_input_tokens"], 4);
-    assert_eq!(body["by_model"][0]["total_output_tokens"], 6);
-    assert_eq!(body["by_model"][0]["total_cached_tokens"], 0);
+    assert_eq!(body["data"]["totals"]["requests"]["total"], 2);
+    assert_eq!(body["data"]["totals"]["requests"]["success"], 1);
+    assert_eq!(body["data"]["totals"]["requests"]["failed"], 1);
+    assert_eq!(body["data"]["totals"]["tokens"]["input"], 4);
+    assert_eq!(body["data"]["totals"]["tokens"]["output"], 6);
+    assert_eq!(body["data"]["totals"]["tokens"]["total"], 10);
+    assert_eq!(body["data"]["totals"]["tokens"]["reasoning"], 0);
+    assert_eq!(body["data"]["totals"]["tokens"]["cache"]["write"], 0);
+    assert_eq!(body["data"]["totals"]["tokens"]["cache"]["read"], 0);
+    assert_eq!(body["data"]["totals"]["cost"]["estimated"], true);
+    assert_eq!(body["data"]["totals"]["cost"]["label"], "$0.1234");
+    assert_eq!(body["data"]["by_model"][0]["model"], "test-model");
+    assert_eq!(body["data"]["by_model"][0]["total_requests"], 2);
+    assert_eq!(body["data"]["by_model"][0]["total_input_tokens"], 4);
+    assert_eq!(body["data"]["by_model"][0]["total_output_tokens"], 6);
+    assert_eq!(body["data"]["by_model"][0]["total_cached_tokens"], 0);
 }
 
 #[tokio::test]
