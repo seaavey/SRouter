@@ -804,20 +804,21 @@ Qoder, Cline, OpenAI, Antigravity, and Claude routes exist in Rust. Source of tr
       the web refactor (section 11); the PostgreSQL service job is void because SQLite is the only
       backend permanently (owner ruling 2026-10-08, and section 10 records the path back if that
       ruling is ever reversed).
-- [x] `Dockerfile`: four stages. `web-builder` (Node/pnpm, `pnpm --filter web build`), `server-builder`
-      (`rust:1.98-alpine` plus `build-base` and `perl`; aws-lc-sys compiles its C and assembly with
-      gcc/make, no cmake or nasm needed), `runner` (Node-free `alpine:3.22` with ca-certificates,
-      tzdata, and wget, carrying the binary and the web dist, health-checked with `wget`), and the
-      legacy `node-builder`/`node-runner`. The Node runtime stays the last stage, so a plain
-      `docker build` keeps producing the Node image until cutover and `--target runner` selects the
-      Rust build. Built and smoke-tested here (see the no-Node item below); the Node target still boots
-      both listeners. `.dockerignore` now excludes `server/target`, `server/logs`, and `.local`.
-- [x] `docker-compose.yml`: the default `srouter` service builds `target: runner`, publishes only
+- [x] `Dockerfile`: three stages. `web-builder` (Node/pnpm, `pnpm --filter web build`),
+      `server-builder` (`rust:1.98-alpine` plus `build-base` and `perl`; aws-lc-sys compiles its C
+      and assembly with gcc/make, no cmake or nasm needed), and `runner` (Node-free `alpine:3.22`
+      with ca-certificates, tzdata, and wget, carrying the binary and the web dist, health-checked
+      with `wget`). `runner` is the last stage, so a plain `docker build` produces the Rust image;
+      the legacy `node-builder`/`node-runner` stages and the `apps/api` manifest copy were removed
+      with the tree in section 13. Built and smoke-tested here; `.dockerignore` excludes
+      `server/target`, `server/logs`, and `.local`.
+- [x] `docker-compose.yml`: one `srouter` service builds `target: runner`, publishes only
       `${PORT:-3000}:3000` (the `:1455` mapping is gone), sets `WEB_DIST_PATH=/app/web/dist`, and
-      health-checks with `wget`, so the container needs no Node. The Node service is kept as
-      `srouter-node` behind a `node` profile: a plain `docker compose up` starts only the Rust
-      service, and `docker compose up -d srouter-node` is the rollback. `docker compose config`
-      confirms one published port and one default service.
+      health-checks with `wget`, so the container needs no Node. The `srouter-node` service and its
+      `node` profile were the rollback path and were removed with `apps/api` in section 13, so
+      `docker compose up` starts the Rust service and the documented rollback is a database-backup
+      restore plus the previous Rust image. `docker compose config` confirms one published port and
+      one service.
 - Heroku-style deployment plumbing is dropped by owner ruling 2026-10-08 (same ruling as
   PostgreSQL: a `DATABASE_URL` platform cannot run this SQLite-only build). No root
   `heroku.yml` will be created, so the plan's Heroku step is void; root `Procfile`
@@ -826,8 +827,8 @@ Qoder, Cline, OpenAI, Antigravity, and Claude routes exist in Rust. Source of tr
 - [x] Verified the Rust runtime image contains no Node executable (`node`, `npm`, and `nodejs` are
       absent) and smoke-tested it on a disposable volume: `/health` 200, `/` serves the SPA shell, an
       asset carries the immutable cache header, an unmatched route falls back to the shell without one,
-      `/v1` reports version `0.2.0`, and `logs/srouter-server.log` is written. A plain `docker build`
-      still lands on the Node runtime, so the production default is unchanged until cutover.
+      `/v1` reports version `0.2.0`, and `logs/srouter-server.log` is written. `runner` being the last
+      stage now makes that image the production default.
 - [~] `docs/api-migration.md`: drafted 2026-10-08. Carries the parity matrix from static evidence
   (per-area Rust test vs Node oracle, verdicts marked served/deviation/not served), the
   owner-approved deviation list, the tunnel removal write-up, staging steps, the backup/rollback

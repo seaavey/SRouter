@@ -26,23 +26,23 @@ The Node tree was deleted on 2026-10-08 (owner instruction) and is preserved at 
 | OAuth | `GET`, `POST /auth/claude/callback` | Claude OAuth callback. |
 | OAuth | `GET`, `POST /auth/qoder/callback` | Qoder OAuth callback. |
 
-The main listener uses `PORT` (default `3000`). The OAuth listener uses `OAUTH_PORT` (default `1455`) and `OAUTH_HOST` (default `0.0.0.0`). `SROUTER_PUBLIC_URL`, when nonempty, suppresses the OAuth listener; public callback URLs use the main listener's `/v1/auth/.../callback` routes. Local callback URLs use the OAuth listener. User-provided non-local callback URLs pass through unchanged.
+The Rust build serves everything from one listener on `PORT` (default `3000`), OAuth callbacks included. The two-listener rows above are the legacy Node shape, kept because this table was written against it: Node ran a second listener on `OAUTH_PORT` (default `1455`) and `OAUTH_HOST` (default `0.0.0.0`), and a nonempty `SROUTER_PUBLIC_URL` suppressed it. Public callback URLs used the main listener's `/v1/auth/.../callback` routes, local callback URLs used the OAuth listener, and user-provided non-local callback URLs passed through unchanged. That listener went away with `apps/api` on 2026-10-08; the Rust build never had it.
 
-The OAuth listener also mounts `/v1/messages`, `/v1/chat/completions`, `/v1/chat/completion`, `/v1/models`, and `/v1/models/:model`. It does not use the main app's global security-header, CORS, CSRF, or body-limit middleware; feature-level authentication and validation still apply.
+The legacy OAuth listener also mounted `/v1/messages`, `/v1/chat/completions`, `/v1/chat/completion`, `/v1/models`, and `/v1/models/:model`, without the main app's global security-header, CORS, CSRF, or body-limit middleware (feature-level authentication and validation still applied). The Rust build has that mount set on its single listener, under the global middleware.
 
 <!-- prettier-ignore -->
 | Environment variable | Behavior |
 | --- | --- |
 | `PORT` | Main HTTP listener; default `3000`. |
-| `OAUTH_PORT` | OAuth listener; default `1455`. |
-| `OAUTH_HOST` | OAuth bind host; default `0.0.0.0`. |
-| `SROUTER_PUBLIC_URL` | Public callback base URL; suppresses the secondary OAuth listener when set. |
+| `OAUTH_PORT` | Legacy Node OAuth listener; not read by the Rust build. |
+| `OAUTH_HOST` | Legacy Node OAuth bind host; not read by the Rust build. |
+| `SROUTER_PUBLIC_URL` | Public callback base URL; legacy Node also used it to suppress the secondary OAuth listener. |
 | `SROUTER_CORS_ORIGINS` | Comma-separated public CORS allowlist. |
 | `SROUTER_ADMIN_PASSWORD` | Optional admin bootstrap/reset password, applied at startup when set. |
 | `SROUTER_SECURE_COOKIES` | Sets the admin session cookie's `Secure` flag when equal to `true`. |
 | `WEB_DIST_PATH` | Overrides the web dist path. Without it, the API searches repository and app-relative `dist` candidates. |
 | `DATABASE_PATH` | Overrides the default SQLite database path, `~/.srouter/srouter.db`. |
-| `DATABASE_URL` | Selects PostgreSQL storage when configured. |
+| `DATABASE_URL` | Refused: SQLite is the only backend (owner ruling 2026-10-08). |
 | `CLAUDE_OAUTH_CLIENT_ID` | Overrides the Claude OAuth client ID. |
 
 ## Retained route inventory
@@ -179,7 +179,7 @@ The Rust build implements both transfer routes in `server/src/features/database_
 
 The main listener mounts these compatibility paths under `/v1/v1`: `/chat/completions`, `/chat/completion`, `/chat`, `/messages`, `/messages/count_tokens`, `/images/generations`, `/models`, and `/models/:model`. They use the same route handlers and feature middleware as their `/v1` counterparts. The OAuth listener exposes only its `/v1` mounts, not `/v1/v1`.
 
-`opencode-compat.test.ts` also assembles the route modules at `/` in a test-only Hono app. The production `index.ts` mounts them at `/v1` and `/v1/v1`; the test's root mounts do not add production root-level chat or model routes.
+`opencode-compat.test.ts` also assembles the route modules at `/` in a test-only Hono app. The legacy production `index.ts` mounted them at `/v1` and `/v1/v1`; the test's root mounts never added production root-level chat or model routes. The Rust build mounts `/v1` and `/v1/v1` in `server/src/app.rs`.
 
 The Cloudflare Tunnel feature is removed by owner ruling 2026-10-08, so `/v1/tunnel/*` is deleted rather than ported: `GET /v1/tunnel/status`, `GET /v1/tunnel/events`, `GET /v1/tunnel/install`, `POST /v1/tunnel/start`, `POST /v1/tunnel/stop`, `POST /v1/tunnel/install`, and `PUT /v1/tunnel/config` are legacy-only, served by the Node build that was deleted on 2026-10-08 (they required an admin session), and answer `404` on the Rust build. `tunnel-auth.test.ts` is not a Rust parity requirement and was removed with that tree.
 
