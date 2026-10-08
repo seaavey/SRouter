@@ -28,13 +28,22 @@ pub trait ProviderExecutor: Send + Sync {
     fn as_any(&self) -> &dyn Any;
 
     /// The provider's registered base id.
-    fn id(&self) -> &'static str;
+    fn id(&self) -> &str;
 
-    /// Registry lookup keys: the base id plus any alias.
+    /// Registry lookup keys: the base id plus any alias. A driver whose ids are
+    /// compile-time literals returns the slice directly; a runtime-registered
+    /// provider overrides [`ProviderExecutor::keys_owned`] instead, because it
+    /// has no `'static` slice to hand out.
     fn keys(&self) -> &'static [&'static str];
 
+    /// The lookup keys owned, for a provider registered at runtime. Static
+    /// drivers borrow theirs.
+    fn keys_owned(&self) -> Vec<String> {
+        self.keys().iter().map(|key| (*key).to_owned()).collect()
+    }
+
     /// The user-facing model prefix, mirroring Node's `providerAliasFor`.
-    fn alias(&self) -> &'static str;
+    fn alias(&self) -> &str;
 
     /// The model ids this driver advertises. Ids rather than static
     /// `ModelDefinition`s because a catalog can change at runtime (Qoder reads

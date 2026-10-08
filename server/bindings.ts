@@ -287,7 +287,10 @@ export type ProviderConnectionView = {
 	created_at: number,
 };
 
-/**  A provider as the list, catalog, and detail routes describe it. */
+/**
+ *  A provider as the list, catalog, and detail routes describe it. The id and
+ *  name are owned strings because a custom provider's values come from its row.
+ */
 export type ProviderEntry = {
 	id: string,
 	name: string,

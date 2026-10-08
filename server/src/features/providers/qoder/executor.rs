@@ -69,7 +69,7 @@ impl QoderExecutor {
         }
     }
 
-    pub fn id(&self) -> &'static str {
+    pub fn id(&self) -> &str {
         self.id
     }
 
@@ -77,7 +77,7 @@ impl QoderExecutor {
         self.keys
     }
 
-    pub fn alias(&self) -> &'static str {
+    pub fn alias(&self) -> &str {
         QODER_PROVIDER.alias
     }
 
@@ -197,7 +197,7 @@ impl ProviderExecutor for QoderExecutor {
         self
     }
 
-    fn id(&self) -> &'static str {
+    fn id(&self) -> &str {
         QoderExecutor::id(self)
     }
 
@@ -205,7 +205,7 @@ impl ProviderExecutor for QoderExecutor {
         QoderExecutor::keys(self)
     }
 
-    fn alias(&self) -> &'static str {
+    fn alias(&self) -> &str {
         QoderExecutor::alias(self)
     }
 

@@ -14,7 +14,7 @@ pub(crate) mod migrations;
 pub mod oauth_sessions;
 pub mod providers;
 pub mod request_logs;
-mod row;
+pub(crate) mod row;
 pub mod settings;
 mod sqlite;
 

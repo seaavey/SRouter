@@ -7,6 +7,7 @@ mod claude;
 mod cline;
 mod codebuddy;
 mod codex;
+mod custom;
 mod grok_web;
 mod qoder;
 
@@ -32,6 +33,7 @@ pub use codex::{
     CodexConnectionWrite, CodexCredentials, load_codex_credentials, update_codex_tokens,
     upsert_codex_connection,
 };
+pub use custom::{CustomCredentials, load_custom_credentials};
 pub use grok_web::{
     GrokWebConnectionWrite, GrokWebCredentials, load_grok_web_credentials,
     upsert_grok_web_connection,

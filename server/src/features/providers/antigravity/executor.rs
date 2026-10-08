@@ -63,7 +63,7 @@ impl AntigravityExecutor {
         }
     }
 
-    pub fn id(&self) -> &'static str {
+    pub fn id(&self) -> &str {
         ANTIGRAVITY_PROVIDER.id
     }
 
@@ -71,7 +71,7 @@ impl AntigravityExecutor {
         ANTIGRAVITY_KEYS
     }
 
-    pub fn alias(&self) -> &'static str {
+    pub fn alias(&self) -> &str {
         ANTIGRAVITY_PROVIDER.alias
     }
 
@@ -160,7 +160,7 @@ impl ProviderExecutor for AntigravityExecutor {
         self
     }
 
-    fn id(&self) -> &'static str {
+    fn id(&self) -> &str {
         AntigravityExecutor::id(self)
     }
 
@@ -168,7 +168,7 @@ impl ProviderExecutor for AntigravityExecutor {
         AntigravityExecutor::keys(self)
     }
 
-    fn alias(&self) -> &'static str {
+    fn alias(&self) -> &str {
         AntigravityExecutor::alias(self)
     }
 

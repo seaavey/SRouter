@@ -33,12 +33,24 @@ impl ModelObject {
 /// Three variants, matching what the build actually serves. Node's
 /// `ProviderProtocol` union also lists `gemini`, but that value is dead: its only
 /// user was the `gemini_cli` provider deleted with `packages/providers/src/catalog.ts`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, specta::Type)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "lowercase")]
 pub enum ProviderProtocol {
     OpenAI,
     Anthropic,
     Custom,
+}
+
+impl ProviderProtocol {
+    /// Reads a stored or requested protocol string. An unknown value falls back
+    /// to `openai`, matching Node's `ProviderDefinitionFromConfig` default.
+    pub fn parse(protocol: &str) -> Self {
+        match protocol.trim().to_lowercase().as_str() {
+            "anthropic" => Self::Anthropic,
+            "custom" => Self::Custom,
+            _ => Self::OpenAI,
+        }
+    }
 }
 
 /// Provider metadata shared by the catalog and provider-detail responses.

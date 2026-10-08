@@ -63,7 +63,7 @@ impl ClineExecutor {
         }
     }
 
-    pub fn id(&self) -> &'static str {
+    pub fn id(&self) -> &str {
         self.id
     }
 
@@ -71,7 +71,7 @@ impl ClineExecutor {
         self.keys
     }
 
-    pub fn alias(&self) -> &'static str {
+    pub fn alias(&self) -> &str {
         CLINE_PROVIDER.alias
     }
 
@@ -127,7 +127,7 @@ impl ProviderExecutor for ClineExecutor {
         self
     }
 
-    fn id(&self) -> &'static str {
+    fn id(&self) -> &str {
         ClineExecutor::id(self)
     }
 
@@ -135,7 +135,7 @@ impl ProviderExecutor for ClineExecutor {
         ClineExecutor::keys(self)
     }
 
-    fn alias(&self) -> &'static str {
+    fn alias(&self) -> &str {
         ClineExecutor::alias(self)
     }
 

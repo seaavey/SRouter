@@ -7,6 +7,7 @@
 
 mod connections;
 mod credentials;
+mod custom;
 
 pub(crate) use connections::{PROVIDER_ENABLED_PREFIX, matches_base_id};
 pub use connections::{
@@ -18,12 +19,16 @@ pub use connections::{
 pub use credentials::{
     AntigravityConnectionWrite, AntigravityCredentials, ClaudeConnectionWrite, ClaudeCredentials,
     ClineConnectionWrite, ClineCredentials, CodeBuddyConnectionWrite, CodeBuddyCredentials,
-    CodexConnectionWrite, CodexCredentials, GrokWebConnectionWrite, GrokWebCredentials,
-    QoderConnectionWrite, QoderCredentials, load_antigravity_credentials, load_claude_credentials,
-    load_cline_credentials, load_codebuddy_credentials, load_codex_credentials,
-    load_grok_web_credentials, load_qoder_credentials, update_antigravity_project_id,
-    update_antigravity_tokens, update_claude_tokens, update_cline_tokens, update_codex_tokens,
-    upsert_antigravity_connection, upsert_claude_connection, upsert_cline_connection,
-    upsert_codebuddy_connection, upsert_codex_connection, upsert_grok_web_connection,
-    upsert_qoder_connection,
+    CodexConnectionWrite, CodexCredentials, CustomCredentials, GrokWebConnectionWrite,
+    GrokWebCredentials, QoderConnectionWrite, QoderCredentials, load_antigravity_credentials,
+    load_claude_credentials, load_cline_credentials, load_codebuddy_credentials,
+    load_codex_credentials, load_custom_credentials, load_grok_web_credentials,
+    load_qoder_credentials, update_antigravity_project_id, update_antigravity_tokens,
+    update_claude_tokens, update_cline_tokens, update_codex_tokens, upsert_antigravity_connection,
+    upsert_claude_connection, upsert_cline_connection, upsert_codebuddy_connection,
+    upsert_codex_connection, upsert_grok_web_connection, upsert_qoder_connection,
+};
+pub use custom::{
+    CustomProviderRow, NewCustomProvider, create_custom_provider, delete_custom_provider,
+    find_custom_provider, list_custom_providers,
 };

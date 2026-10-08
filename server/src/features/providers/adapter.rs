@@ -42,7 +42,7 @@ impl ProviderAdapter {
     }
 
     /// The provider's registered base id.
-    pub fn id(&self) -> &'static str {
+    pub fn id(&self) -> &str {
         self.0.id()
     }
 
@@ -51,8 +51,13 @@ impl ProviderAdapter {
         self.0.keys()
     }
 
+    /// The lookup keys owned, for a runtime-registered provider.
+    pub fn keys_owned(&self) -> Vec<String> {
+        self.0.keys_owned()
+    }
+
     /// The user-facing model prefix, mirroring Node's `providerAliasFor`.
-    pub fn alias(&self) -> &'static str {
+    pub fn alias(&self) -> &str {
         self.0.alias()
     }
 
@@ -278,7 +283,7 @@ impl ProviderExecutor for OpenAIAdapter {
         self
     }
 
-    fn id(&self) -> &'static str {
+    fn id(&self) -> &str {
         OpenAIAdapter::id(self)
     }
 
@@ -286,7 +291,7 @@ impl ProviderExecutor for OpenAIAdapter {
         OpenAIAdapter::keys(self)
     }
 
-    fn alias(&self) -> &'static str {
+    fn alias(&self) -> &str {
         OpenAIAdapter::alias(self)
     }
 

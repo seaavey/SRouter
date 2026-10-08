@@ -69,7 +69,7 @@ impl CodeBuddyExecutor {
         &self.endpoints
     }
 
-    pub fn id(&self) -> &'static str {
+    pub fn id(&self) -> &str {
         self.flavor.provider_id()
     }
 
@@ -77,7 +77,7 @@ impl CodeBuddyExecutor {
         self.flavor.keys()
     }
 
-    pub fn alias(&self) -> &'static str {
+    pub fn alias(&self) -> &str {
         self.flavor.alias()
     }
 
@@ -125,7 +125,7 @@ impl ProviderExecutor for CodeBuddyExecutor {
         self
     }
 
-    fn id(&self) -> &'static str {
+    fn id(&self) -> &str {
         CodeBuddyExecutor::id(self)
     }
 
@@ -133,7 +133,7 @@ impl ProviderExecutor for CodeBuddyExecutor {
         CodeBuddyExecutor::keys(self)
     }
 
-    fn alias(&self) -> &'static str {
+    fn alias(&self) -> &str {
         CodeBuddyExecutor::alias(self)
     }
 

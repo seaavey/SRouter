@@ -2,7 +2,7 @@
 //! it. Registration covers the provider base id and its aliases.
 
 use std::collections::{HashMap, HashSet};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock, RwLockReadGuard};
 
 use crate::error::APIError;
 use crate::features::providers::adapter::ProviderAdapter;
@@ -39,9 +39,13 @@ pub struct ResolvedModel {
 }
 
 /// Adapters keyed by base id and alias.
+///
+/// The map sits behind a `RwLock` because a custom provider is registered at
+/// runtime from its `providers` row: a request can add or drop one while other
+/// requests read the catalog, so registration cannot need `&mut self`.
 #[derive(Clone, Default)]
 pub struct ProviderRegistry {
-    adapters: HashMap<String, ProviderAdapter>,
+    adapters: Arc<RwLock<HashMap<String, ProviderAdapter>>>,
     selection_indices: Arc<Mutex<HashMap<String, usize>>>,
 }
 
@@ -50,22 +54,37 @@ impl ProviderRegistry {
         Self::default()
     }
 
+    /// Borrows the adapter map for a read. A poisoning writer does not spread:
+    /// the map is read without panicking.
+    fn read_adapters(&self) -> RwLockReadGuard<'_, HashMap<String, ProviderAdapter>> {
+        self.adapters
+            .read()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
+    /// Every registered adapter, deduplicated by base id and sorted by it, so
+    /// callers iterate a stable order without holding the lock across an await.
+    fn adapters_sorted(&self) -> Vec<ProviderAdapter> {
+        let mut adapters: Vec<ProviderAdapter> = self.read_adapters().values().cloned().collect();
+        adapters.sort_by_key(|adapter| adapter.id().to_owned());
+        adapters.dedup_by_key(|adapter| adapter.id().to_owned());
+
+        adapters
+    }
+
     /// Every lookup key of each provider whose base id is disabled. A catalog
     /// entry carries the alias prefix while the settings row carries the base
     /// id, so the whole key set is reported, not just the base id.
     pub fn disabled_keys(&self, disabled: &HashSet<String>) -> HashSet<String> {
-        let mut adapters: Vec<&ProviderAdapter> = self.adapters.values().collect();
-        adapters.sort_by_key(|adapter| adapter.id());
-        adapters.dedup_by_key(|adapter| adapter.id());
-
         let mut keys = HashSet::new();
-        for adapter in adapters {
-            if adapter
-                .keys()
+
+        for adapter in self.adapters_sorted() {
+            let adapter_keys = adapter.keys_owned();
+            if adapter_keys
                 .iter()
                 .any(|key| disabled.contains(key.to_lowercase().as_str()))
             {
-                keys.extend(adapter.keys().iter().map(|key| key.to_lowercase()));
+                keys.extend(adapter_keys.into_iter().map(|key| key.to_lowercase()));
             }
         }
 
@@ -100,7 +119,7 @@ impl ProviderRegistry {
     /// The Qoder endpoints in use, so the device-flow routes can talk to the
     /// same base the executor does.
     pub fn qoder_endpoints(&self) -> Option<QoderEndpoints> {
-        self.adapters
+        self.read_adapters()
             .values()
             .find_map(|adapter| adapter.downcast_ref::<QoderExecutor>())
             .map(|executor| executor.endpoints().clone())
@@ -109,7 +128,7 @@ impl ProviderRegistry {
     /// The Cline endpoints in use, so the device-flow routes can talk to the
     /// same base the executor does.
     pub fn cline_endpoints(&self) -> Option<ClineEndpoints> {
-        self.adapters
+        self.read_adapters()
             .values()
             .find_map(|adapter| adapter.downcast_ref::<ClineExecutor>())
             .map(|executor| executor.endpoints().clone())
@@ -118,7 +137,7 @@ impl ProviderRegistry {
     /// The Grok Web endpoints in use, so the cookie-connect route can probe
     /// the same page the executor will read `x-userid` from.
     pub fn grok_web_endpoints(&self) -> Option<GrokWebEndpoints> {
-        self.adapters
+        self.read_adapters()
             .values()
             .find_map(|adapter| adapter.downcast_ref::<GrokWebExecutor>())
             .map(|executor| executor.endpoints().clone())
@@ -127,7 +146,7 @@ impl ProviderRegistry {
     /// The Codex endpoints in use, so the OAuth routes exchange their code
     /// against the same token endpoint the executor refreshes against.
     pub fn codex_endpoints(&self) -> Option<CodexEndpoints> {
-        self.adapters
+        self.read_adapters()
             .values()
             .find_map(|adapter| adapter.downcast_ref::<CodexExecutor>())
             .map(|executor| executor.endpoints().clone())
@@ -136,7 +155,7 @@ impl ProviderRegistry {
     /// The Antigravity endpoints in use, so the OAuth routes and tests talk to
     /// the same hosts the executor does.
     pub fn antigravity_endpoints(&self) -> Option<AntigravityEndpoints> {
-        self.adapters
+        self.read_adapters()
             .values()
             .find_map(|adapter| adapter.downcast_ref::<AntigravityExecutor>())
             .map(|executor| executor.endpoints().clone())
@@ -145,7 +164,7 @@ impl ProviderRegistry {
     /// The Claude endpoints in use, so the OAuth routes and tests talk to the
     /// same hosts the executor does.
     pub fn claude_endpoints(&self) -> Option<ClaudeEndpoints> {
-        self.adapters
+        self.read_adapters()
             .values()
             .find_map(|adapter| adapter.downcast_ref::<ClaudeExecutor>())
             .map(|executor| executor.endpoints().clone())
@@ -156,8 +175,8 @@ impl ProviderRegistry {
     pub async fn maybe_refresh_catalogs(&self, force: bool) {
         let mut seen = HashSet::new();
 
-        for adapter in self.adapters.values() {
-            if seen.insert(adapter.id()) {
+        for adapter in self.adapters_sorted() {
+            if seen.insert(adapter.id().to_owned()) {
                 adapter.maybe_refresh(force).await;
             }
         }
@@ -168,34 +187,60 @@ impl ProviderRegistry {
     pub async fn sweep_tokens(&self) {
         let mut seen = HashSet::new();
 
-        for adapter in self.adapters.values() {
-            if seen.insert(adapter.id()) {
+        for adapter in self.adapters_sorted() {
+            if seen.insert(adapter.id().to_owned()) {
                 adapter.sweep_tokens().await;
             }
         }
     }
 
-    /// Registers an adapter under each of its lookup keys.
+    /// Registers an adapter under each of its lookup keys. Used at construction,
+    /// before the registry is shared.
     pub fn register(&mut self, adapter: ProviderAdapter) {
-        for key in adapter.keys() {
-            self.adapters.insert((*key).to_owned(), adapter.clone());
+        self.register_adapter(adapter);
+    }
+
+    /// Registers an adapter while the registry is shared, so a custom provider
+    /// created over HTTP joins the live registry the catalog and the gateway
+    /// read. Unlike [`ProviderRegistry::register`] this needs no `&mut self`.
+    pub fn register_runtime(&self, adapter: ProviderAdapter) {
+        self.register_adapter(adapter);
+    }
+
+    fn register_adapter(&self, adapter: ProviderAdapter) {
+        let mut adapters = self
+            .adapters
+            .write()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        for key in adapter.keys_owned() {
+            adapters.insert(key.to_lowercase(), adapter.clone());
         }
+    }
+
+    /// Drops every lookup key of one provider, so a deleted custom provider
+    /// stops resolving immediately.
+    pub fn unregister(&self, base_id: &str) {
+        let mut adapters = self
+            .adapters
+            .write()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        adapters.retain(|_, adapter| !adapter.id().eq_ignore_ascii_case(base_id));
     }
 
     /// The user-facing alias of a provider base id, so a stored custom model can
     /// be listed under the same prefix the catalog advertises.
-    pub fn alias_of(&self, base_id: &str) -> Option<&'static str> {
-        self.adapters
+    pub fn alias_of(&self, base_id: &str) -> Option<String> {
+        self.read_adapters()
             .values()
             .find(|adapter| adapter.id().eq_ignore_ascii_case(base_id))
-            .map(|adapter| adapter.alias())
+            .map(|adapter| adapter.alias().to_owned())
     }
 
     /// The base id a model-id prefix (a provider id or alias) names.
-    pub fn base_id_of_prefix(&self, prefix: &str) -> Option<&'static str> {
-        self.adapters
+    pub fn base_id_of_prefix(&self, prefix: &str) -> Option<String> {
+        self.read_adapters()
             .get(&prefix.to_lowercase())
-            .map(|adapter| adapter.id())
+            .map(|adapter| adapter.id().to_owned())
     }
 
     /// Resolves `<provider>/<model>` or `<alias>/<model>`. A bare model id is
@@ -207,25 +252,25 @@ impl ProviderRegistry {
         }
 
         if let Some((prefix, bare_model)) = model.split_once('/') {
-            let adapter = self.adapters.get(prefix)?;
+            let adapter = self.read_adapters().get(prefix)?.clone();
 
             return Some(ResolvedModel {
-                adapter: adapter.clone(),
+                adapter,
                 model: bare_model.to_owned(),
             });
         }
 
-        let mut matches: Vec<&ProviderAdapter> = self
-            .adapters
-            .values()
+        let mut matches: Vec<ProviderAdapter> = self
+            .adapters_sorted()
+            .into_iter()
             .filter(|adapter| {
                 adapter.models().iter().any(|id| {
                     id.as_str() == model || (model.contains('.') && model.replace('.', "-") == *id)
                 })
             })
             .collect();
-        matches.sort_by_key(|adapter| adapter.id());
-        matches.dedup_by_key(|adapter| adapter.id());
+        matches.sort_by_key(|adapter| adapter.id().to_owned());
+        matches.dedup_by_key(|adapter| adapter.id().to_owned());
 
         if matches.is_empty() {
             return None;
@@ -244,7 +289,7 @@ impl ProviderRegistry {
         matches
             .get(index % matches.len())
             .map(|adapter| ResolvedModel {
-                adapter: (*adapter).clone(),
+                adapter: adapter.clone(),
                 model: model.to_owned(),
             })
     }
@@ -289,19 +334,17 @@ impl ProviderRegistry {
 
         // Deterministic order: sort adapters by base id so output is stable
         // across runs regardless of HashMap iteration order.
-        let mut adapters: Vec<&ProviderAdapter> = self.adapters.values().collect();
-        adapters.sort_by_key(|adapter| adapter.id());
         let mut emitted_adapters = HashSet::new();
 
-        for adapter in adapters {
-            if !emitted_adapters.insert(adapter.id()) {
+        for adapter in self.adapters_sorted() {
+            if !emitted_adapters.insert(adapter.id().to_owned()) {
                 continue;
             }
-            let alias = adapter.alias();
+            let alias = adapter.alias().to_owned();
             for model_id in adapter.models() {
                 let id = format!("{alias}/{model_id}");
                 if seen.insert(id.clone()) {
-                    models.push(ModelObject::new(id, alias.to_owned()));
+                    models.push(ModelObject::new(id, alias.clone()));
                 }
             }
         }
@@ -335,7 +378,7 @@ mod tests {
             self
         }
 
-        fn id(&self) -> &'static str {
+        fn id(&self) -> &str {
             self.id
         }
 
@@ -422,7 +465,14 @@ mod tests {
         let registry = registry_with_duplicate_model();
 
         let selected = (0..4)
-            .map(|_| registry.resolve("shared-model").unwrap().adapter.id())
+            .map(|_| {
+                registry
+                    .resolve("shared-model")
+                    .unwrap()
+                    .adapter
+                    .id()
+                    .to_owned()
+            })
             .collect::<Vec<_>>();
 
         assert_eq!(selected, ["alpha", "beta", "alpha", "beta"]);

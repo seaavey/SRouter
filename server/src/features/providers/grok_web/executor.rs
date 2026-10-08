@@ -93,7 +93,7 @@ impl GrokWebExecutor {
         self
     }
 
-    pub fn id(&self) -> &'static str {
+    pub fn id(&self) -> &str {
         self.id
     }
 
@@ -101,7 +101,7 @@ impl GrokWebExecutor {
         self.keys
     }
 
-    pub fn alias(&self) -> &'static str {
+    pub fn alias(&self) -> &str {
         GROK_WEB_PROVIDER.alias
     }
 
@@ -472,7 +472,7 @@ impl ProviderExecutor for GrokWebExecutor {
         self
     }
 
-    fn id(&self) -> &'static str {
+    fn id(&self) -> &str {
         GrokWebExecutor::id(self)
     }
 
@@ -480,7 +480,7 @@ impl ProviderExecutor for GrokWebExecutor {
         GrokWebExecutor::keys(self)
     }
 
-    fn alias(&self) -> &'static str {
+    fn alias(&self) -> &str {
         GrokWebExecutor::alias(self)
     }
 

@@ -71,7 +71,7 @@ impl CodexExecutor {
         }
     }
 
-    pub fn id(&self) -> &'static str {
+    pub fn id(&self) -> &str {
         self.id
     }
 
@@ -79,7 +79,7 @@ impl CodexExecutor {
         self.keys
     }
 
-    pub fn alias(&self) -> &'static str {
+    pub fn alias(&self) -> &str {
         CODEX_PROVIDER.alias
     }
 
@@ -368,7 +368,7 @@ impl ProviderExecutor for CodexExecutor {
         self
     }
 
-    fn id(&self) -> &'static str {
+    fn id(&self) -> &str {
         CodexExecutor::id(self)
     }
 
@@ -376,7 +376,7 @@ impl ProviderExecutor for CodexExecutor {
         CodexExecutor::keys(self)
     }
 
-    fn alias(&self) -> &'static str {
+    fn alias(&self) -> &str {
         CodexExecutor::alias(self)
     }
 

@@ -6,16 +6,17 @@ use std::collections::HashSet;
 use serde::Serialize;
 
 use crate::features::providers::{ModelObject, ProviderMetadata, ProviderProtocol};
-use crate::infrastructure::database::providers::ProviderConnection;
+use crate::infrastructure::database::providers::{CustomProviderRow, ProviderConnection};
 
-/// A provider as the list, catalog, and detail routes describe it.
+/// A provider as the list, catalog, and detail routes describe it. The id and
+/// name are owned strings because a custom provider's values come from its row.
 #[derive(Clone, Debug, Serialize, specta::Type)]
 pub struct ProviderEntry {
-    pub id: &'static str,
-    pub name: &'static str,
-    pub category: &'static str,
+    pub id: String,
+    pub name: String,
+    pub category: String,
     pub protocol: ProviderProtocol,
-    pub default_base_url: &'static str,
+    pub default_base_url: String,
     pub requires_api_key: bool,
     pub requires_oauth: bool,
     pub supports_custom_url: bool,
@@ -39,17 +40,38 @@ impl ProviderEntry {
         connected_count: usize,
     ) -> Self {
         Self {
-            id: metadata.id,
-            name: metadata.name,
-            category: metadata.category,
+            id: metadata.id.to_owned(),
+            name: metadata.name.to_owned(),
+            category: metadata.category.to_owned(),
             protocol: metadata.protocol,
-            default_base_url: metadata.base_url,
+            default_base_url: metadata.base_url.to_owned(),
             requires_api_key: metadata.requires_api_key,
             requires_oauth: metadata.requires_oauth,
             supports_custom_url: metadata.supports_custom_url,
             enabled,
             round_robin: true,
             status: ProviderStatus::new(metadata.status_message, connected_count),
+            connections: None,
+            models: Vec::new(),
+        }
+    }
+
+    /// Builds the entry for a user-registered provider, from its stored row.
+    /// The status mirrors Node's `ProviderDefinitionFromConfig`: a custom
+    /// provider that carries an API key reports one live connection.
+    pub fn from_custom(row: &CustomProviderRow, connected_count: usize) -> Self {
+        Self {
+            id: row.id.clone(),
+            name: row.name.clone(),
+            category: row.category.clone(),
+            protocol: ProviderProtocol::parse(&row.protocol),
+            default_base_url: row.base_url.clone(),
+            requires_api_key: true,
+            requires_oauth: false,
+            supports_custom_url: true,
+            enabled: row.enabled,
+            round_robin: true,
+            status: ProviderStatus::new("Custom provider endpoint", connected_count),
             connections: None,
             models: Vec::new(),
         }
@@ -196,7 +218,7 @@ impl GroupedCatalog {
     /// Buckets an entry by its category; an unknown category is dropped the way
     /// the four fixed groups do.
     pub fn push(&mut self, entry: ProviderEntry) {
-        match entry.category {
+        match entry.category.as_str() {
             "oauth" => self.oauth.push(entry),
             "free_tier" => self.free_tier.push(entry),
             "api_key" => self.api_key.push(entry),

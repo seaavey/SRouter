@@ -92,7 +92,10 @@ struct CatalogExclusions {
 /// alias, and returns the lowercased ids it flagged. Mirrors Node's
 /// `MergeCustomModels`: a custom row also marks an already-listed model, so the
 /// returned set is built independently of the append.
-async fn merge_custom_models(state: &AppState, models: &mut Vec<ModelObject>) -> HashSet<String> {
+pub(crate) async fn merge_custom_models(
+    state: &AppState,
+    models: &mut Vec<ModelObject>,
+) -> HashSet<String> {
     let mut custom = HashSet::new();
     let Some(database) = state.database.as_ref() else {
         return custom;
@@ -274,8 +277,9 @@ fn revalidation_requested(headers: &HeaderMap) -> bool {
 }
 
 /// The provider a model id names, inferred from its `<prefix>/<bare>` shape.
-/// `None` when the prefix is not a registered provider or alias.
-fn provider_of(state: &AppState, model_id: &str) -> Option<&'static str> {
+/// `None` when the prefix is not a registered provider or alias. The provider
+/// id is owned because a custom provider's id is not a compile-time literal.
+fn provider_of(state: &AppState, model_id: &str) -> Option<String> {
     let prefix = model_id.trim().split('/').next()?;
     if prefix.is_empty() || !model_id.contains('/') {
         return None;
@@ -333,7 +337,7 @@ fn parse_model_write(body: &[u8]) -> Result<ModelWrite, APIError> {
 }
 
 /// The provider a write targets: the id's own prefix. A bare id is a `400`.
-fn target_provider(state: &AppState, write: &ModelWrite) -> Result<&'static str, APIError> {
+fn target_provider(state: &AppState, write: &ModelWrite) -> Result<String, APIError> {
     provider_of(state, &write.model_id).ok_or_else(invalid_model_payload)
 }
 
@@ -357,8 +361,8 @@ pub async fn create_model(
     let base_id = target_provider(&state, &write)?;
     let database = require_models_database(&state)?;
 
-    let existed = is_registered(database, base_id, &write.model_id).await?;
-    add_custom_model(database, base_id, &bare_id(&write.model_id)).await?;
+    let existed = is_registered(database, &base_id, &write.model_id).await?;
+    add_custom_model(database, &base_id, &bare_id(&write.model_id)).await?;
     apply_model_flags(&state, &write).await?;
 
     Ok((
@@ -387,7 +391,7 @@ pub async fn put_model(
     let base_id = target_provider(&state, &write)?;
     let database = require_models_database(&state)?;
 
-    add_custom_model(database, base_id, &bare_id(&write.model_id)).await?;
+    add_custom_model(database, &base_id, &bare_id(&write.model_id)).await?;
     apply_model_flags(&state, &write).await?;
 
     Ok(Json(model_view(&state, &write.model_id).await?).into_response())
@@ -422,7 +426,7 @@ pub async fn delete_model(
     let base_id = provider_of(&state, &model_id).ok_or_else(invalid_model_payload)?;
     let database = require_models_database(&state)?;
 
-    if !remove_custom_model(database, base_id, &bare_id(&model_id)).await? {
+    if !remove_custom_model(database, &base_id, &bare_id(&model_id)).await? {
         return Err(
             APIError::new(404, constants::gateway::model_not_found(&model_id))
                 .with_code(constants::code::MODEL_NOT_FOUND),
@@ -467,9 +471,9 @@ async fn apply_model_flags(state: &AppState, write: &ModelWrite) -> Result<(), A
         None => {}
     }
     match write.hidden {
-        Some(true) => set_model_hidden(database, base_id, &write.model_id).await?,
+        Some(true) => set_model_hidden(database, &base_id, &write.model_id).await?,
         Some(false) => {
-            clear_model_hidden(database, base_id, &write.model_id).await?;
+            clear_model_hidden(database, &base_id, &write.model_id).await?;
         }
         None => {}
     }

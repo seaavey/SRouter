@@ -371,9 +371,9 @@ Qoder, Cline, OpenAI, Antigravity, and Claude routes exist in Rust. Source of tr
 - [x] Cline device flow: `/v1/auth/cline/device` (GET) and `/v1/auth/cline/poll` (GET, POST),
       guarded by the admin session. `/v1/auth/cline/token` (contract row 58) remains deliberately
       deferred; the OAuth-only scope is recorded in the Cline plan.
-- [~] Custom providers and the protocol enum: the per-provider `/token` imports
-  (`commandcode`, `anthropic`, `atria`, `tokenrouter`, `qoder`) leave the backlog in favour of
-  one generic custom-provider surface. The protocol enum landed:
+- [x] Custom providers and the protocol enum: the per-provider `/token` imports
+  (`commandcode`, `anthropic`, `atria`, `tokenrouter`, `qoder`) are replaced by one generic
+  custom-provider surface. The protocol enum landed:
   `ProviderProtocol { OpenAI, Anthropic, Custom }` in `features/providers/model.rs`, serialized
   lowercase, carried by `ProviderMetadata.protocol` and by the `ProviderEntry` response type, with
   the connect responses re-exporting it as `Protocol`. Every driver names a variant instead of a
@@ -382,10 +382,17 @@ Qoder, Cline, OpenAI, Antigravity, and Claude routes exist in Rust. Source of tr
   over, since its only user was the `gemini_cli` provider deleted with
   `packages/providers/src/catalog.ts` in `e248528` and nothing declares or branches on it since
   (`apps/api/src/logic/providers.logic.ts:50` still accepts it in the union check). `custom` is
-  live in Node (`packages/constants/src/providers/kiro.ts:7`), so it stays. Still open: no
-  custom-provider route is served, so `POST /v1/providers` with `category: "custom_provider"`
-  stays the owner-approved Node-only deviation recorded in section 4 and
-  `docs/api-v1-contract.md` ("Providers in the Rust build").
+  live in Node (`packages/constants/src/providers/kiro.ts:7`), so it stays.
+  Custom-provider routes are now served (`features/providers/management/custom_routes.rs`):
+  `POST /v1/providers` (create, UUID v4 id, `category`/`protocol` validation, `api_key` required
+  for `api_key`/`custom_provider`, SSRF-guarded base URL), `DELETE /v1/providers/{provider_id}`
+  (`404` when missing), `POST /v1/providers/verify`, and `POST /v1/providers/connections/verify`.
+  The driver is the generic `features/providers/custom/executor.rs` (`CustomProvider`), which
+  serves `openai` and `anthropic` from the stored row: the registry gained runtime registration
+  (`register_runtime`/`unregister`) and the row is re-registered on boot and after each write, so
+  its models resolve at the gateway and a deleted provider stops resolving immediately. The
+  `ProviderEntry` id/name/category/`default_base_url` became owned `String`s so a stored row fits
+  the same response type. Covered by `server/tests/custom_providers.rs` (10 integration tests).
   Landed already: `openai` (`GET /v1/auth/openai/login`, `POST /v1/auth/openai/token`),
   `claude` (login, `token`, the `CLAUDE_OAUTH_CLIENT_ID` override), and the CodeBuddy
   OAuth-only flow (`/v1/auth/{codebuddy,codebuddy-cn}/login` and `/poll`, one
@@ -799,10 +806,11 @@ Qoder, Cline, OpenAI, Antigravity, and Claude routes exist in Rust. Source of tr
   `enabled`) and the field-naming differences are owner-approved as the Rust build's
   contract, so no provider route needs a Node-parity port before cutover.
   Since that ruling the ground moved: hidden-models and favorites are served again under
-  `/v1/models`, and round-robin is served by `PATCH /providers/{provider_id}/round-robin`
-  (section 4). The approval still stands for what remains unported: `POST /v1/providers`,
-  `DELETE /v1/providers/:id`, both verify routes, and `/v1/providers/:id/enabled` as a separate
-  route (its flag lives on the provider `PATCH`).
+  `/v1/models`, round-robin is served by `PATCH /providers/{provider_id}/round-robin`
+  (section 4), and the custom-provider routes are served too: `POST /v1/providers`,
+  `DELETE /v1/providers/{provider_id}`, and both verify routes
+  (`features/providers/management/custom_routes.rs`, section 4). What remains unported is
+  `/v1/providers/:id/enabled` as a separate route (its flag lives on the provider `PATCH`).
 
 Do not start until every section above is checked, the parity matrix passes, and the rollback window
 has closed. Then delete, in one commit:

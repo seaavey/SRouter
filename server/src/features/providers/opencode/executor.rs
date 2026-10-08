@@ -63,7 +63,7 @@ impl OpenCodeExecutor {
         }
     }
 
-    pub fn id(&self) -> &'static str {
+    pub fn id(&self) -> &str {
         self.id
     }
 
@@ -71,7 +71,7 @@ impl OpenCodeExecutor {
         self.keys
     }
 
-    pub fn alias(&self) -> &'static str {
+    pub fn alias(&self) -> &str {
         OPENCODE_ZEN_PROVIDER.alias
     }
 
@@ -512,7 +512,7 @@ impl ProviderExecutor for OpenCodeExecutor {
         self
     }
 
-    fn id(&self) -> &'static str {
+    fn id(&self) -> &str {
         OpenCodeExecutor::id(self)
     }
 
@@ -520,7 +520,7 @@ impl ProviderExecutor for OpenCodeExecutor {
         OpenCodeExecutor::keys(self)
     }
 
-    fn alias(&self) -> &'static str {
+    fn alias(&self) -> &str {
         OpenCodeExecutor::alias(self)
     }
 

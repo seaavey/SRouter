@@ -1,11 +1,13 @@
 //! Provider management, registry lifecycle, and provider implementations.
 
 pub mod adapter;
+pub mod anthropic;
 pub mod antigravity;
 pub mod claude;
 pub mod cline;
 pub mod codebuddy;
 pub mod codex;
+pub mod custom;
 pub mod executor;
 pub mod grok_web;
 pub mod management;

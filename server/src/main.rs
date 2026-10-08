@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use srouter_server::features::admin_auth::bootstrap_admin_account_from_env;
 use srouter_server::features::providers::ProviderRegistry;
+use srouter_server::features::providers::custom::register_custom_providers;
 use srouter_server::infrastructure::database::AppDatabase;
 use srouter_server::infrastructure::database::admin_auth::SQLxAdminAuthStore;
 use srouter_server::infrastructure::database::api_keys::SQLxAPIKeyStore;
@@ -33,6 +34,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         SecurityState::with_repository(api_key_store.clone(), admin_store.clone(), api_key_store)
             .with_admin_auth(admin_store);
     let registry = ProviderRegistry::with_database(Some(database.clone()))?;
+    // Custom providers live in `providers` rows rather than compiled-in
+    // definitions, so they join the registry from the database. A failure here
+    // must not kill boot: the built-in drivers still serve.
+    if let Err(error) = register_custom_providers(&registry, &database).await {
+        tracing::warn!(error = %error, "could not register stored custom providers");
+    }
     // Warm up the live catalog off the boot path: a first request that arrives
     // before this lands joins the same fetch instead of starting a second one.
     let warmup = registry.clone();

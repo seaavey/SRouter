@@ -23,7 +23,7 @@ use crate::features::provider_auth::{
     create_qoder_callback_pages_router, create_qoder_callback_router, create_qoder_login_router,
 };
 use crate::features::providers::management::{
-    create_providers_management_router, create_providers_read_router,
+    create_custom_provider_router, create_providers_management_router, create_providers_read_router,
 };
 use crate::features::settings::{create_settings_management_router, create_settings_read_router};
 use crate::http::middleware::access_log::log_access;
@@ -101,6 +101,10 @@ pub fn create_router(state: AppState) -> Router {
     // admin-session guard instead of the API-key one.
     let providers_mgmt_routes = create_providers_management_router()
         .layer(from_fn_with_state(state.clone(), require_admin_session));
+    // Creating, deleting, and verifying a custom provider is an operator action
+    // too, so it carries the same admin-session guard.
+    let custom_provider_routes = create_custom_provider_router()
+        .layer(from_fn_with_state(state.clone(), require_admin_session));
     // The device flow needs the admin session, while the callback stays public
     // because a browser lands on it without a session cookie.
     let qoder_login_routes =
@@ -164,6 +168,7 @@ pub fn create_router(state: AppState) -> Router {
         .merge(claude_callback_routes)
         .merge(providers_read_routes)
         .merge(providers_mgmt_routes)
+        .merge(custom_provider_routes)
         .merge(logs_routes)
         .merge(quota_routes)
         .merge(pricing_routes)
