@@ -584,10 +584,18 @@ Qoder, Cline, OpenAI, Antigravity, and Claude routes exist in Rust. Source of tr
       geometry of the Node fixture in `apps/api/tests/models-endpoint.test.ts`) and
       `an_allowlist_entry_under_one_qoder_name_lists_both_names` (one allowlist entry under either name
       serves the whole Qoder pair, on the list and the single route).
-- [ ] `/v1/models` response shape: `ModelObject` carries `{id, object, owned_by}` only, so upstream
-      metadata that `model/list` does return (`display_name`, `is_vl`, `format`, `max_input_tokens`,
-      `price_factor`, `is_free`) is parsed away today. Adding it is a contract change and needs a
-      consumer first.
+- [x] `/v1/models` response shape is closed (owner ruling 2026-10-08): the entry stays
+      `{id, object, owned_by}` plus the `favorite` flag and `custom: true` on a custom row. Node
+      serves the same fields, so this is parity, not a deviation: `ModelObjectSchema`
+      (`packages/types/src/schemas/models.ts`) declares the same OpenAI field set, and the Node
+      executors build their entries the same way (`packages/executors/src/qoder.ts:492`). The
+      upstream metadata a `model/list` returns (`display_name`, `is_vl`, `format`,
+      `max_input_tokens`, `price_factor`, `is_free`) is therefore parsed away on both sides, and
+      serving it would turn the payload into a deviation from the oracle schema. No consumer exists
+      today (the web reads `favorite`, `custom`, and the provider detail's `hidden` only), so the
+      ruling keeps the shape. Revisit only when a consumer lands, for example a view that shows a
+      context window, vision support, or free-tier state; the metadata then has to travel from each
+      provider catalog through the registry before it can reach a response.
 - [x] `GET /v1/models/pricing` — `Cache-Control: public, max-age=3600, stale-while-revalidate=86400`,
       `refresh`/`force`/`no-cache` forcing a refresh (`features/catalog/pricing.rs`). Legacy evidence:
       `apps/api/tests/pricing-route.test.ts`. Sourced independently from official Models.dev data
