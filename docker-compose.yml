@@ -1,6 +1,7 @@
 services:
-    # Rust server, the only service. Single listener on PORT: the Node secondary
-    # :1455 OAuth listener is not part of the Rust target.
+    # Rust server, the only service. Single listener on PORT, serving the API
+    # and, when a built dashboard is mounted and WEB_DIST_PATH points at it, the
+    # dashboard's static files.
     srouter:
         image: srouter:local
         build:
@@ -10,13 +11,11 @@ services:
         container_name: srouter
         restart: unless-stopped
         ports:
-            # SRouter Gateway & Web Dashboard
+            # SRouter Gateway
             - "${PORT:-3000}:3000"
         environment:
-            - NODE_ENV=production
             - PORT=3000
             - DATABASE_PATH=/app/data/srouter.db
-            - WEB_DIST_PATH=/app/web/dist
         volumes:
             # Persistent storage for SQLite database (WAL mode), keys, logs, and providers
             - srouter_data:/app/data

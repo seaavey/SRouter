@@ -1,55 +1,82 @@
 # AGENTS.md - SRouter
 
-Monorepo: `pnpm@11.23.0` workspaces (`apps/*`, `packages/*`) + Turborepo. Requires Node `>=22` (native `node:sqlite`). Use `corepack enable pnpm`.
+Single crate repository: the Rust/Axum API gateway in `server/`. Requires a Rust stable toolchain
+(matched by `server/rust-toolchain.toml`). Node `>=22` is needed only for the Prettier documentation
+gate.
+
+The TypeScript side is gone: `apps/api`, `apps/web`, `apps/cli`, `apps/docs`, `packages/*`, the pnpm
+workspace file, and the Turbo pipeline were deleted on 2026-10-08 by owner instruction (the last four
+by a second instruction the same day). Everything is preserved at branch
+`backup/pre-packages-removal` (commit `3e29aaf`) and in git history, so a `server/` doc comment or a
+document under `docs/` that cites one of those paths refers to that branch.
 
 ## Rules
 
-- FORBIDDEN: `pnpm dev`, `pnpm start`, `pnpm start:dev`, `pnpm build`, `turbo run dev|start|build`, `tsx watch`, `vite`, `vite build`, `astro dev|build|preview`. No dev servers, no builds, no previews.
-- ALLOWED: focused test (single file), lint/typecheck (`apps/web` `pnpm run lint`, `apps/docs` `pnpm run check`), `prettier --check` on changed files, `git diff --check`.
-- Verify only touched apps/packages. Never run root `pnpm test` / `turbo test` on resource-constrained dev.
-- Language: reply to user in Bahasa Indonesia; code, comments, identifiers, commit messages in English.
+- FORBIDDEN in this environment: dev servers, watchers, and heavy builds. `cargo run`,
+  `cargo watch`, `cargo build --release`, `docker build`, and any Node dev server.
+- ALLOWED: focused tests, the full `cargo test`, `cargo fmt -- --check`, `cargo clippy`,
+  `prettier --check` on changed files, `git diff --check`.
+- Verify only what changed while iterating; run the full suite before pushing. Never leave the tree
+  in a state where `cargo test` cannot run.
+- Language: reply to the user in Bahasa Indonesia; code, comments, identifiers, and commit messages
+  in English.
 
 ## Layout
 
-- `server/`: Rust/Axum API gateway, outside the pnpm workspace (`cargo`, entry `src/main.rs`). Serves `apps/web/dist` in prod. It replaced the Node `apps/api`, deleted 2026-10-08; that tree is preserved at branch `backup/pre-apps-api-removal`.
-- `apps/web`: Vite + React 19 + TanStack Router + Tailwind v4 + shadcn. Dev `:5173`, proxies `/v1`, `/health` to `:3000`.
-- `apps/cli`: `@srouter/cli`, bin `srouter`. `apps/docs`: Astro landing (excluded from root `dev`/`build` filters).
-- `packages/`: `constants`, `db` (SQLite `node:sqlite` WAL repo + `pg` for prod), `executors` (upstream drivers), `pricing`, `providers` (registry/coordinator), `translator` (OpenAI <-> Anthropic), `types` (shared Zod).
+- `server/`: the API. `src/app.rs` mounts the routers, `src/features/*` own behavior,
+  `src/http/` holds middleware and static files, `src/infrastructure/` owns persistence and
+  migrations, `src/constants.rs` owns client-facing copy, and `server/bindings.ts` is the generated
+  TypeScript view of the wire types.
+- `docs/`: contract and migration records (`api-v1-contract.md`, `api-database-contract.md`,
+  `api-migration.md`, `schemas-database.md`) plus `docs/packages/*.md`, which document the deleted
+  workspace packages and what replaced each of them.
+- `server/TODO.md`: the migration backlog. Section 13 records the Node API removal, section 11 the
+  contract publication, section 12 CI, Docker, and cutover plumbing.
+- `Dockerfile` (two stages, `runner` last) and `docker-compose.yml` build and run the server alone.
 
-## Commands (reference, most are FORBIDDEN per Rules above)
-
-```bash
-pnpm install                  # setup only; frozen-lockfile in CI
-# FORBIDDEN: pnpm dev / pnpm build (turbo dev/build --filter=!docs)
-```
-
-Verify only touched apps/packages (per `CONTRIBUTING.md`, minus build):
+## Commands
 
 ```bash
 cargo test --manifest-path server/Cargo.toml --test <focused-file>
+cargo test --manifest-path server/Cargo.toml --locked          # full suite, what CI runs
 cargo fmt --manifest-path server/Cargo.toml -- --check
+cargo clippy --manifest-path server/Cargo.toml --all-targets --all-features --locked -- -D warnings
+cargo run --manifest-path server/Cargo.toml --bin export_ts    # regenerate server/bindings.ts
 pnpm exec prettier --check <changed files>
 git diff --check
 ```
 
-- `apps/web` verify: `pnpm run lint` (`tsc --noEmit`) only. No `vite build`.
-- `apps/cli` test: `NODE_ENV=test tsx --test --import ./tests/setup.ts tests/**/*.test.ts` (single file preferred).
-- Format: Prettier `tabWidth: 4, printWidth: 100, double quotes, trailingComma: none`. No ESLint.
+- Format: Prettier `tabWidth: 4, printWidth: 100, double quotes, trailingComma: none`, applied to
+  Markdown and configuration files only. No ESLint, no TypeScript build.
 
 ## DB / env safety
 
-- Default DB `~/.srouter/srouter.db`. Override via `DATABASE_PATH`. Docker uses `/app/data/srouter.db`. Never hardcode paths.
-- Tests MUST go through `tests/setup.ts`: redirects `DATABASE_PATH` to per-pid tmp file, deletes `DATABASE_URL`. A past run wiped prod API keys by sharing the prod file. Never import `@srouter/db` in setup before the redirect.
-- Key env: `PORT` (3000), `OAUTH_PORT` (1455), `DATABASE_PATH`, `WEB_DIST_PATH`, `SROUTER_ADMIN_PASSWORD` (bootstrap only), `SROUTER_CORS_ORIGINS`, `SROUTER_PUBLIC_URL` (when set, `:1455` listener is skipped).
-- CI (`.github/workflows/ci.yml`): Node 22.x/24.x, `pnpm/action-setup` reads `packageManager`, do not pin `version:`.
+- Default DB `~/.srouter/srouter.db`; override with `DATABASE_PATH`. The container uses
+  `/app/data/srouter.db`. Never hardcode a path in code or tests.
+- Tests MUST go through `server/tests/support`: it redirects to a per-pid temporary database and
+  never opens the production file. A past run wiped production API keys by sharing it.
+- Key env: `PORT` (3000, the only listener), `DATABASE_PATH`, `WEB_DIST_PATH` (optional dashboard
+  dist), `SROUTER_ADMIN_PASSWORD`, `SROUTER_CORS_ORIGINS`, `SROUTER_PUBLIC_URL`.
+  `DATABASE_URL` is refused on purpose: SQLite is the only backend.
+- Schema: version 4, in `server/migrations/`, applied on connect. Legacy v1 files are transformed in
+  one transaction; a newer reported version is refused.
+- CI (`.github/workflows/ci.yml`): two jobs, `rust-lint` (`cargo fmt --check` + clippy with
+  `-D warnings`) and `rust-test` (`cargo test --locked` + the `server/bindings.ts` drift check), on
+  pull requests and pushes to `main`.
 
 ## Quirks agents miss
 
-- The API serves a single listener on `PORT` (default `3000`); provider callbacks live under `/v1/auth/*`. The Node build's secondary `:1455` OAuth listener was removed with `apps/api`.
-- Compat routes: `/v1/v1/*` exists for SDKs appending `/v1` to a baseURL containing `/v1`. Keep them.
-- Web `vite.config.ts` aliases `@srouter/types` and `@srouter/constants` to `packages/*/src/index.ts` (not `dist`). `src/routeTree.gen.ts` is generated, prettier-ignored.
-- Web build emits `sr-[hash].js` with `preserveModules`; the API is a Rust binary, not a bundler target.
+- One listener on `PORT` (default `3000`), OAuth callbacks under `/v1/auth/*` included. The Node
+  build's secondary `:1455` listener no longer exists anywhere.
+- Compat routes: `/v1/v1/*` exists for SDKs that append `/v1` to a baseURL already containing `/v1`.
+  Keep them.
+- `server/bindings.ts` is generated with `specta` and CI fails on drift. Change the Rust types, then
+  regenerate with `export_ts`; never hand-edit the file.
+- `GET /` serves the dashboard when a dist exists at `WEB_DIST_PATH`, and the API information object
+  otherwise. The repo-relative `apps/web/dist` candidates in `src/http/static_files.rs` are vestigial
+  after the deletion but harmless.
 - Commits: Conventional Commits (`feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `perf:`, `chore:`).
+  The API replacement was a breaking change, so the removal commits carry `!` where it fits.
 
 ## Local agent memory (`.local/`, git-ignored)
 

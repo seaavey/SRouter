@@ -1,12 +1,14 @@
 # Contributing to SRouter
 
-Thank you for your interest in contributing to **SRouter**! We welcome contributions from the community to help make SRouter the most reliable, high-performance, multi-provider AI gateway.
+Thank you for your interest in contributing to **SRouter**! We welcome contributions that help make
+SRouter the most reliable, high-performance, multi-provider AI gateway.
 
 ---
 
 ## 🧭 Code of Conduct
 
-Please treat everyone with respect, kindness, and professionalism. Constructive feedback and inclusive collaboration are core values of this project.
+Please treat everyone with respect, kindness, and professionalism. Constructive feedback and
+inclusive collaboration are core values of this project.
 
 ---
 
@@ -14,9 +16,10 @@ Please treat everyone with respect, kindness, and professionalism. Constructive 
 
 ### Prerequisites
 
-- **Node.js**: `v22+` or `v24+` (Native SQLite `node:sqlite` required)
-- **pnpm**: `v10+` (`corepack enable pnpm`)
+- **Rust**: the stable toolchain (`rustup default stable`); `server/rust-toolchain.toml` pins the
+  version this crate builds with
 - **Git**
+- **Node.js `>=22`** only if you want to run the Prettier documentation gate
 
 ### Installation
 
@@ -27,40 +30,45 @@ Please treat everyone with respect, kindness, and professionalism. Constructive 
     cd SRouter
     ```
 
-2. **Install Dependencies**:
+2. **Build and run the server**:
 
     ```bash
-    pnpm install
+    cargo run --manifest-path server/Cargo.toml
     ```
 
-3. **Start Development Environment**:
+    The API listens on `:3000` (single listener, OAuth callbacks under `/v1/auth/*` included) and
+    keeps its SQLite WAL database at `~/.srouter/srouter.db`. Set `PORT` or `DATABASE_PATH` to move
+    either one.
 
-    ```bash
-    pnpm dev
-    ```
-
-    This launches:
-    - **Frontend Dashboard**: `http://localhost:5173` (Vite + React 19 + TanStack Router), proxying `/v1` and `/health` to `:3000`
-    - **Documentation site**: `http://localhost:4321` (Astro)
-
-    The API itself is the Rust server in `server/` and runs on its own: `cargo run --manifest-path server/Cargo.toml` (single listener on `:3000`, SQLite WAL). The Node API and its secondary `:1455` OAuth listener were removed on 2026-10-08.
+    The dashboard, the CLI, and the documentation site that used to live under `apps/` were deleted
+    on 2026-10-08 and are preserved at branch `backup/pre-packages-removal` (commit `3e29aaf`).
 
 ---
 
 ## 🧪 Testing & Code Quality
 
-Before submitting a Pull Request, run verification only for the apps and packages touched by the change. Do not run root-level Turbo tests, builds, or lint tasks on resource-constrained development environments.
+Run verification for what you touched, and run the full suite before opening a pull request.
 
 ```bash
-# Run one focused Rust API test file
+# One focused test file
 cargo test --manifest-path server/Cargo.toml --test <focused-file>
 
-# Check formatting only for changed files
-pnpm exec prettier --check <changed files>
-cargo fmt --manifest-path server/Cargo.toml -- --check
+# The whole suite, what CI runs
+cargo test --manifest-path server/Cargo.toml --locked
 
-# Check whitespace errors
+# Formatting and lints
+cargo fmt --manifest-path server/Cargo.toml -- --check
+cargo clippy --manifest-path server/Cargo.toml --all-targets --all-features --locked -- -D warnings
+
+# Markdown and configuration formatting, and whitespace errors
+pnpm exec prettier --check <changed files>
 git diff --check
+```
+
+`server/bindings.ts` is generated. After changing a wire type, regenerate it and commit the result:
+
+```bash
+cargo run --manifest-path server/Cargo.toml --bin export_ts
 ```
 
 ---
@@ -69,20 +77,17 @@ git diff --check
 
 ```
 SRouter/
-├── apps/
-│   ├── web/             # Modern Dashboard UI (TanStack Router, React 19)
-│   ├── cli/             # @srouter/cli installer and launcher
-│   └── docs/            # Astro documentation site
-├── server/              # Rust/Axum REST API (single listener, SQLite WAL)
-├── packages/
-│   ├── constants/       # Global constants, presets & model catalogs
-│   ├── db/              # SQLite repository layer (node:sqlite)
-│   ├── executors/       # Upstream protocol drivers (Antigravity, Kiro, Codex, etc.)
-│   ├── pricing/         # Model token pricing calculators
-│   ├── providers/       # Multi-provider runtime coordinator & registry
-│   ├── translator/      # OpenAI <-> Anthropic protocol transformers
-│   └── types/           # Shared TypeScript interfaces & Zod schemas
-└── turbo.json           # Turborepo build orchestration pipeline
+├── server/              # Rust/Axum API gateway (single listener, SQLite WAL)
+│   ├── src/app.rs       # router mounts
+│   ├── src/features/    # gateway, providers, catalog, logs, admin, database transfer
+│   ├── src/infrastructure/ # persistence and schema migrations (v4)
+│   ├── src/constants.rs # client-facing copy and header constants
+│   ├── migrations/      # SQL migrations
+│   ├── tests/           # integration suites and the shared test support module
+│   └── bindings.ts      # generated TypeScript view of the wire types
+├── docs/                # contract, migration, and schema documents
+├── Dockerfile           # two stages: Rust build, then a Node-free runtime
+└── docker-compose.yml   # the single service that runs the server
 ```
 
 ---
@@ -107,12 +112,14 @@ _Example:_ `feat(quota): add live quota tracking for upstream accounts`
 
 1. Create a feature branch: `git checkout -b feat/your-feature-name`
 2. Commit your changes following conventional commit syntax.
-3. Verify the focused tests and builds for the touched apps or packages; do not claim broader checks were run unless they were explicitly executed.
-4. Push to your fork and open a Pull Request against `main`.
+3. Verify the tests and checks that apply to your change; do not claim broader checks were run
+   unless they were explicitly executed.
+4. Push to your fork and open a pull request against `main`.
 5. Clearly describe the motivation, changes, and testing steps in your PR description.
 
 ---
 
 ## 📄 License
 
-By contributing to SRouter, you agree that your contributions will be licensed under the [MIT License](LICENSE).
+By contributing to SRouter, you agree that your contributions will be licensed under the
+[MIT License](LICENSE).

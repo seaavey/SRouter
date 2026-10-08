@@ -7,6 +7,12 @@ branch `backup/pre-apps-api-removal` (commit `5839f80`); every `apps/api/**` pat
 preserved tree. The `docs/superpowers/` design and plan documents named here were deleted in the same
 change and live on the same branch.
 
+Later the same day the owner ordered the rest of the TypeScript surface removed, so the repository is
+now the Rust crate only. `apps/web`, `apps/cli`, `apps/docs`, `packages/*`, the pnpm workspace file,
+and the Turbo pipeline are preserved at branch `backup/pre-packages-removal` (commit `3e29aaf`), and
+section 14 records that removal. Any `apps/web/**`, `apps/cli/**`, `apps/docs/**`, or `packages/**`
+path cited below is therefore a historical reference to that branch, never a live file.
+
 Sources of truth:
 
 - Design: `docs/superpowers/specs/2026-09-24-srouter-api-rust-migration-design.md`
@@ -30,16 +36,17 @@ Status legend: `[x]` done and covered by a Rust test, `[ ]` missing, `[~]` parti
   2026-10-08 --- 15-07 WIB: the feature is deleted outright, not merely excluded. Rust never had
   the routes (they answer `404`) and migration `0004_remove_tunnel_settings.sql` deletes its four
   settings keys (`cloudflare_tunnel_token`, `cloudflare_tunnel_domain`,
-  `cloudflare_tunnel_autostart`, `cloudflared_path`), so schema is now v4. The Node side
+  `cloudflare_tunnel_autostart`, `cloudflared_path`), so schema is now v4. The whole Node side
   (`apps/api` route/controller/service/tests, `apps/web/src/hooks/useTunnel.ts`,
-  `packages/types` `TunnelConfigSchema`, docs): the Node half went away with the 2026-10-08 deletion,
-  while `apps/web/src/hooks/useTunnel.ts` and the `packages/types` schema stay as dead code until the
-  web refactor (#150) runs with the owner's scope opened.
+  `packages/types` `TunnelConfigSchema`) is deleted: the API half went on 2026-10-08, and the
+  dashboard and package halves went the same day with the rest of the TypeScript surface
+  (section 14). Nothing is left as dead code.
 - Tests always use disposable databases (`server/tests/support/mod.rs`); never `~/.srouter/srouter.db`
   and never a production `DATABASE_URL`.
 - Verify a slice only with `cargo test --manifest-path server/Cargo.toml --test <file>`,
   `cargo fmt --check`, `cargo clippy -- -D warnings`, plus the matching Node test file read as
-  black-box evidence. Do not run root `pnpm test` / `pnpm build`.
+  black-box evidence from the preserved branches. There is no longer a pnpm workspace, so no
+  `pnpm test` / `pnpm build` exists to run.
 
 ---
 
@@ -632,9 +639,9 @@ Qoder, Cline, OpenAI, Antigravity, and Claude routes exist in Rust. Source of tr
       `{ object, data: { totals: { requests: { total, success, failed }, tokens: { input, output, total, reasoning, cache: { write, read } }, cost: { total, label, estimated } }, by_model: [] } }`.
       `cost` carries a single `total` because `request_logs` stores one `estimated_cost` per request,
       not a per-category breakdown. Serializes snake_case, as does the SSE `usage.updated` payload
-      (documented deviation, `docs/api-v1-contract.md` "Logs in the Rust build"). Web calls this
-      endpoint (`apps/web/src` → `/v1/logs/stats`) and still reads the frozen flat shape, so it is
-      stale until the web refactor (#150) maps `data.totals`.
+      (documented deviation, `docs/api-v1-contract.md` "Logs in the Rust build"). The dashboard that
+      read the frozen flat shape was deleted on 2026-10-08 (section 14), so no consumer maps
+      `data.totals` today.
 - [x] `GET /v1/logs/analytics` — `window` param (default `24h`), invalid window → `400` +
       `code=invalid_request`. `parse_analytics_window` pairs each window with its bucket geometry
       (`1h`→60 s ×60, `24h`→1 h ×24, `7d`→6 h ×28, `30d`→24 h ×30) and `analytics_report`
@@ -778,10 +785,12 @@ Qoder, Cline, OpenAI, Antigravity, and Claude routes exist in Rust. Source of tr
 - Removed 2026-10-07 by owner ruling: the Rust build no longer publishes an OpenAPI document.
   Deleted `server/src/openapi.rs`, `server/src/bin/export_openapi.rs`, `server/openapi.json`, and
   `server/tests/openapi.rs`, plus the `schemars` dependency (and the 51 model derives it fed).
-- [ ] `apps/web` still imports the frozen `apps/web/src/generated/api.ts` (52 files) that
+- [x] `apps/web` imported the frozen `apps/web/src/generated/api.ts` (52 files) that
       `openapi-typescript` generated from the deleted `server/openapi.json` (`api:generate` /
-      `api:check` in `apps/web/package.json`). Kept on purpose for the web refactor (issue #150): the
-      `api:check` job is already parked (`bf01134`), and nothing reads `server/bindings.ts` yet.
+      `api:check` in `apps/web/package.json`), with the `api:check` job parked (`bf01134`). Closed by
+      deletion rather than by refactor: the owner ordered the dashboard removed on 2026-10-08
+      (section 14), so nothing imports a generated client any more, and `docs/packages/types.md`
+      records what the bindings replaced.
 
 ## 12. CI, Docker, cutover plumbing
 

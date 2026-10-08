@@ -67,8 +67,8 @@ Verdicts are evidence-based and deliberately narrow:
 | Shared security: CORS allowlist, CSRF origin guard, headers | Served | `cors.rs`, `csrf.rs`, `http_runtime.rs` | `cors-allowlist.test.ts`, `csrf-origin-guard.test.ts` |
 | Compat aliases `/v1/v1/*` | Served for the gateway subset only; absent for auth/keys/logs/settings/providers | `csrf.rs`, `models.rs`, `images.rs`, `providers.rs` | `opencode-compat.test.ts` |
 | Persistence: SQLite schema v4, migrations, PostgreSQL boot refusal | Served (SQLite-only, 2026-10-05) | `schema.rs`, `database.rs`, `wire.rs` | Schema contract: `docs/schemas-database.md` |
-| Cloudflare Tunnel (`/v1/tunnel/*`, autostart) | Not served; feature removed (owner ruling 2026-10-08), see section 4 | `schema.rs` (`tunnel_settings_rows_are_deleted_*`) | `tunnel-auth.test.ts` (Node-only until `apps/` is deleted) |
-| TypeScript wire bindings (`server/bindings.ts`) | Rust-only; replaced the OpenAPI export (2026-10-07) | `bindings.rs`, `wire.rs` | `apps/web/src/generated/api.ts` is frozen (issue #150) |
+| Cloudflare Tunnel (`/v1/tunnel/*`, autostart) | Not served; feature removed (owner ruling 2026-10-08), see section 4 | `schema.rs` (`tunnel_settings_rows_are_deleted_*`) | `tunnel-auth.test.ts` (Node-only; that tree is deleted) |
+| TypeScript wire bindings (`server/bindings.ts`) | Rust-only; replaced the OpenAPI export (2026-10-07) | `bindings.rs`, `wire.rs` | The generated client that consumed the OpenAPI export was deleted with the dashboard on 2026-10-08 |
 
 **What this matrix is not.** It compares static evidence: each side's own test suite plus the
 frozen contracts. The live A/B run from plan Task 15 - two servers, separate temporary
@@ -87,12 +87,12 @@ Each item is recorded in `docs/api-v1-contract.md`; dates are the ruling dates.
   (2026-10-02, refined 2026-10-06).
 - Round-robin default: a missing settings row reads as on (Node defaults off).
 - Logs, stats, and analytics serialize snake_case where Node emits camelCase.
-- `GET /v1/models/pricing` replaces `GET /v1/pricing/models` (2026-10-07). `apps/web` still
-  calls the Node path until the web refactor (issue #150).
+- `GET /v1/models/pricing` replaces `GET /v1/pricing/models` (2026-10-07). The dashboard that
+  called the Node path was deleted on 2026-10-08, so nothing calls it.
 - Fallbacks: no routes, no cascade; `fallback_rules` is kept as data only (2026-10-04).
 - Storage: SQLite only; a `DATABASE_URL` boot is refused at startup (2026-10-05), and
   PostgreSQL support was struck from the backlog entirely (2026-10-08), so the refusal is
-  permanent. Node keeps PostgreSQL until cutover.
+  permanent. The Node runtime kept PostgreSQL support until it was deleted.
 - Single listener: no `:1455` OAuth listener, no `OAUTH_PORT`/`OAUTH_HOST` (2026-10-03);
   provider callbacks live on the main listener under `/v1/auth/...`.
 - Version: the Rust build reports `server/Cargo.toml` (`0.2.0`), not `API_VERSION` (2026-10-02).
@@ -112,8 +112,8 @@ The feature is deleted, not merely excluded. What it consisted of and where each
 | -------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | Seven routes (`GET                                                                                                         | POST /v1/tunnel/status,events,install,start,stop,config`)                              | `apps/api/src/routes/v1/tunnel.ts`, `controllers/tunnel.controller.ts`                                          | Deleted with `apps/api` on 2026-10-08 |
 | cloudflared process manager, installer, autostart                                                                          | `apps/api/src/services/cloudflareTunnel.ts`, wired into `boot()` via `RunStartupTasks` | Deleted with `apps/api` on 2026-10-08                                                                           |
-| Dashboard hook                                                                                                             | `apps/web/src/hooks/useTunnel.ts` (no importer)                                        | Still present; dead code                                                                                        |
-| Settings schema                                                                                                            | `packages/types/src/schemas/admin.ts` (`TunnelConfigSchema`)                           | Still present                                                                                                   |
+| Dashboard hook                                                                                                             | `apps/web/src/hooks/useTunnel.ts` (no importer)                                        | Deleted with the dashboard on 2026-10-08                                                                        |
+| Settings schema                                                                                                            | `packages/types/src/schemas/admin.ts` (`TunnelConfigSchema`)                           | Deleted with the packages on 2026-10-08                                                                         |
 | Stored settings (`cloudflare_tunnel_token`, `cloudflare_tunnel_domain`, `cloudflare_tunnel_autostart`, `cloudflared_path`) | `system_settings` / `settings` rows                                                    | **Deleted** by `server/migrations/0004_remove_tunnel_settings.sql` on the next connect; schema version is now 4 |
 | Rust routes                                                                                                                | Never existed                                                                          | `/v1/tunnel/*` answers `404`, as before                                                                         |
 
@@ -229,8 +229,10 @@ items below record both what the deletion settled and what is still open.
 - [ ] Rollback rehearsed against a real backup, including the schema-ownership caveat
       (section 6).
 - [x] `apps/` scope for the Node tunnel code: `apps/api` (routes, controller, service, test) was
-      deleted with the tree on 2026-10-08. `apps/web/src/hooks/useTunnel.ts` and the
-      `packages/types` `TunnelConfigSchema` remain as dead code until the web refactor (#150).
+      deleted with the tree on 2026-10-08, and the rest of the TypeScript surface
+      (`apps/web/src/hooks/useTunnel.ts`, the `packages/types` `TunnelConfigSchema`, and the
+      remaining `apps/*` and `packages/*` trees) was deleted the same day by a second owner
+      instruction, preserved at branch `backup/pre-packages-removal`.
 - [ ] 24-hour production monitoring window closed with no parity or data-integrity regression.
 - [ ] `server/TODO.md` section 13 retirement checklist executed (only after every section above
       is checked), except the Node tree deletion itself, which is already done.

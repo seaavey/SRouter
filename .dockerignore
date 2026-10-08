@@ -5,12 +5,8 @@
 # Package manager and cache
 node_modules
 .pnpm-store
-.turbo
 
 # Build outputs
-**/dist
-apps/web/dist
-packages/*/dist
 server/target
 server/logs
 
