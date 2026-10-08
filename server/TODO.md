@@ -21,8 +21,15 @@ Status legend: `[x]` done and covered by a Rust test, `[ ]` missing, `[~]` parti
 - No Rust file, migration, migration fixture, build script, or codegen input may read, import, or
   copy code or data from `packages/*`. Ports are built from `apps/api` route/controller/service
   source, `apps/api/tests`, and independent protocol documentation only.
-- Cloudflare Tunnel (`/v1/tunnel/*`, `services/cloudflareTunnel.ts`) is a deliberate exclusion:
-  Rust must return not-found for it after cutover, and that removal is a documented contract change.
+- Cloudflare Tunnel (`/v1/tunnel/*`, `services/cloudflareTunnel.ts`) is removed by owner ruling
+  2026-10-08 --- 15-07 WIB: the feature is deleted outright, not merely excluded. Rust never had
+  the routes (they answer `404`) and migration `0004_remove_tunnel_settings.sql` deletes its four
+  settings keys (`cloudflare_tunnel_token`, `cloudflare_tunnel_domain`,
+  `cloudflare_tunnel_autostart`, `cloudflared_path`), so schema is now v4. The Node side
+  (`apps/api` route/controller/service/tests, `apps/web/src/hooks/useTunnel.ts`,
+  `packages/types` `TunnelConfigSchema`, docs) is NOT touched yet: the owner scoped this slice to
+  `server/` + `docs/` and explicitly excluded `apps/`. Until that lands, the byte-identical rule
+  above still protects `apps/api`.
 - Tests always use disposable databases (`server/tests/support/mod.rs`); never `~/.srouter/srouter.db`
   and never a production `DATABASE_URL`.
 - Verify a slice only with `cargo test --manifest-path server/Cargo.toml --test <file>`,
@@ -372,33 +379,33 @@ Qoder, Cline, OpenAI, Antigravity, and Claude routes exist in Rust. Source of tr
       guarded by the admin session. `/v1/auth/cline/token` (contract row 58) remains deliberately
       deferred; the OAuth-only scope is recorded in the Cline plan.
 - [x] Custom providers and the protocol enum: the per-provider `/token` imports
-  (`commandcode`, `anthropic`, `atria`, `tokenrouter`, `qoder`) are replaced by one generic
-  custom-provider surface. The protocol enum landed:
-  `ProviderProtocol { OpenAI, Anthropic, Custom }` in `features/providers/model.rs`, serialized
-  lowercase, carried by `ProviderMetadata.protocol` and by the `ProviderEntry` response type, with
-  the connect responses re-exporting it as `Protocol`. Every driver names a variant instead of a
-  string. Three variants, matching what the build serves: Node's `ProviderProtocol` union also
-  lists `gemini` (`packages/types/src/provider.ts:13`), but that value is dead and was not carried
-  over, since its only user was the `gemini_cli` provider deleted with
-  `packages/providers/src/catalog.ts` in `e248528` and nothing declares or branches on it since
-  (`apps/api/src/logic/providers.logic.ts:50` still accepts it in the union check). `custom` is
-  live in Node (`packages/constants/src/providers/kiro.ts:7`), so it stays.
-  Custom-provider routes are now served (`features/providers/management/custom_routes.rs`):
-  `POST /v1/providers` (create, UUID v4 id, `category`/`protocol` validation, `api_key` required
-  for `api_key`/`custom_provider`, SSRF-guarded base URL), `DELETE /v1/providers/{provider_id}`
-  (`404` when missing), `POST /v1/providers/verify`, and `POST /v1/providers/connections/verify`.
-  The driver is the generic `features/providers/custom/executor.rs` (`CustomProvider`), which
-  serves `openai` and `anthropic` from the stored row: the registry gained runtime registration
-  (`register_runtime`/`unregister`) and the row is re-registered on boot and after each write, so
-  its models resolve at the gateway and a deleted provider stops resolving immediately. The
-  `ProviderEntry` id/name/category/`default_base_url` became owned `String`s so a stored row fits
-  the same response type. Covered by `server/tests/custom_providers.rs` (10 integration tests).
-  Landed already: `openai` (`GET /v1/auth/openai/login`, `POST /v1/auth/openai/token`),
-  `claude` (login, `token`, the `CLAUDE_OAUTH_CLIENT_ID` override), and the CodeBuddy
-  OAuth-only flow (`/v1/auth/{codebuddy,codebuddy-cn}/login` and `/poll`, one
-  `CodeBuddyExecutor` over `Flavor { Global, China }`, catalog from `GET /v3/config`, no
-  `/token`, no refresh). Tests: `server/tests/codebuddy_auth.rs`,
-  `codebuddy_provider.rs`, `claude_auth.rs` (fake upstream only).
+      (`commandcode`, `anthropic`, `atria`, `tokenrouter`, `qoder`) are replaced by one generic
+      custom-provider surface. The protocol enum landed:
+      `ProviderProtocol { OpenAI, Anthropic, Custom }` in `features/providers/model.rs`, serialized
+      lowercase, carried by `ProviderMetadata.protocol` and by the `ProviderEntry` response type, with
+      the connect responses re-exporting it as `Protocol`. Every driver names a variant instead of a
+      string. Three variants, matching what the build serves: Node's `ProviderProtocol` union also
+      lists `gemini` (`packages/types/src/provider.ts:13`), but that value is dead and was not carried
+      over, since its only user was the `gemini_cli` provider deleted with
+      `packages/providers/src/catalog.ts` in `e248528` and nothing declares or branches on it since
+      (`apps/api/src/logic/providers.logic.ts:50` still accepts it in the union check). `custom` is
+      live in Node (`packages/constants/src/providers/kiro.ts:7`), so it stays.
+      Custom-provider routes are now served (`features/providers/management/custom_routes.rs`):
+      `POST /v1/providers` (create, UUID v4 id, `category`/`protocol` validation, `api_key` required
+      for `api_key`/`custom_provider`, SSRF-guarded base URL), `DELETE /v1/providers/{provider_id}`
+      (`404` when missing), `POST /v1/providers/verify`, and `POST /v1/providers/connections/verify`.
+      The driver is the generic `features/providers/custom/executor.rs` (`CustomProvider`), which
+      serves `openai` and `anthropic` from the stored row: the registry gained runtime registration
+      (`register_runtime`/`unregister`) and the row is re-registered on boot and after each write, so
+      its models resolve at the gateway and a deleted provider stops resolving immediately. The
+      `ProviderEntry` id/name/category/`default_base_url` became owned `String`s so a stored row fits
+      the same response type. Covered by `server/tests/custom_providers.rs` (10 integration tests).
+      Landed already: `openai` (`GET /v1/auth/openai/login`, `POST /v1/auth/openai/token`),
+      `claude` (login, `token`, the `CLAUDE_OAUTH_CLIENT_ID` override), and the CodeBuddy
+      OAuth-only flow (`/v1/auth/{codebuddy,codebuddy-cn}/login` and `/poll`, one
+      `CodeBuddyExecutor` over `Flavor { Global, China }`, catalog from `GET /v3/config`, no
+      `/token`, no refresh). Tests: `server/tests/codebuddy_auth.rs`,
+      `codebuddy_provider.rs`, `claude_auth.rs` (fake upstream only).
 - [x] `antigravity` privileged routes: `GET /v1/auth/antigravity/login` (supports `client_id`,
       `redirect_uri`, `prompt`, `format=json`) and `POST /v1/auth/antigravity/token` (validated
       token import, `201`) in `features/provider_auth/antigravity.rs`, both admin-guarded. D3: the
@@ -609,8 +616,7 @@ Qoder, Cline, OpenAI, Antigravity, and Claude routes exist in Rust. Source of tr
 - [x] `GET /v1/logs/stats` — aggregate usage statistics (`usage_stats` in
       `infrastructure/database/request_logs/analytics.rs`, now served directly instead of only through
       the `usage.updated` SSE payload). The report is grouped rather than flat:
-      `{ object, data: { totals: { requests: { total, success, failed }, tokens: { input, output,
-      total, reasoning, cache: { write, read } }, cost: { total, label, estimated } }, by_model: [] } }`.
+      `{ object, data: { totals: { requests: { total, success, failed }, tokens: { input, output, total, reasoning, cache: { write, read } }, cost: { total, label, estimated } }, by_model: [] } }`.
       `cost` carries a single `total` because `request_logs` stores one `estimated_cost` per request,
       not a per-category breakdown. Serializes snake_case, as does the SSE `usage.updated` payload
       (documented deviation, `docs/api-v1-contract.md` "Logs in the Rust build"). Web calls this
@@ -663,7 +669,14 @@ Qoder, Cline, OpenAI, Antigravity, and Claude routes exist in Rust. Source of tr
 
 ## 10. Persistence gaps
 
-- [x] SQLite schema v3 via `server/migrations/0002_v2_schema.sql`, `0003_request_logs.sql`.
+- [x] SQLite schema v4 via `server/migrations/0002_v2_schema.sql`, `0003_request_logs.sql`,
+      `0004_remove_tunnel_settings.sql` (v4 = the v3 tables plus the tunnel-settings cleanup;
+      owner ruling 2026-10-08). The v3 steps (`0003` ALTERs + the legacy id upgrade) are now
+      gated to `version < 3`, because a file already at v3 must not replay them: the ALTERs fail
+      on a duplicate column and the id upgrade would stamp `legacy_id` on every current row.
+      Covered by `server/tests/schema.rs`, including the two new
+      `tunnel_settings_rows_are_deleted_*` cases (v3 file and the v1 transform path) and the
+      existing row-preservation cases.
       PostgreSQL is refused at boot (owner ruling 2026-10-05): the backend has no schema carrier
       and no repository statements, so a `DATABASE_URL` boot used to come up with no tables and
       answer every request from empty defaults (settings/favorites/hidden/disabled returned
@@ -681,11 +694,15 @@ Qoder, Cline, OpenAI, Antigravity, and Claude routes exist in Rust. Source of tr
       independent contract. All ten tables match it column for column, and the eight `request_logs` v3
       columns in `0003_request_logs.sql` are the documented ones (contract section 4). The only
       destructive statements are `DROP TABLE IF EXISTS` on six legacy shapes, each with a reason
-      (shape changed and recreated from the captured rows, renamed, or the provenance marker); there is
-      no `DELETE`, `TRUNCATE`, or `DROP COLUMN`. Row-level preservation is pinned by
+      (shape changed and recreated from the captured rows, renamed, or the provenance marker). The only
+      row-deleting statement is `0004_remove_tunnel_settings.sql` (four Cloudflare Tunnel settings
+      keys), an explicit owner ruling 2026-10-08 to remove the feature including its stored state; there is
+      no `TRUNCATE`, `DROP COLUMN`, or any other `DELETE`. Row-level preservation is pinned by
       `server/tests/schema.rs`: the v1 transform, v1 with missing optional columns, v2 request logs, the
-      newer-version refusal, and the second-connect no-op. The invariant stands: a migration that drops
-      user data is a defect, and any new statement here must keep that property.
+      newer-version refusal, the second-connect no-op, and the two `tunnel_settings_rows_are_deleted_*`
+      cases that also pin `require_api_key` surviving. The invariant stands: a migration that drops
+      user data outside an explicit owner ruling is a defect, and any new statement here must keep that
+      property.
 - [x] Field/relation citations for every table Rust touches: satisfied 2026-10-06 by
       `docs/schemas-database.md`, which records the independent provenance (disposable-probe dump of the
       observed v1 schema plus API-visible behavior) and carries a `CREATE TABLE` for every one of the
@@ -792,7 +809,8 @@ Qoder, Cline, OpenAI, Antigravity, and Claude routes exist in Rust. Source of tr
       asset carries the immutable cache header, an unmatched route falls back to the shell without one,
       `/v1` reports version `0.2.0`, and `logs/srouter-server.log` is written. A plain `docker build`
       still lands on the Node runtime, so the production default is unchanged until cutover.
-- [ ] `docs/api-migration.md`: parity matrix results, tunnel exclusion write-up, staging steps,
+- [ ] `docs/api-migration.md`: parity matrix results, tunnel removal write-up (the feature is
+      deleted outright per the 2026-10-08 ruling, so both builds answer `404`), staging steps,
       backup/rollback procedure, benchmark table (startup, idle/active memory, CPU/throughput, image
       size) measured under identical limits. No claimed improvement without numbers.
 - [ ] Staging cutover + 24 h monitoring + rollback rehearsal (plan Task 15).
@@ -822,7 +840,9 @@ has closed. Then delete, in one commit:
   (`providers.connection-form.tsx`, `providers.custom-provider-dialog.tsx`,
   `routes/providers/$providerId.tsx`), and `/v1/tunnel/*` (`apps/web/src/hooks/useTunnel.ts`, no
   importer today). Those calls answer `404` on the Rust build, so a rollback to `apps/api` has to
-  ship the web bundle from the same commit; the reverse is free.
+  ship the web bundle from the same commit; the reverse is free. Tunnel note: the feature itself is
+  deleted by the owner ruling 2026-10-08 (see the ground rules), so removing `useTunnel.ts` and the
+  Node tunnel routes joins this retirement step when `apps/` comes into scope.
 
 - [ ] `apps/api/src/**/*.ts`, `apps/api/tests/**/*.ts`, `apps/api/package.json`,
       `apps/api/tsconfig.json`, `apps/api/tsup.config.ts`, `apps/api/heroku.yml`,

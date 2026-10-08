@@ -1,8 +1,11 @@
-# SRouter database schema v3 (Rust migration)
+# SRouter database schema v4 (Rust migration)
 
 **Status:** Implemented schema contract for the Rust persistence layer. The base DDL lives in
 `server/migrations/0002_v2_schema.sql`; request-log v3 additions live in
-`server/migrations/0003_request_logs.sql`. Both are applied on connect by
+`server/migrations/0003_request_logs.sql`; the v4 settings cleanup lives in
+`server/migrations/0004_remove_tunnel_settings.sql` (owner ruling 2026-10-08: the Cloudflare
+Tunnel feature is removed together with its four settings keys, so v4 changes no table shape).
+All three are applied on connect by
 `server/src/infrastructure/database/migrations.rs` (version gate + legacy transforms), covered
 by `server/tests/schema.rs`. Derived from the observed Node/SQLite schema (disposable-probe dump
 documented out of band) plus API-visible behavior in `docs/api-v1-contract.md`. Task 6 (SQLx
@@ -34,8 +37,9 @@ no speculative feature is added.
    aggregate; splitting it into child tables would only add joins.
 8. **`settings` is a deliberate key/value table.** It has genuine domain purpose: the frozen
    `/v1/settings` contract accepts arbitrary string settings from clients, and runtime keys
-   (`require_api_key`, `round_robin_*`, `provider_enabled_*`, tunnel config) are dynamic by
-   nature. This is not a generic metadata dumping ground.
+   (`require_api_key`, `round_robin_*`, `provider_enabled_*`) are dynamic by
+   nature. This is not a generic metadata dumping ground. The four Cloudflare Tunnel keys this
+   table once held are deleted by `0004` when the feature was removed (owner ruling 2026-10-08).
 
 ## 2. Table-by-table decisions
 
@@ -49,7 +53,7 @@ no speculative feature is added.
 | `favorite_models`                 | **remain**   | Favorites are global (no provider) and cannot fold into a per-provider table without changing semantics.                                                                        |
 | `fallback_rules`                  | **remain**   | Already clean; only `max_retries` tightened to `NOT NULL DEFAULT 1`.                                                                                                            |
 | `oauth_sessions`                  | **remain**   | Real OAuth/PKCE domain; seven columns are exactly what the flow needs.                                                                                                          |
-| `request_logs`                    | **remain**   | v3 adds request UUID and HTTP metadata in place; old IDs and non-UUID API key IDs are retained in legacy columns.                                                              |
+| `request_logs`                    | **remain**   | v3 adds request UUID and HTTP metadata in place; old IDs and non-UUID API key IDs are retained in legacy columns.                                                               |
 | `system_settings`                 | **rename**   | → `settings` for consistent naming; key/value content is domain data (§1-8).                                                                                                    |
 | `srouter_schema_meta`             | **remove**   | Replaced by `PRAGMA user_version` (SQLite-native versioning, zero tables).                                                                                                      |
 
@@ -202,14 +206,19 @@ PRAGMA synchronous = NORMAL;
 PRAGMA busy_timeout = 5000;
 PRAGMA foreign_keys = ON;      -- no FKs are declared; kept for future-proofing only
 -- schema version lives here, not in a table:
-PRAGMA user_version;           -- 0/1 = legacy v1, 2 = v2, 3 = current, >3 = refuse to open
+PRAGMA user_version;           -- 0/1 = legacy v1, 2 = v2, 3 = v3, 4 = current, >4 = refuse to open
 ```
 
-Fresh installs create all tables above and set `PRAGMA user_version = 3`.
+Fresh installs create all tables above and set `PRAGMA user_version = 4`.
 
 Schema v3 adds nullable `request_id`, `user_id`, `method`, `path`, `error_code`, `error_message`,
 `legacy_id`, and `legacy_api_key_id` columns to `request_logs` via
 `server/migrations/0003_request_logs.sql`.
+
+Schema v4 changes no table shape: `server/migrations/0004_remove_tunnel_settings.sql` deletes the
+four Cloudflare Tunnel settings keys (`cloudflare_tunnel_token`, `cloudflare_tunnel_domain`,
+`cloudflare_tunnel_autostart`, `cloudflared_path`) after the legacy transform, and only for files
+below version 4.
 
 ## 4. Indexes (necessary only)
 
@@ -259,31 +268,33 @@ Dropped from v1, with reasons:
 
 ### Column-level mapping (changed tables only)
 
-| v1                                                        | v2                                                                | Notes                                                                                  |
-| --------------------------------------------------------- | ----------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| `api_keys.key`                                            | `api_keys.key_hash` + `api_keys.key_prefix`                       | One-way; see §7-B. `key_prefix` is `substr(key,1,8)` = `sr-live-` (no secret entropy). |
-| `api_keys.rate_limit/quota_limit/usage_tokens` (nullable) | same, `NOT NULL DEFAULT 0`                                        | `0` remains the "unlimited" sentinel from the API contract.                            |
-| `api_keys.credit_limit/usage_cost`                        | same, `NOT NULL DEFAULT 0`                                        | Stay `REAL`/`f64` (fractional values exist).                                           |
-| `api_keys.allowed_models`                                 | same                                                              | `NULL` = all models; empty array normalized to `NULL` as in v1.                        |
-| `providers.api_key`                                       | `providers.credentials` (JSON, `api_key`)                         | Moved into the JSON blob; read/written as a whole.                                     |
-| `providers.access_token/refresh_token`                    | `providers.credentials` (`access_token`, `refresh_token`)         | Token refresh becomes read-modify-write of one row.                                    |
-| `providers.token_expires_at/last_refreshed_at`            | `providers.credentials` (`token_expires_at`, `last_refreshed_at`) | Never used in a `WHERE` clause; safe inside JSON.                                      |
-| `providers.account_id/organization_id`                    | `providers.credentials` (`account_id`, `organization_id`)         | Request identity data sent as upstream headers.                                        |
-| `providers.custom_headers`                                | `providers.meta.custom_headers`                                   | Lifted as-is (already JSON text).                                                      |
-| `providers.provider_specific_data`                        | `providers.meta.provider_specific_data`                           | Includes the seed marker; every reader must move to `meta`.                            |
-| `providers.enabled`                                       | same                                                              | Per-connection flag; **not** merged with settings keys `provider_enabled_*`.           |
-| `custom_models.(provider_id, model_id)`                   | `provider_model_overrides.(provider_id, model_id)` + `custom = 1` | Composite PK preserved.                                                                |
-| `hidden_models.(provider_id, model_id)`                   | idem + `hidden = 1`                                               | Overlap rows become `custom = 1, hidden = 1`.                                          |
-| `system_settings.key/value`                               | `settings.key/value`                                              | Keys unchanged: `require_api_key`, `round_robin_*`, `provider_enabled_*`, tunnel keys. |
-| `srouter_schema_meta('schema_version','1')`               | `PRAGMA user_version = 3`                                         | See §7-F.                                                                              |
+| v1                                                        | v2                                                                | Notes                                                                                                       |
+| --------------------------------------------------------- | ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `api_keys.key`                                            | `api_keys.key_hash` + `api_keys.key_prefix`                       | One-way; see §7-B. `key_prefix` is `substr(key,1,8)` = `sr-live-` (no secret entropy).                      |
+| `api_keys.rate_limit/quota_limit/usage_tokens` (nullable) | same, `NOT NULL DEFAULT 0`                                        | `0` remains the "unlimited" sentinel from the API contract.                                                 |
+| `api_keys.credit_limit/usage_cost`                        | same, `NOT NULL DEFAULT 0`                                        | Stay `REAL`/`f64` (fractional values exist).                                                                |
+| `api_keys.allowed_models`                                 | same                                                              | `NULL` = all models; empty array normalized to `NULL` as in v1.                                             |
+| `providers.api_key`                                       | `providers.credentials` (JSON, `api_key`)                         | Moved into the JSON blob; read/written as a whole.                                                          |
+| `providers.access_token/refresh_token`                    | `providers.credentials` (`access_token`, `refresh_token`)         | Token refresh becomes read-modify-write of one row.                                                         |
+| `providers.token_expires_at/last_refreshed_at`            | `providers.credentials` (`token_expires_at`, `last_refreshed_at`) | Never used in a `WHERE` clause; safe inside JSON.                                                           |
+| `providers.account_id/organization_id`                    | `providers.credentials` (`account_id`, `organization_id`)         | Request identity data sent as upstream headers.                                                             |
+| `providers.custom_headers`                                | `providers.meta.custom_headers`                                   | Lifted as-is (already JSON text).                                                                           |
+| `providers.provider_specific_data`                        | `providers.meta.provider_specific_data`                           | Includes the seed marker; every reader must move to `meta`.                                                 |
+| `providers.enabled`                                       | same                                                              | Per-connection flag; **not** merged with settings keys `provider_enabled_*`.                                |
+| `custom_models.(provider_id, model_id)`                   | `provider_model_overrides.(provider_id, model_id)` + `custom = 1` | Composite PK preserved.                                                                                     |
+| `hidden_models.(provider_id, model_id)`                   | idem + `hidden = 1`                                               | Overlap rows become `custom = 1, hidden = 1`.                                                               |
+| `system_settings.key/value`                               | `settings.key/value`                                              | Keys kept: `require_api_key`, `round_robin_*`, `provider_enabled_*`; the tunnel keys are deleted by `0004`. |
+| `srouter_schema_meta('schema_version','1')`               | `PRAGMA user_version = 4`                                         | See §7-F.                                                                                                   |
 
-## 6. Migration procedure (v1 → v3)
+## 6. Migration procedure (v1 → v4)
 
 Order of operations, all inside one transaction after a file backup and `PRAGMA wal_checkpoint`:
 
 1. **Guard:** read `user_version`; if `0` or `1`, and `srouter_schema_meta.schema_version` exists,
-   treat the file as v1. If `2`, upgrade its request logs as described below. If `3`, nothing to do.
-   If `>3`, refuse to open.
+   treat the file as v1. If `2`, upgrade its request logs as described below (step 8 runs only for
+   `0/1/2` — a file already at `3` ran it once, and replaying the `ALTER`s would fail on duplicate
+   columns while the id upgrade would stamp `legacy_id` on every current row). If `3`, skip to the
+   v4 cleanup in step 9. If `4`, nothing to do. If `>4`, refuse to open.
 2. **Renames** (SQLite metadata-only, instant):
 
     ```sql
@@ -342,15 +353,18 @@ Order of operations, all inside one transaction after a file backup and `PRAGMA 
    rebuild like the tables above.
 7. **Straight-copy tables** (`admin_sessions`, `favorite_models`, `oauth_sessions`,
    `request_logs`) are untouched.
-8. **Request logs:** add v3 columns in place. Convert non-UUID `id` values to generated UUIDs and
+8. **Request logs (pre-v3 files only):** add v3 columns in place. Convert non-UUID `id` values to generated UUIDs and
    preserve original values in `legacy_id`; use each row's new `id` as `request_id` because v1/v2
    cannot prove which rows share an inbound request. Preserve non-UUID `api_key_id` in
    `legacy_api_key_id` and set UUID `api_key_id` to `NULL`. Set missing `method` and `path` to
    `UNKNOWN`; leave `user_id` and error fields `NULL`. Existing token, status, timing, provider,
    and model values remain untouched. All changes share migration transaction.
-9. **Version:** `DROP TABLE srouter_schema_meta;` then set `PRAGMA user_version = 3` in transaction.
-10. **Verify:** row counts per table match expectations; spot-check one migrated key (auth via
-   hash) and one merged override row; refuse to proceed on any mismatch (leave the file at v1).
+9. **Settings cleanup (v4):** delete the removed feature's keys and nothing else:
+   `DELETE FROM settings WHERE key IN ('cloudflare_tunnel_token', 'cloudflare_tunnel_domain',
+'cloudflare_tunnel_autostart', 'cloudflared_path');`
+10. **Version:** `DROP TABLE srouter_schema_meta;` then set `PRAGMA user_version = 4` in transaction.
+11. **Verify:** row counts per table match expectations; spot-check one migrated key (auth via
+    hash) and one merged override row; refuse to proceed on any mismatch (leave the file at v1).
 
 SQLite cannot add `NOT NULL`/`UNIQUE` in place, so every tightening above uses the standard
 rebuild pattern: create new table → `INSERT ... SELECT` with `COALESCE` → drop old → rename —
@@ -403,7 +417,8 @@ all in the single transaction from step 1.
   validation (expects exact v1 columns incl. `srouter_schema_meta`), CLI `srouter migrate`
   (copies tables by name), and web UI key display/search.
 - **K. Connection behavior in Rust:** gate on `user_version` before any query; treat `0/1` and `2`
-  as legacy (run §6), `3` as ready, `>3` as an error.
+  as legacy (run §6), `3` as an upgradable v3 (run §6 steps 9-10 only), `4` as ready, `>4` as an
+  error.
 
 ## 8. Rust type recommendations
 

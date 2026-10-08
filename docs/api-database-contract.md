@@ -82,8 +82,8 @@ Errors use the standard API envelope `{error:{message,type,code?}}`. The main li
 
 The Rust port (`server/src/features/database_transfer/`) preserves the wire contract above. Four implementation deviations are documented here because they change observable behavior on edge inputs:
 
-- **Version carrier.** The candidate's schema version is read from `PRAGMA user_version` (3 = current), not from the `srouter_schema_meta` marker table, which v2 dropped (`docs/schemas-database.md` §7-F). A candidate reporting a version above 3 is `400 invalid_database`.
-- **Legacy candidate migration.** A v1/v2 candidate (marker table present, `user_version` below 3) is migrated on a scratch copy before validation and replacement, so a v1 export is accepted rather than refused. The uploaded bytes are never written to.
+- **Version carrier.** The candidate's schema version is read from `PRAGMA user_version` (4 = current; v4 changes no table shape and only deletes the removed tunnel settings keys), not from the `srouter_schema_meta` marker table, which v2 dropped (`docs/schemas-database.md` §7-F). A candidate reporting a version above 4 is `400 invalid_database`.
+- **Legacy candidate migration.** A candidate below `user_version = 3` (v1/v2 marker-table shapes) is migrated on a scratch copy before validation and replacement, so a v1 export is accepted rather than refused. A v3 candidate from an earlier Rust build is validated against the current shape first, then migrated to v4 on the scratch copy. The uploaded bytes are never written to.
 - **Streaming parser.** The multipart body is streamed with `axum::extract::Multipart`; Node's hand-rolled boundary parser exists only because `Request.formData()` buffers and is not ported. The wire behavior (one file part named `database`, filename before or after the name, duplicates rejected, 25 MiB enforced while streaming) is unchanged.
 - **Transfer lock owner modes.** The `<db>.transfer.lock` file is ported with both owner modes: a `transfer` owner is reclaimed when its pid is dead or recycled, and an `operation` owner (the CLI) always answers `409 database_import_busy` without reclaiming.
 
