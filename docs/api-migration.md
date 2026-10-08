@@ -81,8 +81,9 @@ Each item is recorded in `docs/api-v1-contract.md`; dates are the ruling dates.
 - `GET /v1/models/pricing` replaces `GET /v1/pricing/models` (2026-10-07). `apps/web` still
   calls the Node path until the web refactor (issue #150).
 - Fallbacks: no routes, no cascade; `fallback_rules` is kept as data only (2026-10-04).
-- Storage: SQLite only; a `DATABASE_URL` boot is refused at startup (2026-10-05). Node keeps
-  PostgreSQL until cutover.
+- Storage: SQLite only; a `DATABASE_URL` boot is refused at startup (2026-10-05), and
+  PostgreSQL support was struck from the backlog entirely (2026-10-08), so the refusal is
+  permanent. Node keeps PostgreSQL until cutover.
 - Single listener: no `:1455` OAuth listener, no `OAUTH_PORT`/`OAUTH_HOST` (2026-10-03);
   provider callbacks live on the main listener under `/v1/auth/...`.
 - Version: the Rust build reports `server/Cargo.toml` (`0.2.0`), not `API_VERSION` (2026-10-02).

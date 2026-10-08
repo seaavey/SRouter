@@ -166,7 +166,7 @@ The settings routes deviate from the route rows above by owner decision; the row
 
 ### Storage in the Rust build (owner ruling 2026-10-05)
 
-The Rust build is SQLite-only. A configured `DATABASE_URL` is refused at boot with `500` naming the backend, rather than starting a process whose repositories have no statements: the settings, catalog-flag, provider-connection, admin-auth, and request-log stores all read through `sqlite_pool()` and would otherwise answer from empty defaults or `500` at request time. The Node runtime keeps PostgreSQL support until cutover. `server/.env.example` and `server/TODO.md` §10 record the refusal and what PostgreSQL support would require.
+The Rust build is SQLite-only. A configured `DATABASE_URL` is refused at boot with `500` naming the backend, rather than starting a process whose repositories have no statements: the settings, catalog-flag, provider-connection, admin-auth, and request-log stores all read through `sqlite_pool()` and would otherwise answer from empty defaults or `500` at request time. The Node runtime keeps PostgreSQL support until cutover. Owner ruling 2026-10-08: PostgreSQL support is dropped from the Rust build altogether, so the refusal is permanent and no PG work item remains. `server/.env.example` and `server/TODO.md` §10 record the refusal.
 
 ### Database transfer in the Rust build
 

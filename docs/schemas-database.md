@@ -400,8 +400,8 @@ all in the single transaction from step 1.
   the marker table, so v2 files are **rejected** by Node's import validator; conversely Rust must
   recognize v1 backups (marker present) and run this migrator before trusting them. **PostgreSQL
   tradeoff:** `PRAGMA user_version` does not exist on PostgreSQL; if the `DATABASE_URL` path ever
-  becomes real, it needs its own version carrier — deliberately not designed now (no
-  speculation).
+  becomes real, it needs its own version carrier. Owner ruling 2026-10-08: that path will not
+  become real - SQLite is the only backend - so the carrier is deliberately never designed.
 - **G. No foreign keys, on purpose.** Deleting an API key or provider must not delete request
   history. v1 ran with `foreign_keys = 0` and no declared FKs; adding FKs to an existing SQLite
   file is expensive and risky, so v2 matches current behavior. Rust still enables the pragma

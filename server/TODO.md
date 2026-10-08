@@ -683,13 +683,16 @@ Qoder, Cline, OpenAI, Antigravity, and Claude routes exist in Rust. Source of tr
       defaults, admin and request-log stores answered `500`). `AppDatabase::connect` now returns
       `500` naming the backend before SQLite is touched, the unused `postgres` module and its
       error constant are deleted, and `server/.env.example` records that `DATABASE_URL` is not
-      supported yet. Covered by `server/tests/database.rs`
+      supported (SQLite-only, owner ruling 2026-10-08). Covered by `server/tests/database.rs`
       (`a_configured_database_url_is_refused_before_any_sqlite_file_is_touched`).
-- [ ] PostgreSQL support, if it is wanted: add the schema carrier plus the missing statements
-      (`settings.rs`, `catalog_flags.rs`, `providers/connections.rs`, `request_logs/store.rs`,
-      `admin_auth.rs`), then relax the boot refusal. The defensive "reads empty / writes fail"
-      behavior is still pinned by `a_postgres_backend_reads_empty_and_refuses_provider_writes`
-      and `postgres_request_log_repository_fails_explicitly`.
+- PostgreSQL support and its optional CI integration test are removed from the backlog by owner
+  ruling 2026-10-08: SQLite is the only backend and the boot refusal above is permanent. If the
+  ruling is ever reversed, the work is the schema carrier plus the missing statements
+  (`settings.rs`, `catalog_flags.rs`, `providers/connections.rs`, `request_logs/store.rs`,
+  `admin_auth.rs`), relaxing the refusal, and a test behind an isolated CI database URL (skip
+  when unset); the defensive "reads empty / writes fail" behavior is pinned today by
+  `a_postgres_backend_reads_empty_and_refuses_provider_writes` and
+  `postgres_request_log_repository_fails_explicitly`.
 - [x] Migration ownership check: audited 2026-10-06 against `docs/schemas-database.md`, the allowed
       independent contract. All ten tables match it column for column, and the eight `request_logs` v3
       columns in `0003_request_logs.sql` are the documented ones (contract section 4). The only
@@ -709,8 +712,6 @@ Qoder, Cline, OpenAI, Antigravity, and Claude routes exist in Rust. Source of tr
       ten tables plus the v3 `request_logs` additions. A programmatic diff of that contract against
       `server/migrations/0002_v2_schema.sql` shows every column present on both sides and no table on
       either side alone.
-- [ ] Optional PostgreSQL integration test behind an isolated CI database URL (skip when unset);
-      it belongs with the "PostgreSQL support" item above.
 
 ## 11. Contract publication (TypeScript bindings)
 
@@ -801,9 +802,11 @@ Qoder, Cline, OpenAI, Antigravity, and Claude routes exist in Rust. Source of tr
       `srouter-node` behind a `node` profile: a plain `docker compose up` starts only the Rust
       service, and `docker compose up -d srouter-node` is the rollback. `docker compose config`
       confirms one published port and one default service.
-- [ ] Root `Procfile` (`web: node apps/api/dist/index.js`) → Docker-based Rust deployment; root
-      `heroku.yml` does not exist yet although the plan creates/keeps one. `apps/api/heroku.yml`
-      becomes obsolete with `apps/api`.
+- Heroku-style deployment plumbing is dropped by owner ruling 2026-10-08 (same ruling as
+  PostgreSQL: a `DATABASE_URL` platform cannot run this SQLite-only build). No root
+  `heroku.yml` will be created, so the plan's Heroku step is void; root `Procfile`
+  (`web: node apps/api/dist/index.js`) and `apps/api/heroku.yml` are deleted with `apps/api`
+  in section 13, and deployment is the Docker `runner` target plus `docker-compose.yml`.
 - [x] Verified the Rust runtime image contains no Node executable (`node`, `npm`, and `nodejs` are
       absent) and smoke-tested it on a disposable volume: `/health` 200, `/` serves the SPA shell, an
       asset carries the immutable cache header, an unmatched route falls back to the shell without one,
