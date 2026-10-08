@@ -789,13 +789,16 @@ Qoder, Cline, OpenAI, Antigravity, and Claude routes exist in Rust. Source of tr
       The crate is clippy-clean: no `allow` attributes were needed, and the long-standing warnings
       (`collapsible_if`, `manual_div_ceil`, `unnecessary_cast`, `new_without_default`,
       `assertions_on_constants`, `large_enum_variant`, `result_large_err`) are fixed at the source.
-- [~] `.github/workflows/ci.yml`: the `rust-test` job runs
-  `cargo test --manifest-path server/Cargo.toml --locked`, so the suite is guarded
-  on every push/PR and a `Cargo.toml` edit that skips `server/Cargo.lock` fails the job. The
-  bindings drift check runs in that job (regenerate `server/bindings.ts` + `git diff --exit-code`);
-  it covers types only, not the routes. The Node job's `pnpm --filter web api:check` half is parked
-  with the job itself (`bf01134`), so `apps/web/src/generated/api.ts` is frozen. Still missing: the
-  PostgreSQL service job.
+- [x] `.github/workflows/ci.yml`: the `rust-test` job runs
+      `cargo test --manifest-path server/Cargo.toml --locked` on every pull request into `main` and
+      every push to `main`, so the suite is guarded and a `Cargo.toml` edit that skips
+      `server/Cargo.lock` fails the job. The bindings drift check runs in that job (regenerate
+      `server/bindings.ts` + `git diff --exit-code`); it covers types only, not the routes. The two
+      cross-references this item used to carry are settled elsewhere. The Node job's
+      `pnpm --filter web api:check` half stays parked with the job itself (`bf01134`) and belongs to
+      the web refactor (section 11); the PostgreSQL service job is void because SQLite is the only
+      backend permanently (owner ruling 2026-10-08, and section 10 records the path back if that
+      ruling is ever reversed).
 - [x] `Dockerfile`: four stages. `web-builder` (Node/pnpm, `pnpm --filter web build`), `server-builder`
       (`rust:1.98-alpine` plus `build-base` and `perl`; aws-lc-sys compiles its C and assembly with
       gcc/make, no cmake or nasm needed), `runner` (Node-free `alpine:3.22` with ca-certificates,
