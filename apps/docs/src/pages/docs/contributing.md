@@ -7,7 +7,7 @@ section: Project
 
 ## Workspace
 
-SRouter is a pnpm workspace orchestrated by Turborepo. The main applications are `apps/api`, `apps/web`, `apps/cli`, and `apps/docs`; reusable runtime modules live under `packages/*`.
+SRouter is a pnpm workspace orchestrated by Turborepo with the Rust API beside it. The main applications are `apps/web`, `apps/cli`, and `apps/docs`; the API is the standalone Rust crate in `server/` (not a workspace package), and reusable runtime modules live under `packages/*`.
 
 ```text
 apps/
@@ -39,8 +39,7 @@ Do not run root `pnpm build`, `pnpm test`, or broad lint commands on a resource-
 For a database-touching API test, run the package setup loader:
 
 ```bash
-cd apps/api
-pnpm exec tsx --test --test-concurrency=1 --import ./tests/setup.ts tests/<focused-file>.test.ts
+cargo test --manifest-path server/Cargo.toml --test <focused-file>
 ```
 
 ## Code boundaries

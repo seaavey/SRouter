@@ -31,17 +31,16 @@ The default gateway URL is:
 http://localhost:3000/v1
 ```
 
-For local source development, the API runs on `3000`, the React dashboard runs on `5173`, and the OAuth callback listener uses `1455`. Docker serves the built dashboard and API from the main `3000` port.
+For local source development, the API runs on `3000` (OAuth callbacks included) and the React dashboard runs on `5173`. Docker serves the built dashboard and the API from the same `3000` port.
 
 Set environment variables only when the defaults do not fit your setup:
 
-| Variable             | Default                         | Purpose                      |
-| -------------------- | ------------------------------- | ---------------------------- |
-| `PORT`               | `3000`                          | Main API and dashboard port  |
-| `OAUTH_PORT`         | `1455`                          | OAuth callback listener      |
-| `DATABASE_PATH`      | `~/.srouter/srouter.db` locally | SQLite database path         |
-| `DATABASE_URL`       | Not set                         | PostgreSQL connection string |
-| `SROUTER_PUBLIC_URL` | Not set                         | Public OAuth callback URL    |
+| Variable             | Default                         | Purpose                             |
+| -------------------- | ------------------------------- | ----------------------------------- |
+| `PORT`               | `3000`                          | Main API and dashboard port         |
+| `DATABASE_PATH`      | `~/.srouter/srouter.db` locally | SQLite database path                |
+| `DATABASE_URL`       | Not set                         | Refused: SQLite is the only backend |
+| `SROUTER_PUBLIC_URL` | Not set                         | Public OAuth callback URL           |
 
 ## Send a request
 

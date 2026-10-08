@@ -22,7 +22,7 @@ curl -N http://localhost:3000/v1/chat/completions \
 - `packages/executors/src/stream-utils.ts` normalizes stream handling.
 - Provider executors adapt upstream event shapes.
 - `packages/translator` maps usage and protocol fields.
-- `apps/api/src/services/usageEvents.ts` publishes usage/log events.
+- `server/src/features/logs.rs` publishes usage and log events over SSE.
 
 Keep streaming code at these boundaries. Do not add provider-specific parsing to an API route.
 

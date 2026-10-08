@@ -23,14 +23,15 @@ The workspace keeps reusable behavior in `packages/*`. Packages must not import 
 
 ```text
 apps/web  ───────┐
-apps/api  ───────┼──> shared packages
-apps/cli  ───────┘
+apps/cli  ───────┼──> shared packages
+apps/docs ───────┘
+
+server/ (Rust API) ──> standalone crate, no workspace package imports
 
 providers ──> executors / translator / types / constants
-api       ──> db / providers / pricing / types / constants
 ```
 
-The API owns HTTP orchestration. Provider drivers and protocol mapping stay in packages so the same runtime contracts can be tested independently from the dashboard.
+The Rust API owns HTTP orchestration and carries its own provider drivers and protocol mapping under `server/src/features`; the workspace packages feed the dashboard, the CLI, and the documentation site so the same runtime contracts can be tested independently from the API.
 
 ## Finding a behavior
 
@@ -38,7 +39,7 @@ Start from the public barrel at `packages/<name>/src/index.ts`, then follow the 
 
 1. Find the shared schema or type in `packages/types/src/schemas`.
 2. Find the provider or protocol implementation in `packages/providers`, `executors`, or `translator`.
-3. Find the API boundary that consumes it under `apps/api/src`.
+3. Find the API boundary that consumes it under `server/src`.
 4. Find the dashboard or CLI caller under `apps/web/src` or `apps/cli/src`.
 
 Focused package tests live beside the package in its `tests/` directory. Generated `dist/` output is not the source of truth.

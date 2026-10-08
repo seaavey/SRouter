@@ -19,7 +19,7 @@ POST   /v1/keys/:id/credit
 DELETE /v1/keys/:id
 ```
 
-Source: `apps/api/src/routes/v1/keys.ts`, `apps/api/src/controllers/keys.controller.ts`, and `apps/web/src/routes/keys.tsx`.
+Source: `server/src/features/api_keys/routes.rs` and `apps/web/src/routes/keys.tsx`.
 
 ## Quotas
 
@@ -40,4 +40,4 @@ The events endpoint is the realtime path. Do not replace it with aggressive poll
 
 ## Pricing
 
-`packages/pricing` owns the pricing catalog and matching logic. `apps/api/src/logic/pricing.logic.ts` adapts it for the API, while the dashboard displays model pricing and estimated request cost. Pricing is an estimate when the upstream catalog contains a matching model; the UI should not present an estimate as provider billing truth.
+`packages/pricing` owns the pricing catalog and matching logic. `server/src/features/catalog/pricing.rs` serves it for the API, while the dashboard displays model pricing and estimated request cost. Pricing is an estimate when the upstream catalog contains a matching model; the UI should not present an estimate as provider billing truth.

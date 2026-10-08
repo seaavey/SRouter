@@ -7,11 +7,11 @@ section: Start here
 
 ## The workspace at a glance
 
-SRouter is a pnpm workspace with four applications and seven reusable packages. The API owns the gateway runtime, the web app owns the operator dashboard, the CLI configures coding tools, and `apps/docs` explains the public and internal surfaces.
+SRouter is a pnpm workspace with three applications plus the Rust API: `server/` owns the gateway runtime, the web app owns the operator dashboard, the CLI configures coding tools, and `apps/docs` explains the public and internal surfaces.
 
 ```text
 apps/web  ─┐
-apps/cli  ─┼──> apps/api ──> shared packages ──> provider edge
+apps/cli  ─┼──> server/ (Rust API) ──> provider edge
 apps/docs ─┘
 ```
 
@@ -19,12 +19,12 @@ The applications may depend on packages, but packages must not import applicatio
 
 ## Application boundaries
 
-| Surface | Responsibility                                                               | Primary source  |
-| ------- | ---------------------------------------------------------------------------- | --------------- |
-| API     | Hono gateway, auth, validation, controllers, runtime decisions, side effects | `apps/api/src`  |
-| Web     | React dashboard, routes, hooks, UI components, server state                  | `apps/web/src`  |
-| CLI     | Commander commands, Clack prompts, tool adapters, local state                | `apps/cli/src`  |
-| Docs    | Static Astro documentation and source map                                    | `apps/docs/src` |
+| Surface | Responsibility                                                                 | Primary source  |
+| ------- | ------------------------------------------------------------------------------ | --------------- |
+| API     | Rust/Axum gateway, auth, validation, handlers, runtime decisions, side effects | `server/src`    |
+| Web     | React dashboard, routes, hooks, UI components, server state                    | `apps/web/src`  |
+| CLI     | Commander commands, Clack prompts, tool adapters, local state                  | `apps/cli/src`  |
+| Docs    | Static Astro documentation and source map                                      | `apps/docs/src` |
 
 ## Package boundaries
 
@@ -40,9 +40,9 @@ The applications may depend on packages, but packages must not import applicatio
 
 ## Where to start reading
 
-- Start at `apps/api/src/index.ts` to see route mounting and middleware order.
-- Follow a request into `apps/api/src/routes/v1` and its controller.
-- Follow business decisions into `apps/api/src/logic`.
-- Follow side effects into `apps/api/src/services`.
+- Start at `server/src/app.rs` to see route mounting and the middleware stack.
+- Follow a request into `server/src/features/gateway` and its feature handler.
+- Follow business decisions into `server/src/features`.
+- Follow side effects into `server/src/infrastructure`.
 - Follow provider-specific behavior into `packages/executors` and `packages/providers`.
 - Follow shared contracts into `packages/types`.

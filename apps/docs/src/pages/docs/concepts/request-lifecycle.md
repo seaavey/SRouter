@@ -23,11 +23,11 @@ HTTP request
 
 ## 1. Request boundary
 
-The API mounts CSRF origin and body-limit middleware for `/v1/*` in `apps/api/src/index.ts`. Feature routers add their own authentication and validation. For example, chat requests use `ApiKeyAuth`, `EnforceRateLimit`, `ValidateJson(ChatCompletionRequestSchema)`, and `EnforceModelAccess()` before reaching `ChatController.CreateCompletion`.
+The API mounts CSRF origin and body-limit middleware for `/v1/*` in `server/src/app.rs`. Feature routers add their own authentication and validation. For example, chat requests pass API-key authentication and the rate limiter, validate the OpenAI-compatible request body, and enforce the API key's model allowlist before reaching the chat handler.
 
 ## 2. Controller and logic
 
-Controllers adapt the Hono context to domain functions and shape the HTTP response. Business decisions stay in `apps/api/src/logic`: fallback policy, model routing, quota checks, logging, pricing, and protocol-specific orchestration are not hidden inside route declarations.
+Handlers adapt the HTTP request to domain functions and shape the response. Business decisions stay in `server/src/features`: model routing, quota checks, logging, pricing, and protocol-specific orchestration are not hidden inside route declarations.
 
 ## 3. Provider execution
 
@@ -39,12 +39,12 @@ Request usage is recorded for logs, quota, analytics, and estimated cost. Stream
 
 ## Source map
 
-| Stage                    | Source                                        |
-| ------------------------ | --------------------------------------------- |
-| App and route mounts     | `apps/api/src/index.ts`                       |
-| Chat route               | `apps/api/src/routes/v1/chat.ts`              |
-| Chat controller          | `apps/api/src/controllers/chat.controller.ts` |
-| Fallback decisions       | `apps/api/src/logic/fallbackRunner.ts`        |
-| Protocol translation     | `packages/translator/src`                     |
-| Provider drivers and SSE | `packages/executors/src`                      |
-| Usage events             | `apps/api/src/services/usageEvents.ts`        |
+| Stage                    | Source                                      |
+| ------------------------ | ------------------------------------------- |
+| App and route mounts     | `server/src/app.rs`                         |
+| Chat route               | `server/src/features/gateway/routes.rs`     |
+| Chat handler             | `server/src/features/gateway/chat.rs`       |
+| Model resolution         | `server/src/features/providers/registry.rs` |
+| Protocol translation     | `server/src/features/gateway/translation`   |
+| Provider drivers and SSE | `server/src/features/providers`             |
+| Usage events             | `server/src/features/logs.rs`               |

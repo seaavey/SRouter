@@ -7,7 +7,7 @@ section: Reference
 
 ## Mounts
 
-The Hono app mounts feature routers under `/v1` in `apps/api/src/index.ts`. `/health` and `/v1` are root-level discovery exceptions. Compatibility routes for clients that append `/v1` twice are also mounted under `/v1/v1` for the model, chat, and messages routers.
+The Rust app mounts feature routers under `/v1` in `server/src/app.rs`. `/health` and `/v1` are root-level discovery exceptions. Compatibility routes for clients that append `/v1` twice are also mounted under `/v1/v1` for the model, chat, and messages routers.
 
 ## Complete route catalog
 
@@ -43,4 +43,4 @@ The `/v1/qouta` spelling is a compatibility alias preserved by the route source;
 
 ## Route source
 
-Feature registration is in `apps/api/src/index.ts`. Route declarations live under `apps/api/src/routes/v1`, with controllers, middleware, and logic kept in their own directories.
+Feature registration is in `server/src/app.rs`. Route declarations live under `server/src/features`, with middleware in `server/src/http/middleware` and the persistence layer in `server/src/infrastructure`.

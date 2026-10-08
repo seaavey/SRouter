@@ -32,5 +32,5 @@ Schema initialization is declarative. Non-automatic changes must be documented i
 - Schema and initialization: `packages/db/src/db.ts`
 - SQLite adapter: `packages/db/src/sqlite.ts`
 - Transfer: `packages/db/src/databaseTransfer.ts`
-- API route: `apps/api/src/routes/v1/database.ts`
+- API route: `server/src/features/database_transfer/routes.rs`
 - CLI command: `apps/cli/src/commands/database.ts`

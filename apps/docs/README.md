@@ -79,7 +79,7 @@ pnpm --filter docs build
 pnpm --filter docs preview
 ```
 
-The site is a static Astro documentation portal served by Nginx in the production container. It uses the same visual language as `apps/web`: monochrome canvas tokens, blue accent, Inter, JetBrains Mono, rounded navigation, and zero-shadow surfaces. The pages map product behavior to source paths in `apps/api`, `apps/web`, `apps/cli`, and `packages`.
+The site is a static Astro documentation portal served by Nginx in the production container. It uses the same visual language as `apps/web`: monochrome canvas tokens, blue accent, Inter, JetBrains Mono, rounded navigation, and zero-shadow surfaces. The pages map product behavior to source paths in `server/`, `apps/web`, `apps/cli`, and `packages`.
 
 Documentation routes:
 

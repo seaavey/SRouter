@@ -1,8 +1,11 @@
 # TODO — Rust API parity and Node API retirement
 
-Working backlog for the Rust migration (`server/`). Every unchecked item is a behavior that
-`apps/api` (Node/Hono) still serves and that `server/` does not implement yet, or migration
-plumbing that is still missing before `apps/api` can be deleted.
+Working backlog for the Rust migration (`server/`). Every unchecked item is a behavior that the Node
+build (`apps/api`) still served and that `server/` does not implement yet, or migration plumbing that
+is still missing. The Node tree was deleted on 2026-10-08 by owner instruction and is preserved at
+branch `backup/pre-apps-api-removal` (commit `5839f80`); every `apps/api/**` path below cites that
+preserved tree. The `docs/superpowers/` design and plan documents named here were deleted in the same
+change and live on the same branch.
 
 Sources of truth:
 
@@ -16,20 +19,22 @@ Status legend: `[x]` done and covered by a Rust test, `[ ]` missing, `[~]` parti
 
 ## Ground rules
 
-- `apps/api/**` stays byte-identical until the parity gates below pass. It is the oracle and the
-  rollback path; nothing may be deleted because a feature "looks" migrated.
+- The Node oracle (`apps/api`) was deleted on 2026-10-08 by owner instruction, ahead of the parity
+  gates below: it no longer exists in the working copy and can no longer be read as a live comparison
+  target. It is preserved at branch `backup/pre-apps-api-removal` (commit `5839f80`) and in git
+  history; read it from there whenever a citation below has to be verified.
 - No Rust file, migration, migration fixture, build script, or codegen input may read, import, or
-  copy code or data from `packages/*`. Ports are built from `apps/api` route/controller/service
-  source, `apps/api/tests`, and independent protocol documentation only.
+  copy code or data from `packages/*`. Ports are built from the preserved `apps/api`
+  route/controller/service source, its tests, and independent protocol documentation only.
 - Cloudflare Tunnel (`/v1/tunnel/*`, `services/cloudflareTunnel.ts`) is removed by owner ruling
   2026-10-08 --- 15-07 WIB: the feature is deleted outright, not merely excluded. Rust never had
   the routes (they answer `404`) and migration `0004_remove_tunnel_settings.sql` deletes its four
   settings keys (`cloudflare_tunnel_token`, `cloudflare_tunnel_domain`,
   `cloudflare_tunnel_autostart`, `cloudflared_path`), so schema is now v4. The Node side
   (`apps/api` route/controller/service/tests, `apps/web/src/hooks/useTunnel.ts`,
-  `packages/types` `TunnelConfigSchema`, docs) is NOT touched yet: the owner scoped this slice to
-  `server/` + `docs/` and explicitly excluded `apps/`. Until that lands, the byte-identical rule
-  above still protects `apps/api`.
+  `packages/types` `TunnelConfigSchema`, docs): the Node half went away with the 2026-10-08 deletion,
+  while `apps/web/src/hooks/useTunnel.ts` and the `packages/types` schema stay as dead code until the
+  web refactor (#150) runs with the owner's scope opened.
 - Tests always use disposable databases (`server/tests/support/mod.rs`); never `~/.srouter/srouter.db`
   and never a production `DATABASE_URL`.
 - Verify a slice only with `cargo test --manifest-path server/Cargo.toml --test <file>`,
@@ -835,7 +840,7 @@ Qoder, Cline, OpenAI, Antigravity, and Claude routes exist in Rust. Source of tr
 
 ---
 
-## 13. Delete `apps/api` (final step, gated)
+## 13. Delete `apps/api` (executed 2026-10-08)
 
 - Deviation approval (2026-10-02 --- 13-43 WIB): the provider-management route gaps
   (create/delete connection, verify, custom models, round-robin, hidden-models, favorites,
@@ -848,8 +853,10 @@ Qoder, Cline, OpenAI, Antigravity, and Claude routes exist in Rust. Source of tr
   (`features/providers/management/custom_routes.rs`, section 4). What remains unported is
   `/v1/providers/:id/enabled` as a separate route (its flag lives on the provider `PATCH`).
 
-Do not start until every section above is checked, the parity matrix passes, and the rollback window
-has closed. Then delete, in one commit:
+Owner instruction 2026-10-08: this step was executed ahead of its gate (sections 11 and 12 were still
+open when it ran). The tree is preserved at branch `backup/pre-apps-api-removal` (commit `5839f80`),
+so the deletion is recoverable; what the early execution cost is recorded in `docs/api-migration.md`,
+because the live A/B run and the Node benchmark column now need that branch reinstated first.
 
 - Web coupling: `apps/web` writes to the Rust-only surfaces — favorites, hidden models, custom
   models, and the provider `enabled` flag go through `/v1/models` and the provider `PATCH`. Four
@@ -857,20 +864,42 @@ has closed. Then delete, in one commit:
   (`apps/web/src/hooks/useFallbacks.ts`, consumed by the `/combo` page), both verify routes
   (`providers.connection-form.tsx`, `providers.custom-provider-dialog.tsx`,
   `routes/providers/$providerId.tsx`), and `/v1/tunnel/*` (`apps/web/src/hooks/useTunnel.ts`, no
-  importer today). Those calls answer `404` on the Rust build, so a rollback to `apps/api` has to
-  ship the web bundle from the same commit; the reverse is free. Tunnel note: the feature itself is
-  deleted by the owner ruling 2026-10-08 (see the ground rules), so removing `useTunnel.ts` and the
-  Node tunnel routes joins this retirement step when `apps/` comes into scope.
+  importer today). Those calls answer `404` on the Rust build. A rollback to the Node build is no
+  longer a deployment option now that the tree is deleted, so the web bundle and the API move
+  together or not at all. Tunnel note: the Node tunnel routes went away with the tree, while removing
+  `useTunnel.ts` and the `packages/types` schema joins the web refactor when `apps/` comes into scope.
 
-- [ ] `apps/api/src/**/*.ts`, `apps/api/tests/**/*.ts`, `apps/api/package.json`,
+- [x] `apps/api/src/**/*.ts`, `apps/api/tests/**/*.ts`, `apps/api/package.json`,
       `apps/api/tsconfig.json`, `apps/api/tsup.config.ts`, `apps/api/heroku.yml`,
-      `apps/api/.gitignore`, and root `Procfile`.
-- [ ] Regenerate `pnpm-lock.yaml` with the pinned pnpm version after the workspace package is gone.
-- [ ] Update references that point at the deleted tree: - `Dockerfile` (builder stage copies, `pnpm build`, `pnpm deploy`), - `CONTRIBUTING.md:53` (verify block), - `apps/docs/src/lib/docs.ts` and `apps/docs/src/pages/**` (`source:` paths, architecture,
-      request-lifecycle, keys-observability, integrations, development/database, installation), - `apps/docs/README.md:82`, `apps/docs/src/pages/index.astro:122`.
-      There is no root `README.md`; skip it if it stays absent.
-- [ ] Keep `packages/*`, `apps/web`, `apps/cli`, `apps/docs` — they are retired in separate issues.
-- [ ] Final boundary checks:
+      `apps/api/.gitignore`, and root `Procfile`. Also removed in the same commit: the
+      `docs/superpowers/` design and plan folder (17 files), which the plan's Task 15 cited; both
+      trees are on branch `backup/pre-apps-api-removal`.
+- [x] Regenerate `pnpm-lock.yaml` after the workspace package is gone: `pnpm install` at 11.23.0
+      dropped the `api` importer and its dependencies (lockfile -70 lines).
+- [x] Update references that point at the deleted tree: - `Dockerfile` (node-builder/node-runner
+      stages and the `apps/api` manifest COPY removed, `runner` is now the last stage), -
+      `docker-compose.yml` (the `srouter-node` service and `node` profile removed), - `.dockerignore`
+      (`apps/api/dist`), - `CONTRIBUTING.md` (backend/verify blocks and the architecture tree), -
+      `AGENTS.md` (layout, verify block, Hono quirks), - `apps/docs` (`source:` map in `lib/docs.ts`,
+      architecture, request-lifecycle, keys-observability, providers-routing, integrations,
+      development, installation, getting-started, reference pages, `README.md`, `index.astro`), -
+      `apps/cli/src/commands/init.ts` (the printed production command), - `.github/workflows/ci.yml`
+      (the parked-job note), - `docs/api-v1-contract.md`, `docs/api-database-contract.md`,
+      `docs/api-migration.md`, and this file.
+      There is no root `README.md`; none was created.
+- [x] Keep `packages/*`, `apps/web`, `apps/cli`, `apps/docs` — they are retired in separate issues.
+      Nothing outside `apps/api` and `docs/superpowers/` was deleted; `apps/web/src/generated/api.ts`
+      stays frozen (#150). Known leftovers in those kept trees, each owned by a separate retirement:
+      `packages/db/src/sqlite.ts` still defaults its database path to `apps/api/srouter.db`,
+      `packages/types` still carries `TunnelConfigSchema`, and `apps/web/src/hooks/useTunnel.ts` has
+      no importer. None of them is read by `server/`.
+- [x] Final boundary checks (2026-10-08, same commit): the `packages/`/`@srouter/` sweep over
+      `server/Cargo.toml`, `server/src`, and `server/migrations` returns doc-comment provenance
+      notes only ("independent of `packages/*`"), never a read, import, or copy; fmt clean; clippy
+      with `-D warnings` rc=0; the full `cargo test --locked` suite green; `export_ts` regenerated
+      with no diff in `server/bindings.ts`; `apps/web` `tsc --noEmit` green; `apps/docs`
+      `astro check` green (0 errors, 0 warnings, 0 hints); `prettier --check` on every changed file;
+      `git diff --check` clean.
 
 ```bash
 rg -n 'packages/|@srouter/' server/Cargo.toml server/src server/migrations --glob '*.rs' --glob '*.sql' --glob 'Cargo.toml'

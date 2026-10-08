@@ -30,8 +30,7 @@ Do not run root `pnpm build`, `pnpm test`, or broad lint commands on a resource-
 API tests use an isolated database setup:
 
 ```bash
-cd apps/api
-pnpm exec tsx --test --test-concurrency=1 --import ./tests/setup.ts tests/<focused-file>.test.ts
+cargo test --manifest-path server/Cargo.toml --test <focused-file>
 ```
 
 CLI tests use its setup loader:

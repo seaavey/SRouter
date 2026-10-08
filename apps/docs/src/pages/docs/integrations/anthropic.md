@@ -49,6 +49,6 @@ The route is authenticated and rate-limited before `MessagesController.CreateMes
 
 ## Source
 
-- Route: `apps/api/src/routes/v1/messages.ts`
-- Controller: `apps/api/src/controllers/messages.controller.ts`
+- Route: `server/src/features/gateway/routes.rs`
+- Handler: `server/src/features/gateway/messages.rs`
 - Translator: `packages/translator/src/anthropic.ts`

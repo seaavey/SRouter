@@ -35,7 +35,7 @@ The client can keep one base URL while the gateway selects the provider from the
 
 ## Combos and fallback
 
-Combos define an ordered set of model routes. Fallback policy decides when the next route should be attempted, such as a rate-limit response or an upstream provider failure. The runtime implementation lives in `apps/api/src/logic/fallbackRunner.ts` and `apps/api/src/logic/fallback.policy.ts`.
+Combos define an ordered set of model routes, and the fallback policy decided when the next route should be attempted, such as a rate-limit response or an upstream provider failure. That policy lived in the Node build (`apps/api/src/logic/fallbackRunner.ts` and `fallback.policy.ts`); the Rust build serves no fallback routes (owner ruling 2026-10-04) and executes each model request directly, so a combo is resolved to one provider prefix before the request leaves the gateway.
 
 Use combos when the client should express one logical model choice while the gateway owns the provider sequence. Use a direct prefix when the route itself must be visible and deterministic.
 

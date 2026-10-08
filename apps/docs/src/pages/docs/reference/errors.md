@@ -7,7 +7,7 @@ section: Reference
 
 ## Error shape
 
-API responses use the response helpers in `apps/api/src/utils/response.ts`. Validation failures from Zod and route-specific guards should be returned as structured errors rather than thrown strings.
+API responses use the error envelope in `server/src/error.rs`. Validation failures from the request schemas and route-specific guards are returned as structured errors rather than thrown strings.
 
 ```json
 {

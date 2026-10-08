@@ -51,7 +51,7 @@ const entries: DocEntry[] = [
         section: "Build with SRouter",
         description:
             "Follow a request from authentication and validation to translation and streaming.",
-        source: "apps/api/src/controllers/chat.controller.ts",
+        source: "server/src/features/gateway/chat.rs",
         keywords: ["request", "middleware", "routing", "executor", "stream", "flow"]
     },
     {
@@ -67,7 +67,7 @@ const entries: DocEntry[] = [
         href: "/docs/concepts/keys-observability/",
         section: "Build with SRouter",
         description: "Use virtual API keys and inspect quotas, logs, analytics, and pricing.",
-        source: "apps/api/src/routes/v1/keys.ts",
+        source: "server/src/features/api_keys/routes.rs",
         keywords: ["api key", "quota", "logs", "analytics", "pricing", "telemetry"]
     },
     {
@@ -75,7 +75,7 @@ const entries: DocEntry[] = [
         href: "/docs/integrations/openai/",
         section: "Integrate",
         description: "Connect OpenAI SDKs and clients to SRouter chat completions.",
-        source: "apps/api/src/routes/v1/chat.ts",
+        source: "server/src/features/gateway/routes.rs",
         keywords: ["openai", "chat", "sdk", "python", "completion"]
     },
     {
@@ -83,7 +83,7 @@ const entries: DocEntry[] = [
         href: "/docs/integrations/anthropic/",
         section: "Integrate",
         description: "Connect Anthropic SDKs and clients to the messages endpoint.",
-        source: "apps/api/src/routes/v1/messages.ts",
+        source: "server/src/features/gateway/messages.rs",
         keywords: ["anthropic", "messages", "claude", "sdk", "typescript"]
     },
     {
@@ -107,15 +107,15 @@ const entries: DocEntry[] = [
         href: "/docs/reference/api-routes/",
         section: "Reference",
         description: "Browse the complete mounted HTTP route surface and its auth boundary.",
-        source: "apps/api/src/index.ts",
-        keywords: ["routes", "http", "endpoint", "hono", "rest"]
+        source: "server/src/app.rs",
+        keywords: ["routes", "http", "endpoint", "axum", "rest"]
     },
     {
         title: "Authentication",
         href: "/docs/reference/authentication/",
         section: "Reference",
         description: "Choose between virtual API keys, admin sessions, OAuth, and CSRF protection.",
-        source: "apps/api/src/middleware",
+        source: "server/src/http/middleware",
         keywords: ["auth", "api key", "admin", "oauth", "csrf", "security"]
     },
     {
@@ -123,7 +123,7 @@ const entries: DocEntry[] = [
         href: "/docs/reference/environment/",
         section: "Reference",
         description: "Configure ports, storage, OAuth callbacks, serving, and runtime behavior.",
-        source: "apps/api/src/services/startup.ts",
+        source: "server/src/config.rs",
         keywords: ["env", "configuration", "port", "database", "oauth", "docker"]
     },
     {
@@ -132,7 +132,7 @@ const entries: DocEntry[] = [
         section: "Reference",
         description:
             "Understand validation errors, rate limits, body limits, and upstream failures.",
-        source: "apps/api/src/utils/response.ts",
+        source: "server/src/error.rs",
         keywords: ["errors", "status", "validation", "rate limit", "body limit", "retry"]
     },
     {

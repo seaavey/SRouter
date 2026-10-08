@@ -54,7 +54,7 @@ Use `GET /v1/models` to list available models and `GET /v1/models/:model` to ins
 
 ## Source
 
-- Route: `apps/api/src/routes/v1/chat.ts`
-- Schema: `packages/types/src`
-- Controller: `apps/api/src/controllers/chat.controller.ts`
-- Translator and executor: `packages/translator/src` and `packages/executors/src`
+- Route: `server/src/features/gateway/routes.rs`
+- Schema: `server/src/features/gateway/translation/types.rs`
+- Handler: `server/src/features/gateway/chat.rs`
+- Translation and provider drivers: `server/src/features/gateway/translation` and `server/src/features/providers`
