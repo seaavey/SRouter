@@ -597,13 +597,18 @@ Qoder, Cline, OpenAI, Antigravity, and Claude routes exist in Rust. Source of tr
       `connected`/`usage.updated`/`request.logged` and 25 s heartbeats, 16-stream cap with `429`
       (`features/logs.rs`, `server/tests/logs.rs`).
 - [x] Log records expose token, cost, resolved-model, fallback, and creation-time columns; stats
-      `cost_label` uses four decimals. `estimated_cost` remains `0.0` until the pricing catalog lands
+      `cost.label` uses four decimals. `estimated_cost` remains `0.0` until the pricing catalog lands
       (`infrastructure/database/request_logs.rs`, `server/tests/logs.rs`).
 - [x] `GET /v1/logs/stats` — aggregate usage statistics (`usage_stats` in
-      `infrastructure/database/request_logs.rs`, now served directly instead of only through the
-      `usage.updated` SSE payload). Serializes snake_case, as does the SSE `usage.updated` payload
+      `infrastructure/database/request_logs/analytics.rs`, now served directly instead of only through
+      the `usage.updated` SSE payload). The report is grouped rather than flat:
+      `{ object, data: { totals: { requests: { total, success, failed }, tokens: { input, output,
+      total, reasoning, cache: { write, read } }, cost: { total, label, estimated } }, by_model: [] } }`.
+      `cost` carries a single `total` because `request_logs` stores one `estimated_cost` per request,
+      not a per-category breakdown. Serializes snake_case, as does the SSE `usage.updated` payload
       (documented deviation, `docs/api-v1-contract.md` "Logs in the Rust build"). Web calls this
-      endpoint (`apps/web/src` → `/v1/logs/stats`).
+      endpoint (`apps/web/src` → `/v1/logs/stats`) and still reads the frozen flat shape, so it is
+      stale until the web refactor (#150) maps `data.totals`.
 - [x] `GET /v1/logs/analytics` — `window` param (default `24h`), invalid window → `400` +
       `code=invalid_request`. `parse_analytics_window` pairs each window with its bucket geometry
       (`1h`→60 s ×60, `24h`→1 h ×24, `7d`→6 h ×28, `30d`→24 h ×30) and `analytics_report`
