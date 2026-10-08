@@ -722,7 +722,7 @@ async fn import_accepts_a_v1_candidate_by_migrating_it() {
     let response = import_candidate(&app, &candidate).await;
     assert_eq!(response.status(), StatusCode::OK);
 
-    // The legacy row survived the migration and the file is now v3.
+    // The legacy row survived the migration and the file is now v4.
     let pool = app_database.sqlite_pool().expect("SQLite pool");
     let marker: Option<String> =
         sqlx::query_scalar("SELECT value FROM settings WHERE key = 'legacy_marker'")
@@ -734,7 +734,7 @@ async fn import_accepts_a_v1_candidate_by_migrating_it() {
         .fetch_one(&pool)
         .await
         .unwrap();
-    assert_eq!(version, 3);
+    assert_eq!(version, 4);
 }
 
 // ---------------------------------------------------------------------------

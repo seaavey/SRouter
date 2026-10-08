@@ -4,8 +4,8 @@
 //! `packages/db/src/transferLock.ts` (read as evidence about the incumbent),
 //! plus the frozen contract in `docs/api-database-contract.md`. The validator
 //! derives its expectations from Rust's own DDL by building a fresh in-memory
-//! v3 schema and comparing against it, so no column list is copied from the
-//! Node implementation (the plan's D7).
+//! schema at `SCHEMA_VERSION` and comparing against it, so no column list is
+//! copied from the Node implementation (the plan's D7).
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
@@ -19,6 +19,7 @@ use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use crate::config::APIConfig;
 use crate::constants;
 use crate::error::APIError;
+use crate::infrastructure::database::migrations::{SCHEMA_VERSION, SCHEMA_VERSION_V3};
 use crate::infrastructure::database::{AppDatabase, migrations};
 
 use super::multipart::set_private_file_mode;
@@ -159,7 +160,7 @@ pub async fn import_database(
             pool.close().await;
             migrated?;
         }
-        // A migrated candidate must satisfy the same v3 expectations.
+        // A migrated candidate must satisfy the same schema expectations.
         validate_candidate(copy.path()).await?;
         effective = copy.path().to_path_buf();
         scratch = Some(copy);
@@ -187,7 +188,10 @@ impl Drop for ScratchFile {
     }
 }
 
-/// Reads `PRAGMA user_version` and checks the schema when it is already v3.
+/// Reads `PRAGMA user_version` and checks the schema when the file is already
+/// at [`SCHEMA_VERSION_V3`] or newer: those shapes come from this system and
+/// must match before anything rewrites them, while an older legacy candidate
+/// is validated only after the caller migrates a copy.
 ///
 /// Returns the version so the caller can decide whether to migrate. A version
 /// above [`SCHEMA_VERSION`] is refused here rather than inside the migrator, so
@@ -213,7 +217,7 @@ pub async fn validate_candidate(candidate_path: &Path) -> Result<i64, APIError> 
         if version > SCHEMA_VERSION {
             return Err(APIError::from(TransferError::InvalidDatabase));
         }
-        if version == SCHEMA_VERSION {
+        if version >= SCHEMA_VERSION_V3 {
             schema_matches(&pool)
                 .await
                 .map_err(|_| APIError::from(TransferError::InvalidDatabase))?;
@@ -340,10 +344,8 @@ fn render_backup_path(backup: &Path, srouter_dir: &Path) -> String {
 
 // ---------------------------------------------------------------------------
 // Schema comparison: the expectations are Rust's own DDL, read from a fresh
-// in-memory v3 database, never a hard-coded list.
+// in-memory database at SCHEMA_VERSION, never a hard-coded list.
 // ---------------------------------------------------------------------------
-
-const SCHEMA_VERSION: i64 = 3;
 
 #[derive(PartialEq, Eq)]
 struct Column {

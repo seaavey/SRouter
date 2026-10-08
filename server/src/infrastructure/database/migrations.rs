@@ -1,11 +1,11 @@
 //! Version-guarded schema application (contract: `docs/schemas-database.md`).
 //!
 //! Fresh files get the current DDL directly. Legacy files (any table present,
-//! `user_version` below 3) are transformed first: shape-changed tables are
-//! read, dropped and recreated by the DDL, renamed tables keep their rows,
-//! and the transformed data is restored before the new version is recorded.
-//! The whole run happens in one transaction, so a failure leaves the file at
-//! its previous version.
+//! `user_version` below [`SCHEMA_VERSION`]) are transformed first:
+//! shape-changed tables are read, dropped and recreated by the DDL, renamed
+//! tables keep their rows, and the transformed data is restored before the
+//! cleanup step and the new version are recorded. The whole run happens in
+//! one transaction, so a failure leaves the file at its previous version.
 
 use std::collections::{HashMap, HashSet};
 
@@ -19,12 +19,20 @@ use crate::error::APIError;
 
 /// The schema version this build writes. A database reporting a higher
 /// version is refused instead of downgraded.
-const SCHEMA_VERSION: i64 = 3;
+pub const SCHEMA_VERSION: i64 = 4;
+
+/// The version whose migration step added the request-log columns and the
+/// legacy id upgrade; files already at or above it must not replay that step.
+pub const SCHEMA_VERSION_V3: i64 = 3;
 
 /// The v2 base DDL (`server/migrations/0002_v2_schema.sql`), every
 /// statement written as `IF NOT EXISTS`.
 const SCHEMA_SQL: &str = include_str!("../../../migrations/0002_v2_schema.sql");
 const REQUEST_LOGS_V3_SQL: &str = include_str!("../../../migrations/0003_request_logs.sql");
+/// The v4 data cleanup (`server/migrations/0004_remove_tunnel_settings.sql`):
+/// the only migration statement that deletes rows.
+const TUNNEL_SETTINGS_V4_SQL: &str =
+    include_str!("../../../migrations/0004_remove_tunnel_settings.sql");
 
 /// Brings the SQLite file to [`SCHEMA_VERSION`].
 pub async fn run(pool: &SqlitePool) -> Result<(), APIError> {
@@ -66,15 +74,29 @@ pub async fn run(pool: &SqlitePool) -> Result<(), APIError> {
 
     legacy.restore(&mut transaction).await?;
 
-    sqlx::raw_sql(REQUEST_LOGS_V3_SQL)
+    // The request-log v3 additions and the legacy id upgrade belong to the
+    // pre-v3 shapes. A file already at version 3 ran them once: replaying the
+    // ALTERs fails on a duplicate column, and re-running the id upgrade would
+    // stamp `legacy_id` on every current row.
+    if version < SCHEMA_VERSION_V3 {
+        sqlx::raw_sql(REQUEST_LOGS_V3_SQL)
+            .execute(&mut *transaction)
+            .await
+            .map_err(sql_error(
+                constants::database::context::APPLY_REQUEST_LOG_V3,
+            ))?;
+        upgrade_legacy_request_logs(&mut transaction).await?;
+    }
+
+    sqlx::raw_sql(TUNNEL_SETTINGS_V4_SQL)
         .execute(&mut *transaction)
         .await
         .map_err(sql_error(
-            constants::database::context::APPLY_REQUEST_LOG_V3,
+            constants::database::context::APPLY_TUNNEL_SETTINGS_CLEANUP,
         ))?;
-    upgrade_legacy_request_logs(&mut transaction).await?;
 
-    sqlx::query("PRAGMA user_version = 3")
+    let record_version = format!("PRAGMA user_version = {SCHEMA_VERSION}");
+    sqlx::raw_sql(sqlx::AssertSqlSafe(record_version))
         .execute(&mut *transaction)
         .await
         .map_err(sql_error(

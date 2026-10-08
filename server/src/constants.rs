@@ -906,6 +906,7 @@ pub mod database {
         pub const ADD_MISSING_COLUMN: &str = "add a column older databases are missing";
         pub const APPLY_REQUEST_LOG_V3: &str = "apply request-log v3 migration";
         pub const APPLY_CURRENT_SCHEMA: &str = "apply the current schema";
+        pub const APPLY_TUNNEL_SETTINGS_CLEANUP: &str = "apply the tunnel settings cleanup";
         pub const COMMIT_SCHEMA_MIGRATION: &str = "commit the schema migration";
         pub const DROP_LEGACY_TABLE: &str = "drop a legacy table";
         pub const INSPECT_TABLE_COLUMNS: &str = "inspect a table's columns";

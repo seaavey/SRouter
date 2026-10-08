@@ -34,7 +34,7 @@ async fn fresh_database_gets_the_complete_v3_schema() {
     let database = test_database.connect().await.expect("connect to SQLite");
     let pool = database.sqlite_pool().expect("SQLite pool").clone();
 
-    assert_eq!(user_version(&pool).await, 3, "user_version must be 3");
+    assert_eq!(user_version(&pool).await, 4, "user_version must be 4");
 
     let tables = table_names(&pool).await;
     for expected in V3_TABLES {
@@ -70,7 +70,7 @@ async fn legacy_v1_database_is_transformed_to_v3() {
     let database = test_database.connect().await.expect("migrate legacy file");
     let pool = database.sqlite_pool().expect("SQLite pool").clone();
 
-    assert_eq!(user_version(&pool).await, 3);
+    assert_eq!(user_version(&pool).await, 4);
 
     // Renamed and merged tables.
     let tables = table_names(&pool).await;
@@ -342,7 +342,7 @@ async fn legacy_database_with_missing_optional_columns_still_migrates() {
     let database = test_database.connect().await.expect("migrate drift file");
     let migrated = database.sqlite_pool().expect("SQLite pool").clone();
 
-    assert_eq!(user_version(&migrated).await, 3);
+    assert_eq!(user_version(&migrated).await, 4);
 
     // request_logs gained the columns Node's ALTERs used to add.
     let columns = table_columns(&migrated, "request_logs").await;
@@ -437,7 +437,7 @@ async fn v2_request_logs_keep_legacy_ids_when_upgraded_to_v3() {
 
     let database = test_database.connect().await.expect("upgrade v2 database");
     let pool = database.sqlite_pool().expect("SQLite pool");
-    assert_eq!(user_version(&pool).await, 3);
+    assert_eq!(user_version(&pool).await, 4);
     let row = sqlx::query(
         "SELECT id, request_id, api_key_id, legacy_id, legacy_api_key_id, method, path \
          FROM request_logs WHERE legacy_id = 'log_existing'",
@@ -495,6 +495,112 @@ async fn newer_schema_version_is_refused() {
         error.to_string().contains("99"),
         "error must name the found version: {error}"
     );
+}
+
+/// The settings keys the removed Cloudflare Tunnel feature used to own
+/// (`apps/api/src/services/cloudflareTunnel.ts`). Owner ruling 2026-10-08:
+/// the feature is deleted, so migration 4 deletes exactly these rows.
+const TUNNEL_SETTING_KEYS: [&str; 4] = [
+    "cloudflare_tunnel_token",
+    "cloudflare_tunnel_domain",
+    "cloudflare_tunnel_autostart",
+    "cloudflared_path",
+];
+
+async fn assert_tunnel_settings_removed(pool: &SqlitePool, expected_version: i64) {
+    assert_eq!(user_version(pool).await, expected_version);
+    for key in TUNNEL_SETTING_KEYS {
+        let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM settings WHERE key = ?")
+            .bind(key)
+            .fetch_one(pool)
+            .await
+            .expect("count tunnel setting");
+        assert_eq!(count, 0, "tunnel setting {key} must be deleted");
+    }
+    let required: Option<String> =
+        sqlx::query_scalar("SELECT value FROM settings WHERE key = 'require_api_key'")
+            .fetch_optional(pool)
+            .await
+            .expect("read require_api_key");
+    assert_eq!(required.as_deref(), Some("true"), "other rows are kept");
+}
+
+#[tokio::test]
+async fn tunnel_settings_rows_are_deleted_when_a_v3_file_reaches_v4() {
+    // The production path: a file an earlier Rust build already migrated to
+    // v3, still carrying the tunnel rows the Node oracle wrote.
+    let test_database = TestDatabase::new().expect("temporary database");
+    let options = SqliteConnectOptions::new()
+        .filename(test_database.path())
+        .create_if_missing(true);
+    let pool = SqlitePoolOptions::new()
+        .connect_with(options)
+        .await
+        .expect("seed pool");
+    sqlx::raw_sql(sqlx::AssertSqlSafe(
+        include_str!("../migrations/0002_v2_schema.sql").to_owned(),
+    ))
+    .execute(&pool)
+    .await
+    .expect("v3 schema");
+    sqlx::raw_sql(sqlx::AssertSqlSafe(
+        include_str!("../migrations/0003_request_logs.sql").to_owned(),
+    ))
+    .execute(&pool)
+    .await
+    .expect("v3 request logs");
+    sqlx::query("PRAGMA user_version = 3")
+        .execute(&pool)
+        .await
+        .expect("record v3");
+    for (key, value) in [
+        (TUNNEL_SETTING_KEYS[0], "secret-token"),
+        (TUNNEL_SETTING_KEYS[1], "tunnel.example.com"),
+        (TUNNEL_SETTING_KEYS[2], "true"),
+        (TUNNEL_SETTING_KEYS[3], "/usr/local/bin/cloudflared"),
+        ("require_api_key", "true"),
+    ] {
+        sqlx::query("INSERT INTO settings (key, value) VALUES (?, ?)")
+            .bind(key)
+            .bind(value)
+            .execute(&pool)
+            .await
+            .expect("seed setting");
+    }
+    pool.close().await;
+
+    let database = test_database.connect().await.expect("migrate to v4");
+    let pool = database.sqlite_pool().expect("SQLite pool");
+    assert_tunnel_settings_removed(&pool, 4).await;
+}
+
+#[tokio::test]
+async fn tunnel_settings_rows_are_deleted_across_the_v1_transform() {
+    // The legacy rename (`system_settings` -> `settings`) runs before the v4
+    // cleanup in the same transaction, so rows written by the Node oracle
+    // through its own table name are removed too.
+    let test_database = TestDatabase::new().expect("temporary database");
+    seed_legacy_database(test_database.path()).await;
+
+    let options = SqliteConnectOptions::new()
+        .filename(test_database.path())
+        .create_if_missing(true);
+    let pool = SqlitePoolOptions::new()
+        .connect_with(options)
+        .await
+        .expect("seed pool");
+    for key in TUNNEL_SETTING_KEYS {
+        sqlx::query("INSERT INTO system_settings (key, value) VALUES (?, 'leftover')")
+            .bind(key)
+            .execute(&pool)
+            .await
+            .expect("seed legacy tunnel setting");
+    }
+    pool.close().await;
+
+    let database = test_database.connect().await.expect("migrate legacy file");
+    let pool = database.sqlite_pool().expect("SQLite pool");
+    assert_tunnel_settings_removed(&pool, 4).await;
 }
 
 /// The exact v1 layout observed from a Node-created database (probe dump).
