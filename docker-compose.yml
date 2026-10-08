@@ -1,6 +1,6 @@
 services:
-    # Rust server, the default service. Single listener on PORT: the Node
-    # secondary :1455 OAuth listener is not part of the Rust target.
+    # Rust server, the only service. Single listener on PORT: the Node secondary
+    # :1455 OAuth listener is not part of the Rust target.
     srouter:
         image: srouter:local
         build:
@@ -25,43 +25,6 @@ services:
         healthcheck:
             # wget keeps the check free of a Node runtime.
             test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:3000/health"]
-            interval: 30s
-            timeout: 5s
-            retries: 3
-            start_period: 5s
-
-    # Legacy Node API, kept for rollback until cutover. It sits behind a profile
-    # so a plain `docker compose up` never starts it; run it by targeting the
-    # service explicitly, which also keeps the Rust service from starting
-    # alongside it: `docker compose up -d srouter-node`. It disappears when
-    # apps/api is deleted.
-    srouter-node:
-        profiles: ["node"]
-        image: srouter:node-local
-        build:
-            context: .
-            dockerfile: Dockerfile
-            target: node-runner
-        container_name: srouter-node
-        restart: unless-stopped
-        ports:
-            - "${PORT:-3000}:3000"
-            # OAuth PKCE Callback Server
-            - "${OAUTH_PORT:-1455}:1455"
-        environment:
-            - NODE_ENV=production
-            - PORT=3000
-            - OAUTH_PORT=1455
-            - DATABASE_PATH=/app/data/srouter.db
-            - WEB_DIST_PATH=/app/apps/web/dist
-        volumes:
-            - srouter_data:/app/data
-        healthcheck:
-            test:
-                - "CMD"
-                - "node"
-                - "-e"
-                - "fetch('http://localhost:' + (process.env.PORT || 3000) + '/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"
             interval: 30s
             timeout: 5s
             retries: 3

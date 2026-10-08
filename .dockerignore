@@ -10,7 +10,6 @@ node_modules
 # Build outputs
 **/dist
 apps/web/dist
-apps/api/dist
 packages/*/dist
 server/target
 server/logs

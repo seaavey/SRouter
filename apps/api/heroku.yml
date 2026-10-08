@@ -1,5 +1,0 @@
-build:
-  languages:
-    - nodejs
-run:
-  web: node dist/index.js

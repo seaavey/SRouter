@@ -239,7 +239,7 @@ async function initSource(targetDir: string, port: string): Promise<void> {
         [
             `📁 Project Directory: ${pc.bold(resolvedDir)}`,
             `🚀 Start Dev Server:  ${pc.yellow(`cd ${resolvedDir} && pnpm dev`)}`,
-            `⚡ Start Production:  ${pc.yellow(`PORT=${port} cd ${resolvedDir}/apps/api && pnpm start`)}`
+            `⚡ Start Production:  ${pc.yellow(`cd ${resolvedDir}/server && PORT=${port} cargo run --release`)}`
         ].join("\n")
     );
 

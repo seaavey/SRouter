@@ -224,55 +224,6 @@ importers:
         specifier: ^5.0.0
         version: 5.9.3
 
-  apps/api:
-    dependencies:
-      '@hono/node-server':
-        specifier: ^2.1.0
-        version: 2.1.0(hono@4.13.7)
-      '@hono/zod-validator':
-        specifier: ^0.4.3
-        version: 0.4.3(hono@4.13.7)(zod@3.25.76)
-      '@srouter/constants':
-        specifier: workspace:*
-        version: link:../../packages/constants
-      '@srouter/db':
-        specifier: workspace:*
-        version: link:../../packages/db
-      '@srouter/executors':
-        specifier: workspace:*
-        version: link:../../packages/executors
-      '@srouter/pricing':
-        specifier: workspace:*
-        version: link:../../packages/pricing
-      '@srouter/providers':
-        specifier: workspace:*
-        version: link:../../packages/providers
-      '@srouter/translator':
-        specifier: workspace:*
-        version: link:../../packages/translator
-      '@srouter/types':
-        specifier: workspace:*
-        version: link:../../packages/types
-      hono:
-        specifier: ^4.13.7
-        version: 4.13.7
-      zod:
-        specifier: ^3.24.2
-        version: 3.25.76
-    devDependencies:
-      '@types/node':
-        specifier: ^26.1.1
-        version: 26.2.0
-      tsup:
-        specifier: ^8.5.1
-        version: 8.5.1(jiti@2.7.0)(postcss@8.5.26)(supports-color@10.2.2)(tsx@4.23.11)(typescript@5.9.3)(yaml@2.9.1)
-      tsx:
-        specifier: ^4.23.0
-        version: 4.23.11
-      typescript:
-        specifier: ^5.0.0
-        version: 5.9.3
-
   apps/cli:
     dependencies:
       '@clack/prompts':
@@ -1426,12 +1377,6 @@ packages:
     engines: {node: '>=20'}
     peerDependencies:
       hono: ^4
-
-  '@hono/zod-validator@0.4.3':
-    resolution: {integrity: sha512-xIgMYXDyJ4Hj6ekm9T9Y27s080Nl9NXHcJkOvkXPhubOLj8hZkOL8pDnnXfvCf5xEE8Q4oMFenQUZZREUY2gqQ==}
-    peerDependencies:
-      hono: '>=3.9.0'
-      zod: ^3.19.1
 
   '@img/colour@1.1.0':
     resolution: {integrity: sha512-Td76q7j57o/tLVdgS746cYARfSyxk8iEfRxewL9h4OMzYhbW4TAcppl0mT4eyqXddh6L/jwoM75mo7ixa/pCeQ==}
@@ -3134,10 +3079,6 @@ packages:
 
   hono@4.13.1:
     resolution: {integrity: sha512-kdJoFVv2xmayw6cY09H7AbMJMt8Jn5jdlEdXsP7AGBdF2DIptVlKlOLKXP41yPip4/a3yQPv9gVcJYI8YY04dw==}
-    engines: {node: '>=16.9.0'}
-
-  hono@4.13.7:
-    resolution: {integrity: sha512-c8/gF9ac8Y78/agExVocyLevgR+JlpNB444Py0FSX8pJoPdYUfUzRcXtYEYGwt6l19qIlVZPN5Mfsw9jFShmQQ==}
     engines: {node: '>=16.9.0'}
 
   html-escaper@3.0.3:
@@ -5687,15 +5628,6 @@ snapshots:
     dependencies:
       hono: 4.13.1
 
-  '@hono/node-server@2.1.0(hono@4.13.7)':
-    dependencies:
-      hono: 4.13.7
-
-  '@hono/zod-validator@0.4.3(hono@4.13.7)(zod@3.25.76)':
-    dependencies:
-      hono: 4.13.7
-      zod: 3.25.76
-
   '@img/colour@1.1.0':
     optional: true
 
@@ -7413,8 +7345,6 @@ snapshots:
       '@types/hast': 3.0.5
 
   hono@4.13.1: {}
-
-  hono@4.13.7: {}
 
   html-escaper@3.0.3: {}
 

@@ -1,12 +1,14 @@
 # API v1 Contract and Rust Migration Boundary
 
-This document freezes the behavior visible at the `apps/api` HTTP boundary for the Rust migration. It records route wiring, controller behavior, middleware, and API test evidence. It does not reproduce source or data from `packages/*`. Request schemas imported from `@srouter/types` are described only where their fields are visible in API controllers or API tests.
+This document freezes the behavior the SRouter API exposes. It was written against the Node implementation in `apps/api` and now describes what the Rust build in `server/` serves. It records route wiring, controller behavior, middleware, and API test evidence. It does not reproduce source or data from `packages/*`. Request schemas imported from `@srouter/types` are described only where their fields are visible in API controllers or API tests.
+
+The Node tree was deleted on 2026-10-08 (owner instruction) and is preserved at branch `backup/pre-apps-api-removal` (commit `5839f80`); every `apps/api/**` path below cites that preserved tree.
 
 ## Scope and sources
 
 - Retain the route behavior listed below in the Rust API.
-- Remove the Cloudflare Tunnel feature entirely (owner ruling 2026-10-08). Rust never had the routes (`/v1/tunnel/*` answers `404`) and migration `0004_remove_tunnel_settings.sql` deletes its four settings keys, so schema v4 carries no tunnel state. The Node implementation in `apps/api` and the unused `apps/web/src/hooks/useTunnel.ts` are deleted when `apps/` comes into scope; until then `apps/api` still serves those routes.
-- Use `apps/api/src/index.ts`, route/controller/middleware/service/logic files, and `apps/api/tests/*.test.ts` as the contract evidence. Use the Node API only as a temporary black-box comparison target.
+- Remove the Cloudflare Tunnel feature entirely (owner ruling 2026-10-08). Rust never had the routes (`/v1/tunnel/*` answers `404`) and migration `0004_remove_tunnel_settings.sql` deletes its four settings keys, so schema v4 carries no tunnel state. The Node routes went away with `apps/api` on 2026-10-08, and the unused `apps/web/src/hooks/useTunnel.ts` goes away with the web refactor.
+- Use `apps/api/src/index.ts`, route/controller/middleware/service/logic files, and `apps/api/tests/*.test.ts` as the contract evidence, read from the preserved tree above. The Node runtime is no longer runnable, so black-box comparison against it is over.
 - Do not inspect, copy, or use `packages/*` code or data as Rust source, seed data, or code-generation input.
 - Rust built-in provider seeds and provider-specific model identifiers require independent provenance recorded beside their definitions; use the provider's official documentation or public catalog for provider facts. The Node API and this contract may establish SRouter compatibility behavior and metadata, but are not independent sources for upstream catalog data.
 - The request and response schema definitions imported from `@srouter/types` are outside the allowed source boundary. This document records visible fields and observable outcomes; it does not infer fields that the controller and API tests do not expose.
@@ -121,7 +123,7 @@ The Rust build serves the two catalog reads above and adds the full model CRUD, 
 - **Custom models.** A registered model is stored bare under its provider and re-prefixed with the provider alias when the catalog merges it, so it lists as `<alias>/<bare>` and carries `custom: true`, mirroring Node's `MergeCustomModels`. `GET /v1/models` and `GET /v1/models/:model` return it too.
 - **Entry shape.** A catalog entry is `{id, object, owned_by}` plus `favorite`, and `custom: true` on a custom row; hidden models never appear in this list. The shape matches the oracle schema, whose `ModelObjectSchema` (`packages/types/src/schemas/models.ts`) declares the same OpenAI fields, so the upstream metadata a provider's model list returns (`display_name`, `is_vl`, `format`, `max_input_tokens`, `price_factor`, `is_free`) stays parsed away. Serving it was ruled out on 2026-10-08 because it has no consumer and would make the payload a deviation from the oracle; the metadata would first have to travel from each provider catalog through the registry.
 - **This replaces the model-level rows above.** `POST|DELETE /v1/providers/:providerId/models(/:modelId)`, `GET|POST /v1/providers/:providerId/hidden-models`, `DELETE /v1/providers/:providerId/hidden-models/:modelId`, and `GET|POST|DELETE /v1/favorites` are not served; the equivalent operations are the `/v1/models` writes. This is a deliberate deviation from Node, which has no `/v1/models` writes. Only the reads (`/models`, `/models/:model`) are mounted under the `/v1/v1` alias.
-- **The web reads and writes these routes.** `apps/web`'s favorites hook takes its list from `GET /v1/models` and its writes from `PATCH /v1/models/{*model}` (`favorite`), and the provider hooks take the hidden set from the provider detail's `models[].hidden` and write it through the same `PATCH` (`hidden`); `POST|DELETE /v1/models` and the provider `enabled` flag are used the same way. Model ids are sent percent-encoded, which the catch-all segment decodes. Rolling the API back to `apps/api` therefore has to roll the web bundle back with it.
+- **The web reads and writes these routes.** `apps/web`'s favorites hook takes its list from `GET /v1/models` and its writes from `PATCH /v1/models/{*model}` (`favorite`), and the provider hooks take the hidden set from the provider detail's `models[].hidden` and write it through the same `PATCH` (`hidden`); `POST|DELETE /v1/models` and the provider `enabled` flag are used the same way. Model ids are sent percent-encoded, which the catch-all segment decodes. Rolling the API back to the Node build is no longer a deployment option: `apps/api` is deleted (2026-10-08) and only exists at branch `backup/pre-apps-api-removal`.
 
 ### Providers in the Rust build
 
@@ -179,7 +181,7 @@ The main listener mounts these compatibility paths under `/v1/v1`: `/chat/comple
 
 `opencode-compat.test.ts` also assembles the route modules at `/` in a test-only Hono app. The production `index.ts` mounts them at `/v1` and `/v1/v1`; the test's root mounts do not add production root-level chat or model routes.
 
-The Cloudflare Tunnel feature is removed by owner ruling 2026-10-08, so `/v1/tunnel/*` is deleted rather than ported: `GET /v1/tunnel/status`, `GET /v1/tunnel/events`, `GET /v1/tunnel/install`, `POST /v1/tunnel/start`, `POST /v1/tunnel/stop`, `POST /v1/tunnel/install`, and `PUT /v1/tunnel/config` are legacy-only while `apps/api` still exists (they required an admin session) and answer `404` on the Rust build. `tunnel-auth.test.ts` is not a Rust parity requirement and is deleted together with the Node routes.
+The Cloudflare Tunnel feature is removed by owner ruling 2026-10-08, so `/v1/tunnel/*` is deleted rather than ported: `GET /v1/tunnel/status`, `GET /v1/tunnel/events`, `GET /v1/tunnel/install`, `POST /v1/tunnel/start`, `POST /v1/tunnel/stop`, `POST /v1/tunnel/install`, and `PUT /v1/tunnel/config` are legacy-only, served by the Node build that was deleted on 2026-10-08 (they required an admin session), and answer `404` on the Rust build. `tunnel-auth.test.ts` is not a Rust parity requirement and was removed with that tree.
 
 Rust intentionally has no `/v1/settings/fallbacks` routes (owner ruling 2026-10-04). The legacy-only routes are `GET /v1/settings/fallbacks`, `POST /v1/settings/fallbacks`, `PUT|PATCH /v1/settings/fallbacks/:id`, and `DELETE /v1/settings/fallbacks/:id`. Gateway handlers execute model requests directly without fallback retry cascades, keeping `fallback_occurred = false`. `fallbacks-*.test.ts` and `fallback-policy.test.ts` are not Rust parity requirements.
 
@@ -252,9 +254,9 @@ Rust schema and SQL details remain gated by `docs/api-database-contract.md`; thi
 | Database transfer | `features/database_transfer/` | `database-route.test.ts` |
 | Shared security and HTTP behavior | `http/middleware/` | `cors-allowlist.test.ts`, `csrf-origin-guard.test.ts`, `rate-limit.test.ts`, `request-limits.test.ts`, `malformed-json.test.ts` |
 
-The tunnel-only `tunnel-auth.test.ts` is excluded from Rust parity and disappears with `apps/api` under the 2026-10-08 removal ruling.
+The tunnel-only `tunnel-auth.test.ts` is excluded from Rust parity and was removed with `apps/api` on 2026-10-08.
 
-SQLite is initialized before `boot()` at module load. For PostgreSQL, startup awaits database initialization before admin bootstrap. Startup then starts the provider registry; model warmup runs after the main listener begins serving, and the token-refresh sweeper starts after listener setup. The Node runtime also starts tunnel autostart as background work until `apps/api` is deleted (the feature is removed by the 2026-10-08 ruling); Rust never had that task.
+SQLite is initialized before `boot()` at module load. For PostgreSQL, startup awaits database initialization before admin bootstrap. Startup then starts the provider registry; model warmup runs after the main listener begins serving, and the token-refresh sweeper starts after listener setup. The Node runtime also started tunnel autostart as background work; that tree is deleted (2026-10-08 ruling) and Rust never had that task.
 
 ## Legacy baseline before Rust work
 

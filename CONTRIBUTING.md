@@ -34,13 +34,16 @@ Please treat everyone with respect, kindness, and professionalism. Constructive 
     ```
 
 3. **Start Development Environment**:
+
     ```bash
     pnpm dev
     ```
+
     This launches:
-    - **Backend API**: `http://localhost:3000` (Hono Server & SQLite WAL)
-    - **Frontend Dashboard**: `http://localhost:5173` (Vite + React 19 + TanStack Router)
-    - **OAuth Listener**: `http://localhost:1455` (Automated PKCE Session Exchange)
+    - **Frontend Dashboard**: `http://localhost:5173` (Vite + React 19 + TanStack Router), proxying `/v1` and `/health` to `:3000`
+    - **Documentation site**: `http://localhost:4321` (Astro)
+
+    The API itself is the Rust server in `server/` and runs on its own: `cargo run --manifest-path server/Cargo.toml` (single listener on `:3000`, SQLite WAL). The Node API and its secondary `:1455` OAuth listener were removed on 2026-10-08.
 
 ---
 
@@ -49,15 +52,12 @@ Please treat everyone with respect, kindness, and professionalism. Constructive 
 Before submitting a Pull Request, run verification only for the apps and packages touched by the change. Do not run root-level Turbo tests, builds, or lint tasks on resource-constrained development environments.
 
 ```bash
-# Run one focused API test file
-cd apps/api
-pnpm exec tsx --test --test-concurrency=1 --import ./tests/setup.ts tests/<focused-file>.test.ts
-
-# Build only the touched app or package
-pnpm run build
+# Run one focused Rust API test file
+cargo test --manifest-path server/Cargo.toml --test <focused-file>
 
 # Check formatting only for changed files
-pnpm exec prettier --check src/<changed-file>.ts tests/<changed-file>.test.ts
+pnpm exec prettier --check <changed files>
+cargo fmt --manifest-path server/Cargo.toml -- --check
 
 # Check whitespace errors
 git diff --check
@@ -70,8 +70,10 @@ git diff --check
 ```
 SRouter/
 ├── apps/
-│   ├── api/             # Hono REST API server & OAuth controllers
-│   └── web/             # Modern Dashboard UI (TanStack Router, React 19)
+│   ├── web/             # Modern Dashboard UI (TanStack Router, React 19)
+│   ├── cli/             # @srouter/cli installer and launcher
+│   └── docs/            # Astro documentation site
+├── server/              # Rust/Axum REST API (single listener, SQLite WAL)
 ├── packages/
 │   ├── constants/       # Global constants, presets & model catalogs
 │   ├── db/              # SQLite repository layer (node:sqlite)

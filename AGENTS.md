@@ -11,7 +11,7 @@ Monorepo: `pnpm@11.23.0` workspaces (`apps/*`, `packages/*`) + Turborepo. Requir
 
 ## Layout
 
-- `apps/api`: Hono gateway, entry `src/index.ts`. Serves `apps/web/dist` in prod, API-only otherwise.
+- `server/`: Rust/Axum API gateway, outside the pnpm workspace (`cargo`, entry `src/main.rs`). Serves `apps/web/dist` in prod. It replaced the Node `apps/api`, deleted 2026-10-08; that tree is preserved at branch `backup/pre-apps-api-removal`.
 - `apps/web`: Vite + React 19 + TanStack Router + Tailwind v4 + shadcn. Dev `:5173`, proxies `/v1`, `/health` to `:3000`.
 - `apps/cli`: `@srouter/cli`, bin `srouter`. `apps/docs`: Astro landing (excluded from root `dev`/`build` filters).
 - `packages/`: `constants`, `db` (SQLite `node:sqlite` WAL repo + `pg` for prod), `executors` (upstream drivers), `pricing`, `providers` (registry/coordinator), `translator` (OpenAI <-> Anthropic), `types` (shared Zod).
@@ -26,9 +26,9 @@ pnpm install                  # setup only; frozen-lockfile in CI
 Verify only touched apps/packages (per `CONTRIBUTING.md`, minus build):
 
 ```bash
-cd apps/api
-pnpm exec tsx --test --test-concurrency=1 --import ./tests/setup.ts tests/<focused-file>.test.ts
-pnpm exec prettier --check src/<changed>.ts tests/<changed>.test.ts
+cargo test --manifest-path server/Cargo.toml --test <focused-file>
+cargo fmt --manifest-path server/Cargo.toml -- --check
+pnpm exec prettier --check <changed files>
 git diff --check
 ```
 
@@ -45,10 +45,10 @@ git diff --check
 
 ## Quirks agents miss
 
-- API has two Hono apps: main `:3000` and OAuth `:1455` (`/auth/*` callbacks + `/v1` proxy). `boot()` awaits `RunStartupTasks` (PG schema, admin bootstrap, tunnel autostart) before `serve()`.
+- The API serves a single listener on `PORT` (default `3000`); provider callbacks live under `/v1/auth/*`. The Node build's secondary `:1455` OAuth listener was removed with `apps/api`.
 - Compat routes: `/v1/v1/*` exists for SDKs appending `/v1` to a baseURL containing `/v1`. Keep them.
 - Web `vite.config.ts` aliases `@srouter/types` and `@srouter/constants` to `packages/*/src/index.ts` (not `dist`). `src/routeTree.gen.ts` is generated, prettier-ignored.
-- Web build emits `sr-[hash].js` with `preserveModules`; API `tsup` targets `node20`, ESM only, minified.
+- Web build emits `sr-[hash].js` with `preserveModules`; the API is a Rust binary, not a bundler target.
 - Commits: Conventional Commits (`feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `perf:`, `chore:`).
 
 ## Local agent memory (`.local/`, git-ignored)

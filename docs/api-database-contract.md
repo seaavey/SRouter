@@ -8,6 +8,9 @@ This document records database behavior visible through the API routes and their
 
 ## Allowed evidence
 
+The Node tree that carried these files was deleted on 2026-10-08 (owner instruction) and is preserved
+at branch `backup/pre-apps-api-removal` (commit `5839f80`):
+
 - `apps/api/src/routes/v1/database.ts`
 - `apps/api/src/controllers/database.controller.ts`
 - `apps/api/tests/database-route.test.ts`

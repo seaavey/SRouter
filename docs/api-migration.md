@@ -4,18 +4,27 @@
 performed yet; nothing in this document claims a measurement or a live comparison that was not
 run. This file is `server/TODO.md` section 12's `docs/api-migration.md` deliverable.
 
+**Node tree removed 2026-10-08.** By owner instruction the Node API (`apps/api`) and the
+`docs/superpowers/` plans were deleted ahead of the cutover gate in section 8. That tree is
+preserved at branch `backup/pre-apps-api-removal` (commit `5839f80`) and in git history, so every
+`apps/api/**` path below cites the preserved tree rather than a directory in the working copy. Two
+gate items in section 8 (the live A/B run and the Node column of the benchmarks) can now only be
+executed by reinstating that tree.
+
 ## 1. Sources of truth
 
 - Frozen contract: `docs/api-v1-contract.md` (route inventory, deviations, legacy baseline).
 - Persistence contract: `docs/api-database-contract.md`, `docs/schemas-database.md`.
 - Backlog and evidence map: `server/TODO.md`.
-- Plan: `docs/superpowers/plans/2026-09-24-srouter-api-rust-migration.md` (Task 15 defines the
-  staging/cutover sequence this document operationalizes).
+- Plan: `docs/superpowers/plans/2026-09-24-srouter-api-rust-migration.md`, read from the preserved
+  tree (the `docs/superpowers/` folder was deleted on 2026-10-08); Task 15 defines the
+  staging/cutover sequence this document operationalizes.
 - Rust evidence: `server/tests/*.rs`, green at 873 passed / 0 failed (`cargo test --locked`,
   2026-10-08) plus `cargo fmt --check` and `cargo clippy --all-targets --all-features -- -D
 warnings`.
-- Node evidence: `apps/api/tests/*.test.ts`, read as black-box oracle files; the representative
-  baseline (contract section "Legacy baseline before Rust work") passes 15/15.
+- Node evidence: `apps/api/tests/*.test.ts`, read as black-box oracle files from the preserved tree;
+  the representative baseline (contract section "Legacy baseline before Rust work") passed 15/15
+  while that tree was still present.
 
 ## 2. Parity matrix
 
@@ -101,23 +110,22 @@ The feature is deleted, not merely excluded. What it consisted of and where each
 
 | Part                                                                                                                       | Where it lived                                                                         | State                                                                                                           |
 | -------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| Seven routes (`GET                                                                                                         | POST /v1/tunnel/status,events,install,start,stop,config`)                              | `apps/api/src/routes/v1/tunnel.ts`, `controllers/tunnel.controller.ts`                                          | Still served by Node; `apps/` is out of scope for now |
-| cloudflared process manager, installer, autostart                                                                          | `apps/api/src/services/cloudflareTunnel.ts`, wired into `boot()` via `RunStartupTasks` | Still present in Node                                                                                           |
+| Seven routes (`GET                                                                                                         | POST /v1/tunnel/status,events,install,start,stop,config`)                              | `apps/api/src/routes/v1/tunnel.ts`, `controllers/tunnel.controller.ts`                                          | Deleted with `apps/api` on 2026-10-08 |
+| cloudflared process manager, installer, autostart                                                                          | `apps/api/src/services/cloudflareTunnel.ts`, wired into `boot()` via `RunStartupTasks` | Deleted with `apps/api` on 2026-10-08                                                                           |
 | Dashboard hook                                                                                                             | `apps/web/src/hooks/useTunnel.ts` (no importer)                                        | Still present; dead code                                                                                        |
 | Settings schema                                                                                                            | `packages/types/src/schemas/admin.ts` (`TunnelConfigSchema`)                           | Still present                                                                                                   |
 | Stored settings (`cloudflare_tunnel_token`, `cloudflare_tunnel_domain`, `cloudflare_tunnel_autostart`, `cloudflared_path`) | `system_settings` / `settings` rows                                                    | **Deleted** by `server/migrations/0004_remove_tunnel_settings.sql` on the next connect; schema version is now 4 |
 | Rust routes                                                                                                                | Never existed                                                                          | `/v1/tunnel/*` answers `404`, as before                                                                         |
 
-Contract change: the tunnel routes become permanently unavailable at cutover (previously they
-were "Node-only during the fallback period"). Both builds answer `404` for the routes from the
-moment `apps/api` is deleted; the settings keys are already gone from any database the Rust
-build has opened.
+Contract change: the tunnel routes are permanently unavailable. They answered `404` on the Rust
+build from the start and disappeared with the Node build on 2026-10-08, so no deployment serves
+them any more; the settings keys are already gone from any database the Rust build has opened.
 
 Evidence: `server/tests/schema.rs`
 (`tunnel_settings_rows_are_deleted_when_a_v3_file_reaches_v4`,
 `tunnel_settings_rows_are_deleted_across_the_v1_transform`), commits `4d6e2d9` (code) and
-`7c8b167` (docs). The Node-side deletion stays in `server/TODO.md` sections 10 and 13 until the
-owner opens the `apps/` scope.
+`7c8b167` (docs). The Node-side deletion left `server/TODO.md` sections 10 and 13 on 2026-10-08,
+when the owner ordered the tree removed.
 
 ## 5. Staging rollout steps (pending)
 
@@ -133,10 +141,11 @@ Adapted from plan Task 15 to the current shape: single listener, SQLite only, no
    end; `GET /v1/models` respects the allowlist; `GET /v1/logs/events` delivers `connected`
    plus 25 s heartbeats; database export and a re-import of that export both succeed; an OAuth
    callback route is reachable from outside loopback.
-5. Rehearse the rollback (section 6) and confirm the backup restores: `docker compose up -d
-srouter-node` comes up healthy against the restored file.
-6. Only then switch the production compose target to `runner`, keeping the Node image
-   selectable.
+5. Rehearse the rollback (section 6) on a copy: restore the backup over the candidate database and
+   confirm the service comes up healthy against the restored file. The Node service no longer
+   exists (`apps/api` deleted), so this rehearsal is backup-and-binary only.
+6. Only then deploy the `runner` image to production. `runner` is the only service in
+   `docker-compose.yml` now, so there is no compose target left to switch.
 7. Monitor for at least 24 hours: critical route probes (health, chat, models, logs), error
    rate in `logs/srouter-server.log`, and data-integrity spot checks (key usage counters, log
    row growth).
@@ -157,9 +166,10 @@ cp -p "$DATABASE_PATH" "backup/srouter-$(date -u +%Y%m%dT%H%M%SZ).db"
 The import route also keeps its own `import-backup.db` (verified in
 `server/tests/database_transfer.rs`), but that backup only exists after an import.
 
-**Rollback Rust -> Node.** Start the kept Node service (`docker compose up -d srouter-node`,
-stage 4 of the Dockerfile) or deploy the previous Node image. Two caveats, both to be
-rehearsed rather than assumed:
+**Rollback Rust -> Node: no longer available.** The Node build was deleted (`apps/api`,
+2026-10-08) and stage 4 of the Dockerfile went with it, so "roll back to the previous runtime" now
+means reinstating that tree from branch `backup/pre-apps-api-removal` and rebuilding it. If someone
+does that, two caveats still apply, both to be rehearsed rather than assumed:
 
 - **Schema ownership.** Once the Rust build opens a legacy file it renames `admin_account` ->
   `admin_accounts` and `system_settings` -> `settings`, and rewrites `api_keys.key` (plaintext)
@@ -172,23 +182,27 @@ rehearsed rather than assumed:
   auth. This must be proven in the rollback rehearsal (step 5) before cutover.
 - **Web bundle coupling.** Favorites, hidden models, custom models, and the provider `enabled`
   flag are written through Rust-only surfaces, while `/v1/settings/fallbacks`, both verify
-  routes, `/v1/pricing/models`, and `/v1/tunnel/*` are Node-only. Rolling the API back must roll
-  the web bundle back to the same commit (`server/TODO.md` section 13).
+  routes, and `/v1/tunnel/*` are Node-only. Rolling the API back must roll the web bundle back to
+  the same commit (`server/TODO.md` section 13).
+
+Since the Node tree is gone, the practical rollback is **backup + Rust binary**: restore the
+pre-migration database file and deploy the previous Rust image (`runner`).
 
 **Rollback Node -> Rust.** Free, except that the Node build may have written state the Rust
 build has not seen (for example new tunnel settings keys, which the next Rust connect deletes
 again).
 
 **Rust binary rollback.** A database already at version 4 is refused by any pre-v4 Rust binary
-("newer than this server supports"). Roll the binary back together with the file backup, or
-roll back to Node instead.
+("newer than this server supports"), so roll the binary back together with the file backup.
 
 ## 7. Benchmarks (pending - no numbers yet)
 
 Protocol: run both builds under identical CPU/memory limits, the same database fixture (a copy
 of one staging snapshot), the same fake upstream fixtures, and the same request mix (short
 non-stream, long stream, models list, logs page). Record raw numbers before any comparison;
-this document must not claim an improvement that has not been measured.
+this document must not claim an improvement that has not been measured. The Node column needs the
+preserved tree (branch `backup/pre-apps-api-removal`) reinstated and rebuilt first; the Rust column
+can be measured at any time.
 
 <!-- prettier-ignore -->
 | Metric | Node | Rust | Notes |
@@ -198,19 +212,25 @@ this document must not claim an improvement that has not been measured.
 | RSS under load | not measured | not measured | Concurrency fixed for both sides |
 | Throughput (requests/s) | not measured | not measured | Same request mix, same upstream fixture |
 | CPU under the same load | not measured | not measured | Same limits as the throughput run |
-| Production image size | not measured | not measured | `docker images` for `runner` vs `node-runner` |
+| Production image size | not measured | not measured | `docker images` for `runner`; the `node-runner` stage is gone |
 
 ## 8. Cutover gate
 
+Owner instruction 2026-10-08: the Node tree was deleted ahead of this gate (see the header), so the
+items below record both what the deletion settled and what is still open.
+
 - [ ] Live A/B parity run (plan Task 15, step 1): status codes, required headers, JSON/error
-      bodies, state changes, SSE sequences, separate temporary databases, fake upstreams.
+      bodies, state changes, SSE sequences, separate temporary databases, fake upstreams. Needs the
+      preserved Node tree reinstated first (branch `backup/pre-apps-api-removal`).
 - [ ] Tunnel removal write-up accepted (section 4) - drafted here; owner sign-off pending.
-- [ ] Benchmarks measured under identical limits (section 7).
+- [ ] Benchmarks measured under identical limits (section 7). The Rust column is measurable now;
+      the Node column needs the preserved tree.
 - [ ] Staging deployment and verification run (section 5).
 - [ ] Rollback rehearsed against a real backup, including the schema-ownership caveat
       (section 6).
-- [ ] `apps/` scope decision: delete the Node tunnel code, `useTunnel.ts`, and
-      `TunnelConfigSchema`, or record them as accepted leftovers.
+- [x] `apps/` scope for the Node tunnel code: `apps/api` (routes, controller, service, test) was
+      deleted with the tree on 2026-10-08. `apps/web/src/hooks/useTunnel.ts` and the
+      `packages/types` `TunnelConfigSchema` remain as dead code until the web refactor (#150).
 - [ ] 24-hour production monitoring window closed with no parity or data-integrity regression.
 - [ ] `server/TODO.md` section 13 retirement checklist executed (only after every section above
-      is checked).
+      is checked), except the Node tree deletion itself, which is already done.
