@@ -39,7 +39,7 @@ use crate::state::AppState;
 struct ProviderPayload {
     id: Option<String>,
     name: Option<String>,
-    alias: Option<String>,
+    prefix: Option<String>,
     category: Option<String>,
     protocol: Option<String>,
     base_url: Option<String>,
@@ -124,7 +124,7 @@ pub async fn add_provider(
         &id,
         &NewCustomProvider {
             name,
-            alias: payload.alias.as_deref().map(str::trim).map(str::to_owned),
+            prefix: payload.prefix.as_deref().map(str::trim).map(str::to_owned),
             protocol: protocol.to_owned(),
             base_url: base_url.clone(),
             api_key,
@@ -377,7 +377,9 @@ fn parse_payload(body: &[u8]) -> Result<ProviderPayload, APIError> {
     Ok(ProviderPayload {
         id: text("id").or_else(|| text("connection_id")),
         name: text("name"),
-        alias: text("alias"),
+        // `prefix` is the wire name; `alias` is the legacy key the Node
+        // contract and the current web form still send.
+        prefix: text("prefix").or_else(|| text("alias")),
         category: text("category"),
         protocol: text("protocol"),
         base_url: text("base_url"),

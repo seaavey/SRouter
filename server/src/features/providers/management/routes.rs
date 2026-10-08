@@ -131,7 +131,7 @@ async fn get_provider(
 
 /// Edits one provider in place. A built-in driver takes the enabled flag plus
 /// the hidden and favorite state of individual models; a custom provider takes
-/// the connection fields (name, alias, protocol, base URL, API key). Every field
+/// the connection fields (name, prefix, protocol, base URL, API key). Every field
 /// is optional, so the catalog page needs exactly one write route.
 async fn patch_provider(
     State(state): State<AppState>,
@@ -255,7 +255,7 @@ fn parse_provider_patch(body: &[u8]) -> Result<ProviderPatch, APIError> {
 #[derive(Debug, Default)]
 struct CustomEdit {
     name: Option<String>,
-    alias: Option<String>,
+    prefix: Option<String>,
     protocol: Option<String>,
     base_url: Option<String>,
     api_key: Option<String>,
@@ -269,7 +269,7 @@ struct CustomEdit {
 impl CustomEdit {
     fn is_empty(&self) -> bool {
         self.name.is_none()
-            && self.alias.is_none()
+            && self.prefix.is_none()
             && self.protocol.is_none()
             && self.base_url.is_none()
             && !self.has_api_key
@@ -308,9 +308,11 @@ fn parse_custom_edit(body: &[u8]) -> Result<CustomEdit, APIError> {
 
     Ok(CustomEdit {
         name: text("name"),
-        // An empty alias clears it, so the raw string is kept here.
-        alias: object
-            .get("alias")
+        // An empty prefix clears it, so the raw string is kept here. `alias`
+        // is the legacy key the Node contract and the web form still send.
+        prefix: object
+            .get("prefix")
+            .or_else(|| object.get("alias"))
             .and_then(Value::as_str)
             .map(str::to_owned),
         protocol: text("protocol"),
@@ -330,10 +332,10 @@ async fn apply_custom_edit(
     edit: &CustomEdit,
 ) -> Result<(), APIError> {
     let name = edit.name.clone().unwrap_or_else(|| row.name.clone());
-    let alias = match &edit.alias {
-        Some(alias) if alias.trim().is_empty() => None,
-        Some(alias) => Some(alias.clone()),
-        None => row.alias.clone(),
+    let prefix = match &edit.prefix {
+        Some(prefix) if prefix.trim().is_empty() => None,
+        Some(prefix) => Some(prefix.clone()),
+        None => row.prefix.clone(),
     };
     let protocol = match &edit.protocol {
         Some(protocol) => {
@@ -370,7 +372,7 @@ async fn apply_custom_edit(
         &row.id,
         &NewCustomProvider {
             name,
-            alias,
+            prefix,
             protocol,
             base_url,
             api_key,

@@ -1,5 +1,5 @@
 //! The generic driver for a user-registered provider. One `CustomProvider`
-//! serves one `providers` row: the row carries its UUID, alias, base URL, and
+//! serves one `providers` row: the row carries its UUID, model prefix, base URL, and
 //! protocol, so nothing is compiled in.
 //!
 //! Two protocol families, matching the two Node executors the provider dialog
@@ -82,10 +82,10 @@ impl CustomProvider {
         self.row.base_url.trim_end_matches('/')
     }
 
-    /// The user-facing model prefix: the row's alias, or its id when none was
+    /// The user-facing model prefix: the row's prefix, or its id when none was
     /// given, mirroring Node's `providerAlias(providerBaseId(uuid))`.
     fn model_prefix(&self) -> &str {
-        self.row.alias.as_deref().unwrap_or(&self.row.id)
+        self.row.prefix.as_deref().unwrap_or(&self.row.id)
     }
 
     /// Reads the row's credentials at request time. A row without a database
@@ -381,10 +381,10 @@ impl ProviderExecutor for CustomProvider {
 
     fn keys_owned(&self) -> Vec<String> {
         let mut keys = vec![self.row.id.to_lowercase()];
-        if let Some(alias) = self.row.alias.as_deref() {
-            let alias = alias.to_lowercase();
-            if alias != keys[0] {
-                keys.push(alias);
+        if let Some(prefix) = self.row.prefix.as_deref() {
+            let prefix = prefix.to_lowercase();
+            if prefix != keys[0] {
+                keys.push(prefix);
             }
         }
 

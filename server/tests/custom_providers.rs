@@ -141,7 +141,7 @@ async fn a_custom_provider_lists_in_the_catalog_and_resolves() {
             "/v1/providers",
             serde_json::json!({
                 "name": "My Gateway",
-                "alias": "mine",
+                "prefix": "mine",
                 "category": "custom_provider",
                 "protocol": "openai",
                 "base_url": PUBLIC_BASE_URL,
@@ -169,7 +169,7 @@ async fn a_custom_provider_lists_in_the_catalog_and_resolves() {
     assert_eq!(customs.len(), 1, "one custom provider");
     assert_eq!(customs[0]["id"], id, "listed by its uuid");
 
-    // The detail route resolves by that uuid.
+    // The detail route resolves by that uuid, and reports the model prefix.
     let detail = app
         .oneshot(with_loopback_client(
             Request::builder()
@@ -181,8 +181,9 @@ async fn a_custom_provider_lists_in_the_catalog_and_resolves() {
         .await
         .unwrap();
     assert_eq!(detail.status(), StatusCode::OK);
-    // Aliases are accepted too: the registry key is the alias.
-    assert_eq!(json(detail).await["id"], id);
+    let detail = json(detail).await;
+    assert_eq!(detail["id"], id);
+    assert_eq!(detail["connections"][0]["prefix"], "mine");
 }
 
 #[tokio::test]
@@ -212,7 +213,11 @@ async fn patches_a_custom_provider_connection_field() {
         .oneshot(admin_request(
             "PATCH",
             &format!("/v1/providers/{id}"),
-            serde_json::json!({ "name": "After", "protocol": "anthropic" }),
+            serde_json::json!({
+                "name": "After",
+                "protocol": "anthropic",
+                "prefix": "after"
+            }),
         ))
         .await
         .unwrap();
@@ -220,6 +225,8 @@ async fn patches_a_custom_provider_connection_field() {
     let body = json(patched).await;
     assert_eq!(body["name"], "After");
     assert_eq!(body["protocol"], "anthropic");
+    // The edit wrote the model prefix back to the connection view.
+    assert_eq!(body["connections"][0]["prefix"], "after");
     // A field the patch did not name keeps its stored value.
     assert_eq!(body["default_base_url"], PUBLIC_BASE_URL);
 }
@@ -359,6 +366,7 @@ async fn the_detail_view_carries_the_registered_custom_model() {
             "/v1/providers",
             serde_json::json!({
                 "name": "My Gateway",
+                // The legacy `alias` key still sets the prefix.
                 "alias": "mine",
                 "category": "custom_provider",
                 "protocol": "openai",

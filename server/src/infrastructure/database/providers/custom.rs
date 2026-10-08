@@ -15,23 +15,26 @@ use crate::infrastructure::database::AppDatabase;
 use crate::infrastructure::database::row::{integer, optional_text, text};
 
 /// One user-registered provider row. `credentials` is carried whole so it can be
-/// re-read without touching a secret column.
+/// re-read without touching a secret column. `prefix` is the user-facing model
+/// prefix, read from and written to the `alias` column the schema shares with
+/// Node.
 #[derive(Clone, Debug)]
 pub struct CustomProviderRow {
     pub id: String,
     pub name: String,
-    pub alias: Option<String>,
+    pub prefix: Option<String>,
     pub category: String,
     pub protocol: String,
     pub base_url: String,
     pub enabled: bool,
 }
 
-/// The fields `POST /v1/providers` accepts for a custom provider.
+/// The fields `POST /v1/providers` accepts for a custom provider. The wire name
+/// of the model prefix is `prefix`; `alias` is still accepted as a legacy key.
 #[derive(Clone, Debug)]
 pub struct NewCustomProvider {
     pub name: String,
-    pub alias: Option<String>,
+    pub prefix: Option<String>,
     pub protocol: String,
     pub base_url: String,
     pub api_key: Option<String>,
@@ -70,7 +73,8 @@ pub async fn list_custom_providers(
         providers.push(CustomProviderRow {
             id: text(row, "id")?,
             name: text(row, "name")?,
-            alias: optional_text(row, "alias")?,
+            // The column keeps the Node name; the field is the model prefix.
+            prefix: optional_text(row, "alias")?,
             category: text(row, "category")?,
             protocol: text(row, "protocol")?,
             base_url: optional_text(row, "base_url")?.unwrap_or_default(),
@@ -115,7 +119,7 @@ pub async fn create_custom_provider(
     .bind(id)
     .bind(id)
     .bind(&provider.name)
-    .bind(provider.alias.as_deref())
+    .bind(provider.prefix.as_deref())
     .bind(&provider.protocol)
     .bind(&provider.base_url)
     .bind(credentials.to_string())
@@ -204,7 +208,7 @@ mod tests {
     fn provider() -> NewCustomProvider {
         NewCustomProvider {
             name: "My Gateway".to_owned(),
-            alias: Some("mine".to_owned()),
+            prefix: Some("mine".to_owned()),
             protocol: "openai".to_owned(),
             base_url: "https://example.com/v1".to_owned(),
             api_key: Some("sk-test".to_owned()),

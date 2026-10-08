@@ -166,13 +166,14 @@ impl ProviderModel {
 }
 
 /// A connection as the detail response reports it. There is deliberately no
-/// credential field: a stored API key never leaves the database.
+/// credential field: a stored API key never leaves the database. The model
+/// prefix is reported as `prefix` (the row's `alias` column).
 #[derive(Clone, Debug, Serialize, specta::Type)]
 pub struct ProviderConnectionView {
     pub id: String,
     pub provider_id: String,
     pub name: String,
-    pub alias: Option<String>,
+    pub prefix: Option<String>,
     pub category: String,
     pub protocol: String,
     pub base_url: Option<String>,
@@ -187,7 +188,7 @@ impl From<&ProviderConnection> for ProviderConnectionView {
             id: connection.id.clone(),
             provider_id: connection.provider_id.clone(),
             name: connection.name.clone(),
-            alias: connection.alias.clone(),
+            prefix: connection.alias.clone(),
             category: connection.category.clone(),
             protocol: connection.protocol.clone(),
             base_url: connection.base_url.clone(),

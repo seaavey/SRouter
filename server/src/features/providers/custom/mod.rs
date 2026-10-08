@@ -5,7 +5,7 @@
 //! Node seeds one executor per saved row (`loadSavedProvidersFromDB`). The Rust
 //! build registers a single generic executor per custom row at boot and after
 //! every write, because the row itself carries everything the driver needs: its
-//! UUID, alias, base URL, protocol, and credentials. Unlike the built-in
+//! UUID, model prefix, base URL, protocol, and credentials. Unlike the built-in
 //! drivers nothing is compiled in, so a row deleted from the database stops
 //! resolving as soon as the registry drops it.
 //!

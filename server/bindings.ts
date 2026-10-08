@@ -273,13 +273,14 @@ export type PricingListResponse = {
 
 /**
  *  A connection as the detail response reports it. There is deliberately no
- *  credential field: a stored API key never leaves the database.
+ *  credential field: a stored API key never leaves the database. The model
+ *  prefix is reported as `prefix` (the row's `alias` column).
  */
 export type ProviderConnectionView = {
 	id: string,
 	provider_id: string,
 	name: string,
-	alias: string | null,
+	prefix: string | null,
 	category: string,
 	protocol: string,
 	base_url: string | null,
