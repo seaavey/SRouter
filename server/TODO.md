@@ -809,10 +809,14 @@ Qoder, Cline, OpenAI, Antigravity, and Claude routes exist in Rust. Source of tr
       asset carries the immutable cache header, an unmatched route falls back to the shell without one,
       `/v1` reports version `0.2.0`, and `logs/srouter-server.log` is written. A plain `docker build`
       still lands on the Node runtime, so the production default is unchanged until cutover.
-- [ ] `docs/api-migration.md`: parity matrix results, tunnel removal write-up (the feature is
-      deleted outright per the 2026-10-08 ruling, so both builds answer `404`), staging steps,
-      backup/rollback procedure, benchmark table (startup, idle/active memory, CPU/throughput, image
-      size) measured under identical limits. No claimed improvement without numbers.
+- [~] `docs/api-migration.md`: drafted 2026-10-08. Carries the parity matrix from static evidence
+  (per-area Rust test vs Node oracle, verdicts marked served/deviation/not served), the
+  owner-approved deviation list, the tunnel removal write-up, staging steps, the backup/rollback
+  procedure (including the schema-ownership caveat: after a Rust migration Node boot recreates
+  `admin_account`/`system_settings` empty and can no longer query `api_keys.key`, so a full
+  rollback restores the pre-migration backup), and an empty benchmark table with its measurement
+  protocol - no numbers, no claims. Still open: the live A/B parity run, measured benchmarks,
+  and owner sign-off; those keep this item partial.
 - [ ] Staging cutover + 24 h monitoring + rollback rehearsal (plan Task 15).
 
 ---
