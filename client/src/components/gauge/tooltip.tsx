@@ -10,7 +10,7 @@ import {
 } from "react"
 import { createPortal } from "react-dom"
 
-import { cn } from "@/shared/lib/utils"
+import { cn } from "@/lib/utils"
 import { arcBox, polar } from "./math"
 
 import { useGauge } from "./context"

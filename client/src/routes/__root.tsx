@@ -3,7 +3,7 @@ import { createRootRouteWithContext, Outlet } from "@tanstack/react-router"
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools"
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools"
 
-import { ThemeProvider } from "@/shared/components/theme-provider"
+import { ThemeProvider } from "@/components/theme-provider"
 
 export type RouterContext = {
   queryClient: QueryClient
@@ -31,7 +31,7 @@ const RootComponent = () => (
     {import.meta.env.DEV ? (
       <>
         <TanStackRouterDevtools position="bottom-right" />
-        <ReactQueryDevtools buttonPosition="top-right" />
+        <ReactQueryDevtools buttonPosition="bottom-left" />
       </>
     ) : null}
   </ThemeProvider>

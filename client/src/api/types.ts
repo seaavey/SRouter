@@ -2,4 +2,4 @@
 //!
 //! Do not edit: `server/tests/bindings.rs` fails when this file drifts from a
 //! fresh render. Regenerate instead.
-export * from "../../generated/typed"
+export * from "../generated/typed"
