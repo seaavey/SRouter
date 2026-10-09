@@ -27,6 +27,38 @@ There is **no workspace root manifest, no CI (`.github/` does not exist), no Doc
 
 **Bindings flow**: Rust wire types derive `Serialize + specta::Type` → `server/src/bindings.rs` registry → `cargo run --bin export_ts` → writes **both** `server/bindings.ts` and `client/src/generated/typed.ts`. The client imports them through `client/src/api/types.ts`.
 
+## Non-Negotiable Rules
+
+Read this before touching a file. Nothing here is enforced by tooling; it is enforced by review. Standard is a senior engineer who owns the code for the next six months, not one who ships the fastest diff.
+
+**Scope**
+
+1. **Do the requested change, completely, and nothing else.** No unrequested features, refactors, dependencies, or "while I'm here" tidy-ups. Reduce scope only with explicit approval; never silently.
+2. **A diff is the unit of work.** It compiles, runs, and is verifiable on its own. Rename a symbol → every callsite lands in the same change, and the obsolete version leaves with it. No shims, re-exports, or deprecation aliases.
+3. **Leave no scaffolding.** No `TODO`/`FIXME` marker, stub, mock, placeholder, or unreachable branch in shipped code. `server/src` and `client/src` contain zero today — keep it that way. (Four comments in `features/provider_auth/` cite a `TODO.md` deleted in `233b7a6`; that is a stale pointer, not a marker — the same class as the dead `docs/*.md` citations, and not a pattern to copy.)
+
+**Design**
+
+4. **No over-engineering.** The entire server defines **5 traits** (`APIKeyStore`, `APIKeyRepository`, `AdminSessionStore`, `AdminAuthRepository`, `ProviderExecutor`) and no DI container; the client has **14 runtime dependencies**. Do not add an abstraction, generic parameter, trait, registry, plugin point, feature flag, or dependency until a second concrete caller exists. Three repeated lines beat a premature helper.
+5. **Reuse the vocabulary that exists.** `client/src/components/ui/` (shadcn/Base UI), the gauge kit for dials, `APIError` + `constants.rs` on the server, `TestDatabase` in tests, `create_*_router` for mounts. A second convention for a job that already has one is the defect — even when the new one is nicer.
+6. **Match the file you are in.** Same naming, module layout, error style, and comment style as its neighbours. Read the surrounding 50 lines before adding to anything.
+7. **Comments explain why, never what.** Record the trap that motivated the line (see `client/vite.config.ts` on `changeOrigin`, `state.rs` on `unconfigured`). No narration, no section banners, no restating the next line.
+
+**Correctness**
+
+8. **No `unwrap()` on a production path.** The codebase has exactly one (`providers/registry.rs:282`) and clippy will not flag yours. Propagate with `?` into `APIError`; use `expect("...")` only where failure is provably impossible (static parse, literal) and always with a message. Lock poisoning is recovered, not unwrapped: `.unwrap_or_else(|e| e.into_inner())`.
+9. **One error type.** `APIError` with builders, propagated by `?`. No `anyhow`, `thiserror`, `Box<dyn Error>` outside `main`, and no per-module error enums.
+10. **Every client-visible string, code, and header name comes from `server/src/constants.rs`.** Never inline a message in a handler; interpolated messages become functions.
+11. **Frozen behaviour stays frozen.** Node-parity semantics, generated files, `[profile.dev] debug = 1`, per-mount guard placement, global layer order, and the frozen test contracts are all deliberate. If a change seems to require altering one, stop and report it rather than "fixing" it.
+
+**Evidence**
+
+12. **Verify by running, not by reasoning.** Every behavioural change gets exercised on the real path — the handler, the CLI, or the browser. Tests alone are not proof. A green `cargo check` or `tsc` proves only that it compiles.
+13. **State exactly what you ran.** Never claim coverage you did not exercise, never describe an untested path as working, and never report success from a command you skipped. Unverified is a valid answer; "probably fine" is not.
+14. **Report a blocker; do not route around it.** If the requested change cannot be made safely, say which invariant it breaks and what you tried — do not silently weaken a guard, widen a scope, or delete a test to make the change fit.
+
+For client work, [`skills/srouter-frontend/SKILL.md`](skills/srouter-frontend/SKILL.md) is the detailed companion to the rules above.
+
 ## Key Directories
 
 | Path                         | Contents                                                                                                                                                                                                                                                                                            |
@@ -81,6 +113,7 @@ Pricing snapshot maintenance (Python 3 stdlib, not a required dev step): `python
 **Rust (`server/`)** — 4-space indent, rustfmt defaults; no `rustfmt.toml`, so `cargo fmt` output is the law.
 
 - Errors: one custom `APIError { status, message, error_type, code, param }` with builders and `impl IntoResponse`; propagate with `?` in `Result<_, APIError>`. No `anyhow`/`thiserror` (zero hits). `Box<dyn Error>` only in `main`.
+- **Wire fields are `snake_case`, both directions.** All 234 fields in `client/src/generated/typed.ts` are snake_case and the client depends on it. Do not add `#[serde(rename_all = "camelCase")]`, and use `#[serde(rename)]` only for a name that is not a valid Rust identifier (`error.type`). Enum _values_ mirror their protocol instead (`UPPERCASE` method, `lowercase` object kind, `kebab-case` SSE tags) — follow the enum next to yours. Regenerate with `export_ts` and `git diff` the generated file so a camelCase field cannot slip through: a Rust type change is a wire contract change.
 - All client-visible strings/codes/headers come from `server/src/constants.rs` — never inline literals in handlers; interpolated messages become functions.
 - Async: tokio multi-thread. Traits stay dyn-compatible by returning `BoxFuture<'_, …>` instead of `async fn` (see the rationale in `providers/executor.rs`). Shared state is `Arc<..>` + `RwLock`/`Mutex` with poison recovery; streams flow through `mpsc`/`broadcast`.
 - Provider drivers: implement `ProviderExecutor` in the vendor module, register one constructor — no central dispatch match. File set per vendor: `mod.rs` + `executor.rs`/`translate.rs`/`types.rs`/`auth.rs`/`catalog.rs`/`tests.rs`. Runtime-registered drivers are `Arc<dyn>`-based; catalog order lives in `SEED_PROVIDERS`.
@@ -96,7 +129,7 @@ Pricing snapshot maintenance (Python 3 stdlib, not a required dev step): `python
 - Server state via TanStack Query `queryOptions` factories declared next to their endpoint (`client/src/api/<domain>.ts`); the shared `['admin','status']` cache entry is load-bearing for the auth guard and login page. Local state via `useState`; no Redux/Zustand/immer, no form library, no toast library.
 - `cn` is re-exported from `client/src/lib/utils.ts` (the `cn` package, not clsx+tailwind-merge); UI primitives live in `client/src/components/ui/` (shadcn generated over `@base-ui/react`); the unreferenced `client/src/components/gauge/` kit is the sanctioned dial/chart vocabulary — reuse it rather than adding a chart dep.
 
-**Never hand-edit generated files**: `client/src/generated/typed.ts`, `server/bindings.ts` (regenerate via `export_ts`; `server/tests/bindings.rs` fails on drift) and `client/src/routeTree.gen.ts` (`tsr generate` / the Vite plugin; committed on purpose).
+**Never hand-edit generated files**: `client/src/generated/**`, `server/bindings.ts` (regenerate via `export_ts`; `server/tests/bindings.rs` fails on drift) and `client/src/routeTree.gen.ts` (`tsr generate` / the Vite plugin; committed on purpose).
 
 ## Important Files
 
