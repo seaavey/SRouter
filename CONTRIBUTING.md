@@ -41,15 +41,15 @@ Commit the result. Hand edits do not survive the next render, and `server/tests/
 
 ## Where things live
 
-| Path | Contents |
-| --- | --- |
-| `server/src/app.rs` | Router mounts |
-| `server/src/features/` | One directory per feature: gateway, providers, catalog, logs, admin auth, database transfer |
-| `server/src/http/` | Middleware and static file serving |
-| `server/src/infrastructure/` | Database, migrations, logging |
-| `server/src/constants.rs` | Client-facing strings and header constants |
-| `server/migrations/` | Schema history, currently version 4 |
-| `server/tests/` | Integration suites and the shared support module |
+| Path                         | Contents                                                                                    |
+| ---------------------------- | ------------------------------------------------------------------------------------------- |
+| `server/src/app.rs`          | Router mounts                                                                               |
+| `server/src/features/`       | One directory per feature: gateway, providers, catalog, logs, admin auth, database transfer |
+| `server/src/http/`           | Middleware and static file serving                                                          |
+| `server/src/infrastructure/` | Database, migrations, logging                                                               |
+| `server/src/constants.rs`    | Client-facing strings and header constants                                                  |
+| `server/migrations/`         | Schema history, currently version 4                                                         |
+| `server/tests/`              | Integration suites and the shared support module                                            |
 
 The contract lives in the Rust types. Response types carry the serde attributes that shape the JSON, and the route tests pin the status codes and bodies. There is no separate contract document to update alongside a change.
 

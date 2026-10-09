@@ -57,7 +57,7 @@ Read this before touching a file. Nothing here is enforced by tooling; it is enf
 13. **State exactly what you ran.** Never claim coverage you did not exercise, never describe an untested path as working, and never report success from a command you skipped. Unverified is a valid answer; "probably fine" is not.
 14. **Report a blocker; do not route around it.** If the requested change cannot be made safely, say which invariant it breaks and what you tried — do not silently weaken a guard, widen a scope, or delete a test to make the change fit.
 
-For client work, [`skills/srouter-frontend/SKILL.md`](skills/srouter-frontend/SKILL.md) is the detailed companion to the rules above.
+For server work, [`skills/srouter-server/SKILL.md`](skills/srouter-server/SKILL.md) is the detailed companion to the rules above; for client work, the companion is [`skills/srouter-frontend/SKILL.md`](skills/srouter-frontend/SKILL.md).
 
 ## Key Directories
 
