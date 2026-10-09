@@ -3,7 +3,7 @@ import { createRootRouteWithContext, Outlet } from "@tanstack/react-router"
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools"
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools"
 
-import { ThemeProvider } from "@/components/theme-provider"
+import { ThemeProvider } from "@/shared/components/theme-provider"
 
 export type RouterContext = {
   queryClient: QueryClient

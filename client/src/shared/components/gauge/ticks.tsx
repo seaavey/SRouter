@@ -1,4 +1,4 @@
-import { cn } from "@/lib/utils"
+import { cn } from "@/shared/lib/utils"
 import { cutValues, polar, stepValues } from "./math"
 import type { GaugeContextValue } from "./context"
 import {

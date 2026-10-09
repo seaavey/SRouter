@@ -10,10 +10,10 @@ import {
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 
-import { adminStatusQuery } from "@/api/admin"
-import { request } from "@/api/client"
-import { Button } from "@/components/ui/button"
-import { Separator } from "@/components/ui/separator"
+import { adminStatusQuery } from "@/shared/api/queries"
+import { request } from "@/shared/api/client"
+import { Button } from "@/shared/components/ui/button"
+import { Separator } from "@/shared/components/ui/separator"
 import {
   Sidebar,
   SidebarContent,
@@ -28,7 +28,7 @@ import {
   SidebarMenuItem,
   SidebarProvider,
   SidebarTrigger,
-} from "@/components/ui/sidebar"
+} from "@/shared/components/ui/sidebar"
 
 /**
  * The operator's navigation. Every entry points at a route that exists, and the
@@ -36,7 +36,7 @@ import {
  * now, then what is configured, then the record.
  */
 const NAVIGATION = [
-  { to: "/", label: "Usage", icon: DashboardSquare01Icon },
+  { to: "/", label: "Dashboard", icon: DashboardSquare01Icon },
   { to: "/providers", label: "Providers", icon: ServerStack01Icon },
   { to: "/logs", label: "Request logs", icon: ComputerTerminal01Icon },
   { to: "/keys", label: "API keys", icon: Key01Icon },
@@ -52,7 +52,7 @@ function AppSidebar() {
       // Drop every cached response, not just the status: the next operator to
       // sign in on this browser must not see the previous one's data.
       queryClient.clear()
-      await navigate({ to: "/login", replace: true })
+      await navigate({ to: "/login", search: {}, replace: true })
     },
   })
 

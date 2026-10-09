@@ -7,7 +7,7 @@ import {
   type ReactNode,
 } from "react"
 
-import { cn } from "@/lib/utils"
+import { cn } from "@/shared/lib/utils"
 import { angleToValue, clamp } from "./math"
 
 /** How far out from the centre a press starts counting as the ring, as a

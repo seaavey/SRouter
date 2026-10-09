@@ -1,60 +1,32 @@
-# Dependencies (Prettier runs from the repo root)
-node_modules
-.pnpm-store
-
-# Build & compilation outputs
-dist
-build
-out
-
-# Server log files
-logs/
-
-# SQLite Database Files
-*.db
-*.db-wal
-*.db-shm
-*.db-journal
-*.sqlite
-srouter.db
-
-# Environment Variables & Secrets
 .env
-.env.local
-.env.*.local
-.env.development
-.env.production
+server/logs
+server/target/
 
-# Local overrides (never commit)
-*.local
-.local/
-.qoder/
-
-# Logs & Debug
-/logs/
+# Logs
+logs
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+lerna-debug.log*
 
-# System & IDE Files
-.DS_Store
-Thumbs.db
-.idea/
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
 .vscode/*
-!.vscode/settings.json
-!.vscode/launch.json
-!.vscode/*.code-snippets
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
 
-# Graphify knowledge graph output
-graphify-out/
-.graphify-out/
-
-# Superpowers agent scratch
-.superpowers/
-
-# Lockfiles from alternative package managers (pnpm-lock.yaml is tracked)
-package-lock.json
-yarn.lock
-bun.lock
-bun.lockb
+# TanStack Router scratch directory; `routeTree.gen.ts` is committed on purpose
+# (the TanStack convention) so a fresh clone typechecks before any generation.
+client/.tanstack/
