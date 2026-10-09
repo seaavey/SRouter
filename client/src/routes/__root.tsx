@@ -31,7 +31,7 @@ const RootComponent = () => (
     {import.meta.env.DEV ? (
       <>
         <TanStackRouterDevtools position="bottom-right" />
-        <ReactQueryDevtools buttonPosition="bottom-left" />
+        <ReactQueryDevtools buttonPosition="top-right" />
       </>
     ) : null}
   </ThemeProvider>

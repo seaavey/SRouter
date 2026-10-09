@@ -4,7 +4,17 @@ import { useState } from "react"
 
 import { adminStatusQuery } from "@/api/admin"
 import { ApiError, request } from "@/api/client"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field"
+import { Input } from "@/components/ui/input"
+import { Spinner } from "@/components/ui/spinner"
 
 type LoginSearch = { redirect?: string }
 
@@ -15,7 +25,7 @@ export const Route = createFileRoute("/login")({
   component: Login,
 })
 
-/** Turns a failed login into the one sentence the operator needs. */
+/** Turns a failed request into the one sentence the operator needs. */
 function describe(error: unknown) {
   if (!(error instanceof ApiError)) {
     return "Could not reach the server."
@@ -48,7 +58,11 @@ function Login() {
   }
 
   const login = useMutation({
-    mutationFn: () => request<{ authenticated: boolean }>("/v1/admin/login", { method: "POST", body: { password } }),
+    mutationFn: () =>
+      request<{ authenticated: boolean }>("/v1/admin/login", {
+        method: "POST",
+        body: { password },
+      }),
     onSuccess: afterAuth,
   })
 
@@ -62,15 +76,22 @@ function Login() {
   })
 
   if (status.isPending) {
-    return <p className="text-muted-foreground p-6 text-xs">Checking session…</p>
+    return (
+      <div className="text-muted-foreground flex min-h-svh items-center justify-center gap-2 text-xs">
+        <Spinner />
+        Checking session
+      </div>
+    )
   }
 
   if (status.isError) {
     return (
-      <div className="p-6">
-        <h1 className="text-sm font-medium">Could not reach the server</h1>
-        <p className="text-muted-foreground mt-1 text-xs">{describe(status.error)}</p>
-        <Button className="mt-3" size="sm" onClick={() => status.refetch()}>
+      <div className="mx-auto flex min-h-svh max-w-sm flex-col justify-center gap-3 p-6">
+        <Alert variant="destructive">
+          <AlertTitle>Could not reach the server</AlertTitle>
+          <AlertDescription>{describe(status.error)}</AlertDescription>
+        </Alert>
+        <Button variant="outline" size="sm" onClick={() => status.refetch()}>
           Retry
         </Button>
       </div>
@@ -81,60 +102,67 @@ function Login() {
   const mismatch = setupRequired && confirmation.length > 0 && confirmation !== password
 
   return (
-    <form
-      className="mx-auto flex max-w-sm flex-col gap-3 p-6"
-      onSubmit={(event) => {
-        event.preventDefault()
-        active.mutate()
-      }}
-    >
-      <div>
-        <h1 className="text-sm font-medium">
-          {setupRequired ? "Create the admin account" : "Sign in"}
-        </h1>
-        <p className="text-muted-foreground mt-1 text-xs">
-          {setupRequired
-            ? "This instance has no admin account yet. The password you set here is the one that protects it."
-            : "The admin session lasts seven days."}
-        </p>
-      </div>
-
-      <label className="flex flex-col gap-1 text-xs">
-        <span className="text-muted-foreground">Password</span>
-        <input
-          type="password"
-          autoComplete={setupRequired ? "new-password" : "current-password"}
-          autoFocus
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/30 h-7 rounded-md border px-2 outline-none focus-visible:ring-2"
-        />
-      </label>
-
-      {setupRequired ? (
-        <label className="flex flex-col gap-1 text-xs">
-          <span className="text-muted-foreground">Confirm password</span>
-          <input
-            type="password"
-            autoComplete="new-password"
-            value={confirmation}
-            onChange={(event) => setConfirmation(event.target.value)}
-            className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/30 h-7 rounded-md border px-2 outline-none focus-visible:ring-2"
-          />
-        </label>
-      ) : null}
-
-      {active.isError ? (
-        <p className="text-destructive text-xs">{describe(active.error)}</p>
-      ) : null}
-
-      <Button
-        type="submit"
-        size="sm"
-        disabled={password.length === 0 || mismatch || active.isPending}
+    <div className="mx-auto flex min-h-svh max-w-sm flex-col justify-center p-6">
+      <form
+        onSubmit={(event) => {
+          event.preventDefault()
+          active.mutate()
+        }}
       >
-        {active.isPending ? "Working…" : setupRequired ? "Create account" : "Sign in"}
-      </Button>
-    </form>
+        <FieldGroup>
+          <div className="flex flex-col gap-1">
+            <h1 className="text-sm font-medium">
+              {setupRequired ? "Create the admin account" : "Sign in"}
+            </h1>
+            <p className="text-muted-foreground text-xs">
+              {setupRequired
+                ? "This instance has no admin account yet. The password you set here is the one that protects it."
+                : "The admin session lasts seven days."}
+            </p>
+          </div>
+
+          <Field data-invalid={active.isError ? true : undefined}>
+            <FieldLabel htmlFor="password">Password</FieldLabel>
+            <Input
+              id="password"
+              type="password"
+              autoComplete={setupRequired ? "new-password" : "current-password"}
+              autoFocus
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              aria-invalid={active.isError ? true : undefined}
+            />
+            {active.isError ? <FieldError>{describe(active.error)}</FieldError> : null}
+          </Field>
+
+          {setupRequired ? (
+            <Field data-invalid={mismatch ? true : undefined}>
+              <FieldLabel htmlFor="confirmation">Confirm password</FieldLabel>
+              <Input
+                id="confirmation"
+                type="password"
+                autoComplete="new-password"
+                value={confirmation}
+                onChange={(event) => setConfirmation(event.target.value)}
+                aria-invalid={mismatch ? true : undefined}
+              />
+              {mismatch ? (
+                <FieldError>Both passwords must match.</FieldError>
+              ) : (
+                <FieldDescription>Repeat the password to rule out a typo.</FieldDescription>
+              )}
+            </Field>
+          ) : null}
+
+          <Button
+            type="submit"
+            disabled={password.length === 0 || mismatch || active.isPending}
+          >
+            {active.isPending ? <Spinner data-icon="inline-start" /> : null}
+            {setupRequired ? "Create account" : "Sign in"}
+          </Button>
+        </FieldGroup>
+      </form>
+    </div>
   )
 }
