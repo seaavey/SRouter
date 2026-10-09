@@ -1,7 +1,8 @@
-//! The committed contract document: `server/bindings.ts`.
+//! The committed contract documents: `server/bindings.ts` and the copy the app
+//! imports at `client/src/generated/typed.ts`.
 //!
 //! Two properties are pinned here. The document is deterministic, so two
-//! renderings are byte-identical and the committed file matches a regeneration;
+//! renderings are byte-identical and the committed files match a regeneration;
 //! and it is complete, so every type a response root references is present. A
 //! shape change that is not re-exported fails `the_committed_document_matches_a_regeneration`.
 
@@ -18,6 +19,19 @@ fn committed() -> String {
     fs::read_to_string(manifest_dir().join("bindings.ts")).expect("`server/bindings.ts`")
 }
 
+/// Each committed path paired with its current contents.
+fn committed_copies() -> Vec<(PathBuf, String)> {
+    bindings::targets()
+        .into_iter()
+        .map(|path| {
+            let document = fs::read_to_string(&path)
+                .unwrap_or_else(|error| panic!("could not read {}: {error}", path.display()));
+
+            (path, document)
+        })
+        .collect()
+}
+
 #[test]
 fn two_renderings_are_byte_identical() {
     let first = bindings::export().expect("the bindings render");
@@ -28,14 +42,19 @@ fn two_renderings_are_byte_identical() {
 
 #[test]
 fn the_committed_document_matches_a_regeneration() {
+    // Both targets come from `bindings::targets`, so a copy that is added later
+    // is pinned here without another test.
     let rendered = bindings::export().expect("the bindings render");
 
-    assert_eq!(
-        committed(),
-        rendered,
-        "`server/bindings.ts` is stale; regenerate it with \
-         `cargo run --manifest-path server/Cargo.toml --bin export_ts`"
-    );
+    for (path, committed) in committed_copies() {
+        assert_eq!(
+            committed,
+            rendered,
+            "{} is stale; regenerate it with \
+             `cargo run --manifest-path server/Cargo.toml --bin export_ts`",
+            path.display()
+        );
+    }
 }
 
 #[test]

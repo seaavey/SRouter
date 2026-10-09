@@ -2,7 +2,9 @@
 //!
 //! [`types`] registers the response roots; every type reachable from them is
 //! rendered too, so one call covers the whole surface. [`export`] turns that
-//! graph into text, and `server/bindings.ts` is the committed result of it.
+//! graph into text, and [`targets`] names the two committed results of it:
+//! `server/bindings.ts`, the contract document, and
+//! `client/src/generated/typed.ts`, the copy the app imports.
 //!
 //! The document describes the JSON shapes, not HTTP: there is no route, method,
 //! or security scheme in it, so nothing here ties a shape to the endpoint that
@@ -38,6 +40,7 @@
 //! | `ErrorEnvelope`         | every error response                       |
 
 use std::borrow::Cow;
+use std::path::PathBuf;
 
 use specta::datatype::{DataType, Enum, Fields, NamedDataType, Reference, Struct, Variant};
 use specta::{Format, FormatError, Types};
@@ -110,6 +113,24 @@ pub fn types() -> Types {
 /// Renders the TypeScript bindings for [`types`].
 pub fn export() -> Result<String, specta_typescript::Error> {
     specta_typescript::Typescript::default().export(&types(), WireShapes)
+}
+
+/// The committed files a rendering of [`export`] is written to.
+///
+/// Both carry the same bytes: `server/bindings.ts` is what the contract suite
+/// reads, and the copy under `client/` is what the app imports. The drift test
+/// pins each one to a fresh render, so the two can never disagree.
+pub fn targets() -> [PathBuf; 2] {
+    let server = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let repo = server
+        .parent()
+        .expect("`server/` sits inside the repository root")
+        .to_path_buf();
+
+    [
+        server.join("bindings.ts"),
+        repo.join("client/src/generated/typed.ts"),
+    ]
 }
 
 /// Renders one shape per type through `specta-serde`'s unified formatter.
