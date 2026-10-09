@@ -12,7 +12,7 @@ cd SRouter
 cargo run --manifest-path server/Cargo.toml
 ```
 
-The server listens on port 3000 and keeps its SQLite database at `~/.srouter/srouter.db`. `server/.env.example` lists every variable it reads, and `PORT` and `DATABASE_PATH` are the two you are most likely to change. A configured `DATABASE_URL` is refused on purpose: SQLite is the only backend.
+The server listens on port 3000 and keeps its SQLite database at `~/.srouter/srouter.db`. `server/.env.example` lists every variable it reads, and `PORT` and `DATABASE_PATH` are the two you are most likely to change. A configured `DATABASE_URL` is refused on purpose: SQLite is the only backend. The server runs in production mode unless `NODE_ENV=development`; development turns the per-request access log on, and `SROUTER_ACCESS_LOG=on` forces it under either environment.
 
 ## Tests and checks
 
@@ -31,13 +31,13 @@ Suites create their own database through `server/tests/support`. They never open
 
 ## Generated bindings
 
-`server/bindings.ts` is rendered from the wire types with specta. After changing a Rust type:
+`server/bindings.ts` and its copy at `client/src/generated/typed.ts` are rendered from the wire types with specta. After changing a Rust type:
 
 ```bash
 cargo run --manifest-path server/Cargo.toml --bin export_ts
 ```
 
-Commit the result. Hand edits do not survive the next render, and `server/tests/bindings.rs` fails when the committed copy differs from a fresh one.
+Commit the result. Hand edits do not survive the next render, and `server/tests/bindings.rs` fails when either committed copy differs from a fresh one.
 
 ## Where things live
 
