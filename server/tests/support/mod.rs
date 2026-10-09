@@ -2256,9 +2256,12 @@ pub fn antigravity_state(
 pub const NO_DASHBOARD_WEB_DIST: &str = "/tmp/srouter-test-home/no-such-web-dist";
 
 /// Configuration pointing at the default temporary home used by state helpers.
+/// `NODE_ENV=development` keeps the per-request access log on, so tests observe
+/// request telemetry; `production_config` covers the production defaults.
 pub fn test_config() -> APIConfig {
     let environment = HashMap::from([
         ("HOME".to_owned(), "/tmp/srouter-test-home".to_owned()),
+        ("NODE_ENV".to_owned(), "development".to_owned()),
         ("WEB_DIST_PATH".to_owned(), NO_DASHBOARD_WEB_DIST.to_owned()),
     ]);
     APIConfig::from_env_map(&environment).expect("test configuration")

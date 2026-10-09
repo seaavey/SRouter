@@ -11,10 +11,12 @@ pub struct APIConfig {
     pub cors_origins: Vec<String>,
     pub admin_password: Option<String>,
     pub secure_cookies: bool,
-    /// `NODE_ENV=production` (case-insensitive). Drives production-only defaults.
+    /// True unless `NODE_ENV=development` (case-insensitive) selects the
+    /// development environment. Production is the default and drives
+    /// production-only defaults.
     pub is_production: bool,
     /// Whether the per-request access log runs. Off in production unless
-    /// `SROUTER_ACCESS_LOG` explicitly turns it back on.
+    /// `SROUTER_ACCESS_LOG` explicitly turns it back on; on in development.
     pub access_log: bool,
     pub web_dist_path: Option<PathBuf>,
     pub database_path: PathBuf,
@@ -68,12 +70,16 @@ impl APIConfig {
                 url.get(..8)
                     .is_some_and(|scheme| scheme.eq_ignore_ascii_case("https://"))
             });
-        // Production detection follows the Node convention. The access log is a
-        // development aid, so it defaults off in production and stays on
-        // everywhere else; `SROUTER_ACCESS_LOG` overrides either way.
-        let is_production = environment
+        // Production is the default: an unset `NODE_ENV`, an explicit
+        // `production`, and any other unrecognized value all keep
+        // production-only defaults. Only `NODE_ENV=development`
+        // (case-insensitive) selects the development environment. The access
+        // log is a development aid, so it defaults off in production and on in
+        // development; `SROUTER_ACCESS_LOG` overrides either way.
+        let is_development = environment
             .get("NODE_ENV")
-            .is_some_and(|value| value.trim().eq_ignore_ascii_case("production"));
+            .is_some_and(|value| value.trim().eq_ignore_ascii_case("development"));
+        let is_production = !is_development;
         let access_log_override = environment
             .get("SROUTER_ACCESS_LOG")
             .map(|value| value.trim().to_ascii_lowercase())

@@ -25,8 +25,14 @@ fn defaults_use_frozen_listener_and_sqlite_values() {
     assert!(config.cors_origins.is_empty());
     assert!(config.admin_password.is_none());
     assert!(!config.secure_cookies);
-    assert!(!config.is_production);
-    assert!(config.access_log, "the access log is on outside production");
+    assert!(
+        config.is_production,
+        "production is the default environment"
+    );
+    assert!(
+        !config.access_log,
+        "the access log is off outside development"
+    );
     assert!(config.web_dist_path.is_none());
     assert!(config.database_url.is_none());
 }
@@ -249,6 +255,27 @@ fn production_turns_the_access_log_off() {
 
     assert!(config.is_production);
     assert!(!config.access_log);
+}
+
+#[test]
+fn production_is_the_default_and_only_development_opts_out() {
+    let unset = config_from(&[("HOME", "/tmp/srouter-home")]).unwrap();
+    assert!(unset.is_production, "an unset NODE_ENV is production");
+    assert!(!unset.access_log);
+
+    let unrecognized =
+        config_from(&[("HOME", "/tmp/srouter-home"), ("NODE_ENV", "staging")]).unwrap();
+    assert!(
+        unrecognized.is_production,
+        "only development selects the development environment"
+    );
+
+    for value in ["development", "Development", " DEVELOPMENT "] {
+        let development =
+            config_from(&[("HOME", "/tmp/srouter-home"), ("NODE_ENV", value)]).unwrap();
+        assert!(!development.is_production, "NODE_ENV={value:?}");
+        assert!(development.access_log, "NODE_ENV={value:?}");
+    }
 }
 
 #[test]
