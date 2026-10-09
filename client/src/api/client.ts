@@ -5,14 +5,14 @@ import type { ErrorEnvelope } from "./types"
  * branch on `status` and `code` rather than parsing messages. `code` is the
  * stable field; `message` is prose that may be reworded.
  */
-export class ApiError extends Error {
+export class APIError extends Error {
   readonly status: number
   readonly code: string | null
   readonly param: string | null
 
   constructor(status: number, body: ErrorEnvelope["error"] | null) {
     super(body?.message ?? `Request failed with status ${status}`)
-    this.name = "ApiError"
+    this.name = "APIError"
     this.status = status
     this.code = body?.code ?? null
     this.param = body?.param ?? null
@@ -69,7 +69,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
 
   if (!response.ok) {
     const envelope = parsed as ErrorEnvelope | null
-    throw new ApiError(response.status, envelope?.error ?? null)
+    throw new APIError(response.status, envelope?.error ?? null)
   }
 
   return parsed as T

@@ -3,7 +3,7 @@ import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router"
 import { useState } from "react"
 
 import { adminStatusQuery } from "@/api/admin"
-import { ApiError, request } from "@/api/client"
+import { APIError, request } from "@/api/client"
 import { Button } from "@/components/ui/button"
 
 type LoginSearch = { redirect?: string }
@@ -17,7 +17,7 @@ export const Route = createFileRoute("/login")({
 
 /** Turns a failed login into the one sentence the operator needs. */
 function describe(error: unknown) {
-  if (!(error instanceof ApiError)) {
+  if (!(error instanceof APIError)) {
     return "Could not reach the server."
   }
 
