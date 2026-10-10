@@ -4,12 +4,14 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use serde::Serialize;
 
+use crate::constants::ErrorCode;
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct APIError {
     status: u16,
     message: String,
     error_type: String,
-    code: Option<String>,
+    code: Option<ErrorCode>,
     param: Option<String>,
 }
 
@@ -37,8 +39,8 @@ impl APIError {
         self
     }
 
-    pub fn with_code(mut self, code: impl Into<String>) -> Self {
-        self.code = Some(code.into());
+    pub fn with_code(mut self, code: ErrorCode) -> Self {
+        self.code = Some(code);
         self
     }
 
@@ -60,7 +62,7 @@ impl APIError {
             error: ErrorBody {
                 message: self.message.clone(),
                 error_type: self.error_type.clone(),
-                code: self.code.clone(),
+                code: self.code,
                 param: self.param.clone(),
             },
         }
@@ -72,8 +74,7 @@ impl APIError {
 /// each handler inventing its own wording. The text lives in
 /// [`crate::constants::json`].
 pub fn invalid_json() -> APIError {
-    APIError::new(400, crate::constants::json::MALFORMED)
-        .with_code(crate::constants::code::INVALID_JSON)
+    APIError::new(400, crate::constants::json::MALFORMED).with_code(ErrorCode::InvalidJson)
 }
 
 impl fmt::Display for APIError {
@@ -106,7 +107,7 @@ pub struct ErrorBody {
     pub error_type: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[specta(optional)]
-    pub code: Option<String>,
+    pub code: Option<ErrorCode>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[specta(optional)]
     pub param: Option<String>,
@@ -171,7 +172,7 @@ mod tests {
         let envelope = serde_json::to_value(
             APIError::new(502, "upstream unavailable")
                 .with_error_type("upstream_error")
-                .with_code("upstream_unavailable")
+                .with_code(constants::ErrorCode::UpstreamUnavailable)
                 .with_param("provider".to_owned())
                 .to_envelope(),
         )

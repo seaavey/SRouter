@@ -67,7 +67,7 @@ One type, `APIError` (`src/error.rs`): `{ status, message, error_type, code, par
 - `IntoResponse` logs 5xx with `tracing::error!` and answers the JSON envelope; an unrepresentable status falls back to 500.
 - The envelope is `ErrorEnvelope { error: { message, type, code?, param? } }`; `code`/`param` are skipped when `None`.
 - `invalid_json()` is the shared 400 for a malformed body — its single production caller is the body reader (`gateway/interception/body.rs`). Do not invent a per-handler variant.
-- `constants::error_type::*` exists only for deliberate overrides; `constants::code::*` are the stable machine ids clients branch on.
+- `constants::error_type::*` exists only for deliberate overrides; `constants::ErrorCode` is the stable machine id set clients branch on. It is an enum, not string constants: `with_code(ErrorCode::InvalidJson)`. Adding a variant adds it to the generated `ErrorCode` union the client switches on **and to the `ErrorCode` const object rendered beside it** — both are read from the same graph, so they cannot disagree — so add one only for a code a client must actually distinguish.
 
 ## Handlers
 

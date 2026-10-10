@@ -26,15 +26,16 @@ client/src/
 │   ├── __root.tsx           root layout; owns the queryClient singleton
 │   ├── _authenticated.tsx   pathless session guard (beforeLoad)
 │   ├── _authenticated/
-│   │   └── index.tsx        "/" — placeholder dashboard
+│   │   └── index.tsx        "/" — placeholder dashboard with sign-out
 │   └── login.tsx            "/login" — setup + sign-in
 ├── api/
 │   ├── client.ts            request<T>() and APIError — the only fetch wrapper
-│   ├── admin.ts             adminStatusQuery (queryOptions factory)
+│   ├── admin.ts             adminStatusQuery + setupAdmin/loginAdmin/logoutAdmin
 │   └── types.ts             re-export shim for the generated wire types
 ├── components/
 │   ├── ui/                  shadcn primitives (currently just button.tsx)
 │   ├── gauge/               self-contained SVG gauge kit (currently unreferenced)
+│   ├── admin-auth-provider.tsx  admin session context: status query + auth mutations
 │   └── theme-provider.tsx   dark/light/system context
 ├── generated/               GENERATED (specta) — do not edit anything here
 ├── lib/utils.ts             re-exports `cn`
@@ -49,10 +50,12 @@ client/src/
 StrictMode
 └─ QueryClientProvider (queryClient)
    └─ RouterProvider
-      └─ __root__: ThemeProvider → Outlet (+ devtools in dev)
+      └─ __root__: ThemeProvider → AdminAuthProvider → Outlet (+ devtools in dev)
 ```
 
 `ThemeProvider` sits **inside** the router root, not above it: `index.css` defines the `.dark` palette, so without it the app is locked to light mode. It stores the choice under the `"theme"` localStorage key, applies `.dark` to `documentElement`, mirrors other tabs via the `storage` event, and toggles on the `d` key (ignored while an editable element has focus).
+
+`AdminAuthProvider` (`components/admin-auth-provider.tsx`) owns the admin session: it reads `adminStatusQuery` and exposes `login`/`setup`/`logout` mutations through `useAdminAuth()`. Each mutation invalidates `["admin", "status"]` on success, so the guard and the screens converge on one session object. The provider reads the query rather than owning it because the guard runs in `beforeLoad` — before any component — and reaches the cache through the router context instead.
 
 The `queryClient` is a module singleton created in `routes/__root.tsx` with `retry: false` and `refetchOnWindowFocus: false`. That is deliberate: every request targets a server the operator runs themselves, so a failure is information, not a blip.
 
@@ -95,4 +98,4 @@ Nothing is cached across sessions, and there is no token in JS: the entire crede
 | `components/*`    | presentation, props in / events out                     | fetch, or read the router                |
 | `components/ui/*` | shadcn primitives and their variants                    | carry domain knowledge                   |
 
-The only exception today is the login screen, which holds its two mutations inline because it is the seam between the gate and the API — if a screen grows a third mutation, move them into `src/api/`.
+The one exception is `components/admin-auth-provider.tsx`: it is a component, but it deliberately owns server state (the status query plus the auth mutations) because the session must be shared between the login screen, the sign-out control, and anything else under the gate. That is the pattern for future session-scoped state; one-off screen mutations stay inline with the screen that triggers them.

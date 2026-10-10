@@ -132,7 +132,7 @@ async fn log_analytics(
     let window =
         parse_analytics_window(query.window.as_deref().unwrap_or("24h")).ok_or_else(|| {
             APIError::new(400, constants::logs::INVALID_WINDOW)
-                .with_code(constants::code::INVALID_REQUEST)
+                .with_code(constants::ErrorCode::InvalidRequest)
         })?;
     let database = state
         .database

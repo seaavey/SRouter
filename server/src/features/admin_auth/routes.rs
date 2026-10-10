@@ -34,6 +34,30 @@ pub struct AdminStatus {
     authenticated: bool,
 }
 
+/// The answer to `POST /v1/admin/setup` and `POST /v1/admin/login`. Both only
+/// succeed by setting the session cookie, so `authenticated` is always true.
+#[derive(Serialize, specta::Type)]
+pub struct AdminAuthResult {
+    authenticated: bool,
+}
+
+/// Fields accepted by `POST /v1/admin/setup`.
+///
+/// Carries a password and therefore derives no `Debug`/`PartialEq`: a derive
+/// would make the secret printable from any log line that formats the struct.
+#[derive(specta::Type)]
+pub struct AdminSetupInput {
+    password: String,
+    confirmation: String,
+}
+
+/// Fields accepted by `POST /v1/admin/login`, under the same no-`Debug` rule as
+/// `AdminSetupInput`.
+#[derive(specta::Type)]
+pub struct AdminLoginInput {
+    password: String,
+}
+
 /// Mounts the admin-auth routes. They are nested under `/v1`, so the paths are
 /// `/v1/admin/*`, and they carry no shared guard: each handler enforces its own
 /// session requirement.
@@ -68,7 +92,7 @@ async fn admin_setup(
     let address = client_address(request.extensions());
     if !address.as_deref().is_some_and(is_loopback_address) {
         return Err(APIError::new(403, constants::admin::SETUP_LOCAL_ONLY)
-            .with_code(constants::code::SETUP_LOCAL_ONLY));
+            .with_code(constants::ErrorCode::SetupLocalOnly));
     }
 
     if state.security.admin_auth.has_admin_account().await? {
@@ -76,7 +100,10 @@ async fn admin_setup(
     }
 
     let body = json_body(request, constants::admin::INVALID_SETUP_PAYLOAD).await?;
-    let (password, confirmation) = parse_setup(&body)?;
+    let AdminSetupInput {
+        password,
+        confirmation,
+    } = parse_setup(&body)?;
 
     if let Some(message) = validate_admin_password(&password) {
         return Err(invalid_password(message));
@@ -84,7 +111,7 @@ async fn admin_setup(
     if confirmation != password {
         return Err(
             APIError::new(400, constants::admin::PASSWORD_CONFIRMATION_MISMATCH)
-                .with_code(constants::code::PASSWORD_MISMATCH),
+                .with_code(constants::ErrorCode::PasswordMismatch),
         );
     }
 
@@ -99,8 +126,13 @@ async fn admin_setup(
         return Err(already_set_up());
     }
 
-    let mut response =
-        (StatusCode::CREATED, Json(json!({ "authenticated": true }))).into_response();
+    let mut response = (
+        StatusCode::CREATED,
+        Json(AdminAuthResult {
+            authenticated: true,
+        }),
+    )
+        .into_response();
     attach_session(&state, &mut response, now).await?;
 
     Ok(response)
@@ -114,11 +146,11 @@ async fn admin_login(
     let now = now_ms();
     if state.security.login_throttle.is_blocked(&address, now) {
         return Err(APIError::new(429, constants::admin::TOO_MANY_ATTEMPTS)
-            .with_code(constants::code::LOGIN_RATE_LIMITED));
+            .with_code(constants::ErrorCode::LoginRateLimited));
     }
 
     let body = json_body(request, constants::admin::INVALID_PASSWORD).await?;
-    let Some(password) = parse_login(&body) else {
+    let Some(AdminLoginInput { password }) = parse_login(&body) else {
         return Err(invalid_credentials());
     };
 
@@ -134,7 +166,10 @@ async fn admin_login(
 
     state.security.login_throttle.clear(&address);
 
-    let mut response = Json(json!({ "authenticated": true })).into_response();
+    let mut response = Json(AdminAuthResult {
+        authenticated: true,
+    })
+    .into_response();
     attach_session(&state, &mut response, now).await?;
 
     Ok(response)
@@ -159,7 +194,7 @@ async fn admin_change_password(
     {
         return Err(
             APIError::new(401, constants::admin::CURRENT_PASSWORD_INCORRECT)
-                .with_code(constants::code::INVALID_CREDENTIALS),
+                .with_code(constants::ErrorCode::InvalidCredentials),
         );
     }
 
@@ -169,7 +204,7 @@ async fn admin_change_password(
     if new_password != confirmation {
         return Err(
             APIError::new(400, constants::admin::NEW_PASSWORD_CONFIRMATION_MISMATCH)
-                .with_code(constants::code::PASSWORD_MISMATCH),
+                .with_code(constants::ErrorCode::PasswordMismatch),
         );
     }
 
@@ -182,7 +217,7 @@ async fn admin_change_password(
     {
         return Err(
             APIError::new(500, constants::admin::FAILED_TO_UPDATE_PASSWORD)
-                .with_code(constants::code::PASSWORD_UPDATE_FAILED),
+                .with_code(constants::ErrorCode::PasswordUpdateFailed),
         );
     }
 
@@ -266,7 +301,7 @@ async fn json_body(request: Request, message: &str) -> Result<Value, APIError> {
     serde_json::from_slice(&bytes).map_err(|_| APIError::new(400, message))
 }
 
-fn parse_setup(value: &Value) -> Result<(String, String), APIError> {
+fn parse_setup(value: &Value) -> Result<AdminSetupInput, APIError> {
     let object = value
         .as_object()
         .ok_or_else(|| invalid_password(constants::admin::PASSWORD_REQUIRED))?;
@@ -278,7 +313,10 @@ fn parse_setup(value: &Value) -> Result<(String, String), APIError> {
         constants::admin::PASSWORD_CONFIRMATION_REQUIRED,
     )?;
 
-    Ok((password, confirmation))
+    Ok(AdminSetupInput {
+        password,
+        confirmation,
+    })
 }
 
 fn parse_change_password(value: &Value) -> Result<(String, String, String), APIError> {
@@ -305,12 +343,14 @@ fn parse_change_password(value: &Value) -> Result<(String, String, String), APIE
     Ok((current, new_password, confirmation))
 }
 
-fn parse_login(value: &Value) -> Option<String> {
+fn parse_login(value: &Value) -> Option<AdminLoginInput> {
     value
         .get("password")
         .and_then(Value::as_str)
         .filter(|password| !password.is_empty())
-        .map(str::to_owned)
+        .map(|password| AdminLoginInput {
+            password: password.to_owned(),
+        })
 }
 
 fn plain_string(
@@ -325,22 +365,22 @@ fn plain_string(
 }
 
 fn invalid_password(message: &str) -> APIError {
-    APIError::new(400, message).with_code(constants::code::INVALID_PASSWORD)
+    APIError::new(400, message).with_code(constants::ErrorCode::InvalidPassword)
 }
 
 fn invalid_credentials() -> APIError {
     APIError::new(401, constants::admin::INVALID_PASSWORD)
-        .with_code(constants::code::INVALID_CREDENTIALS)
+        .with_code(constants::ErrorCode::InvalidCredentials)
 }
 
 fn authentication_required() -> APIError {
     APIError::new(401, constants::admin::AUTH_REQUIRED)
-        .with_code(constants::code::AUTHENTICATION_REQUIRED)
+        .with_code(constants::ErrorCode::AuthenticationRequired)
 }
 
 fn already_set_up() -> APIError {
     APIError::new(409, constants::admin::SETUP_COMPLETED)
-        .with_code(constants::code::SETUP_ALREADY_COMPLETE)
+        .with_code(constants::ErrorCode::SetupAlreadyComplete)
 }
 
 #[cfg(test)]
@@ -351,20 +391,21 @@ mod tests {
 
     #[test]
     fn setup_requires_both_non_empty_strings() {
-        let (password, confirmation) = parse_setup(&json!({
+        let input = parse_setup(&json!({
             "password": "secret",
             "confirmation": "secret"
         }))
         .unwrap();
-        assert_eq!(password, "secret");
-        assert_eq!(confirmation, "secret");
-
-        assert_eq!(parse_setup(&json!({})).unwrap_err().status(), 400);
+        assert_eq!(input.password, "secret");
+        assert_eq!(input.confirmation, "secret");
+        // `.err()` rather than `.unwrap_err()`: the input type carries a
+        // password and deliberately implements no `Debug` to print it.
+        assert_eq!(parse_setup(&json!({})).err().map(|e| e.status()), Some(400));
         assert_eq!(
             parse_setup(&json!({ "password": "", "confirmation": "" }))
-                .unwrap_err()
-                .status(),
-            400
+                .err()
+                .map(|e| e.status()),
+            Some(400)
         );
     }
 
@@ -383,11 +424,8 @@ mod tests {
 
     #[test]
     fn login_needs_a_non_empty_password() {
-        assert_eq!(
-            parse_login(&json!({ "password": "x" })).as_deref(),
-            Some("x")
-        );
-        assert_eq!(parse_login(&json!({ "password": "" })), None);
-        assert_eq!(parse_login(&json!({})), None);
+        assert!(parse_login(&json!({ "password": "x" })).is_some());
+        assert!(parse_login(&json!({ "password": "" })).is_none());
+        assert!(parse_login(&json!({})).is_none());
     }
 }

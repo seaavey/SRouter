@@ -18,6 +18,33 @@ export type APIKeyResponse = {
 };
 
 /**
+ *  The answer to `POST /v1/admin/setup` and `POST /v1/admin/login`. Both only
+ *  succeed by setting the session cookie, so `authenticated` is always true.
+ */
+export type AdminAuthResult = {
+	authenticated: boolean,
+};
+
+/**
+ *  Fields accepted by `POST /v1/admin/login`, under the same no-`Debug` rule as
+ *  `AdminSetupInput`.
+ */
+export type AdminLoginInput = {
+	password: string,
+};
+
+/**
+ *  Fields accepted by `POST /v1/admin/setup`.
+ * 
+ *  Carries a password and therefore derives no `Debug`/`PartialEq`: a derive
+ *  would make the secret printable from any log line that formats the struct.
+ */
+export type AdminSetupInput = {
+	password: string,
+	confirmation: string,
+};
+
+/**
  *  `GET /v1/admin/status` — whether the install still needs its first admin
  *  and whether the caller holds a valid session cookie.
  */
@@ -125,9 +152,44 @@ export type CreatedAPIKeyResponse = {
 export type ErrorBody = {
 	message: string,
 	type: string,
-	code?: string | null,
+	code?: ErrorCode | null,
 	param?: string | null,
 };
+
+/**
+ *  `error.code` values on the error envelope. Stable identifiers clients switch
+ *  on, unlike the human-readable [`super::json`]/[`super::common`] messages.
+ * 
+ *  A closed value set rather than string constants, so the generated TypeScript
+ *  is the union of codes this build can emit and a handler cannot invent one.
+ */
+export type ErrorCode = 
+/**
+ *  Generic `400` code the Node error handler attaches to every
+ *  `HTTPException` at status 400 (`apps/api/src/index.ts:75-84`).
+ */
+"invalid_request" | 
+/**  Request-body validation codes from the frozen `ChatCompletionRequestSchema`. */
+"invalid_type" | "too_big" | "too_small" | 
+/**  Body and JSON parsing. */
+"invalid_json" | "request_too_large" | "invalid_payload" | 
+/**  API-key authentication and accounting. */
+"invalid_api_key" | "missing_api_key" | "api_key_disabled" | "insufficient_credit" | "quota_exceeded" | "model_not_allowed" | 
+/**  Model catalog. */
+"model_not_found" | "model_not_supported" | 
+/**  Rate limiting. */
+"rate_limit_exceeded" | "login_rate_limited" | 
+/**  Admin authentication. */
+"authentication_required" | "invalid_credentials" | "invalid_password" | "password_mismatch" | "password_update_failed" | "setup_local_only" | "setup_already_complete" | 
+/**  Cross-origin guard. */
+"csrf_origin_rejected" | 
+/**  Upstream provider failure. */
+"upstream_unavailable" | 
+/**
+ *  Database transfer (`docs/api-database-contract.md`). Frozen identifiers
+ *  the dashboard switches on; the messages live in [`super::database`].
+ */
+"unsupported_storage" | "invalid_database" | "invalid_multipart" | "missing_database_file" | "invalid_database_field" | "upload_too_large" | "database_import_busy" | "database_recovery_failed" | "database_transfer_failed";
 
 export type ErrorEnvelope = {
 	error: ErrorBody,
@@ -141,10 +203,6 @@ export type GroupedCatalog = {
 	custom_provider: ProviderEntry[],
 };
 
-export type HealthResponse = {
-	status: string,
-};
-
 /**
  *  Standard HTTP request methods.
  * 
@@ -152,7 +210,11 @@ export type HealthResponse = {
  *  row that carries anything else parses to `Other` through [`FromStr`], which
  *  is where the tolerant fallback lives.
  */
-export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD" | "OPTIONS" | "CONNECT" | "TRACE" | "OTHER";
+export type HTTPMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD" | "OPTIONS" | "CONNECT" | "TRACE" | "OTHER";
+
+export type HealthResponse = {
+	status: string,
+};
 
 export type KeyListResponse = {
 	object: string,
@@ -391,7 +453,7 @@ export type RequestLog = {
 	request_id: string,
 	user_id: string | null,
 	api_key_id: string | null,
-	method: HttpMethod,
+	method: HTTPMethod,
 	path: string,
 	status_code: number,
 	latency_ms: number,
@@ -494,3 +556,41 @@ export type UsageTotals = {
 	tokens: UsageTokenTotals,
 	cost: UsageCostTotals,
 };
+
+export const ErrorCode = {
+	invalid_request: "invalid_request",
+	invalid_type: "invalid_type",
+	too_big: "too_big",
+	too_small: "too_small",
+	invalid_json: "invalid_json",
+	request_too_large: "request_too_large",
+	invalid_payload: "invalid_payload",
+	invalid_api_key: "invalid_api_key",
+	missing_api_key: "missing_api_key",
+	api_key_disabled: "api_key_disabled",
+	insufficient_credit: "insufficient_credit",
+	quota_exceeded: "quota_exceeded",
+	model_not_allowed: "model_not_allowed",
+	model_not_found: "model_not_found",
+	model_not_supported: "model_not_supported",
+	rate_limit_exceeded: "rate_limit_exceeded",
+	login_rate_limited: "login_rate_limited",
+	authentication_required: "authentication_required",
+	invalid_credentials: "invalid_credentials",
+	invalid_password: "invalid_password",
+	password_mismatch: "password_mismatch",
+	password_update_failed: "password_update_failed",
+	setup_local_only: "setup_local_only",
+	setup_already_complete: "setup_already_complete",
+	csrf_origin_rejected: "csrf_origin_rejected",
+	upstream_unavailable: "upstream_unavailable",
+	unsupported_storage: "unsupported_storage",
+	invalid_database: "invalid_database",
+	invalid_multipart: "invalid_multipart",
+	missing_database_file: "missing_database_file",
+	invalid_database_field: "invalid_database_field",
+	upload_too_large: "upload_too_large",
+	database_import_busy: "database_import_busy",
+	database_recovery_failed: "database_recovery_failed",
+	database_transfer_failed: "database_transfer_failed",
+} as const satisfies Record<ErrorCode, ErrorCode>;

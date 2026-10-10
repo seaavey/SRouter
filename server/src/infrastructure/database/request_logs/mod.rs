@@ -14,7 +14,7 @@ pub use analytics::{
     parse_analytics_window, usage_stats,
 };
 pub use store::{
-    HttpMethod, LogClient, LogCost, LogError, LogTokenUsage, LogsPage, ObjectKind, RequestLog,
+    HTTPMethod, LogClient, LogCost, LogError, LogTokenUsage, LogsPage, ObjectKind, RequestLog,
     RequestLogInput, generate_log_id, get_request_log, insert_request_log, list_request_logs,
     subscribe_request_logs,
 };

@@ -21,7 +21,7 @@ use crate::protocol::usage::UsageBreakdown;
 /// is where the tolerant fallback lives.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "UPPERCASE")]
-pub enum HttpMethod {
+pub enum HTTPMethod {
     Get,
     Post,
     Put,
@@ -34,7 +34,7 @@ pub enum HttpMethod {
     Other,
 }
 
-impl FromStr for HttpMethod {
+impl FromStr for HTTPMethod {
     type Err = std::convert::Infallible;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -53,7 +53,7 @@ impl FromStr for HttpMethod {
     }
 }
 
-impl fmt::Display for HttpMethod {
+impl fmt::Display for HTTPMethod {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Get => write!(f, "GET"),
@@ -154,7 +154,7 @@ pub struct RequestLog {
     pub request_id: Uuid,
     pub user_id: Option<Uuid>,
     pub api_key_id: Option<Uuid>,
-    pub method: HttpMethod,
+    pub method: HTTPMethod,
     pub path: String,
     pub status_code: i16,
     #[specta(type = specta_typescript::Number)]
@@ -291,7 +291,7 @@ fn map_request_log(row: &sqlx::sqlite::SqliteRow) -> Result<RequestLog, APIError
     let resolved_model: Option<String> = row.try_get("resolved_model").map_err(log_row_error)?;
     let status_code: i64 = row.try_get("status_code").map_err(log_row_error)?;
     let method_str: String = row.try_get("method").map_err(log_row_error)?;
-    let method: HttpMethod = method_str.parse().unwrap_or(HttpMethod::Other);
+    let method: HTTPMethod = method_str.parse().unwrap_or(HTTPMethod::Other);
 
     let prompt_tokens: Option<i64> = row.try_get("prompt_tokens").map_err(log_row_error)?;
     let completion_tokens: Option<i64> = row.try_get("completion_tokens").map_err(log_row_error)?;

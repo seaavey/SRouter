@@ -93,7 +93,7 @@ fn record_rejection(record: &APIKeyRecord) -> Option<APIError> {
         return Some(
             APIError::new(401, constants::api_key::DISABLED)
                 .with_error_type(constants::error_type::INVALID_REQUEST)
-                .with_code(constants::code::API_KEY_DISABLED),
+                .with_code(constants::ErrorCode::ApiKeyDisabled),
         );
     }
 
@@ -101,7 +101,7 @@ fn record_rejection(record: &APIKeyRecord) -> Option<APIError> {
         return Some(
             APIError::new(402, constants::api_key::CREDIT_EXCEEDED)
                 .with_error_type(constants::error_type::INSUFFICIENT_QUOTA)
-                .with_code(constants::code::INSUFFICIENT_CREDIT),
+                .with_code(constants::ErrorCode::InsufficientCredit),
         );
     }
 
@@ -109,7 +109,7 @@ fn record_rejection(record: &APIKeyRecord) -> Option<APIError> {
         return Some(
             APIError::new(429, constants::api_key::QUOTA_EXCEEDED)
                 .with_error_type(constants::error_type::INSUFFICIENT_QUOTA)
-                .with_code(constants::code::QUOTA_EXCEEDED),
+                .with_code(constants::ErrorCode::QuotaExceeded),
         );
     }
 
@@ -119,7 +119,7 @@ fn record_rejection(record: &APIKeyRecord) -> Option<APIError> {
 fn invalid_api_key() -> APIError {
     APIError::new(401, constants::api_key::INVALID)
         .with_error_type(constants::error_type::INVALID_REQUEST)
-        .with_code(constants::code::INVALID_API_KEY)
+        .with_code(constants::ErrorCode::InvalidApiKey)
 }
 
 fn missing_api_key(is_loopback: bool) -> APIError {
@@ -131,7 +131,7 @@ fn missing_api_key(is_loopback: bool) -> APIError {
 
     APIError::new(401, message)
         .with_error_type(constants::error_type::INVALID_REQUEST)
-        .with_code(constants::code::MISSING_API_KEY)
+        .with_code(constants::ErrorCode::MissingApiKey)
 }
 
 /// `x-api-key` wins over `Authorization`; a present-but-blank `x-api-key`

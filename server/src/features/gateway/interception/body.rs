@@ -49,10 +49,9 @@ pub(crate) async fn read_json_body(request: Request) -> Result<Value, BodyError>
 pub(crate) fn body_error_to_api_error(error: BodyError) -> APIError {
     match error {
         BodyError::TooLarge => APIError::new(413, constants::json::TOO_LARGE)
-            .with_code(constants::code::REQUEST_TOO_LARGE),
-        BodyError::Empty => {
-            APIError::new(400, constants::json::EMPTY_BODY).with_code(constants::code::INVALID_JSON)
-        }
+            .with_code(constants::ErrorCode::RequestTooLarge),
+        BodyError::Empty => APIError::new(400, constants::json::EMPTY_BODY)
+            .with_code(constants::ErrorCode::InvalidJson),
         BodyError::Malformed => invalid_json(),
     }
 }
@@ -140,16 +139,16 @@ mod tests {
         assert_eq!(too_large.status(), 413);
         assert_eq!(too_large.message(), constants::json::TOO_LARGE);
         assert_eq!(
-            too_large.to_envelope().error.code.as_deref(),
-            Some(constants::code::REQUEST_TOO_LARGE)
+            too_large.to_envelope().error.code,
+            Some(constants::ErrorCode::RequestTooLarge)
         );
 
         let empty = body_error_to_api_error(BodyError::Empty);
         assert_eq!(empty.status(), 400);
         assert_eq!(empty.message(), constants::json::EMPTY_BODY);
         assert_eq!(
-            empty.to_envelope().error.code.as_deref(),
-            Some(constants::code::INVALID_JSON)
+            empty.to_envelope().error.code,
+            Some(constants::ErrorCode::InvalidJson)
         );
 
         assert_eq!(

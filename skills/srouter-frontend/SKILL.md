@@ -15,7 +15,7 @@ metadata:
 
 Work inside `client/`. The dashboard is the operator UI for the SRouter gateway; the Rust server in `server/` owns every wire shape, status code, and cookie.
 
-**Current state:** only two screens exist — `/login` (first-run setup + sign-in) and `/` (a placeholder under the session gate). Everything else the API supports is unbuilt. Do not assume a screen exists because a type exists.
+**Current state:** only two screens exist — `/login` (first-run setup + sign-in) and `/` (a placeholder under the session gate, with sign-out). Everything else the API supports is unbuilt. Do not assume a screen exists because a type exists. The session itself is shared through `components/admin-auth-provider.tsx` (`useAdminAuth()`).
 
 ## When to Use
 
@@ -29,8 +29,10 @@ Work inside `client/`. The dashboard is the operator UI for the SRouter gateway;
 1. **NEVER edit a generated file.** `client/src/generated/**`, `client/src/routeTree.gen.ts`, and their server twin `server/bindings.ts` are build output. See [Never hand-edit generated files](#never-hand-edit-generated-files) — no exception, not even to make a check pass.
 2. **Stay same-origin.** No API base URL, no cross-origin dev server, never strip `Origin` in the proxy. The session is an HttpOnly `SameSite=Lax` cookie and the server CSRF-checks the `Origin` header.
 3. **`credentials: "include"` on every request** — without it the session silently does not persist.
-4. **Wire types come from Rust.** Need a new shape? Add it in `server/src` with `specta::Type`, run `cargo run --manifest-path server/Cargo.toml --bin export_ts`, commit both files.
+4. **Wire types come from Rust — requests included.** Need a new shape? Add it in `server/src` with `specta::Type`, run `cargo run --manifest-path server/Cargo.toml --bin export_ts`, commit both files. A request body type (`AdminSetupInput`, `CreateAPIKeyInput`) is declared the same way; a hand-written request shape or an inline `body: { ... }` literal in `client/src` is a defect.
 5. **One network layer.** All requests go through `request<T>()` in `client/src/api/client.ts`. Components never call `fetch` directly.
+6. **Derive types, never duplicate them.** A client shape is a view of a generated wire type — `Pick`/`Omit`/`Partial`/`Exclude` over one, not a re-declared field list. Key lookup tables by their union (`Record<FontFamily, string>`), not by `string`. No `enum` — `erasableSyntaxOnly` bans it; use a literal union plus a const object with `satisfies Record<Union, V>`. See [Type discipline](references/conventions.md#type-discipline).
+7. **No `any`, and no `unknown`.** `any` switches the checker off; `unknown` merely defers every decision to a later `instanceof`. Use the narrowest true type — `Error | null` for a TanStack Query error, `object` for a JSON body, the generated wire type for a response — and guard at the boundary. `never` is exempt: it is the exhaustiveness tool, not an escape hatch. See [Type discipline](references/conventions.md#type-discipline).
 
 ## Never hand-edit generated files
 

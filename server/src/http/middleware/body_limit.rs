@@ -27,5 +27,5 @@ pub async fn body_limit(request: Request<Body>, next: Next) -> Response {
 fn body_too_large() -> APIError {
     APIError::new(413, constants::json::TOO_LARGE)
         .with_error_type(constants::error_type::INVALID_REQUEST)
-        .with_code(constants::code::REQUEST_TOO_LARGE)
+        .with_code(constants::ErrorCode::RequestTooLarge)
 }

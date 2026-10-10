@@ -2,7 +2,7 @@
 //! header name or value a client can observe.
 //!
 //! Wording lives here so a copy change touches one file; call sites only
-//! reference these items. The [`code`] and [`error_type`] modules own the
+//! reference these items. [`ErrorCode`] and the [`error_type`] module own the
 //! machine-readable halves of the error envelope, and [`headers`] owns the
 //! frozen response headers, so the observable contract is reviewable in one
 //! place instead of being scattered across handlers.
@@ -12,64 +12,71 @@
 //! interpolated values as typed arguments, so the shape of each message is
 //! visible from its signature.
 
+use serde::Serialize;
+
 /// `error.code` values on the error envelope. Stable identifiers clients switch
 /// on, unlike the human-readable [`super::json`]/[`super::common`] messages.
-pub mod code {
+///
+/// A closed value set rather than string constants, so the generated TypeScript
+/// is the union of codes this build can emit and a handler cannot invent one.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, specta::Type)]
+#[serde(rename_all = "snake_case")]
+pub enum ErrorCode {
     /// Generic `400` code the Node error handler attaches to every
     /// `HTTPException` at status 400 (`apps/api/src/index.ts:75-84`).
-    pub const INVALID_REQUEST: &str = "invalid_request";
+    InvalidRequest,
     /// Request-body validation codes from the frozen `ChatCompletionRequestSchema`.
-    pub const INVALID_TYPE: &str = "invalid_type";
-    pub const TOO_BIG: &str = "too_big";
-    pub const TOO_SMALL: &str = "too_small";
+    InvalidType,
+    TooBig,
+    TooSmall,
 
     /// Body and JSON parsing.
-    pub const INVALID_JSON: &str = "invalid_json";
-    pub const REQUEST_TOO_LARGE: &str = "request_too_large";
-    pub const INVALID_PAYLOAD: &str = "invalid_payload";
+    InvalidJson,
+    RequestTooLarge,
+    InvalidPayload,
 
     /// API-key authentication and accounting.
-    pub const INVALID_API_KEY: &str = "invalid_api_key";
-    pub const MISSING_API_KEY: &str = "missing_api_key";
-    pub const API_KEY_DISABLED: &str = "api_key_disabled";
-    pub const INSUFFICIENT_CREDIT: &str = "insufficient_credit";
-    pub const QUOTA_EXCEEDED: &str = "quota_exceeded";
-    pub const MODEL_NOT_ALLOWED: &str = "model_not_allowed";
+    InvalidApiKey,
+    MissingApiKey,
+    ApiKeyDisabled,
+    InsufficientCredit,
+    QuotaExceeded,
+    ModelNotAllowed,
 
     /// Model catalog.
-    pub const MODEL_NOT_FOUND: &str = "model_not_found";
-    pub const MODEL_NOT_SUPPORTED: &str = "model_not_supported";
+    ModelNotFound,
+    ModelNotSupported,
 
     /// Rate limiting.
-    pub const RATE_LIMIT_EXCEEDED: &str = "rate_limit_exceeded";
-    pub const LOGIN_RATE_LIMITED: &str = "login_rate_limited";
+    RateLimitExceeded,
+    LoginRateLimited,
 
     /// Admin authentication.
-    pub const AUTHENTICATION_REQUIRED: &str = "authentication_required";
-    pub const INVALID_CREDENTIALS: &str = "invalid_credentials";
-    pub const INVALID_PASSWORD: &str = "invalid_password";
-    pub const PASSWORD_MISMATCH: &str = "password_mismatch";
-    pub const PASSWORD_UPDATE_FAILED: &str = "password_update_failed";
-    pub const SETUP_LOCAL_ONLY: &str = "setup_local_only";
-    pub const SETUP_ALREADY_COMPLETE: &str = "setup_already_complete";
+    AuthenticationRequired,
+    InvalidCredentials,
+    InvalidPassword,
+    PasswordMismatch,
+    PasswordUpdateFailed,
+    SetupLocalOnly,
+    SetupAlreadyComplete,
 
     /// Cross-origin guard.
-    pub const CSRF_ORIGIN_REJECTED: &str = "csrf_origin_rejected";
+    CsrfOriginRejected,
 
     /// Upstream provider failure.
-    pub const UPSTREAM_UNAVAILABLE: &str = "upstream_unavailable";
+    UpstreamUnavailable,
 
     /// Database transfer (`docs/api-database-contract.md`). Frozen identifiers
     /// the dashboard switches on; the messages live in [`super::database`].
-    pub const UNSUPPORTED_STORAGE: &str = "unsupported_storage";
-    pub const INVALID_DATABASE: &str = "invalid_database";
-    pub const INVALID_MULTIPART: &str = "invalid_multipart";
-    pub const MISSING_DATABASE_FILE: &str = "missing_database_file";
-    pub const INVALID_DATABASE_FIELD: &str = "invalid_database_field";
-    pub const UPLOAD_TOO_LARGE: &str = "upload_too_large";
-    pub const DATABASE_IMPORT_BUSY: &str = "database_import_busy";
-    pub const DATABASE_RECOVERY_FAILED: &str = "database_recovery_failed";
-    pub const DATABASE_TRANSFER_FAILED: &str = "database_transfer_failed";
+    UnsupportedStorage,
+    InvalidDatabase,
+    InvalidMultipart,
+    MissingDatabaseFile,
+    InvalidDatabaseField,
+    UploadTooLarge,
+    DatabaseImportBusy,
+    DatabaseRecoveryFailed,
+    DatabaseTransferFailed,
 }
 
 /// `error.type` values, used when a handler overrides the status-derived

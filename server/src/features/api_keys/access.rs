@@ -68,7 +68,7 @@ pub fn ensure_model_allowed_any(
 
     Err(
         APIError::new(403, constants::api_key::model_not_allowed(requested))
-            .with_code(constants::code::MODEL_NOT_ALLOWED),
+            .with_code(constants::ErrorCode::ModelNotAllowed),
     )
 }
 

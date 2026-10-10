@@ -119,7 +119,7 @@ async fn reserve_api_key_quota(
     {
         return Err(
             APIError::new(429, constants::api_key::RESERVATION_UNAVAILABLE)
-                .with_code(constants::code::QUOTA_EXCEEDED),
+                .with_code(constants::ErrorCode::QuotaExceeded),
         );
     }
 

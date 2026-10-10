@@ -132,7 +132,7 @@ pub async fn rate_limit(State(state): State<AppState>, request: Request, next: N
 
 fn rate_limit_error(limit: u32, retry_after_seconds: u64) -> Response {
     let mut error = APIError::new(429, rate_limit_message(limit))
-        .with_code(constants::code::RATE_LIMIT_EXCEEDED)
+        .with_code(constants::ErrorCode::RateLimitExceeded)
         .into_response();
 
     if let Ok(value) = HeaderValue::from_str(&retry_after_seconds.to_string()) {

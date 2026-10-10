@@ -1,13 +1,28 @@
-import type { ErrorEnvelope } from "./types"
+import { ErrorCode, type ErrorEnvelope, type HTTPMethod } from "./types"
+
+/**
+ * The verbs this client is allowed to send. `HTTPMethod` also carries `PUT`,
+ * `HEAD`, `OPTIONS`, `CONNECT`, `TRACE` and `OTHER` because the request log
+ * records whatever arrived; none of the operator API's routes accept them, so
+ * listing them here would promise an endpoint that does not exist. A whitelist
+ * rather than an `Exclude` blacklist on purpose: a verb the server later gains
+ * stays unreachable until it is added here deliberately.
+ */
+type RequestMethod = Extract<
+  HTTPMethod,
+  "GET" | "POST" | "PATCH" | "DELETE"
+>
 
 /**
  * Every failure the API reports carries the `ErrorEnvelope` shape, so callers
  * branch on `status` and `code` rather than parsing messages. `code` is the
- * stable field; `message` is prose that may be reworded.
+ * stable field — a closed union generated from the server's `ErrorCode` enum,
+ * so a comparison against a code this build cannot send is a type error —
+ * while `message` is prose that may be reworded.
  */
 export class APIError extends Error {
   readonly status: number
-  readonly code: string | null
+  readonly code: ErrorCode | null
   readonly param: string | null
 
   constructor(status: number, body: ErrorEnvelope["error"] | null) {
@@ -20,13 +35,14 @@ export class APIError extends Error {
 
   /** The session is gone or was never established. Callers redirect to login. */
   get isUnauthenticated() {
-    return this.status === 401 && this.code === "authentication_required"
+    return this.status === 401 && this.code === ErrorCode.authentication_required
   }
 }
 
 type RequestOptions = {
-  method?: "GET" | "POST" | "PATCH" | "DELETE"
-  body?: unknown
+  method?: RequestMethod
+  /** Serialised as JSON. Any body this app sends is an object, never a scalar. */
+  body?: object
   signal?: AbortSignal
 }
 
@@ -39,14 +55,18 @@ type RequestOptions = {
  * `credentials: "include"` is what makes the cookie travel; without it the
  * session silently does not persist.
  */
-export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+export async function request<T>(
+  path: string,
+  options: RequestOptions = {}
+): Promise<T> {
   const { method = "GET", body, signal } = options
 
   const response = await fetch(path, {
     method,
     credentials: "include",
     signal,
-    headers: body === undefined ? undefined : { "Content-Type": "application/json" },
+    headers:
+      body === undefined ? undefined : { "Content-Type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),
   })
 
@@ -55,7 +75,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   }
 
   const text = await response.text()
-  let parsed: unknown = null
+  let parsed: object | null = null
   if (text.length > 0) {
     try {
       parsed = JSON.parse(text)

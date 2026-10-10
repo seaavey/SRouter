@@ -8,36 +8,41 @@
 //!
 //! The document describes the JSON shapes, not HTTP: there is no route, method,
 //! or security scheme in it, so nothing here ties a shape to the endpoint that
-//! answers it. The request side is covered by `server/tests/contract.rs` and the
-//! live route sweep in `server/tests/transcript.rs`.
+//! answers it. The table below is that tie, for responses and request bodies
+//! alike; the live bytes are pinned by `server/tests/wire.rs` and the route
+//! suites.
 //!
 //! Roots and the endpoint each answers:
 //!
-//! | Type                    | Endpoint                                   |
-//! | ----------------------- | ------------------------------------------ |
-//! | `HealthResponse`        | `GET /health`                              |
-//! | `ApiInfo`               | `GET /`, `GET /v1`                         |
-//! | `SettingsResponse`      | `GET`, `PATCH` `/v1/settings`              |
-//! | `AdminStatus`           | `GET /v1/admin/status`                     |
-//! | `KeyListResponse`       | `GET /v1/keys`                             |
-//! | `APIKeyResponse`        | that list, plus the `PATCH` answer         |
-//! | `CreatedAPIKeyResponse` | `POST /v1/keys`                            |
-//! | `CreateAPIKeyInput`     | `POST /v1/keys` body                       |
-//! | `UpdateAPIKeyInput`     | `PATCH /v1/keys/:id` body                  |
-//! | `ModelListResponse`     | `GET /v1/models`                           |
-//! | `CatalogModel`          | one entry of that list                     |
-//! | `PricingListResponse`   | `GET /v1/models/pricing`                   |
-//! | `QuotaResponse`         | `GET /v1/quota`, `GET /v1/qouta`           |
-//! | `ProviderListResponse`  | `GET /v1/providers`                        |
-//! | `CatalogResponse`       | `GET /v1/providers/catalog`                |
-//! | `LogsResponse`          | `GET /v1/logs`                             |
-//! | `RequestLog`            | one entry of that list, `GET /v1/logs/:id` |
-//! | `UsageStatsReport`      | `GET /v1/logs/stats`                       |
-//! | `UsageData`             | that report's `data` object                |
-//! | `UsageTotals`           | the per-category totals inside `data`      |
-//! | `AnalyticsReport`       | `GET /v1/logs/analytics`                   |
-//! | `LiveEvent`             | the `/v1/logs/stream` SSE payloads         |
-//! | `ErrorEnvelope`         | every error response                       |
+//! | Type                    | Endpoint                                       |
+//! | ----------------------- | ---------------------------------------------- |
+//! | `HealthResponse`        | `GET /health`                                  |
+//! | `ApiInfo`               | `GET /`, `GET /v1`                             |
+//! | `SettingsResponse`      | `GET`, `PATCH` `/v1/settings`                  |
+//! | `AdminStatus`           | `GET /v1/admin/status`                         |
+//! | `AdminAuthResult`       | `POST /v1/admin/setup`, `POST /v1/admin/login` |
+//! | `AdminSetupInput`       | `POST /v1/admin/setup` body                    |
+//! | `AdminLoginInput`       | `POST /v1/admin/login` body                    |
+//! | `KeyListResponse`       | `GET /v1/keys`                                 |
+//! | `APIKeyResponse`        | that list, plus the `PATCH` answer             |
+//! | `CreatedAPIKeyResponse` | `POST /v1/keys`                                |
+//! | `CreateAPIKeyInput`     | `POST /v1/keys` body                           |
+//! | `UpdateAPIKeyInput`     | `PATCH /v1/keys/:id` body                      |
+//! | `ModelListResponse`     | `GET /v1/models`                               |
+//! | `CatalogModel`          | one entry of that list                         |
+//! | `PricingListResponse`   | `GET /v1/models/pricing`                       |
+//! | `QuotaResponse`         | `GET /v1/quota`, `GET /v1/qouta`               |
+//! | `ProviderListResponse`  | `GET /v1/providers`                            |
+//! | `CatalogResponse`       | `GET /v1/providers/catalog`                    |
+//! | `LogsResponse`          | `GET /v1/logs`                                 |
+//! | `RequestLog`            | one entry of that list, `GET /v1/logs/:id`     |
+//! | `UsageStatsReport`      | `GET /v1/logs/stats`                           |
+//! | `UsageData`             | that report's `data` object                    |
+//! | `UsageTotals`           | the per-category totals inside `data`          |
+//! | `AnalyticsReport`       | `GET /v1/logs/analytics`                       |
+//! | `LiveEvent`             | the `/v1/logs/stream` SSE payloads             |
+//! | `ErrorEnvelope`         | every error response                           |
+//! | `ErrorCode`             | that envelope's `code`, a closed union         |
 
 use std::borrow::Cow;
 use std::path::PathBuf;
@@ -46,8 +51,11 @@ use specta::datatype::{DataType, Enum, Fields, NamedDataType, Reference, Struct,
 use specta::{Format, FormatError, Types};
 
 use crate::app::{ApiInfo, HealthResponse};
+use crate::constants::ErrorCode;
 use crate::error::ErrorEnvelope;
-use crate::features::admin_auth::routes::AdminStatus;
+use crate::features::admin_auth::routes::{
+    AdminAuthResult, AdminLoginInput, AdminSetupInput, AdminStatus,
+};
 use crate::features::api_keys::routes::{APIKeyResponse, CreatedAPIKeyResponse, KeyListResponse};
 use crate::features::api_keys::{CreateAPIKeyInput, UpdateAPIKeyInput};
 use crate::features::catalog::models::{CatalogModel, ModelListResponse};
@@ -76,8 +84,12 @@ pub fn types() -> Types {
         .register::<ApiInfo>()
         .register::<HealthResponse>()
         .register::<ErrorEnvelope>()
+        .register::<ErrorCode>()
         .register::<SettingsResponse>()
         .register::<AdminStatus>()
+        .register::<AdminAuthResult>()
+        .register::<AdminSetupInput>()
+        .register::<AdminLoginInput>()
         .register::<CreateAPIKeyInput>()
         .register::<UpdateAPIKeyInput>()
         .register::<APIKeyResponse>()
@@ -112,7 +124,52 @@ pub fn types() -> Types {
 
 /// Renders the TypeScript bindings for [`types`].
 pub fn export() -> Result<String, specta_typescript::Error> {
-    specta_typescript::Typescript::default().export(&types(), WireShapes)
+    let types = types();
+    let document = specta_typescript::Typescript::default().export(&types, WireShapes)?;
+    Ok(format!("{document}{}", error_code_values(&types)?))
+}
+
+/// The runtime half of `ErrorCode`: `export const ErrorCode = { … }`.
+///
+/// TypeScript erases types before running, so a closed union alone leaves
+/// nothing on the client to name — `ErrorCode.authentication_required` would be
+/// a property of a value that does not exist. The const object supplies it, and
+/// `satisfies Record<ErrorCode, ErrorCode>` makes the compiler reject the object
+/// the moment it disagrees with the union, so the two cannot drift.
+///
+/// Both halves are read from the same [`Types`] graph through [`WireShapes`],
+/// which is what keeps a newly added variant appearing in both or neither.
+fn error_code_values(types: &Types) -> Result<String, specta_typescript::Error> {
+    let formatted = WireShapes
+        .map_types(types)
+        .map_err(|source| specta_typescript::Error::framework("formatting ErrorCode", source))?;
+
+    let named = formatted
+        .into_sorted_iter()
+        .find(|named| named.name == "ErrorCode")
+        .ok_or_else(|| {
+            specta_typescript::Error::framework(
+                "formatting ErrorCode",
+                "the type is not registered",
+            )
+        })?;
+
+    let variants = match named.ty.as_ref() {
+        Some(DataType::Enum(enm)) => &enm.variants,
+        _ => {
+            return Err(specta_typescript::Error::framework(
+                "formatting ErrorCode",
+                "it no longer renders as an enum",
+            ));
+        }
+    };
+
+    let mut block = String::from("\nexport const ErrorCode = {\n");
+    for (name, _) in variants {
+        block.push_str(&format!("\t{name}: \"{name}\",\n"));
+    }
+    block.push_str("} as const satisfies Record<ErrorCode, ErrorCode>;\n");
+    Ok(block)
 }
 
 /// The committed files a rendering of [`export`] is written to.

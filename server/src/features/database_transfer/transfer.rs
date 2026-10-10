@@ -58,17 +58,17 @@ impl TransferError {
         }
     }
 
-    fn code(self) -> &'static str {
+    fn code(self) -> constants::ErrorCode {
         match self {
-            Self::UnsupportedStorage => constants::code::UNSUPPORTED_STORAGE,
-            Self::InvalidDatabase => constants::code::INVALID_DATABASE,
-            Self::InvalidMultipart => constants::code::INVALID_MULTIPART,
-            Self::MissingDatabaseFile => constants::code::MISSING_DATABASE_FILE,
-            Self::InvalidDatabaseField => constants::code::INVALID_DATABASE_FIELD,
-            Self::UploadTooLarge => constants::code::UPLOAD_TOO_LARGE,
-            Self::ImportBusy => constants::code::DATABASE_IMPORT_BUSY,
-            Self::RecoveryFailed => constants::code::DATABASE_RECOVERY_FAILED,
-            Self::TransferFailed => constants::code::DATABASE_TRANSFER_FAILED,
+            Self::UnsupportedStorage => constants::ErrorCode::UnsupportedStorage,
+            Self::InvalidDatabase => constants::ErrorCode::InvalidDatabase,
+            Self::InvalidMultipart => constants::ErrorCode::InvalidMultipart,
+            Self::MissingDatabaseFile => constants::ErrorCode::MissingDatabaseFile,
+            Self::InvalidDatabaseField => constants::ErrorCode::InvalidDatabaseField,
+            Self::UploadTooLarge => constants::ErrorCode::UploadTooLarge,
+            Self::ImportBusy => constants::ErrorCode::DatabaseImportBusy,
+            Self::RecoveryFailed => constants::ErrorCode::DatabaseRecoveryFailed,
+            Self::TransferFailed => constants::ErrorCode::DatabaseTransferFailed,
         }
     }
 

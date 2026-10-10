@@ -26,8 +26,8 @@ Work inside `server/`. One Rust crate (`srouter-server`) that is the whole produ
 
 ## Non-negotiables
 
-1. **Every client-visible string, code, and header name comes from `constants.rs`.** Never inline a message in a handler; messages that interpolate become functions.
-2. **Wire fields are `snake_case` — always, on both directions.** All 234 fields rendered into `client/src/generated/typed.ts` are snake_case, and the client depends on it (`key_prefix`, `setup_required`, `allowed_models`). See [Wire field casing](#wire-field-casing) before naming a field.
+1. **Every client-visible string, code, and header name comes from `constants.rs`.** Never inline a message in a handler; messages that interpolate become functions. Codes are the `ErrorCode` enum (not string constants), so `with_code` takes a variant and the client receives a closed union plus a same-named const object (`ErrorCode.InvalidJson`'s mirror) to compare against at runtime.
+2. **Wire fields are `snake_case` — always, on both directions.** All 238 fields rendered into `client/src/generated/typed.ts` are snake_case, and the client depends on it (`key_prefix`, `setup_required`, `allowed_models`). See [Wire field casing](#wire-field-casing) before naming a field.
 3. **One error type.** `APIError` with builders, propagated by `?`. No `anyhow`, `thiserror`, or per-module error enums.
 4. **No `unwrap()` on a production path.** Lock poisoning is recovered, not unwrapped: `.unwrap_or_else(|e| e.into_inner())`.
 5. **`ProviderStream` never yields `Err`.** A stalled or failed upstream ends the stream with an in-stream SSE error event.
@@ -47,14 +47,15 @@ pub struct CreatedAPIKeyResponse { pub key: String, pub key_prefix: String }
 pub key_prefix: String,
 ```
 
-The whole served surface holds this: `CreatedAPIKeyResponse`, `APIKeyResponse`, `AdminStatus`, `AnalyticsReport`, `RequestLog`, `ProviderEntry`, `ModelPricingItem`, and the rest — 53 exported types, 234 fields, zero camelCase. Request bodies read by hand follow the same spelling (`object.get("allowed_models")`, `custom_headers`, `credit_limit`).
+The whole served surface holds this: `CreatedAPIKeyResponse`, `APIKeyResponse`, `AdminStatus`, `AnalyticsReport`, `RequestLog`, `ProviderEntry`, `ModelPricingItem`, and the rest — 57 exported types, 238 fields, zero camelCase. Request bodies read by hand follow the same spelling (`object.get("allowed_models")`, `custom_headers`, `credit_limit`).
 
 Rules that follow from it:
 
 - **No `#[serde(rename_all = "camelCase")]`.** Do not add a per-struct or crate-wide rename to "modernise" the API, and do not add `#[serde(rename)]` on a field merely to change its case.
 - **`#[serde(rename)]` is for a name that is not a valid Rust identifier**, not for style. The two legitimate cases in this crate: `error.type` (a reserved word) and the kebab/dotted tag values in `protocol/sse.rs` (`rename_all = "kebab-case"`, `usage.updated`).
-- **Enum _values_ are a separate decision** and are not snake_case by default — they mirror what the protocol already ships: `"UPPERCASE"` for `HttpMethod`, `"lowercase"` for `ObjectKind` and the provider protocols, `"kebab-case"` for SSE event tags. Match the existing enum in your area rather than inventing a case.
+- **Enum _values_ are a separate decision** and are not snake_case by default — they mirror what the protocol already ships: `"UPPERCASE"` for `HTTPMethod`, `"lowercase"` for `ObjectKind` and the provider protocols, `"kebab-case"` for SSE event tags. Match the existing enum in your area rather than inventing a case.
 - **A new type is a wire contract.** Fields nobody asked about are not free: adding one changes `bindings.ts` and the client, so add only what the endpoint needs.
+- **Request bodies are wire contracts too.** A handler that reads a JSON body by hand (`parse_setup`, `parse_create_input`) still declares the shape it accepts as a `specta::Type` struct and returns it from the parser, so the client's `request<T>()` argument is generated rather than re-declared. A body type carrying a secret derives no `Debug`/`PartialEq`.
 
 Before committing a wire change:
 
@@ -94,6 +95,7 @@ There is no CI — the full suite is a manual pre-push obligation.
 ## Rules that keep diffs small
 
 - **Reuse the vocabulary.** `APIError` + `constants.rs`, `create_*_router`, the `TestDatabase` harness, `ProviderAdapter`/`ProviderExecutor`, `upstream::UpstreamClient`. A second convention for a job that already has one is the defect.
+- **Acronyms stay capitalised: `APIError`, `APIKey`, `HTTPMethod`, `OAuthSession`, `SQLxAPIKeyStore`.** This is the house style across the crate, not `ApiError`/`HttpMethod` as upstream Rust guidance would suggest — `clippy` does not flag it here, and the generated `typed.ts` carries the name through verbatim, so renaming one type changes a wire-visible identifier. Match the neighbours rather than the style guide.
 - **Five traits exist in the whole crate.** Do not add another abstraction, generic, or registry until a second concrete caller exists.
 - **Match the file.** Read the surrounding lines before adding to a module; the naming and comment style in this crate are deliberate.
 - **`//!` comments explain why and cite the Node oracle** (`apps/api/src/...:line`). Match that; do not narrate what the next line does.

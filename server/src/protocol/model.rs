@@ -28,14 +28,14 @@ pub fn parse_chat_completion_request(body: Value) -> Result<ChatCompletionReques
         return Err(invalid_request(
             constants::gateway::MODEL_REQUIRED,
             Some("model"),
-            constants::code::INVALID_TYPE,
+            constants::ErrorCode::InvalidType,
         ));
     }
     if body.get("messages").is_none() {
         return Err(invalid_request(
             constants::gateway::MESSAGES_REQUIRED,
             Some("messages"),
-            constants::code::INVALID_TYPE,
+            constants::ErrorCode::InvalidType,
         ));
     }
 
@@ -43,7 +43,7 @@ pub fn parse_chat_completion_request(body: Value) -> Result<ChatCompletionReques
         invalid_request(
             constants::gateway::invalid_request_body(&error),
             None,
-            constants::code::INVALID_TYPE,
+            constants::ErrorCode::InvalidType,
         )
     })?;
     request.validate()?;
@@ -51,7 +51,11 @@ pub fn parse_chat_completion_request(body: Value) -> Result<ChatCompletionReques
     Ok(request)
 }
 
-fn invalid_request(message: impl Into<String>, param: Option<&str>, code: &str) -> APIError {
+fn invalid_request(
+    message: impl Into<String>,
+    param: Option<&str>,
+    code: constants::ErrorCode,
+) -> APIError {
     let mut error = APIError::new(400, message).with_code(code);
     if let Some(param) = param {
         error = error.with_param(param);
@@ -425,14 +429,14 @@ impl ChatCompletionRequest {
             return Err(invalid_request(
                 constants::gateway::schema::STRING_MIN_1,
                 Some("model"),
-                constants::code::TOO_SMALL,
+                constants::ErrorCode::TooSmall,
             ));
         }
         if model_length > MAX_MODEL_LENGTH {
             return Err(invalid_request(
                 constants::gateway::schema::STRING_MAX_300,
                 Some("model"),
-                constants::code::TOO_BIG,
+                constants::ErrorCode::TooBig,
             ));
         }
 
@@ -440,14 +444,14 @@ impl ChatCompletionRequest {
             return Err(invalid_request(
                 constants::gateway::schema::MESSAGES_NOT_EMPTY,
                 Some("messages"),
-                constants::code::TOO_SMALL,
+                constants::ErrorCode::TooSmall,
             ));
         }
         if self.messages.len() > MAX_MESSAGES {
             return Err(invalid_request(
                 constants::gateway::schema::MESSAGES_MAX_1000,
                 Some("messages"),
-                constants::code::TOO_BIG,
+                constants::ErrorCode::TooBig,
             ));
         }
 
@@ -456,14 +460,14 @@ impl ChatCompletionRequest {
                 return Err(invalid_request(
                     constants::gateway::schema::NUMBER_MIN_1,
                     Some("max_tokens"),
-                    constants::code::TOO_SMALL,
+                    constants::ErrorCode::TooSmall,
                 ));
             }
             if max_tokens > MAX_TOKENS_CAP {
                 return Err(invalid_request(
                     constants::gateway::schema::MAX_TOKENS_ABOVE_CAP,
                     Some("max_tokens"),
-                    constants::code::TOO_BIG,
+                    constants::ErrorCode::TooBig,
                 ));
             }
         }
@@ -473,14 +477,14 @@ impl ChatCompletionRequest {
                 return Err(invalid_request(
                     constants::gateway::schema::NUMBER_MIN_1,
                     Some("n"),
-                    constants::code::TOO_SMALL,
+                    constants::ErrorCode::TooSmall,
                 ));
             }
             if n > MAX_N {
                 return Err(invalid_request(
                     constants::gateway::schema::NUMBER_MAX_8,
                     Some("n"),
-                    constants::code::TOO_BIG,
+                    constants::ErrorCode::TooBig,
                 ));
             }
         }
@@ -496,7 +500,7 @@ impl ChatCompletionRequest {
             return Err(invalid_request(
                 constants::gateway::schema::STRING_MAX_300,
                 Some("user"),
-                constants::code::TOO_BIG,
+                constants::ErrorCode::TooBig,
             ));
         }
 
@@ -505,7 +509,7 @@ impl ChatCompletionRequest {
                 return Err(invalid_request(
                     constants::gateway::schema::ARRAY_MAX_128,
                     Some("tools"),
-                    constants::code::TOO_BIG,
+                    constants::ErrorCode::TooBig,
                 ));
             }
             for (index, tool) in tools.iter().enumerate() {
@@ -515,7 +519,7 @@ impl ChatCompletionRequest {
                     return Err(invalid_request(
                         constants::gateway::schema::EXPECTED_OBJECT,
                         Some(&format!("tools.{index}.function.parameters")),
-                        constants::code::INVALID_TYPE,
+                        constants::ErrorCode::InvalidType,
                     ));
                 }
             }
@@ -528,7 +532,7 @@ impl ChatCompletionRequest {
                 return Err(invalid_request(
                     constants::gateway::schema::ARRAY_MAX_16,
                     Some("stop"),
-                    constants::code::TOO_BIG,
+                    constants::ErrorCode::TooBig,
                 ));
             }
             if sequences
@@ -538,7 +542,7 @@ impl ChatCompletionRequest {
                 return Err(invalid_request(
                     constants::gateway::schema::STRING_MAX_1000,
                     Some("stop"),
-                    constants::code::TOO_BIG,
+                    constants::ErrorCode::TooBig,
                 ));
             }
         }
@@ -549,7 +553,7 @@ impl ChatCompletionRequest {
             return Err(invalid_request(
                 constants::gateway::schema::STRING_MAX_64,
                 Some("reasoning_effort"),
-                constants::code::TOO_BIG,
+                constants::ErrorCode::TooBig,
             ));
         }
 
@@ -564,7 +568,7 @@ impl ChatCompletionRequest {
                     return Err(invalid_request(
                         constants::gateway::schema::STRING_MAX_64,
                         Some(&format!("reasoning.{field}")),
-                        constants::code::TOO_BIG,
+                        constants::ErrorCode::TooBig,
                     ));
                 }
             }
@@ -585,7 +589,7 @@ impl ChatCompletionRequest {
             return Err(invalid_request(
                 constants::gateway::schema::STRING_MAX_300,
                 Some("prompt_cache_key"),
-                constants::code::TOO_BIG,
+                constants::ErrorCode::TooBig,
             ));
         }
 
@@ -601,14 +605,14 @@ fn check_range(param: &str, value: Option<f64>, min: f64, max: f64) -> Result<()
         return Err(invalid_request(
             constants::gateway::schema::number_min(min),
             Some(param),
-            constants::code::TOO_SMALL,
+            constants::ErrorCode::TooSmall,
         ));
     }
     if value > max {
         return Err(invalid_request(
             constants::gateway::schema::number_max(max),
             Some(param),
-            constants::code::TOO_BIG,
+            constants::ErrorCode::TooBig,
         ));
     }
     Ok(())
@@ -619,14 +623,14 @@ fn check_positive_cap(value: u32, param: &str) -> Result<(), APIError> {
         return Err(invalid_request(
             constants::gateway::schema::NUMBER_MIN_1,
             Some(param),
-            constants::code::TOO_SMALL,
+            constants::ErrorCode::TooSmall,
         ));
     }
     if value > MAX_TOKENS_CAP {
         return Err(invalid_request(
             constants::gateway::schema::NUMBER_MAX_1000000,
             Some(param),
-            constants::code::TOO_BIG,
+            constants::ErrorCode::TooBig,
         ));
     }
     Ok(())

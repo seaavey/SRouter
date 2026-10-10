@@ -3,6 +3,7 @@ import { createRootRouteWithContext, Outlet } from "@tanstack/react-router"
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools"
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools"
 
+import { AdminAuthProvider } from "@/components/admin-auth-provider"
 import { ThemeProvider } from "@/components/theme-provider"
 
 export type RouterContext = {
@@ -25,9 +26,13 @@ export const queryClient = new QueryClient({
 
 const RootComponent = () => (
   // ThemeProvider stays mounted at the root: `index.css` defines the `.dark`
-  // palette, so without it the app is locked to light mode.
+  // palette, so without it the app is locked to light mode. AdminAuthProvider
+  // sits here too: the login screen and the session guard must share one
+  // `["admin", "status"]` entry.
   <ThemeProvider>
-    <Outlet />
+    <AdminAuthProvider>
+      <Outlet />
+    </AdminAuthProvider>
     {import.meta.env.DEV ? (
       <>
         <TanStackRouterDevtools position="bottom-right" />

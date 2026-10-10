@@ -63,15 +63,17 @@ fn the_document_is_exports_only() {
 
     assert!(!document.is_empty(), "the document is empty");
 
-    // Only type declarations belong here. Another layout (`Namespaces`, `Files`)
-    // would emit wrappers, so this fails if the exporter is ever reconfigured.
+    // Only type declarations belong here, plus the one `ErrorCode` value object
+    // that gives client code a name to compare against - TypeScript erases the
+    // union before running, so the union alone has no runtime counterpart.
+    // Another layout (`Namespaces`, `Files`) would emit wrappers, so this fails
+    // if the exporter is ever reconfigured.
     for forbidden in [
         "interface ",
         "enum ",
         "namespace ",
         "declare ",
         "import ",
-        "export const",
         "export function",
         "export default",
     ] {
@@ -80,6 +82,19 @@ fn the_document_is_exports_only() {
             "the bindings carry `{forbidden}`, which is not a type export"
         );
     }
+
+    // Exactly one value export, and it is the ErrorCode object. A second
+    // `export const` means the exporter started emitting runtime code beyond the
+    // closed union's counterpart.
+    let consts = document
+        .lines()
+        .filter(|line| line.starts_with("export const"))
+        .collect::<Vec<_>>();
+    assert_eq!(
+        consts,
+        vec!["export const ErrorCode = {"],
+        "the bindings carry an unexpected value export"
+    );
 }
 
 #[test]
@@ -92,8 +107,12 @@ fn every_registered_root_is_exported() {
         "ApiInfo",
         "HealthResponse",
         "ErrorEnvelope",
+        "ErrorCode",
         "SettingsResponse",
         "AdminStatus",
+        "AdminAuthResult",
+        "AdminSetupInput",
+        "AdminLoginInput",
         "CreateAPIKeyInput",
         "UpdateAPIKeyInput",
         "APIKeyResponse",
@@ -170,6 +189,30 @@ fn the_closed_value_fields_render_as_union_literals() {
     assert!(
         document.contains("\tstatus: \"exhausted\" | \"warning\" | \"ok\","),
         "`LiveModelQuotaItem.status` stopped rendering as a closed union"
+    );
+}
+
+/// `ErrorBody.code` is the field every client branches on, so it must stay a
+/// closed union of the codes this build emits rather than a bare `string`.
+#[test]
+fn the_error_code_renders_as_a_closed_union() {
+    let document = committed();
+
+    assert!(
+        document.contains("\tcode?: ErrorCode | null,"),
+        "`ErrorBody.code` stopped referring to `ErrorCode`"
+    );
+    assert!(
+        document.contains("export type ErrorCode ="),
+        "`ErrorCode` is missing from the document"
+    );
+    assert!(
+        document.contains("\"authentication_required\" |"),
+        "`ErrorCode` no longer renders as union literals"
+    );
+    assert!(
+        !document.contains("\tcode?: string | null,"),
+        "`ErrorBody.code` is a bare `string` again"
     );
 }
 

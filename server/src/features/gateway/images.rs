@@ -47,22 +47,22 @@ const IMAGE_EDIT_PATTERNS: &[&str] = &["dall-e-2", "edit", "inpaint"];
 pub fn parse_image_request(body: Value) -> Result<ImageGenerationRequest, APIError> {
     if !body.is_object() {
         return Err(APIError::new(400, "Invalid input: expected object")
-            .with_code(constants::code::INVALID_PAYLOAD));
+            .with_code(constants::ErrorCode::InvalidPayload));
     }
 
     let request: ImageGenerationRequest = serde_json::from_value(body).map_err(|error| {
         APIError::new(400, format!("Invalid request body: {error}"))
-            .with_code(constants::code::INVALID_PAYLOAD)
+            .with_code(constants::ErrorCode::InvalidPayload)
     })?;
 
     if request.prompt.trim().is_empty() {
         return Err(APIError::new(400, constants::gateway::PROMPT_REQUIRED)
-            .with_code(constants::code::INVALID_PAYLOAD));
+            .with_code(constants::ErrorCode::InvalidPayload));
     }
 
     if request.n.is_some_and(|n| n == 0 || n > 10) {
         return Err(APIError::new(400, "Parameter 'n' must be between 1 and 10")
-            .with_code(constants::code::INVALID_PAYLOAD));
+            .with_code(constants::ErrorCode::InvalidPayload));
     }
 
     Ok(request)
@@ -112,7 +112,7 @@ pub async fn create_image(
         };
 
         return Err(APIError::new(400, reason)
-            .with_code(constants::code::MODEL_NOT_SUPPORTED)
+            .with_code(constants::ErrorCode::ModelNotSupported)
             .with_param("model"));
     }
 
@@ -132,7 +132,7 @@ pub async fn create_image(
                     404,
                     format!("Model '{requested_model}' not found or no provider configured"),
                 )
-                .with_code(constants::code::MODEL_NOT_FOUND)
+                .with_code(constants::ErrorCode::ModelNotFound)
             })?
         }
     };

@@ -25,6 +25,130 @@ The Tailwind plugin sorts class strings, including those inside `cn(...)` and `c
 - Target `es2023`, `moduleResolution: bundler`, `jsx: react-jsx` — no `import React from "react"` needed.
 - Path alias `@/*` → `client/src/*`. Use it for cross-area imports; keep relative imports inside a folder (as `components/gauge/` does with `./math`).
 
+### Type discipline
+
+**No `any`, ever.** It is the one type that switches the checker off: every property
+access, every call, every index is accepted, so a renamed wire field reaches runtime
+without a word. `client/src` contains none today — keep it that way. The two legitimate
+needs it is usually reached for have proper answers: an unvalidated value is narrowed by
+a guard, and an intentionally open record is `Record<string, T>` with a named value
+type.
+
+```ts
+// Wrong — the shape is unchecked from here on.
+const parse = (input: any) => input.error.code;
+
+// Right — the union narrows, and everything below it is checked.
+function errorCode(input: ErrorEnvelope): ErrorCode | null {
+  return input.error.code ?? null;
+}
+```
+
+**No `unknown` either.** It is the disciplined version of the same hole — it stops the
+crash but still defers every decision to a later `instanceof`. Reach instead for the
+narrowest true type: `Error | null` for a TanStack Query error, `object` for a JSON
+request body, and the generated wire type for a response. Where a value genuinely has no
+type yet, give it the type it will have after validation and guard at the boundary.
+
+```ts
+// Wrong — pushes every decision to the caller.
+function describe(error: unknown) { … }
+
+// Right — TanStack Query already promises `Error | null`.
+function describe(error: Error | null) { … }
+```
+
+A cast is the same failure wearing a different hat. `as SomeWireType` asserts a shape
+instead of proving it, and the checker then trusts the lie. Narrow with a guard; if you
+genuinely cannot prove the shape, the honest signature takes the narrowest true type and
+returns a narrowed one.
+
+**Derive, never duplicate.** The generated wire types are the source of truth, so a
+client type is a _view_ of one — `Pick`, `Omit`, `Partial`, `Exclude`, `Record` — not
+a second copy of the same fields. A re-declared shape is a defect: it drifts from the
+server the moment a field is renamed and nothing fails to compile.
+
+```ts
+// A second copy of what `APIKeyResponse` already says — drifts silently.
+type KeyRow = { id: string; name: string; enabled: boolean };
+
+// A view. A field added or renamed in Rust shows up here for free.
+type KeyRow = Pick<APIKeyResponse, "id" | "name" | "enabled">;
+```
+
+Reach for the built-in utility before writing an object type by hand:
+
+| Utility                           | Use it when                                                                                       |
+| --------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `Pick<T, K>`                      | a screen shows part of a wire type                                                                |
+| `Omit<T, K>`                      | a wire type with one field overridden (`Omit<SVGProps<SVGSVGElement>, "viewBox">` in `gauge.tsx`) |
+| `Partial<T>`                      | every field optional on this path, but the names must stay the server's                           |
+| `Exclude<U, X>` / `Extract<U, X>` | narrowing a union (`Record<Exclude<GaugeTooltipSide, "auto">, Point>` in `tooltip.tsx`)           |
+| `Record<K, V>`                    | an exhaustive lookup table **keyed by a union** — see below                                       |
+| `keyof typeof x`                  | the key union of a const object, instead of restating it                                          |
+| `ReturnType<F>`, `Parameters<F>`  | typing against another function's signature without repeating it                                  |
+| `NonNullable<T>`                  | dropping `null` after a guard                                                                     |
+
+`Record<K, V>` gets the emphasis because it is where the discipline pays: keyed by the
+union, the compiler rejects a missing or misspelled entry. `Record<string, V>` checks
+nothing — it only names the value type.
+
+```ts
+// Adding a family without an entry fails to compile.
+const fontClass: Record<FontFamily, string> = { … }
+
+// `satisfies` keeps the literal keys visible to the caller and still checks them.
+const sides = { top: 0, right: 1 } satisfies Record<Side, number>
+```
+
+**No `enum`** — `erasableSyntaxOnly` bans it, and it is not needed. A const object plus
+a literal union is the replacement, and it is exactly what the generated `ErrorCode`
+already is: `export type ErrorCode = …` beside `export const ErrorCode = { … } as const
+satisfies Record<ErrorCode, ErrorCode>`. Do not hand-write an enum-shaped object with a
+parallel union; derive one from the other or join them with `satisfies Record<Union, V>`
+so the two cannot disagree.
+
+**Exhaustiveness is enforced, not hoped for.** A `switch` over a union ends in a `never`
+assignment, so a new variant is a compile error rather than a silent fallthrough:
+
+```ts
+type Zone = "idle" | "loading" | "failed";
+
+function label(zone: Zone): string {
+  switch (zone) {
+    case "idle":
+      return "Idle";
+    case "loading":
+      return "Loading…";
+    case "failed":
+      return "Unavailable";
+  }
+  const unreachable: never = zone;
+  return unreachable;
+}
+```
+
+Drop the `failed` case and the `never` line stops compiling, so a new variant cannot
+ship unhandled. Against a 35-member union like the generated `ErrorCode` the switch has
+to cover every member you do not want falling into the default branch — the compiler,
+not a reviewer, is what catches the one left out.
+
+**Annotate the exported surface.** Function parameters are always written out — they are
+the contract. The return type needs writing only where the body does not say it plainly:
+`request<AdminAuthResult>(…)` already reads as `Promise<AdminAuthResult>`, so annotating
+that again is noise, while a widened or conditional return must be written because
+inference would change it silently.
+
+```ts
+// Inference is fine: the call states the type.
+export function loginAdmin(input: AdminLoginInput) {
+  return request<AdminAuthResult>("/v1/admin/login", { method: "POST", body: input })
+}
+
+// Written out: the conditional and the union would otherwise widen.
+export function describe(error: unknown): string { … }
+```
+
 ## React
 
 - Function components only; `StrictMode` is on, so effects run twice in dev — an effect that is not idempotent is a bug, not a dev-only quirk.
@@ -58,7 +182,7 @@ The Tailwind plugin sorts class strings, including those inside `cn(...)` and `c
 No form library is installed. The pattern is the login screen's:
 
 - `useState` per field, controlled inputs.
-- `onSubmit={(event) => { event.preventDefault(); mutation.mutate() }}`.
+- `onSubmit={(event) => { event.preventDefault(); mutation.mutate() }}` — auth mutations come from `useAdminAuth()`; navigation rides in as a per-call `{ onSuccess }` callback.
 - Validation inline and derived (`const mismatch = confirmation !== password`), with the submit button `disabled` while invalid or pending.
 - The submit button carries the pending label (`"Working…"`) rather than a separate spinner.
 

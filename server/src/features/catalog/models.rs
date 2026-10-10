@@ -240,7 +240,7 @@ pub async fn get_model(
     if found.is_none() {
         return Err(
             APIError::new(404, constants::gateway::model_not_found(&model))
-                .with_code(constants::code::MODEL_NOT_FOUND),
+                .with_code(constants::ErrorCode::ModelNotFound),
         );
     }
 
@@ -264,7 +264,7 @@ pub async fn get_model(
         }
         None => Err(
             APIError::new(404, constants::gateway::model_not_found(&model))
-                .with_code(constants::code::MODEL_NOT_FOUND),
+                .with_code(constants::ErrorCode::ModelNotFound),
         ),
     }
 }
@@ -429,7 +429,7 @@ pub async fn delete_model(
     if !remove_custom_model(database, &base_id, &bare_id(&model_id)).await? {
         return Err(
             APIError::new(404, constants::gateway::model_not_found(&model_id))
-                .with_code(constants::code::MODEL_NOT_FOUND),
+                .with_code(constants::ErrorCode::ModelNotFound),
         );
     }
 
@@ -498,7 +498,7 @@ async fn model_view(state: &AppState, model_id: &str) -> Result<CatalogModel, AP
         })
         .ok_or_else(|| {
             APIError::new(404, constants::gateway::model_not_found(model_id))
-                .with_code(constants::code::MODEL_NOT_FOUND)
+                .with_code(constants::ErrorCode::ModelNotFound)
         })
 }
 

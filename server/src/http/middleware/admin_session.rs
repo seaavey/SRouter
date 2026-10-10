@@ -39,7 +39,7 @@ pub async fn require_admin_session(
 
     if !session_valid {
         return APIError::new(401, constants::admin::AUTH_REQUIRED)
-            .with_code(constants::code::AUTHENTICATION_REQUIRED)
+            .with_code(constants::ErrorCode::AuthenticationRequired)
             .into_response();
     }
 

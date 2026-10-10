@@ -327,7 +327,7 @@ impl CustomProvider {
         if self.shape != ProviderShape::OpenAI {
             return Err(
                 APIError::new(400, constants::gateway::model_not_supported_image(model))
-                    .with_code(constants::code::MODEL_NOT_SUPPORTED)
+                    .with_code(constants::ErrorCode::ModelNotSupported)
                     .with_param("model"),
             );
         }

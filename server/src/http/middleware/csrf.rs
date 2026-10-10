@@ -89,7 +89,7 @@ pub async fn csrf_origin_guard(
 
     let Ok(origin_url) = reqwest::Url::parse(source) else {
         return APIError::new(403, constants::middleware::CSRF_REJECTED)
-            .with_code(constants::code::CSRF_ORIGIN_REJECTED)
+            .with_code(constants::ErrorCode::CsrfOriginRejected)
             .into_response();
     };
 
@@ -114,7 +114,7 @@ pub async fn csrf_origin_guard(
     }
 
     APIError::new(403, constants::middleware::CSRF_REJECTED)
-        .with_code(constants::code::CSRF_ORIGIN_REJECTED)
+        .with_code(constants::ErrorCode::CsrfOriginRejected)
         .into_response()
 }
 

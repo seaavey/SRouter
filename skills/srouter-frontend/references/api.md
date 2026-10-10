@@ -5,14 +5,15 @@
 `src/api/client.ts` exports `request<T>()` and `APIError`. Everything goes through it.
 
 ```ts
-const status = await request<AdminStatus>("/v1/admin/status")
-await request<{ authenticated: boolean }>("/v1/admin/login", {
-  method: "POST",
-  body: { password },
-})
+// Admin session: through the provider (components/admin-auth-provider.tsx).
+const { status, login } = useAdminAuth()
+login.mutate({ password })
+
+// Everything else: request<T>() from the owning src/api/<domain>.ts factory.
+const keys = await request<KeyListResponse>("/v1/keys")
 ```
 
-Options are `{ method, body, signal }`; `method` is typed `"GET" | "POST" | "PATCH" | "DELETE"` — **there is no PUT**, even though the server declares a few `PUT` routes.
+Options are `{ method, body, signal }`; `method` is `RequestMethod`, derived from the generated `HTTPMethod` with `Extract<HTTPMethod, "GET" | "POST" | "PATCH" | "DELETE">`. `HTTPMethod` also carries `PUT`, `HEAD`, `OPTIONS`, `CONNECT`, `TRACE` and `OTHER` because the request log records whatever arrived — none of the operator API's routes accept them, and the server declares no `PUT` route at all, so listing them would promise an endpoint that does not exist. The whitelist is deliberate rather than an `Exclude` blacklist: a verb the server later gains stays unreachable until it is added to `RequestMethod` on purpose.
 
 Behaviour worth knowing:
 
@@ -30,11 +31,15 @@ The server answers every error with `ErrorEnvelope` (`{ error: { message, type, 
 ```ts
 export class APIError extends Error {
   readonly status: number
-  readonly code: string | null
+  readonly code: ErrorCode | null
   readonly param: string | null
-  get isUnauthenticated(): boolean // status === 401 && code === "authentication_required"
+  get isUnauthenticated(): boolean // status === 401 && code === ErrorCode.authentication_required
 }
 ```
+
+`ErrorCode` is a **closed union generated from the server's `ErrorCode` enum** (`server/src/constants.rs`), not a bare `string`: `"invalid_request" | "too_big" | "authentication_required" | …`. Comparing against a code this build cannot send is a type error, and a new code lands in the client only through `export_ts` — never declare one by hand.
+
+TypeScript erases the union before running, so `export_ts` also emits a value object of the same name: `export const ErrorCode = { authentication_required: "authentication_required", … } as const satisfies Record<ErrorCode, ErrorCode>`. Compare against `ErrorCode.<variant>` rather than a string literal — the `satisfies` clause makes the compiler reject the object the moment it disagrees with the union, so the two cannot drift apart. Import it as a value (`import { ErrorCode, type ErrorEnvelope } from "./types"`), not under `import type`.
 
 **Branch on `status` and `code`, never on `message`** — the message is prose the server may reword. `isUnauthenticated` is the redirect-to-login signal.
 
@@ -65,14 +70,26 @@ export const adminStatusQuery = queryOptions({
 
 Always forward the `signal` so a route unmount aborts the request.
 
-**The `["admin", "status"]` cache entry is load-bearing.** The guard (`ensureQueryData`) and the login page (`useQuery`) must observe the same entry, so after a successful login or setup the screen invalidates by that key before navigating:
+**The `["admin", "status"]` cache entry is load-bearing.** The guard (`ensureQueryData`) and the screens (`useQuery` inside `AdminAuthProvider`) must observe the same entry, so after a successful login, setup, or logout the provider invalidates by that key before the caller navigates:
 
 ```ts
-await queryClient.invalidateQueries({ queryKey: adminStatusQuery.queryKey })
-await navigate({ to: redirect ?? "/", replace: true })
+// components/admin-auth-provider.tsx — runs on every auth mutation's success.
+queryClient.invalidateQueries({ queryKey: adminStatusQuery.queryKey })
 ```
 
 Skip the invalidation and the guard keeps seeing `authenticated: false` while the cookie says otherwise.
+
+The provider wraps those mutations in a `useAdminAuth()` context so a screen never re-declares them:
+
+```tsx
+const { status, login, setup, logout } = useAdminAuth()
+
+// Navigation is a per-call callback: the provider already refreshed the status.
+login.mutate({ password }, { onSuccess: afterAuth })
+logout.mutate(undefined, { onSuccess: () => navigate({ to: "/login" }) })
+```
+
+`status` is the raw `UseQueryResult<AdminStatus>` — branch on `status.isPending` / `status.isError` / `status.data`, never on a derived boolean that hides which one is true.
 
 ## Authentication as a client sees it
 
@@ -91,8 +108,8 @@ All paths are relative to the origin. "Auth" is what the mount requires.
 | `GET /health`                                                                              | none                          | `HealthResponse`                            |
 | `GET /v1`                                                                                  | none                          | `ApiInfo`                                   |
 | `GET /v1/admin/status`                                                                     | none                          | `AdminStatus`                               |
-| `POST /v1/admin/setup`                                                                     | none (first run)              | `201 { authenticated: true }`               |
-| `POST /v1/admin/login`                                                                     | none (throttled)              | `200 { authenticated: true }`               |
+| `POST /v1/admin/setup`                                                                     | none (first run)              | `201 AdminAuthResult`                       |
+| `POST /v1/admin/login`                                                                     | none (throttled)              | `200 AdminAuthResult`                       |
 | `POST /v1/admin/change-password`                                                           | session                       | `{ message }`, or `401 invalid_credentials` |
 | `POST /v1/admin/logout`                                                                    | session                       | — (`204`, clears the cookie)                |
 | `GET /v1/keys`                                                                             | session                       | `KeyListResponse`                           |
@@ -128,7 +145,9 @@ All paths are relative to the origin. "Auth" is what the mount requires.
 
 `src/api/types.ts` re-exports `../generated/typed`; that file is rendered from the Rust types by specta. Import from `@/api/types`, never from the generated path directly.
 
-53 types are exported today, including `AdminStatus`, `APIKeyResponse`, `CreatedAPIKeyResponse`, `KeyListResponse`, `CatalogModel`, `ModelListResponse`, `PricingListResponse`, `QuotaResponse`, `ProviderEntry`, `ProviderListResponse`, `ProviderConnectionView`, `LogsResponse`, `RequestLog`, `UsageStatsReport`, `AnalyticsReport`, `AnalyticsBucket`, `LiveEvent`, `SettingsResponse`, and the error envelope.
+57 types and one value object are exported today, the value being `ErrorCode` — the runtime counterpart of the `ErrorCode` union, so client code has a name to compare against after the type is erased. The types include `AdminStatus`, `AdminAuthResult`, `AdminSetupInput`, `AdminLoginInput`, `APIKeyResponse`, `CreatedAPIKeyResponse`, `KeyListResponse`, `CatalogModel`, `ModelListResponse`, `PricingListResponse`, `QuotaResponse`, `ProviderEntry`, `ProviderListResponse`, `ProviderConnectionView`, `LogsResponse`, `RequestLog`, `UsageStatsReport`, `AnalyticsReport`, `AnalyticsBucket`, `LiveEvent`, `SettingsResponse`, the error envelope, and the `ErrorCode` union its `code` field is drawn from.
+
+**Request bodies are generated too.** Nothing on the wire is declared by hand: `AdminSetupInput`/`AdminLoginInput`/`CreateAPIKeyInput`/`UpdateAPIKeyInput` describe what a `body` may carry, and a `body: { ... }` object literal in a call site is the defect. Type the function parameter with the generated shape and pass it through.
 
 **A shape you need but cannot find does not exist yet.** Add it in `server/src` with `#[derive(Serialize, specta::Type)]`, keep optional fields paired (`#[serde(skip_serializing_if = "...")]` with `#[specta(optional)]`), then:
 
