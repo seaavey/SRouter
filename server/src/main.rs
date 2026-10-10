@@ -19,6 +19,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     telemetry::init();
     let environment: HashMap<String, String> = std::env::vars().collect();
     let config = APIConfig::from_env_map(&environment)?;
+    // Development stays parseable for the suites that assert on it, but a
+    // running server never starts there (owner ruling 2026-10-10). Printed
+    // rather than returned because `Result`'s termination reports `Debug`,
+    // which would name the variant without saying what was refused.
+    if !config.is_production {
+        eprintln!("NODE_ENV=development is refused: the server boots in production mode only");
+        std::process::exit(1);
+    }
     // Wildcard bind matches the Node listener and keeps Docker/VPS traffic reachable.
     let address = SocketAddr::from(([0, 0, 0, 0], config.port));
 

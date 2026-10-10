@@ -12,7 +12,7 @@ cd SRouter
 cargo run --manifest-path server/Cargo.toml
 ```
 
-The server listens on port 3000 and keeps its SQLite database at `~/.srouter/srouter.db`. `server/.env.example` lists every variable it reads, and `PORT` and `DATABASE_PATH` are the two you are most likely to change. A configured `DATABASE_URL` is refused on purpose: SQLite is the only backend. The server runs in production mode unless `NODE_ENV=development`; development turns the per-request access log on, and `SROUTER_ACCESS_LOG=on` forces it under either environment.
+The server listens on port 3000 and keeps its SQLite database at `~/.srouter/srouter.db`. `server/.env.example` lists every variable it reads, and `PORT` and `DATABASE_PATH` are the two you are most likely to change. A configured `DATABASE_URL` is refused on purpose: SQLite is the only backend. The server boots in production mode only: `NODE_ENV=development` is refused at boot, and `SROUTER_ACCESS_LOG=on` turns the per-request access log on.
 
 ## Tests and checks
 
