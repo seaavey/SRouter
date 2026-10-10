@@ -1,0 +1,53 @@
+[package]
+name = "srouter-server"
+# Reported as `X-Version` and in the API info body.
+version = "0.2.0"
+edition = "2024"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+axum = { version = "0.8.9", features = ["multipart"] }
+base64 = "0.23.1"
+dotenvy = "0.15.7"
+futures-util = "0.3.34"
+getrandom = "0.4.3"
+hex = "0.4.3"
+scrypt = { version = "0.12.0", default-features = false }
+reqwest = { version = "0.13.5", default-features = false, features = ["json", "stream", "rustls"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+sha2 = "0.11.0"
+sqlx = { version = "0.9.0", default-features = false, features = ["runtime-tokio", "tls-rustls-aws-lc-rs", "sqlite", "postgres"] }
+tokio = { version = "1.53.2", features = ["macros", "net", "rt-multi-thread", "signal", "sync", "time"] }
+tokio-tungstenite = { version = "0.30.0", features = ["rustls-tls-webpki-roots"] }
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+uuid = { version = "1.27.0", features = ["serde", "v4"] }
+url = "2.5.8"
+md-5 = "0.11.0"
+aes = "0.9.3"
+cbc = { version = "0.2.1", features = ["alloc"] }
+rsa = { version = "0.9.10", features = ["pem"] }
+specta = { version = "=2.0.0-rc.25", features = ["derive", "uuid"] }
+specta-serde = "=0.0.12"
+specta-typescript = "=0.0.12"
+
+[dev-dependencies]
+tower = { version = "0.5.3", features = ["util"] }
+
+# Disk footprint tuning.
+# Full debuginfo (debug = 2, the default) made every test binary ~180 MB:
+# ~85% of each binary was .debug_* sections from the whole dependency graph,
+# and Cargo keeps one binary per (unit-hash, target), so the target/ dir grew
+# to 32 GB. line-tables-only keeps file:line in backtraces at a fraction of
+# the size; dependencies carry no debuginfo at all.
+[profile.dev]
+debug = 1
+
+[profile.test]
+debug = 1
+
+[profile.dev.package."*"]
+debug = false

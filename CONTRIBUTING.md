@@ -1,116 +1,66 @@
 # Contributing to SRouter
 
-Thank you for your interest in contributing to **SRouter**! We welcome contributions from the community to help make SRouter the most reliable, high-performance, multi-provider AI gateway.
+The repository is one Rust crate, `server/`, plus the LICENSE. `cargo` is the whole build system; there is no workspace and no Node toolchain.
 
----
+## Build and run
 
-## 🧭 Code of Conduct
-
-Please treat everyone with respect, kindness, and professionalism. Constructive feedback and inclusive collaboration are core values of this project.
-
----
-
-## 🛠️ Development Setup
-
-### Prerequisites
-
-- **Node.js**: `v22+` or `v24+` (Native SQLite `node:sqlite` required)
-- **pnpm**: `v10+` (`corepack enable pnpm`)
-- **Git**
-
-### Installation
-
-1. **Fork and Clone**:
-
-    ```bash
-    git clone https://github.com/<your-username>/SRouter.git
-    cd SRouter
-    ```
-
-2. **Install Dependencies**:
-
-    ```bash
-    pnpm install
-    ```
-
-3. **Start Development Environment**:
-    ```bash
-    pnpm dev
-    ```
-    This launches:
-    - **Backend API**: `http://localhost:3000` (Hono Server & SQLite WAL)
-    - **Frontend Dashboard**: `http://localhost:5173` (Vite + React 19 + TanStack Router)
-    - **OAuth Listener**: `http://localhost:1455` (Automated PKCE Session Exchange)
-
----
-
-## 🧪 Testing & Code Quality
-
-Before submitting a Pull Request, run verification only for the apps and packages touched by the change. Do not run root-level Turbo tests, builds, or lint tasks on resource-constrained development environments.
+Install a stable toolchain with rustup. `server/rust-toolchain.toml` pins the version, and cargo picks it up when you build inside the crate.
 
 ```bash
-# Run one focused API test file
-cd apps/api
-pnpm exec tsx --test --test-concurrency=1 --import ./tests/setup.ts tests/<focused-file>.test.ts
-
-# Build only the touched app or package
-pnpm run build
-
-# Check formatting only for changed files
-pnpm exec prettier --check src/<changed-file>.ts tests/<changed-file>.test.ts
-
-# Check whitespace errors
-git diff --check
+git clone https://github.com/seaavey/SRouter.git
+cd SRouter
+cargo run --manifest-path server/Cargo.toml
 ```
 
----
+The server listens on port 3000 and keeps its SQLite database at `~/.srouter/srouter.db`. `server/.env.example` lists every variable it reads, and `PORT` and `DATABASE_PATH` are the two you are most likely to change. A configured `DATABASE_URL` is refused on purpose: SQLite is the only backend. The server boots in production mode only: `NODE_ENV=development` is refused at boot, and `SROUTER_ACCESS_LOG=on` turns the per-request access log on.
 
-## 📂 Project Architecture
+## Tests and checks
 
-```
-SRouter/
-├── apps/
-│   ├── api/             # Hono REST API server & OAuth controllers
-│   └── web/             # Modern Dashboard UI (TanStack Router, React 19)
-├── packages/
-│   ├── constants/       # Global constants, presets & model catalogs
-│   ├── db/              # SQLite repository layer (node:sqlite)
-│   ├── executors/       # Upstream protocol drivers (Antigravity, Kiro, Codex, etc.)
-│   ├── pricing/         # Model token pricing calculators
-│   ├── providers/       # Multi-provider runtime coordinator & registry
-│   ├── translator/      # OpenAI <-> Anthropic protocol transformers
-│   └── types/           # Shared TypeScript interfaces & Zod schemas
-└── turbo.json           # Turborepo build orchestration pipeline
+```bash
+# One suite while you work
+cargo test --manifest-path server/Cargo.toml --test chat_completions
+
+# Everything, the way a release is checked
+cargo test --manifest-path server/Cargo.toml --locked
+
+cargo fmt --manifest-path server/Cargo.toml -- --check
+cargo clippy --manifest-path server/Cargo.toml --all-targets --all-features --locked -- -D warnings
 ```
 
----
+Suites create their own database through `server/tests/support`. They never open `~/.srouter/srouter.db`, and a new test should take the same route.
 
-## 📝 Commit Convention
+## Generated bindings
 
-We use **Conventional Commits** for clear, automated changelogs:
+`server/bindings.ts` and its copy at `client/src/generated/typed.ts` are rendered from the wire types with specta. After changing a Rust type:
 
-- `feat:` A new feature or capability
-- `fix:` A bug fix
-- `docs:` Documentation updates
-- `refactor:` Code restructuring without behavioral changes
-- `test:` Adding or updating automated tests
-- `perf:` Performance optimizations
-- `chore:` Maintenance, dependencies, or tooling adjustments
+```bash
+cargo run --manifest-path server/Cargo.toml --bin export_ts
+```
 
-_Example:_ `feat(quota): add live quota tracking for upstream accounts`
+Commit the result. Hand edits do not survive the next render, and `server/tests/bindings.rs` fails when either committed copy differs from a fresh one.
 
----
+## Where things live
 
-## 🚀 Pull Request Process
+| Path                         | Contents                                                                                    |
+| ---------------------------- | ------------------------------------------------------------------------------------------- |
+| `server/src/app.rs`          | Router mounts                                                                               |
+| `server/src/features/`       | One directory per feature: gateway, providers, catalog, logs, admin auth, database transfer |
+| `server/src/http/`           | Middleware and static file serving                                                          |
+| `server/src/infrastructure/` | Database, migrations, logging                                                               |
+| `server/src/constants.rs`    | Client-facing strings and header constants                                                  |
+| `server/migrations/`         | Schema history, currently version 4                                                         |
+| `server/tests/`              | Integration suites and the shared support module                                            |
 
-1. Create a feature branch: `git checkout -b feat/your-feature-name`
-2. Commit your changes following conventional commit syntax.
-3. Verify the focused tests and builds for the touched apps or packages; do not claim broader checks were run unless they were explicitly executed.
-4. Push to your fork and open a Pull Request against `main`.
-5. Clearly describe the motivation, changes, and testing steps in your PR description.
+The contract lives in the Rust types. Response types carry the serde attributes that shape the JSON, and the route tests pin the status codes and bodies. There is no separate contract document to update alongside a change.
 
----
+## Commits and pull requests
 
-## 📄 License
+Follow Conventional Commits (`feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `perf:`, `chore:`) and keep the subject imperative. Say what you ran in the pull request description.
 
-By contributing to SRouter, you agree that your contributions will be licensed under the [MIT License](LICENSE).
+Run the full suite before pushing. This repository has no CI workflow at the moment, so nothing runs it for you.
+
+A change that needs a dashboard, a CLI, or a documentation site should say where that piece is meant to live. Those parts of the project, along with the seven `packages/*` workspace packages, were removed in October 2026. The old code is still readable at the git branches `backup/pre-packages-removal` and `backup/pre-apps-api-removal`.
+
+## License
+
+Contributions are licensed under the MIT License, the same as the project.
