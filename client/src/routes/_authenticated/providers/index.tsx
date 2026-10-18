@@ -15,7 +15,7 @@ import { Skeleton } from "@/components/arc/skeleton/skeleton"
 import { useSearch } from "@/hooks/useSearch"
 import { toast } from "@/components/arc/toast-stack/toast-stack"
 import { SectionHeader } from "@/components/layout/section-header"
-import { AddCustomProviderDialog } from "@/components/providers/add-custom-provider-dialog"
+import AddCustomProviderDialog from "@/components/providers/modals/AddCustomProviderDialog"
 import { ProviderLogo } from "@/components/providers/provider-logo"
 
 import {
