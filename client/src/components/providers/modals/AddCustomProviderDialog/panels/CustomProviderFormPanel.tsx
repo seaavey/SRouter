@@ -20,17 +20,9 @@ import useProviderProbe from "../hooks/useProviderProbe"
  * only what the executor actually honours.
  */
 const PROTOCOLS = [
-  {
-    value: "openai",
-    label: "OpenAI compatible",
-    description: "POST /chat/completions with the OpenAI request shape.",
-  },
-  {
-    value: "anthropic",
-    label: "Anthropic compatible",
-    description: "POST /v1/messages with the Anthropic Messages shape.",
-  },
-] satisfies { value: ProviderProtocol; label: string; description: string }[]
+  { value: "openai", label: "OpenAI" },
+  { value: "anthropic", label: "Anthropic" },
+] satisfies { value: ProviderProtocol; label: string }[]
 
 type CustomProviderFormPanelProps = {
   form: ReturnType<typeof useCustomProviderForm>
