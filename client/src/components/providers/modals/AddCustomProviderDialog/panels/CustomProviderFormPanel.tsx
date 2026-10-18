@@ -10,6 +10,7 @@ import { FloatingField } from "@/components/arc/floating-field/floating-field"
 import { RadioCards } from "@/components/arc/radio-cards/radio-cards"
 
 import useCustomProviderForm from "../hooks/useCustomProviderForm"
+import useProviderProbe from "../hooks/useProviderProbe"
 
 /**
  * The gateway executes two request shapes, not three: `ProviderShape::parse` in
@@ -32,12 +33,17 @@ const PROTOCOLS = [
 ] satisfies { value: ProviderProtocol; label: string; description: string }[]
 
 type CustomProviderFormPanelProps = {
-  flow: ReturnType<typeof useCustomProviderForm>
+  form: ReturnType<typeof useCustomProviderForm>
+  probe: ReturnType<typeof useProviderProbe>
 }
 
 export default function CustomProviderFormPanel({
-  flow,
+  form,
+  probe,
 }: CustomProviderFormPanelProps) {
+  const formRef = useRef<HTMLFormElement | null>(null)
+  const baseURLRef = useRef<HTMLInputElement | null>(null)
+  const apiKeyRef = useRef<HTMLInputElement | null>(null)
   // The submit button owns the action, so the form only forwards Enter-key
   // submits to it. Without this the button's own click and the form's submit
   // both fire and the provider is added twice.
@@ -53,12 +59,38 @@ export default function CustomProviderFormPanel({
 
   function handleProtocolChange(value: string) {
     const protocol = PROTOCOLS.find((option) => option.value === value)
-    if (protocol) flow.updateForm({ protocol: protocol.value })
+    if (protocol) form.updateForm({ protocol: protocol.value })
   }
+
+  // ActionButton reports success whenever onAction resolves, so an invalid
+  // field has to reject; reportValidity() is what tells the operator why.
+  function checkConnection() {
+    const invalid = [baseURLRef.current, apiKeyRef.current].find(
+      (field) => field && !field.validity.valid
+    )
+    if (invalid) {
+      invalid.reportValidity()
+      throw new Error("Enter a valid base URL and API key first.")
+    }
+    return probe.check(form.credentials)
+  }
+
+  function addProvider() {
+    if (!formRef.current?.reportValidity()) {
+      throw new Error("The endpoint URL is not valid.")
+    }
+    return form.submit()
+  }
+
+  const canAdd =
+    probe.status === "verified" &&
+    form.values.name.trim().length > 0 &&
+    form.credentials.base_url.length > 0 &&
+    form.credentials.api_key.length > 0
 
   return (
     <form
-      ref={flow.formRef}
+      ref={formRef}
       onSubmit={preventSubmit}
       className="flex flex-col gap-4"
     >
@@ -68,12 +100,11 @@ export default function CustomProviderFormPanel({
           label="Provider name"
           requiredMark
           autoComplete="off"
-          value={flow.form.name}
+          value={form.values.name}
           onChange={(event) =>
-            flow.updateForm({ name: event.currentTarget.value })
+            form.updateForm({ name: event.currentTarget.value })
           }
           placeholder="Acme AI"
-          aria-invalid={flow.addAttempted && flow.form.name.trim().length === 0}
           required
         />
 
@@ -82,9 +113,9 @@ export default function CustomProviderFormPanel({
           label="Model prefix (optional)"
           autoComplete="off"
           monospace
-          value={flow.form.prefix}
+          value={form.values.prefix}
           onChange={(event) =>
-            flow.updateForm({ prefix: event.currentTarget.value })
+            form.updateForm({ prefix: event.currentTarget.value })
           }
           placeholder="acme"
         />
@@ -98,8 +129,7 @@ export default function CustomProviderFormPanel({
           aria-label="Protocol"
           name="custom-provider-protocol"
           layout="grid"
-          minColumnWidth={220}
-          value={flow.form.protocol}
+          value={form.values.protocol}
           onValueChange={handleProtocolChange}
           options={PROTOCOLS}
         />
@@ -107,23 +137,23 @@ export default function CustomProviderFormPanel({
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <FloatingField
-          ref={flow.baseURLRef}
+          ref={baseURLRef}
           id="custom-provider-url"
           label="Base URL"
           requiredMark
           type="url"
           autoComplete="url"
           monospace
-          value={flow.form.base_url}
+          value={form.values.base_url}
           onChange={(event) =>
-            flow.updateForm({ base_url: event.currentTarget.value })
+            form.updateForm({ base_url: event.currentTarget.value })
           }
           placeholder="https://api.example.com/v1"
           required
         />
 
         <FloatingField
-          ref={flow.apiKeyRef}
+          ref={apiKeyRef}
           id="custom-provider-api-key"
           label="API key"
           requiredMark
@@ -131,9 +161,9 @@ export default function CustomProviderFormPanel({
           canTogglePassword
           monospace
           autoComplete="new-password"
-          value={flow.form.api_key}
+          value={form.values.api_key}
           onChange={(event) =>
-            flow.updateForm({ api_key: event.currentTarget.value })
+            form.updateForm({ api_key: event.currentTarget.value })
           }
           placeholder="sk-..."
           required
@@ -145,10 +175,10 @@ export default function CustomProviderFormPanel({
           label="Check connection"
           pendingLabel="Checking connection"
           successLabel="Connection verified"
-          onAction={flow.verify}
+          onAction={checkConnection}
           className="!border-border !bg-surface !text-foreground"
         />
-        {flow.verification.status === "checking" && (
+        {probe.status === "checking" && (
           <p
             role="status"
             className="flex items-center gap-2 text-xs text-muted-foreground sm:max-w-64"
@@ -161,7 +191,7 @@ export default function CustomProviderFormPanel({
             Checking the endpoint and API key.
           </p>
         )}
-        {flow.verification.status === "success" && (
+        {probe.status === "verified" && (
           <p
             role="status"
             className="flex items-center gap-2 text-xs text-success sm:max-w-64"
@@ -170,7 +200,7 @@ export default function CustomProviderFormPanel({
             Connection verified. Add provider is ready.
           </p>
         )}
-        {flow.verification.status === "idle" && (
+        {probe.status === "idle" && (
           <p className="text-xs text-muted-foreground">
             Verify this endpoint before adding it.
           </p>
@@ -189,8 +219,8 @@ export default function CustomProviderFormPanel({
           label="Add provider"
           pendingLabel="Adding provider"
           successLabel="Provider added"
-          onAction={flow.submit}
-          disabled={!flow.canAddProvider}
+          onAction={addProvider}
+          disabled={!canAdd}
           className="w-full sm:w-auto"
         />
       </div>

@@ -3,6 +3,7 @@ import ResponsiveDialog from "@/components/seavx/ResponsiveDialog"
 
 import CustomProviderFormPanel from "./panels/CustomProviderFormPanel"
 import useCustomProviderForm from "./hooks/useCustomProviderForm"
+import useProviderProbe from "./hooks/useProviderProbe"
 
 type AddCustomProviderDialogProps = {
   open: boolean
@@ -15,13 +16,24 @@ export default function AddCustomProviderDialog({
   onOpenChange,
   onSubmit,
 }: AddCustomProviderDialogProps) {
-  const flow = useCustomProviderForm({ onSubmit, onOpenChange })
+  const probe = useProviderProbe()
+  const form = useCustomProviderForm({
+    onSubmit,
+    onClose: close,
+    onCredentialsChange: probe.reset,
+  })
 
-  // Dismissing clears the fields and the probe, so the next open starts where
-  // the first one did; a successful submit resets itself in the hook.
+  // One close path for the shell, the footer, Escape, and a successful submit,
+  // so the next open can never inherit a field or a verified probe.
+  function close() {
+    form.reset()
+    probe.reset()
+    onOpenChange(false)
+  }
+
   function handleOpenChange(nextOpen: boolean) {
-    if (!nextOpen) flow.reset()
-    onOpenChange(nextOpen)
+    if (nextOpen) onOpenChange(true)
+    else close()
   }
 
   return (
@@ -34,7 +46,7 @@ export default function AddCustomProviderDialog({
       className="!max-h-[92vh] sm:max-w-2xl"
       sheetClassName="space-y-4 px-1 pt-1 pb-6"
     >
-      <CustomProviderFormPanel flow={flow} />
+      <CustomProviderFormPanel form={form} probe={probe} />
     </ResponsiveDialog>
   )
 }
