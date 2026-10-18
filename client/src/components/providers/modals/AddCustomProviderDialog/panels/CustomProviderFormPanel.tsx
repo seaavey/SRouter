@@ -1,6 +1,6 @@
 import { Check, LoaderCircle } from "lucide-react"
 import { useRef } from "react"
-import type { FormEvent } from "react"
+import type { FormEvent, ReactNode } from "react"
 
 import type { ProviderProtocol } from "@/api/types"
 import ActionButton from "@/components/arc/action-button/action-button"
@@ -13,6 +13,32 @@ import useCustomProviderForm from "../hooks/useCustomProviderForm"
 import useProviderProbe from "../hooks/useProviderProbe"
 
 /**
+ * A brand mark drawn in `currentColor`, which an `<img>` resolves to black and
+ * would lose on the dark surface, so the shape is filled through a mask the way
+ * `ProviderLogo` fills its monochrome assets. The `role`/`aria-label` pair is
+ * what names the radio: the mark itself carries no text.
+ */
+function ProtocolMark({ asset, name }: { asset: string; name: string }) {
+  return (
+    <span
+      role="img"
+      aria-label={name}
+      className="inline-block size-6 bg-foreground"
+      style={{
+        maskImage: `url(/providers/${asset}.svg)`,
+        maskPosition: "center",
+        maskRepeat: "no-repeat",
+        maskSize: "contain",
+        WebkitMaskImage: `url(/providers/${asset}.svg)`,
+        WebkitMaskPosition: "center",
+        WebkitMaskRepeat: "no-repeat",
+        WebkitMaskSize: "contain",
+      }}
+    />
+  )
+}
+
+/**
  * The gateway executes two request shapes, not three: `ProviderShape::parse` in
  * `server/src/features/providers/custom/executor.rs` reads Anthropic and folds
  * everything else into OpenAI. A third "Custom" row would let an operator pick
@@ -20,9 +46,12 @@ import useProviderProbe from "../hooks/useProviderProbe"
  * only what the executor actually honours.
  */
 const PROTOCOLS = [
-  { value: "openai", label: "OpenAI" },
-  { value: "anthropic", label: "Anthropic" },
-] satisfies { value: ProviderProtocol; label: string }[]
+  { value: "openai", label: <ProtocolMark asset="openai" name="OpenAI" /> },
+  {
+    value: "anthropic",
+    label: <ProtocolMark asset="anthropic" name="Anthropic" />,
+  },
+] satisfies { value: ProviderProtocol; label: ReactNode }[]
 
 type CustomProviderFormPanelProps = {
   form: ReturnType<typeof useCustomProviderForm>
