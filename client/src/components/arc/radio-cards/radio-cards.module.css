@@ -32,7 +32,12 @@
   padding: 14px 16px;
   border: 1px solid var(--border);
   border-radius: 20px;
-  background: var(--surface);
+  background-color: var(--surface);
+  /* The brand gradient is mixed down instead of used straight: the full stops
+     put --text-secondary under 4.5:1 on the description in dark mode. The
+     gradient lives in background-image, so every state below paints only the
+     colour and the wash survives selection, hover and focus. */
+  background-image: linear-gradient(100deg, color-mix(in oklab, var(--arc-gradient-from) 40%, transparent), color-mix(in oklab, var(--arc-gradient-to) 40%, transparent));
   cursor: pointer;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
@@ -41,8 +46,8 @@
 /* The body row takes any spare height, so prices sit on one baseline across a row even when a description wraps. */
 .root[data-layout="grid"] .card { grid-template-areas: "body indicator" "meta meta"; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: minmax(0, 1fr) auto; }
 .root[data-layout="list"] .card { grid-template-areas: "indicator body meta"; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; padding: 13px 16px 13px 14px; }
-.card[data-checked] { background: color-mix(in oklab, var(--control-on) 4%, var(--surface)); }
-.card[aria-disabled="true"] { background: var(--surface-muted); cursor: not-allowed; }
+.card[data-checked] { background-color: color-mix(in oklab, var(--control-on) 4%, var(--surface)); }
+.card[aria-disabled="true"] { background-color: var(--surface-muted); cursor: not-allowed; }
 .card[aria-disabled="true"] :is(.label, .meta) { color: var(--text-muted); }
 
 .indicator {
@@ -76,8 +81,8 @@
 @media (hover: hover) and (pointer: fine) {
   .card:not([data-checked]):not([aria-disabled="true"]):hover { border-color: var(--border-strong); }
 }
-.card:not([data-checked]):not([aria-disabled="true"]):active { background: var(--surface-muted); }
-.card:focus-visible:not([data-checked]) { border-color: var(--border-strong); background: var(--surface-muted); }
+.card:not([data-checked]):not([aria-disabled="true"]):active { background-color: var(--surface-muted); }
+.card:focus-visible:not([data-checked]) { border-color: var(--border-strong); background-color: var(--surface-muted); }
 
 @media (prefers-reduced-motion: reduce) {
   .card, .indicator { transition: none; }
