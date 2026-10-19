@@ -10,11 +10,9 @@ import {
 } from "lucide-react"
 import { useEffect, type ComponentType } from "react"
 
-import { useAdminAuth } from "@/components/admin-auth-provider"
 import { ScrollArea } from "@/components/arc/scroll-area/scroll-area"
 import { Tooltip } from "@/components/arc/tooltip/tooltip"
-import { UserMenu } from "@/components/arc/user-menu/user-menu"
-import { useTheme } from "@/components/theme-provider"
+import SRouterMark from "@/components/seavx/SRouterMark"
 
 export type DashboardTab =
   "overview" | "providers" | "usage" | "logs" | "keys" | "settings"
@@ -33,12 +31,12 @@ export const TAB_LABELS = {
   settings: "Settings",
 } satisfies Record<DashboardTab, string>
 
-export interface NavItem {
+export type NavItem = {
   id: DashboardTab
   icon: ComponentType<{ size?: number; className?: string }>
 }
 
-interface NavSection {
+type NavSection = {
   label: string
   items: NavItem[]
 }
@@ -60,29 +58,7 @@ const NAV_SECTIONS: NavSection[] = [
   },
 ]
 
-function GatewayMark() {
-  return (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <circle cx="12" cy="12" r="3" />
-      <path d="M4.93 4.93l4.24 4.24" />
-      <path d="M14.83 9.17l4.24-4.24" />
-      <path d="M14.83 14.83l4.24 4.24" />
-      <path d="M4.93 19.07l4.24-4.24" />
-    </svg>
-  )
-}
-
-export interface SidebarProps {
+export type SidebarProps = {
   collapsed: boolean
   onToggleCollapse: () => void
   currentTab: DashboardTab
@@ -99,9 +75,6 @@ export function Sidebar({
   mobileOpen,
   onCloseMobile,
 }: SidebarProps) {
-  const { theme, setTheme } = useTheme()
-  const { logout } = useAdminAuth()
-
   // The drawer covers the content and holds rows the pointer can reach, so it
   // carries the two ways out a pointer alone cannot give: Escape, and the
   // breakpoint where the permanent rail takes over.
@@ -145,7 +118,7 @@ export function Sidebar({
           onCloseMobile()
         }}
         aria-current={isActive ? "page" : undefined}
-        className={`relative flex min-h-[var(--control-height-sm)] w-full items-center gap-2.5 rounded-md px-2.5 text-sm tracking-tight transition-colors duration-150 ${
+        className={`relative flex min-h-[var(--control-height-sm)] w-full cursor-pointer items-center gap-2.5 rounded-md px-2.5 text-sm tracking-tight transition-colors duration-150 ${
           isActive
             ? "bg-foreground/10 font-medium text-foreground"
             : "text-[var(--text-muted)] hover:bg-foreground/5 hover:text-foreground"
@@ -188,7 +161,7 @@ export function Sidebar({
           className={`flex items-center gap-2.5 overflow-hidden ${rail ? "" : "ml-1"}`}
         >
           <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-foreground text-background">
-            <GatewayMark />
+            <SRouterMark />
           </div>
           {!rail && (
             <span className="truncate text-sm font-medium tracking-tight text-foreground">
@@ -204,7 +177,7 @@ export function Sidebar({
                 type="button"
                 onClick={onToggleCollapse}
                 aria-label="Collapse sidebar"
-                className="hidden size-[var(--control-height-sm)] items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground md:inline-flex"
+                className="hidden size-[var(--control-height-sm)] cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground md:inline-flex"
               >
                 <PanelLeftClose size={15} />
               </button>
@@ -213,7 +186,7 @@ export function Sidebar({
               type="button"
               onClick={onCloseMobile}
               aria-label="Close navigation"
-              className="inline-flex size-[var(--control-height-sm)] items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground md:hidden"
+              className="inline-flex size-[var(--control-height-sm)] cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground md:hidden"
             >
               <X size={16} />
             </button>
@@ -237,29 +210,6 @@ export function Sidebar({
           ))}
         </nav>
       </ScrollArea>
-
-      {/* Operator Session Footer */}
-      <div
-        className={`shrink-0 border-t border-border p-2 ${
-          rail ? "flex justify-center" : ""
-        }`}
-      >
-        <UserMenu
-          user={{
-            name: "Admin Operator",
-            email: "admin",
-          }}
-          theme={theme}
-          onThemeChange={(next) => setTheme(next)}
-          showTheme
-          showName={!rail}
-          align={rail ? "center" : "start"}
-          onSignOut={async () => {
-            await logout.mutateAsync()
-            window.location.href = "/login"
-          }}
-        />
-      </div>
     </div>
   )
 

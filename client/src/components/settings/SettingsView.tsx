@@ -9,6 +9,7 @@ import { Button } from "@/components/arc/button/button"
 import { Skeleton } from "@/components/arc/skeleton/skeleton"
 import { Switch } from "@/components/arc/switch/switch"
 import { toast } from "@/components/arc/toast-stack/toast-stack"
+import { useAdminAuth } from "@/components/admin-auth-provider"
 import { SectionHeader } from "@/components/layout/section-header"
 
 import { ChangePasswordDialog } from "./ChangePasswordDialog"
@@ -23,6 +24,7 @@ export function SettingsView() {
   const queryClient = useQueryClient()
   const settings = useQuery(settingsQuery)
   const system = useQuery(systemQuery)
+  const { logout } = useAdminAuth()
   const [passwordOpen, setPasswordOpen] = useState(false)
   const [restoreOpen, setRestoreOpen] = useState(false)
 
@@ -57,7 +59,7 @@ export function SettingsView() {
     <div className="flex w-full max-w-[720px] flex-col gap-8">
       <SectionHeader
         title="Settings"
-        description="Admin credentials, the gateway access policy, and the local database this install serves from."
+        description="Admin credentials, the gateway access policy, the session, and the local database this install serves from."
         badge={system.data ? `v${system.data.version}` : undefined}
       />
 
@@ -232,6 +234,33 @@ export function SettingsView() {
               </div>
             </>
           )}
+        </div>
+      </section>
+
+      <section aria-labelledby={`${id}-session`} className={SURFACE}>
+        <div className="border-b border-border px-4 py-3 sm:px-5">
+          <h2
+            id={`${id}-session`}
+            className="text-sm font-medium tracking-tight text-foreground"
+          >
+            Session
+          </h2>
+        </div>
+        <div className="flex flex-col gap-3 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+          <p className="min-w-0 text-xs text-muted-foreground">
+            The session cookie this browser holds. Signing out clears it here
+            and on the server.
+          </p>
+          <ActionButton
+            label="Sign out"
+            pendingLabel="Signing out"
+            successLabel="Signed out"
+            className="shrink-0 !border-border !bg-surface !text-foreground"
+            onAction={async () => {
+              await logout.mutateAsync()
+              window.location.assign("/login")
+            }}
+          />
         </div>
       </section>
 

@@ -13,6 +13,8 @@ type ThemeProviderProps = {
 type ThemeProviderState = {
   theme: Theme
   setTheme: (theme: Theme) => void
+  /** The theme actually painted: `system` resolved against the OS setting. */
+  resolvedTheme: ResolvedTheme
 }
 
 const COLOR_SCHEME_QUERY = "(prefers-color-scheme: dark)"
@@ -106,6 +108,13 @@ export function ThemeProvider({
   const isMountedRef = React.useRef(false)
   const currentThemeRef = React.useRef<ResolvedTheme | null>(null)
 
+  // The painted theme as state, so readers re-render when the OS setting
+  // flips under `system`. `applyTheme` already repaints the DOM on that
+  // flip; this mirrors it into React for callers that branch on the value.
+  const [resolvedTheme, setResolvedTheme] = React.useState<ResolvedTheme>(() =>
+    getSystemTheme()
+  )
+
   const setTheme = React.useCallback(
     (nextTheme: Theme) => {
       localStorage.setItem(storageKey, nextTheme)
@@ -160,6 +169,7 @@ export function ThemeProvider({
 
   React.useEffect(() => {
     applyTheme(theme)
+    setResolvedTheme(theme === "system" ? getSystemTheme() : theme)
 
     if (theme !== "system") {
       return undefined
@@ -168,6 +178,7 @@ export function ThemeProvider({
     const mediaQuery = window.matchMedia(COLOR_SCHEME_QUERY)
     const handleChange = () => {
       applyTheme("system")
+      setResolvedTheme(getSystemTheme())
     }
 
     mediaQuery.addEventListener("change", handleChange)
@@ -246,8 +257,9 @@ export function ThemeProvider({
     () => ({
       theme,
       setTheme,
+      resolvedTheme,
     }),
-    [theme, setTheme]
+    [theme, setTheme, resolvedTheme]
   )
 
   return (
