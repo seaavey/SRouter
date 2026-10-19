@@ -1,4 +1,4 @@
-import { Check, LoaderCircle } from "lucide-react"
+import { Check, LoaderCircle, ShieldCheck } from "lucide-react"
 import { useRef } from "react"
 import type { FormEvent, ReactNode } from "react"
 
@@ -8,33 +8,48 @@ import { Button } from "@/components/arc/button/button"
 import { DialogClose } from "@/components/arc/dialog/dialog"
 import { FloatingField } from "@/components/arc/floating-field/floating-field"
 import { RadioCards } from "@/components/arc/radio-cards/radio-cards"
+import { cn } from "@/lib/utils"
 
 import useCustomProviderForm from "../hooks/useCustomProviderForm"
 import useProviderProbe from "../hooks/useProviderProbe"
 
 /**
- * A brand mark drawn in `currentColor`, which an `<img>` resolves to black and
- * would lose on the dark surface, so the shape is filled through a mask the way
- * `ProviderLogo` fills its monochrome assets. The `role`/`aria-label` pair is
- * what names the radio: the mark itself carries no text.
+ * A brand mark rendered inside a container filled with each vendor's signature
+ * brand color (#10A37F for OpenAI, #D97757 for Anthropic). The glyph itself is
+ * filled in white through a mask so monochrome assets retain contrast on both
+ * light and dark surfaces. The `role`/`aria-label` pair names the radio: the
+ * mark itself carries no text.
  */
-function ProtocolMark({ asset, name }: { asset: string; name: string }) {
+function ProtocolMark({
+  asset,
+  name,
+  brandColor,
+}: {
+  asset: string
+  name: string
+  brandColor: string
+}) {
   return (
     <span
-      role="img"
-      aria-label={name}
-      className="inline-block size-6 bg-foreground"
-      style={{
-        maskImage: `url(/providers/${asset}.svg)`,
-        maskPosition: "center",
-        maskRepeat: "no-repeat",
-        maskSize: "contain",
-        WebkitMaskImage: `url(/providers/${asset}.svg)`,
-        WebkitMaskPosition: "center",
-        WebkitMaskRepeat: "no-repeat",
-        WebkitMaskSize: "contain",
-      }}
-    />
+      className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg shadow-xs"
+      style={{ backgroundColor: brandColor }}
+    >
+      <span
+        role="img"
+        aria-label={name}
+        className="inline-block size-5 bg-white"
+        style={{
+          maskImage: `url(/providers/${asset}.svg)`,
+          maskPosition: "center",
+          maskRepeat: "no-repeat",
+          maskSize: "contain",
+          WebkitMaskImage: `url(/providers/${asset}.svg)`,
+          WebkitMaskPosition: "center",
+          WebkitMaskRepeat: "no-repeat",
+          WebkitMaskSize: "contain",
+        }}
+      />
+    </span>
   )
 }
 
@@ -46,10 +61,23 @@ function ProtocolMark({ asset, name }: { asset: string; name: string }) {
  * only what the executor actually honours.
  */
 const PROTOCOLS = [
-  { value: "openai", label: <ProtocolMark asset="openai" name="OpenAI" /> },
+  {
+    value: "openai",
+    label: (
+      <div className="flex items-start gap-2.5">
+        <ProtocolMark asset="openai" name="OpenAI" brandColor="#10A37F" />
+        <span className="mt-0.5 text-xs font-medium">OpenAI</span>
+      </div>
+    ),
+  },
   {
     value: "anthropic",
-    label: <ProtocolMark asset="anthropic" name="Anthropic" />,
+    label: (
+      <div className="flex items-start gap-2.5">
+        <ProtocolMark asset="anthropic" name="Anthropic" brandColor="#D97757" />
+        <span className="mt-0.5 text-xs font-medium">Anthropic</span>
+      </div>
+    ),
   },
 ] satisfies { value: ProviderProtocol; label: ReactNode }[]
 
@@ -94,6 +122,14 @@ export default function CustomProviderFormPanel({
       throw new Error("Enter a valid base URL and API key first.")
     }
     return probe.check(form.credentials)
+  }
+
+  async function handleCheckConnection() {
+    try {
+      await checkConnection()
+    } catch {
+      // reportValidity() or toast in useProviderProbe already alerted the operator
+    }
   }
 
   function addProvider() {
@@ -191,46 +227,90 @@ export default function CustomProviderFormPanel({
         />
       </div>
 
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <ActionButton
-          label="Check connection"
-          pendingLabel="Checking connection"
-          successLabel="Connection verified"
-          onAction={checkConnection}
-          className="!border-border !bg-surface !text-foreground"
-        />
-        {probe.status === "checking" && (
-          <p
-            role="status"
-            className="flex items-center gap-2 text-xs text-muted-foreground sm:max-w-64"
+      <div
+        className={cn(
+          "flex flex-col gap-3 rounded-2xl border p-3.5 transition-colors sm:flex-row sm:items-center sm:justify-between",
+          probe.status === "verified"
+            ? "border-success/30 bg-success/5"
+            : "border-border bg-surface-muted/40"
+        )}
+      >
+        <div className="flex min-w-0 items-center gap-3">
+          <div
+            className={cn(
+              "flex size-9 shrink-0 items-center justify-center rounded-xl transition-colors",
+              probe.status === "verified"
+                ? "bg-success/15 text-success"
+                : probe.status === "checking"
+                  ? "border border-border bg-surface-raised text-foreground"
+                  : "border border-border bg-surface text-muted-foreground"
+            )}
           >
-            <LoaderCircle
-              size={14}
-              className="shrink-0 animate-spin motion-reduce:animate-none"
-              aria-hidden="true"
-            />
-            Checking the endpoint and API key.
-          </p>
-        )}
-        {probe.status === "verified" && (
-          <p
-            role="status"
-            className="flex items-center gap-2 text-xs text-success sm:max-w-64"
-          >
-            <Check size={14} aria-hidden="true" />
-            Connection verified. Add provider is ready.
-          </p>
-        )}
-        {probe.status === "idle" && (
-          <p className="text-xs text-muted-foreground">
-            Verify this endpoint before adding it.
-          </p>
-        )}
+            {probe.status === "checking" ? (
+              <LoaderCircle
+                size={17}
+                className="animate-spin motion-reduce:animate-none"
+                aria-hidden="true"
+              />
+            ) : probe.status === "verified" ? (
+              <Check size={17} strokeWidth={2.5} aria-hidden="true" />
+            ) : (
+              <ShieldCheck size={17} aria-hidden="true" />
+            )}
+          </div>
+
+          <div className="flex min-w-0 flex-col">
+            <div className="flex items-center gap-2">
+              <span
+                className={cn(
+                  "text-xs leading-tight font-medium",
+                  probe.status === "verified"
+                    ? "text-success"
+                    : "text-foreground"
+                )}
+              >
+                {probe.status === "verified"
+                  ? "Connection verified"
+                  : probe.status === "checking"
+                    ? "Checking connection…"
+                    : "Endpoint verification"}
+              </span>
+              {probe.status === "verified" && (
+                <span className="inline-flex items-center rounded-full bg-success/15 px-1.5 py-0.5 text-xs font-medium text-success">
+                  Ready
+                </span>
+              )}
+            </div>
+            <p className="mt-0.5 truncate text-xs text-muted-foreground">
+              {probe.status === "verified"
+                ? "Endpoint verified. Add provider is ready."
+                : probe.status === "checking"
+                  ? "Checking the endpoint and API key…"
+                  : "Verify this endpoint before adding it."}
+            </p>
+          </div>
+        </div>
+
+        <Button
+          type="button"
+          variant={probe.status === "verified" ? "secondary" : "primary"}
+          size="sm"
+          loading={probe.status === "checking"}
+          onClick={handleCheckConnection}
+          className="w-full shrink-0 font-medium sm:w-auto"
+        >
+          {probe.status === "verified" ? "Re-test" : "Check connection"}
+        </Button>
       </div>
 
-      <div className="flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end">
+      <div className="flex flex-col-reverse gap-2 border-t border-border pt-3 sm:flex-row sm:items-center sm:justify-end">
         <DialogClose asChild>
-          <Button type="button" variant="secondary" size="md">
+          <Button
+            type="button"
+            variant="secondary"
+            size="md"
+            className="w-full sm:w-auto"
+          >
             Cancel
           </Button>
         </DialogClose>

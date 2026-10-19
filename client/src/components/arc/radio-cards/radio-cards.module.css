@@ -33,11 +33,9 @@
   border: 1px solid var(--border);
   border-radius: 20px;
   background-color: var(--surface);
-  /* The brand gradient is mixed down instead of used straight: the full stops
-     put --text-secondary under 4.5:1 on the description in dark mode. The
-     gradient lives in background-image, so every state below paints only the
-     colour and the wash survives selection, hover and focus. */
-  background-image: linear-gradient(100deg, color-mix(in oklab, var(--arc-gradient-from) 40%, transparent), color-mix(in oklab, var(--arc-gradient-to) 40%, transparent));
+  /* The surface stays flat: the brand gradient was mixed down to keep
+     --text-secondary at 4.5:1 on the description in dark mode, and the wash
+     read as decoration on a control. The states below paint the colour only. */
   cursor: pointer;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
