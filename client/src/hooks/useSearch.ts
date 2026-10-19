@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
+import { useDebounce } from "@/hooks/useDebounce"
 
 export interface UseSearchOptions<T> {
   /** Initial query string. Defaults to empty string. */
@@ -50,21 +51,7 @@ export function useSearch<T = never>(
 ): UseSearchResult<T> {
   const [query, setQueryState] = useState(options?.initialQuery ?? "")
   const debounceMs = options?.debounceMs ?? 0
-  const [debouncedQueryState, setDebouncedQueryState] = useState(query)
-
-  useEffect(() => {
-    if (debounceMs <= 0) return
-
-    const timer = window.setTimeout(() => {
-      setDebouncedQueryState(query)
-    }, debounceMs)
-
-    return () => {
-      window.clearTimeout(timer)
-    }
-  }, [query, debounceMs])
-
-  const debouncedQuery = debounceMs > 0 ? debouncedQueryState : query
+  const debouncedQuery = useDebounce(query, debounceMs)
 
   const setQuery = useCallback((next: string) => {
     setQueryState(next)

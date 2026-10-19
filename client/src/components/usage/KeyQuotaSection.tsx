@@ -1,5 +1,5 @@
 import { KeyRound, ShieldAlert } from "lucide-react"
-import { useMemo, useState } from "react"
+import { useMemo } from "react"
 
 import { ActionButton } from "@/components/arc/action-button/action-button"
 import { Badge } from "@/components/arc/badge/badge"
@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/arc/empty-state/empty-state"
 import { SearchField } from "@/components/arc/search-field/search-field"
 import SegmentedControl from "@/components/arc/segmented-control/segmented-control"
 import { toast } from "@/components/arc/toast-stack/toast-stack"
+import { useSearch } from "@/hooks/useSearch"
 import {
   KEY_FILTER_OPTIONS,
   type KeyFilter,
@@ -36,17 +37,14 @@ export function KeyQuotaSection({
   keyRows,
   onRetry,
 }: KeyQuotaSectionProps) {
-  const [search, setSearch] = useState("")
-
-  const filteredKeys = useMemo(() => {
-    if (!search.trim()) return keyRows
-    const q = search.toLowerCase().trim()
-    return keyRows.filter(
-      (row) =>
-        row.name.toLowerCase().includes(q) ||
-        row.prefix.toLowerCase().includes(q)
-    )
-  }, [keyRows, search])
+  const {
+    query: search,
+    filteredItems: filteredKeys,
+    fieldProps: searchFieldProps,
+  } = useSearch(keyRows, {
+    debounceMs: 150,
+    keys: ["name", "prefix"],
+  })
 
   const nearCount = useMemo(
     () => keyRows.filter((r) => r.percent !== null && r.percent >= 80).length,
@@ -73,7 +71,11 @@ export function KeyQuotaSection({
             ({filteredKeys.length})
           </span>
           {nearCount > 0 && keyFilter !== "near" && (
-            <Badge tone="warning" size="sm" className="inline-flex items-center gap-1">
+            <Badge
+              tone="warning"
+              size="sm"
+              className="inline-flex items-center gap-1"
+            >
               <ShieldAlert size={12} aria-hidden="true" />
               {nearCount} near limit
             </Badge>
@@ -85,9 +87,8 @@ export function KeyQuotaSection({
             <div className="w-full sm:w-44">
               <SearchField
                 label="Search keys"
-                value={search}
-                onValueChange={setSearch}
                 placeholder="Filter name/prefix..."
+                {...searchFieldProps}
               />
             </div>
           )}

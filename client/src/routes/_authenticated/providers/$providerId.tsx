@@ -26,6 +26,7 @@ import { CopyButton } from "@/components/arc/copy-button/copy-button"
 import { EmptyState } from "@/components/arc/empty-state/empty-state"
 import HoldToConfirm from "@/components/arc/hold-to-confirm/hold-to-confirm"
 import { SearchField } from "@/components/arc/search-field/search-field"
+import { useSearch } from "@/hooks/useSearch"
 import { Switch } from "@/components/arc/switch/switch"
 import {
   Tabs,
@@ -100,7 +101,6 @@ function ProviderDetailPage() {
   const queryClient = useQueryClient()
   const reducedMotion = useReducedMotion() ?? false
   const [connectModalOpen, setConnectModalOpen] = useState(false)
-  const [modelSearch, setModelSearch] = useState("")
   // Track IDs hidden from UI for exit animation
   const [removedConnectionIDs, setRemovedConnectionIDs] = useState<string[]>([])
 
@@ -221,15 +221,14 @@ function ProviderDetailPage() {
     })
   }, [provider])
 
-  const filteredModels = useMemo(() => {
-    if (!models || models.length === 0) return []
-    if (!modelSearch.trim()) return models
-    const q = modelSearch.toLowerCase()
-    return models.filter(
-      (m) =>
-        m.id.toLowerCase().includes(q) || m.owned_by.toLowerCase().includes(q)
-    )
-  }, [models, modelSearch])
+  const {
+    query: modelSearch,
+    filteredItems: filteredModels,
+    fieldProps: modelSearchFieldProps,
+  } = useSearch(models, {
+    debounceMs: 150,
+    keys: ["id", "owned_by"],
+  })
 
   if (isLoading) {
     return (
@@ -614,10 +613,9 @@ function ProviderDetailPage() {
               <SearchField
                 label="Search models"
                 id="model-filter"
-                value={modelSearch}
-                onValueChange={setModelSearch}
                 placeholder="Filter models by id or owner..."
                 className="w-full sm:max-w-xs"
+                {...modelSearchFieldProps}
               />
             </div>
 
