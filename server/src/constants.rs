@@ -926,6 +926,7 @@ pub mod database {
         pub const LOOK_UP_API_KEY: &str = "look up an API key";
         pub const READ_API_KEY: &str = "read an API key";
         pub const READ_REQUIRE_API_KEY: &str = "read the require_api_key setting";
+        pub const RECONCILE_API_KEY_USAGE: &str = "reconcile API-key usage from the request log";
         pub const RESERVE_API_KEY_QUOTA: &str = "reserve API-key quota";
         pub const SETTLE_API_KEY_QUOTA: &str = "settle API-key quota";
         pub const START_CREDIT_UPDATE: &str = "start a credit update";

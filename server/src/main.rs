@@ -7,7 +7,9 @@ use srouter_server::features::providers::ProviderRegistry;
 use srouter_server::features::providers::custom::register_custom_providers;
 use srouter_server::infrastructure::database::AppDatabase;
 use srouter_server::infrastructure::database::admin_auth::SQLxAdminAuthStore;
-use srouter_server::infrastructure::database::api_keys::SQLxAPIKeyStore;
+use srouter_server::infrastructure::database::api_keys::{
+    SQLxAPIKeyStore, reconcile_usage_from_logs,
+};
 use srouter_server::infrastructure::telemetry;
 use srouter_server::{
     APIConfig, AppState, SecurityState, app::create_router, clock, http::listeners,
@@ -32,6 +34,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Opening the database brings SQLite to schema v4 before the listeners start.
     let database = AppDatabase::connect(&config).await?;
+    // A key whose route billed nothing kept `usage_tokens` at zero while the
+    // request log already held its tokens, so the counters are repaired from the
+    // log on boot. Best-effort like the log itself: a failure must not stop boot,
+    // because the request path settles usage correctly either way.
+    match reconcile_usage_from_logs(&database).await {
+        Ok(0) => {}
+        Ok(raised) => tracing::info!(
+            keys = raised,
+            "raised API-key usage to the totals in the request log"
+        ),
+        Err(error) => tracing::warn!(error = %error, "could not reconcile API-key usage"),
+    }
     let api_key_store = Arc::new(SQLxAPIKeyStore::new(database.clone()));
     let admin_store = Arc::new(SQLxAdminAuthStore::new(database.clone()));
     // Apply `SROUTER_ADMIN_PASSWORD` before the listener starts, exactly like

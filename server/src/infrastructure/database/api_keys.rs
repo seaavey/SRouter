@@ -403,6 +403,38 @@ impl APIKeyRepository for SQLxAPIKeyStore {
     }
 }
 
+/// Raises each key's usage to the totals its own request log already records,
+/// and never lowers a stored value.
+///
+/// A key served by a route that billed nothing kept `usage_tokens` at zero while
+/// `request_logs` held its tokens, which is what the repair runs for on boot.
+/// Only rows the client was charged for (`status_code = 200`) count, and the
+/// raise is one-way: a key holding more than its log proves was billed by an
+/// older path, and reducing it would silently refund quota already consumed.
+/// The cost comparison carries a float tolerance so cents-level rounding does
+/// not rewrite a key's spend on every boot. Returns how many keys it raised.
+pub async fn reconcile_usage_from_logs(database: &AppDatabase) -> Result<u64, APIError> {
+    let pool = database.sqlite_required(constants::database::API_KEYS_UNSUPPORTED)?;
+    let result = sqlx::query(
+        "UPDATE api_keys SET \
+         usage_tokens = MAX(usage_tokens, COALESCE((SELECT SUM(l.total_tokens) FROM request_logs l \
+             WHERE l.status_code = 200 AND (l.api_key_id = api_keys.id OR l.legacy_api_key_id = api_keys.id)), 0)), \
+         usage_cost = MAX(usage_cost, COALESCE((SELECT SUM(l.estimated_cost) FROM request_logs l \
+             WHERE l.status_code = 200 AND (l.api_key_id = api_keys.id OR l.legacy_api_key_id = api_keys.id)), 0)) \
+         WHERE usage_tokens < COALESCE((SELECT SUM(l.total_tokens) FROM request_logs l \
+             WHERE l.status_code = 200 AND (l.api_key_id = api_keys.id OR l.legacy_api_key_id = api_keys.id)), 0) \
+         OR usage_cost + 0.000000001 < COALESCE((SELECT SUM(l.estimated_cost) FROM request_logs l \
+             WHERE l.status_code = 200 AND (l.api_key_id = api_keys.id OR l.legacy_api_key_id = api_keys.id)), 0)",
+    )
+    .execute(&pool)
+    .await
+    .map_err(sql_error(
+        constants::database::context::RECONCILE_API_KEY_USAGE,
+    ))?;
+
+    Ok(result.rows_affected())
+}
+
 async fn read_key(
     transaction: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
     id: &str,

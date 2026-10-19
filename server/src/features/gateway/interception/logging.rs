@@ -87,6 +87,10 @@ pub(crate) enum LogError<'a> {
 /// replaces the reservation and the estimated cost is added to the key. A failed
 /// request releases the reservation in full instead.
 ///
+/// A route that reserves nothing bills the tokens it observed: `/v1/messages`
+/// never reserves, and Node's `LogCompletion` increments the same way for a
+/// request whose `reservedTokens` is undefined.
+///
 /// This is the only writer of `api_keys.usage_tokens`/`usage_cost`. It runs after
 /// the request-log insert, which deliberately leaves those columns alone so one
 /// request is billed once. Best-effort like the request log: an accounting
@@ -98,22 +102,30 @@ async fn apply_usage_accounting(
     usage: &UsageBreakdown,
     estimated_cost: f64,
 ) {
-    let (Some(api_key_id), Some(reserved)) =
-        (context.api_key_id.as_deref(), context.reserved_tokens)
-    else {
+    let Some(api_key_id) = context.api_key_id.as_deref() else {
         return;
     };
     let repository = &state.security.key_repository;
 
-    if status_code == 200 {
+    if status_code != 200 {
+        if let Some(reserved) = context.reserved_tokens {
+            let _ = repository.settle_quota(api_key_id, reserved, 0).await;
+        }
+
+        return;
+    }
+
+    if let Some(reserved) = context.reserved_tokens {
         let _ = repository
             .settle_quota(api_key_id, reserved, usage.total_tokens)
             .await;
         let _ = repository
             .increment_usage(api_key_id, 0, estimated_cost)
             .await;
-    } else {
-        let _ = repository.settle_quota(api_key_id, reserved, 0).await;
+    } else if usage.total_tokens > 0 || estimated_cost > 0.0 {
+        let _ = repository
+            .increment_usage(api_key_id, usage.total_tokens, estimated_cost)
+            .await;
     }
 }
 

@@ -166,16 +166,7 @@ pub async fn create_image(
     .await;
 
     match result {
-        Ok(response) => {
-            if let Some(api_key_id) = log_context.api_key_id.as_deref() {
-                let _ = state
-                    .security
-                    .key_repository
-                    .increment_usage(api_key_id, 0, 0.0)
-                    .await;
-            }
-            Ok(Json(response).into_response())
-        }
+        Ok(response) => Ok(Json(response).into_response()),
         Err(err) => Err(err),
     }
 }

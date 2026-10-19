@@ -35,9 +35,9 @@ pub(crate) struct RequestLogContext {
     pub api_key_id: Option<String>,
     pub start_time: i64,
     /// Token budget reserved on the API key at admission. `Some` only for chat
-    /// requests served with an API key, so the chat completion is the only
-    /// place that settles or releases a reservation; messages and anonymous
-    /// traffic leave it `None` and never touch the usage columns.
+    /// requests served with an API key, so the chat completion is the only place
+    /// that settles or releases a reservation; every other route leaves it
+    /// `None` and bills the tokens it observed instead.
     pub(crate) reserved_tokens: Option<i64>,
 }
 

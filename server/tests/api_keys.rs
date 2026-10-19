@@ -13,7 +13,9 @@ use axum::{
 use srouter_server::app::create_router;
 use srouter_server::features::admin_auth::hash_session_token;
 use srouter_server::features::api_keys::APIKeyRepository;
-use srouter_server::infrastructure::database::api_keys::SQLxAPIKeyStore;
+use srouter_server::infrastructure::database::api_keys::{
+    SQLxAPIKeyStore, reconcile_usage_from_logs,
+};
 use support::{
     TestDatabase, empty_registry_state, json_request, json_request_with_headers,
     sqlx_security_state,
@@ -521,6 +523,179 @@ async fn a_completed_chat_request_bills_the_key_exactly_once() {
         stored.usage_tokens, 3,
         "one request must bill its own tokens once, not twice"
     );
+}
+
+/// The Anthropic route reserves no budget, so it used to bill nothing at all:
+/// `usage_tokens` and `usage_cost` stayed at zero for every `/v1/messages`
+/// request while the request log recorded its tokens.
+#[tokio::test]
+async fn a_completed_anthropic_request_bills_the_key() {
+    use std::sync::Arc;
+
+    use srouter_server::SecurityState;
+    use srouter_server::features::api_keys::{APIKeyRepository, CreateAPIKeyInput};
+    use srouter_server::infrastructure::database::admin_auth::SQLxAdminAuthStore;
+    use support::{app_state_with_fake_upstream_and_security, with_loopback_client};
+
+    let database = TestDatabase::new().unwrap();
+    let app_database = database.connect().await.unwrap();
+
+    let keys = Arc::new(SQLxAPIKeyStore::new(app_database.clone()));
+    let created = keys
+        .create(CreateAPIKeyInput {
+            name: "Anthropic route".to_owned(),
+            enabled: true,
+            rate_limit: 0,
+            quota_limit: 1_000_000,
+            credit_limit: 0.0,
+            allowed_models: None,
+        })
+        .await
+        .unwrap();
+
+    let security = SecurityState::with_repository(
+        keys.clone(),
+        Arc::new(SQLxAdminAuthStore::new(app_database.clone())),
+        keys.clone(),
+    );
+    let (_upstream, state) = app_state_with_fake_upstream_and_security(security).await;
+    let app = create_router(state.with_database(app_database));
+
+    let body = serde_json::json!({
+        "model": "opencode_zen/space-bunny-free",
+        "max_tokens": 1024,
+        "messages": [{ "role": "user", "content": "Hello" }]
+    });
+    let request = with_loopback_client(
+        Request::builder()
+            .method("POST")
+            .uri("/v1/messages")
+            .header("content-type", "application/json")
+            .header("anthropic-version", "2023-06-01")
+            .header("authorization", format!("Bearer {}", created.secret))
+            .body(Body::from(serde_json::to_vec(&body).unwrap()))
+            .unwrap(),
+    );
+
+    let response = app.oneshot(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let stored = keys
+        .list()
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|key| key.id == created.key.id)
+        .expect("the stored key");
+
+    assert_eq!(
+        stored.usage_tokens, 3,
+        "a route without a reservation must still bill its tokens"
+    );
+}
+
+/// The boot repair raises a key whose counters are behind its own request log
+/// and leaves a key that is ahead untouched: one-way, so a key billed by an
+/// older path never has quota refunded behind the operator's back.
+#[tokio::test]
+async fn reconcile_raises_usage_to_the_request_log_and_never_lowers_it() {
+    use std::sync::Arc;
+
+    use srouter_server::features::api_keys::{APIKeyRepository, CreateAPIKeyInput};
+    use srouter_server::infrastructure::database::request_logs::{
+        RequestLogInput, insert_request_log,
+    };
+    use srouter_server::protocol::usage::UsageBreakdown;
+
+    let database = TestDatabase::new().unwrap();
+    let app_database = database.connect().await.unwrap();
+    let keys = Arc::new(SQLxAPIKeyStore::new(app_database.clone()));
+
+    let behind = keys
+        .create(CreateAPIKeyInput {
+            name: "Behind".to_owned(),
+            enabled: true,
+            rate_limit: 0,
+            quota_limit: 1_000_000,
+            credit_limit: 0.0,
+            allowed_models: None,
+        })
+        .await
+        .unwrap()
+        .key;
+    let ahead = keys
+        .create(CreateAPIKeyInput {
+            name: "Ahead".to_owned(),
+            enabled: true,
+            rate_limit: 0,
+            quota_limit: 1_000_000,
+            credit_limit: 0.0,
+            allowed_models: None,
+        })
+        .await
+        .unwrap()
+        .key;
+
+    let usage = UsageBreakdown {
+        prompt_tokens: 100,
+        completion_tokens: 20,
+        total_tokens: 120,
+        ..UsageBreakdown::default()
+    };
+    for (key_id, status_code) in [(&behind.id, 200), (&behind.id, 200), (&behind.id, 500)] {
+        insert_request_log(
+            &app_database,
+            RequestLogInput {
+                request_id: "00000000-0000-4000-8000-0000000000bb",
+                method: "POST",
+                path: "/v1/messages",
+                api_key_id: Some(key_id),
+                ip_address: None,
+                user_agent: None,
+                provider_id: "openai",
+                model: "gpt-4o",
+                status_code,
+                latency_ms: 1,
+                usage: &usage,
+                estimated_cost: 0.5,
+                resolved_model: None,
+                error_code: None,
+                error_message: None,
+                created_at: 1_700_000_000_000,
+            },
+        )
+        .await
+        .expect("insert log");
+    }
+
+    // The key that is ahead of its log keeps its higher counter.
+    keys.increment_usage(&ahead.id, 9_999, 12.5).await.unwrap();
+
+    let raised = reconcile_usage_from_logs(&app_database).await.unwrap();
+    assert_eq!(raised, 1, "only the key behind its log is raised");
+
+    let stored = |id: &str| {
+        let keys = keys.clone();
+        let id = id.to_owned();
+
+        async move {
+            keys.list()
+                .await
+                .unwrap()
+                .into_iter()
+                .find(|key| key.id == id)
+                .expect("the stored key")
+        }
+    };
+
+    // Two successful rows at 120 tokens and 0.5 each; the failed row bills nothing.
+    let repaired = stored(&behind.id).await;
+    assert_eq!(repaired.usage_tokens, 240);
+    assert_eq!(repaired.usage_cost, 1.0);
+
+    let untouched = stored(&ahead.id).await;
+    assert_eq!(untouched.usage_tokens, 9_999);
+    assert_eq!(untouched.usage_cost, 12.5);
 }
 
 /// The auth cache carries `usage_tokens`, and `api_key_auth` rejects on it, so a
