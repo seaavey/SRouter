@@ -24,8 +24,8 @@ use crate::infrastructure::database::AppDatabase;
 
 use super::row::text;
 
-const KEY_COLUMNS: &str = "id, key_prefix, name, enabled, rate_limit, quota_limit, usage_tokens, \
-                           credit_limit, usage_cost, allowed_models, created_at";
+const KEY_COLUMNS: &str = "id, key_prefix, name, user_id, enabled, rate_limit, quota_limit, \
+                           usage_tokens, credit_limit, usage_cost, allowed_models, created_at";
 
 /// Authentication and management store backed by `AppDatabase`.
 #[derive(Clone)]
@@ -76,8 +76,10 @@ impl APIKeyStore for SQLxAPIKeyStore {
 
             let pool = self.pool()?;
             let row = sqlx::query(
-                "SELECT id, enabled, rate_limit, quota_limit, usage_tokens, credit_limit, \
-                 usage_cost, allowed_models FROM api_keys WHERE key_hash = ?",
+                "SELECT k.id, k.enabled, k.rate_limit, k.quota_limit, k.usage_tokens, \
+                 k.credit_limit, k.usage_cost, k.allowed_models, \
+                 COALESCE(u.enabled, 1) AS owner_enabled \
+                 FROM api_keys k LEFT JOIN users u ON u.id = k.user_id WHERE k.key_hash = ?",
             )
             .bind(&key_hash)
             .fetch_optional(&pool)
@@ -169,16 +171,20 @@ impl APIKeyRepository for SQLxAPIKeyStore {
             // response must both carry `NULL`/`null`.
             let allowed_models = normalize_allowed_models(input.allowed_models);
             let allowed_models_json = serialize_allowed_models(allowed_models.as_deref())?;
+            if let Some(user_id) = input.user_id.as_deref() {
+                ensure_user_exists(&pool, user_id).await?;
+            }
 
             sqlx::query(
-                "INSERT INTO api_keys (id, key_hash, key_prefix, name, enabled, rate_limit, \
+                "INSERT INTO api_keys (id, key_hash, key_prefix, name, user_id, enabled, rate_limit, \
                  quota_limit, usage_tokens, credit_limit, usage_cost, allowed_models, created_at) \
-                 VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, 0, ?, ?)",
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, 0, ?, ?)",
             )
             .bind(&id)
             .bind(hash_api_key(&secret))
             .bind(&key_prefix)
             .bind(&input.name)
+            .bind(input.user_id.as_deref())
             .bind(i64::from(input.enabled))
             .bind(i64::from(input.rate_limit))
             .bind(i64::from(input.quota_limit))
@@ -196,6 +202,7 @@ impl APIKeyRepository for SQLxAPIKeyStore {
                     id,
                     key_prefix,
                     name: input.name,
+                    user_id: input.user_id,
                     enabled: input.enabled,
                     rate_limit: input.rate_limit,
                     quota_limit: input.quota_limit,
@@ -231,6 +238,12 @@ impl APIKeyRepository for SQLxAPIKeyStore {
             if let Some(name) = patch.name {
                 key.name = name;
             }
+            if let Some(Some(user_id)) = patch.user_id.as_ref() {
+                ensure_user_exists(&mut *transaction, user_id).await?;
+            }
+            if let Some(user_id) = patch.user_id {
+                key.user_id = user_id;
+            }
             if let Some(enabled) = patch.enabled {
                 key.enabled = enabled;
             }
@@ -250,10 +263,11 @@ impl APIKeyRepository for SQLxAPIKeyStore {
             let allowed_models = serialize_allowed_models(key.allowed_models.as_deref())?;
 
             sqlx::query(
-                "UPDATE api_keys SET name = ?, enabled = ?, rate_limit = ?, quota_limit = ?, \
-                 credit_limit = ?, allowed_models = ? WHERE id = ?",
+                "UPDATE api_keys SET name = ?, user_id = ?, enabled = ?, rate_limit = ?, \
+                 quota_limit = ?, credit_limit = ?, allowed_models = ? WHERE id = ?",
             )
             .bind(&key.name)
+            .bind(key.user_id.as_deref())
             .bind(i64::from(key.enabled))
             .bind(i64::from(key.rate_limit))
             .bind(i64::from(key.quota_limit))
@@ -472,6 +486,7 @@ fn api_key_from_row(row: &SqliteRow) -> Result<APIKey, APIError> {
         id: text(row, "id")?,
         key_prefix: text(row, "key_prefix")?,
         name: text(row, "name")?,
+        user_id: row.try_get::<Option<String>, _>("user_id").unwrap_or(None),
         enabled: row.try_get::<i64, _>("enabled").unwrap_or(0) != 0,
         rate_limit: u32_from(row, "rate_limit"),
         quota_limit: u32_from(row, "quota_limit"),
@@ -491,6 +506,7 @@ fn auth_record_from_row(row: &SqliteRow) -> APIKeyRecord {
     APIKeyRecord {
         id: row.try_get::<String, _>("id").unwrap_or_default(),
         enabled: row.try_get::<i64, _>("enabled").unwrap_or(0) != 0,
+        owner_enabled: row.try_get::<i64, _>("owner_enabled").unwrap_or(0) != 0,
         rate_limit: u32_from(row, "rate_limit"),
         quota_limit: row.try_get::<i64, _>("quota_limit").unwrap_or(0).max(0) as f64,
         usage_tokens: row.try_get::<i64, _>("usage_tokens").unwrap_or(0).max(0) as f64,
@@ -510,4 +526,23 @@ fn u32_from(row: &SqliteRow, column: &str) -> u32 {
 
 fn sql_error(context: &'static str) -> impl FnOnce(sqlx::Error) -> APIError {
     move |error| APIError::new(500, constants::database::with_context(context, &error))
+}
+
+/// Refuses an owner id with no `users` row. A disabled owner is accepted: its
+/// key exists and cannot serve until the account is re-enabled.
+async fn ensure_user_exists(
+    executor: impl sqlx::Executor<'_, Database = sqlx::Sqlite>,
+    user_id: &str,
+) -> Result<(), APIError> {
+    let found = sqlx::query_scalar::<_, i64>("SELECT 1 FROM users WHERE id = ?")
+        .bind(user_id)
+        .fetch_optional(executor)
+        .await
+        .map_err(sql_error(constants::database::context::CHECK_API_KEY_OWNER))?;
+
+    if found.is_none() {
+        return Err(APIError::new(400, constants::users::not_found(user_id)));
+    }
+
+    Ok(())
 }

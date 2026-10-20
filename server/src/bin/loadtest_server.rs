@@ -45,6 +45,7 @@ impl APIKeyStore for OneKeyStore {
                 Some(APIKeyRecord {
                     id: "loadtest-key".to_owned(),
                     enabled: true,
+                    owner_enabled: true,
                     rate_limit: 0,
                     quota_limit: 0.0,
                     usage_tokens: 0.0,

@@ -56,7 +56,13 @@ async fn update_user(
     let patch = parse_update_input(&body)?;
 
     match users::update_user(database(&state)?, &id, patch).await? {
-        Some(user) => Ok(Json(UserResponse::from(&user)).into_response()),
+        Some(user) => {
+            // The gateway caches `owner_enabled` with each key record, outside
+            // the transaction above; without this a suspend would not bite.
+            state.security.api_keys.invalidate_cache();
+
+            Ok(Json(UserResponse::from(&user)).into_response())
+        }
         None => Err(not_found(&id)),
     }
 }

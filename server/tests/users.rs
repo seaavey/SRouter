@@ -183,6 +183,33 @@ async fn update_rejects_an_empty_name() {
 }
 
 #[tokio::test]
+async fn renaming_a_user_keeps_its_session() {
+    let database = TestDatabase::new().unwrap();
+    let app = admin_app(&database).await;
+    let (_, created) = create_user(&app, "Acme").await;
+    let id = created["id"].as_str().unwrap().to_owned();
+    let (status, cookie, _) = login(&app, created["token"].as_str().unwrap()).await;
+    assert_eq!(status, StatusCode::OK);
+
+    let (status, body) = send(
+        &app,
+        admin_request(
+            "PATCH",
+            &format!("{USERS}/{id}"),
+            json!({ "name": "Acme Renamed" }),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["name"], "Acme Renamed");
+
+    // A rename is not a revocation: only the disabling branch clears sessions.
+    let (status, me) = send(&app, portal_request(&cookie, "GET", PORTAL_ME, json!({}))).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(me["user"]["name"], "Acme Renamed");
+}
+
+#[tokio::test]
 async fn an_unknown_user_id_is_404() {
     let database = TestDatabase::new().unwrap();
     let app = admin_app(&database).await;
@@ -262,6 +289,72 @@ async fn disabling_a_user_ends_their_console_sessions() {
             .unwrap(),
         None
     );
+}
+
+/// Disabling an account has to cut both credentials at once, without a restart:
+/// the session rows are deleted in the PATCH transaction, while the gateway's
+/// cached `owner_enabled` only dies because the route invalidates the key cache.
+#[tokio::test]
+async fn disabling_a_user_refuses_their_session_and_their_key() {
+    let database = TestDatabase::new().unwrap();
+    let state = admin_state(&database).await;
+    let app = create_router(state.clone());
+    let (_, created) = create_user(&app, "Acme").await;
+    let id = created["id"].as_str().unwrap().to_owned();
+
+    let (status, key) = send(
+        &app,
+        admin_request(
+            "POST",
+            "/v1/keys",
+            json!({ "name": "Acme Key", "user_id": id }),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED);
+    let secret = key["key"].as_str().unwrap().to_owned();
+
+    let (status, cookie, _) = login(&app, created["token"].as_str().unwrap()).await;
+    assert_eq!(status, StatusCode::OK);
+
+    let gateway = |secret: &str| {
+        json_request_with_headers(
+            "POST",
+            "/v1/chat/completions",
+            json!({
+                "model": "space-bunny-free",
+                "messages": [{ "role": "user", "content": "hi" }]
+            }),
+            &[("x-api-key", secret)],
+        )
+    };
+
+    // One call while the owner is enabled: 404 means the key passed auth (the
+    // registry is empty), and it primes the cache the PATCH must invalidate.
+    let response = app.clone().oneshot(gateway(&secret)).await.unwrap();
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+
+    let (status, body) = send(
+        &app,
+        admin_request(
+            "PATCH",
+            &format!("{USERS}/{id}"),
+            json!({ "enabled": false }),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["enabled"], false);
+
+    let (status, body) = send(&app, portal_request(&cookie, "GET", PORTAL_ME, json!({}))).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    assert_eq!(body["error"]["code"], "authentication_required");
+
+    let response = app.oneshot(gateway(&secret)).await.unwrap();
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    let body = json_body(response).await;
+    assert_eq!(body["error"]["code"], "api_key_disabled");
+    assert_eq!(body["error"]["message"], constants::api_key::OWNER_DISABLED);
 }
 
 const PORTAL_LOGIN: &str = "/v1/portal/login";

@@ -2361,6 +2361,7 @@ pub fn api_key_record(id: &str) -> APIKeyRecord {
     APIKeyRecord {
         id: id.to_owned(),
         enabled: true,
+        owner_enabled: true,
         rate_limit: 0,
         quota_limit: 0.0,
         usage_tokens: 0.0,

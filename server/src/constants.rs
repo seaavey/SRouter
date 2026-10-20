@@ -206,6 +206,8 @@ pub mod admin {
 pub mod api_key {
     pub const INVALID: &str = "Invalid SRouter API Key";
     pub const DISABLED: &str = "The provided SRouter API Key is disabled";
+    /// The key is fine; the customer account that owns it is suspended.
+    pub const OWNER_DISABLED: &str = "The owner of this SRouter API Key is disabled";
     pub const CREDIT_EXCEEDED: &str =
         "Insufficient credit balance. Your credit limit has been reached.";
     pub const QUOTA_EXCEEDED: &str =
@@ -922,6 +924,7 @@ pub mod database {
 
         // API-key store.
         pub const ADD_CREDIT: &str = "add credit to an API key";
+        pub const CHECK_API_KEY_OWNER: &str = "check an API key owner";
         pub const COMMIT_CREDIT_UPDATE: &str = "commit a credit update";
         pub const COMMIT_KEY_UPDATE: &str = "commit a key update";
         pub const CREATE_API_KEY: &str = "create an API key";

@@ -92,11 +92,21 @@ async fn authorize(
 }
 
 /// Rejection for a key that exists but may not serve requests, in Node's order:
-/// disabled, then credit, then token quota.
+/// disabled, owner disabled, then credit, then token quota.
 fn record_rejection(record: &APIKeyRecord) -> Option<APIError> {
     if !record.enabled {
         return Some(
             APIError::new(401, constants::api_key::DISABLED)
+                .with_error_type(constants::error_type::INVALID_REQUEST)
+                .with_code(constants::ErrorCode::ApiKeyDisabled),
+        );
+    }
+
+    // A suspended customer must stop spending through keys that are still
+    // enabled; the cache is invalidated by the users PATCH so this is immediate.
+    if !record.owner_enabled {
+        return Some(
+            APIError::new(401, constants::api_key::OWNER_DISABLED)
                 .with_error_type(constants::error_type::INVALID_REQUEST)
                 .with_code(constants::ErrorCode::ApiKeyDisabled),
         );
