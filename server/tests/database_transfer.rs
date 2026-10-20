@@ -50,7 +50,7 @@ async fn app(database: &TestDatabase) -> (Router, srouter_server::AppDatabase) {
 async fn seed_session(database: &TestDatabase) {
     let app_database = database.connect().await.expect("connect database");
     let pool = app_database.sqlite_pool().expect("SQLite pool");
-    sqlx::query("INSERT INTO admin_sessions (token_hash, created_at, expires_at) VALUES (?, ?, ?)")
+    sqlx::query("INSERT INTO auth_sessions (token_hash, created_at, expires_at) VALUES (?, ?, ?)")
         .bind(hash_session_token(SESSION_TOKEN))
         .bind(0i64)
         .bind(i64::MAX)
@@ -309,7 +309,7 @@ async fn import_replaces_the_database_and_is_visible_through_an_existing_router(
 
     // The admin cookie was cleared on the success response.
     let cleared =
-        sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM admin_sessions WHERE token_hash = ?")
+        sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM auth_sessions WHERE token_hash = ?")
             .bind(hash_session_token(SESSION_TOKEN))
             .fetch_one(&pool)
             .await
@@ -608,9 +608,42 @@ async fn database_transfer_is_not_available_under_the_v1_v1_compat_group() {
 // Import: validation rules against Rust's own DDL
 // ---------------------------------------------------------------------------
 
-/// Builds a valid v3 candidate and then applies `statements` to break it.
+/// Writes a valid current-schema SQLite file at `path`.
+///
+/// Broken candidates must claim the current version: the importer migrates
+/// anything older before it checks the shape, and the migration reconstructs
+/// missing tables and indexes.
+async fn write_current_candidate(path: &Path) {
+    let options = sqlx::sqlite::SqliteConnectOptions::new()
+        .filename(path)
+        .create_if_missing(true);
+    let pool = sqlx::sqlite::SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect_with(options)
+        .await
+        .expect("candidate pool");
+
+    for migration in [
+        include_str!("../migrations/0002_v2_schema.sql"),
+        include_str!("../migrations/0003_request_logs.sql"),
+        include_str!("../migrations/0004_remove_tunnel_settings.sql"),
+        include_str!("../migrations/0005_users.sql"),
+    ] {
+        sqlx::raw_sql(sqlx::AssertSqlSafe(migration.to_owned()))
+            .execute(&pool)
+            .await
+            .expect("candidate schema");
+    }
+    sqlx::query("PRAGMA user_version = 5")
+        .execute(&pool)
+        .await
+        .expect("record version");
+    pool.close().await;
+}
+
+/// Builds a valid current-schema candidate and then applies `statements` to break it.
 async fn write_broken_candidate(path: &Path, statements: &[&str]) {
-    write_valid_candidate(path).await;
+    write_current_candidate(path).await;
     let options = sqlx::sqlite::SqliteConnectOptions::new().filename(path);
     let pool = sqlx::sqlite::SqlitePoolOptions::new()
         .max_connections(1)
@@ -671,6 +704,7 @@ async fn import_rejects_candidates_missing_a_table_column_or_index() {
                  credit_limit REAL NOT NULL DEFAULT 0,\
                  usage_cost REAL NOT NULL DEFAULT 0,\
                  allowed_models TEXT,\
+                 user_id TEXT,\
                  created_at INTEGER NOT NULL)",
                 "CREATE INDEX idx_api_keys_key_hash ON api_keys (key_hash)",
             ],
@@ -722,7 +756,7 @@ async fn import_accepts_a_v1_candidate_by_migrating_it() {
     let response = import_candidate(&app, &candidate).await;
     assert_eq!(response.status(), StatusCode::OK);
 
-    // The legacy row survived the migration and the file is now v4.
+    // The legacy row survived the migration and the file is now v5.
     let pool = app_database.sqlite_pool().expect("SQLite pool");
     let marker: Option<String> =
         sqlx::query_scalar("SELECT value FROM settings WHERE key = 'legacy_marker'")
@@ -734,7 +768,7 @@ async fn import_accepts_a_v1_candidate_by_migrating_it() {
         .fetch_one(&pool)
         .await
         .unwrap();
-    assert_eq!(version, 4);
+    assert_eq!(version, 5);
 }
 
 // ---------------------------------------------------------------------------

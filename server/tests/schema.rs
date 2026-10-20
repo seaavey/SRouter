@@ -7,9 +7,9 @@ use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use sqlx::{Row, SqlitePool};
 use support::TestDatabase;
 
-const V3_TABLES: [&str; 10] = [
+const V3_TABLES: [&str; 11] = [
     "admin_accounts",
-    "admin_sessions",
+    "auth_sessions",
     "api_keys",
     "favorite_models",
     "fallback_rules",
@@ -18,10 +18,12 @@ const V3_TABLES: [&str; 10] = [
     "providers",
     "request_logs",
     "settings",
+    "users",
 ];
 
-const V3_INDEXES: [&str; 5] = [
+const V3_INDEXES: [&str; 6] = [
     "idx_api_keys_key_hash",
+    "idx_api_keys_user",
     "idx_request_logs_created",
     "idx_request_logs_provider",
     "idx_request_logs_model",
@@ -34,7 +36,7 @@ async fn fresh_database_gets_the_complete_v3_schema() {
     let database = test_database.connect().await.expect("connect to SQLite");
     let pool = database.sqlite_pool().expect("SQLite pool").clone();
 
-    assert_eq!(user_version(&pool).await, 4, "user_version must be 4");
+    assert_eq!(user_version(&pool).await, 5, "user_version must be 5");
 
     let tables = table_names(&pool).await;
     for expected in V3_TABLES {
@@ -70,7 +72,7 @@ async fn legacy_v1_database_is_transformed_to_v3() {
     let database = test_database.connect().await.expect("migrate legacy file");
     let pool = database.sqlite_pool().expect("SQLite pool").clone();
 
-    assert_eq!(user_version(&pool).await, 4);
+    assert_eq!(user_version(&pool).await, 5);
 
     // Renamed and merged tables.
     let tables = table_names(&pool).await;
@@ -232,7 +234,7 @@ async fn legacy_v1_database_is_transformed_to_v3() {
     assert_eq!(fallback.try_get::<i64, _>("max_retries").unwrap(), 1);
 
     // Untouched tables keep their rows verbatim.
-    let sessions: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM admin_sessions")
+    let sessions: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM auth_sessions")
         .fetch_one(&pool)
         .await
         .unwrap();
@@ -342,7 +344,7 @@ async fn legacy_database_with_missing_optional_columns_still_migrates() {
     let database = test_database.connect().await.expect("migrate drift file");
     let migrated = database.sqlite_pool().expect("SQLite pool").clone();
 
-    assert_eq!(user_version(&migrated).await, 4);
+    assert_eq!(user_version(&migrated).await, 5);
 
     // request_logs gained the columns Node's ALTERs used to add.
     let columns = table_columns(&migrated, "request_logs").await;
@@ -437,7 +439,7 @@ async fn v2_request_logs_keep_legacy_ids_when_upgraded_to_v3() {
 
     let database = test_database.connect().await.expect("upgrade v2 database");
     let pool = database.sqlite_pool().expect("SQLite pool");
-    assert_eq!(user_version(&pool).await, 4);
+    assert_eq!(user_version(&pool).await, 5);
     let row = sqlx::query(
         "SELECT id, request_id, api_key_id, legacy_id, legacy_api_key_id, method, path \
          FROM request_logs WHERE legacy_id = 'log_existing'",
@@ -526,7 +528,7 @@ async fn assert_tunnel_settings_removed(pool: &SqlitePool, expected_version: i64
 }
 
 #[tokio::test]
-async fn tunnel_settings_rows_are_deleted_when_a_v3_file_reaches_v4() {
+async fn tunnel_settings_rows_are_deleted_when_a_v3_file_reaches_v5() {
     // The production path: a file an earlier Rust build already migrated to
     // v3, still carrying the tunnel rows the Node oracle wrote.
     let test_database = TestDatabase::new().expect("temporary database");
@@ -569,9 +571,9 @@ async fn tunnel_settings_rows_are_deleted_when_a_v3_file_reaches_v4() {
     }
     pool.close().await;
 
-    let database = test_database.connect().await.expect("migrate to v4");
+    let database = test_database.connect().await.expect("migrate to v5");
     let pool = database.sqlite_pool().expect("SQLite pool");
-    assert_tunnel_settings_removed(&pool, 4).await;
+    assert_tunnel_settings_removed(&pool, 5).await;
 }
 
 #[tokio::test]
@@ -600,7 +602,7 @@ async fn tunnel_settings_rows_are_deleted_across_the_v1_transform() {
 
     let database = test_database.connect().await.expect("migrate legacy file");
     let pool = database.sqlite_pool().expect("SQLite pool");
-    assert_tunnel_settings_removed(&pool, 4).await;
+    assert_tunnel_settings_removed(&pool, 5).await;
 }
 
 /// The exact v1 layout observed from a Node-created database (probe dump).

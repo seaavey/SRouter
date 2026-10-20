@@ -10,7 +10,7 @@ use crate::features::admin_auth::{AdminAuthRepository, AdminSessionStore};
 use crate::infrastructure::database::AppDatabase;
 
 /// Admin account rows (`admin_accounts`, singleton `id = 1`) and login sessions
-/// (`admin_sessions`); only the sha256 token hash is ever stored.
+/// (`auth_sessions`); only the sha256 token hash is ever stored.
 #[derive(Clone)]
 pub struct SQLxAdminAuthStore {
     database: AppDatabase,
@@ -112,7 +112,7 @@ impl AdminAuthRepository for SQLxAdminAuthStore {
         Box::pin(async move {
             let pool = self.pool()?;
             sqlx::query(
-                "INSERT OR REPLACE INTO admin_sessions (token_hash, created_at, expires_at) \
+                "INSERT OR REPLACE INTO auth_sessions (token_hash, created_at, expires_at) \
                  VALUES (?, ?, ?)",
             )
             .bind(token_hash)
@@ -133,7 +133,7 @@ impl AdminAuthRepository for SQLxAdminAuthStore {
 
         Box::pin(async move {
             let pool = self.pool()?;
-            let result = sqlx::query("DELETE FROM admin_sessions WHERE token_hash = ?")
+            let result = sqlx::query("DELETE FROM auth_sessions WHERE token_hash = ?")
                 .bind(token_hash)
                 .execute(&pool)
                 .await
@@ -155,7 +155,7 @@ impl AdminSessionStore for SQLxAdminAuthStore {
         Box::pin(async move {
             let pool = self.pool()?;
             let count: i64 = sqlx::query_scalar(
-                "SELECT COUNT(*) FROM admin_sessions WHERE token_hash = ? AND expires_at > ?",
+                "SELECT COUNT(*) FROM auth_sessions WHERE token_hash = ? AND expires_at > ?",
             )
             .bind(token_hash)
             .bind(now_ms)

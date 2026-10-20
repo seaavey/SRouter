@@ -19,7 +19,7 @@ use crate::error::APIError;
 
 /// The schema version this build writes. A database reporting a higher
 /// version is refused instead of downgraded.
-pub const SCHEMA_VERSION: i64 = 4;
+pub const SCHEMA_VERSION: i64 = 5;
 
 /// The version whose migration step added the request-log columns and the
 /// legacy id upgrade; files already at or above it must not replay that step.
@@ -33,6 +33,9 @@ const REQUEST_LOGS_V3_SQL: &str = include_str!("../../../migrations/0003_request
 /// the only migration statement that deletes rows.
 const TUNNEL_SETTINGS_V4_SQL: &str =
     include_str!("../../../migrations/0004_remove_tunnel_settings.sql");
+/// The v5 customer tables (`server/migrations/0005_users.sql`), which also
+/// rename `admin_sessions` to `auth_sessions`.
+const USERS_V5_SQL: &str = include_str!("../../../migrations/0005_users.sql");
 
 /// Brings the SQLite file to [`SCHEMA_VERSION`].
 pub async fn run(pool: &SqlitePool) -> Result<(), APIError> {
@@ -93,6 +96,15 @@ pub async fn run(pool: &SqlitePool) -> Result<(), APIError> {
         .await
         .map_err(sql_error(
             constants::database::context::APPLY_TUNNEL_SETTINGS_CLEANUP,
+        ))?;
+
+    // Unconditional: the early return above leaves only files below v5, and
+    // every earlier shape still carried `admin_sessions` for the rename.
+    sqlx::raw_sql(USERS_V5_SQL)
+        .execute(&mut *transaction)
+        .await
+        .map_err(sql_error(
+            constants::database::context::APPLY_CURRENT_SCHEMA,
         ))?;
 
     let record_version = format!("PRAGMA user_version = {SCHEMA_VERSION}");
