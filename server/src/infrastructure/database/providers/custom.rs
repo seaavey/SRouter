@@ -144,8 +144,8 @@ fn delete_failed(error: sqlx::Error) -> APIError {
     )
 }
 
-/// Deletes one custom provider row. Returns whether a row was removed, so the
-/// route can answer `404`.
+/// Deletes one custom provider row with its account rows and model overrides.
+/// Returns whether a row was removed, so the route can answer `404`.
 pub async fn delete_custom_provider(database: &AppDatabase, id: &str) -> Result<bool, APIError> {
     let pool = database.sqlite_required(constants::database::PROVIDERS_UNSUPPORTED)?;
     let mut transaction = pool.begin().await.map_err(delete_failed)?;
