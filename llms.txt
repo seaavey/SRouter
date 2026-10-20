@@ -36,8 +36,9 @@ Branch note: this file describes the tree on `feat/api-rust-migration` (PR #155)
 ## API surface
 
 - Gateway: `POST /v1/chat/completions` (aliases `/v1/chat`, `/v1/chat/completion`), `POST /v1/messages`, `POST /v1/messages/count_tokens`, `POST /v1/images/generations`. SSE streaming; a provider failure mid-stream is an SSE error event, never a dropped connection.
-- Read: `GET /v1/models`, `/v1/models/{*model}`, `/v1/models/pricing`, `/v1/providers`, `/v1/providers/catalog`, `/v1/providers/{id}`, `/v1/logs` (+ `/{id}`, `/stats`, `/analytics`, `/events`), `/v1/quota` (alias `/v1/qouta`), `/v1/settings`.
-- Operator (admin session + CSRF): model writes under `/v1/models/{*model}`, `PATCH /v1/providers/{id}`, `PATCH /v1/providers/{id}/round-robin`, custom providers (`POST|DELETE /v1/providers`, `/v1/providers/verify`, `/v1/providers/connections/verify`), `/v1/keys` CRUD plus `/v1/keys/{id}/credit`, `POST|PATCH /v1/settings`, `/v1/admin/{status,setup,login,logout,change-password}`, `/v1/admin/database/{export,import}`.
+- Read (API key): `GET /v1/models`, `/v1/models/{*model}`, `/v1/models/pricing`, `GET /v1/settings`.
+- Operator (admin session + CSRF): model writes under `/v1/models/{*model}`, `PATCH /v1/providers/{id}`, `PATCH /v1/providers/{id}/round-robin`, custom providers (`POST|DELETE /v1/providers`, `/v1/providers/verify`, `/v1/providers/connections/verify`), the provider/log/quota reads (`GET /v1/providers`, `/v1/providers/catalog`, `/v1/providers/{id}`, `/v1/logs` with `/{id}`, `/stats`, `/analytics`, `/events`, `/v1/quota` and its `/v1/qouta` alias), `/v1/keys` CRUD plus `/v1/keys/{id}/credit`, `/v1/users` CRUD plus `POST /v1/users/{id}/token`, `POST|PATCH /v1/settings`, `/v1/admin/{status,setup,login,logout,change-password}`, `/v1/admin/database/{export,import}`.
+- Customer console (user session from `POST /v1/portal/login`, which takes an `sr-user-…` token and is public but throttled): `GET /v1/portal/me`, `GET /v1/portal/logs`, `POST /v1/portal/logout`. Read-only and tenant-scoped: a customer sees only the keys and request logs it owns.
 - OAuth: `/v1/auth/{qoder,cline,codebuddy,codebuddy-cn,grok-web,openai,antigravity,claude}/...` (admin session to start, callbacks public).
 - Errors: OpenAI envelope `{"error": {"message", "type", "code", "param"}}`.
 
