@@ -8,7 +8,7 @@ use crate::error::APIError;
 use crate::infrastructure::database::AppDatabase;
 use crate::infrastructure::database::row::text;
 
-use super::credential_string;
+use super::{credential_string, merge_rotated_tokens, read_credentials, write_credentials};
 
 /// A stored Antigravity connection's usable credentials. It never enters a
 /// response or a log line; it exists so the executor can sign one upstream
@@ -122,26 +122,6 @@ fn connection_credentials(write: &AntigravityConnectionWrite, refreshed_at_ms: i
     })
 }
 
-/// Merges rotated tokens into an existing credentials object, preserving every
-/// other key (the project id above all). Writes the canonical `token_expires_at`
-/// so a migrated row's stale value is overwritten rather than shadowed.
-fn merge_rotated_tokens(
-    mut credentials: Value,
-    access_token: &str,
-    refresh_token: &str,
-    expires_at_ms: Option<i64>,
-    refreshed_at_ms: i64,
-) -> Value {
-    credentials["access_token"] = Value::String(access_token.to_owned());
-    credentials["refresh_token"] = Value::String(refresh_token.to_owned());
-    credentials["token_expires_at"] = match expires_at_ms {
-        Some(expires_at) => Value::from(expires_at),
-        None => Value::Null,
-    };
-    credentials["last_refreshed_at"] = Value::from(refreshed_at_ms);
-    credentials
-}
-
 /// Writes or refreshes one Antigravity connection. The id is the primary key,
 /// so a repeated callback for the same account updates the token in place.
 pub async fn upsert_antigravity_connection(
@@ -184,47 +164,15 @@ pub async fn update_antigravity_tokens(
     expires_at_ms: Option<i64>,
     refreshed_at_ms: i64,
 ) -> Result<(), APIError> {
-    let pool = database.sqlite_required(constants::database::PROVIDERS_UNSUPPORTED)?;
-
-    let current = sqlx::query_scalar::<_, String>("SELECT credentials FROM providers WHERE id = ?")
-        .bind(id)
-        .fetch_optional(&pool)
-        .await
-        .map_err(|error| {
-            APIError::new(
-                500,
-                constants::database::with_context("read the Antigravity credentials", error),
-            )
-        })?;
-
+    let current = read_credentials(database, id, "read the Antigravity credentials").await?;
     let credentials = merge_rotated_tokens(
-        current
-            .and_then(|raw| serde_json::from_str::<Value>(&raw).ok())
-            .filter(Value::is_object)
-            .unwrap_or_else(|| Value::Object(serde_json::Map::new())),
+        current,
         access_token,
         refresh_token,
         expires_at_ms,
         refreshed_at_ms,
     );
-
-    sqlx::query(
-        "UPDATE providers
-         SET credentials = ?, enabled = 1
-         WHERE id = ?",
-    )
-    .bind(credentials.to_string())
-    .bind(id)
-    .execute(&pool)
-    .await
-    .map_err(|error| {
-        APIError::new(
-            500,
-            constants::database::with_context("update Antigravity tokens", error),
-        )
-    })?;
-
-    Ok(())
+    write_credentials(database, id, &credentials, "update Antigravity tokens").await
 }
 
 /// Writes the CloudCode project id resolved by `loadCodeAssist` (D5) into the

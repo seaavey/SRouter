@@ -8,7 +8,7 @@ use crate::error::APIError;
 use crate::infrastructure::database::AppDatabase;
 use crate::infrastructure::database::row::text;
 
-use super::credential_string;
+use super::{credential_string, merge_rotated_tokens, read_credentials, write_credentials};
 
 /// Credential store for Codex: the ChatGPT OAuth session behind `openai_codex`.
 #[derive(Clone, Debug)]
@@ -101,48 +101,10 @@ pub async fn update_codex_tokens(
     expires_at_ms: Option<i64>,
     refreshed_at_ms: i64,
 ) -> Result<(), APIError> {
-    let pool = database.sqlite_required(constants::database::PROVIDERS_UNSUPPORTED)?;
-
-    let current = sqlx::query_scalar::<_, String>("SELECT credentials FROM providers WHERE id = ?")
-        .bind(id)
-        .fetch_optional(&pool)
-        .await
-        .map_err(|error| {
-            APIError::new(
-                500,
-                constants::database::with_context("read the Codex credentials", &error),
-            )
-        })?;
-
-    let mut credentials: Value = current
-        .and_then(|raw| serde_json::from_str::<Value>(&raw).ok())
-        .filter(Value::is_object)
-        .unwrap_or_else(|| Value::Object(serde_json::Map::new()));
-    credentials["access_token"] = Value::String(access.to_owned());
-    credentials["refresh_token"] = Value::String(refresh.to_owned());
-    credentials["token_expires_at"] = match expires_at_ms {
-        Some(expires_at) => Value::from(expires_at),
-        None => Value::Null,
-    };
-    credentials["last_refreshed_at"] = Value::from(refreshed_at_ms);
-
-    sqlx::query(
-        "UPDATE providers
-         SET credentials = ?, enabled = 1
-         WHERE id = ?",
-    )
-    .bind(credentials.to_string())
-    .bind(id)
-    .execute(&pool)
-    .await
-    .map_err(|error| {
-        APIError::new(
-            500,
-            constants::database::with_context("update Codex tokens", &error),
-        )
-    })?;
-
-    Ok(())
+    let current = read_credentials(database, id, "read the Codex credentials").await?;
+    let credentials =
+        merge_rotated_tokens(current, access, refresh, expires_at_ms, refreshed_at_ms);
+    write_credentials(database, id, &credentials, "update Codex tokens").await
 }
 
 /// The Codex connection row the OAuth import writes after a token is saved.

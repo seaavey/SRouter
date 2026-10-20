@@ -8,7 +8,7 @@ use crate::error::APIError;
 use crate::infrastructure::database::AppDatabase;
 use crate::infrastructure::database::row::text;
 
-use super::credential_string;
+use super::{credential_string, write_credentials};
 
 /// The connection row the auth routes write after a successful device flow.
 #[derive(Clone, Debug)]
@@ -154,8 +154,6 @@ pub async fn update_cline_tokens(
     expires_at_ms: Option<i64>,
     refreshed_at_ms: i64,
 ) -> Result<(), APIError> {
-    let pool = database.sqlite_required(constants::database::PROVIDERS_UNSUPPORTED)?;
-
     let credentials = serde_json::json!({
         "access_token": access,
         "refresh_token": refresh,
@@ -166,23 +164,7 @@ pub async fn update_cline_tokens(
         },
     });
 
-    sqlx::query(
-        "UPDATE providers
-         SET credentials = ?, enabled = 1
-         WHERE id = ?",
-    )
-    .bind(credentials.to_string())
-    .bind(id)
-    .execute(&pool)
-    .await
-    .map_err(|error| {
-        APIError::new(
-            500,
-            constants::database::with_context("update Cline tokens", error),
-        )
-    })?;
-
-    Ok(())
+    write_credentials(database, id, &credentials, "update Cline tokens").await
 }
 
 /// Credential store for Cline: access token, refresh token, and timestamps.

@@ -150,14 +150,96 @@ pub(super) fn credential_string(
         .map(str::to_owned)
 }
 
+/// Merges rotated tokens into an existing credentials object, preserving every
+/// other key (a driver's organization or project id above all). Writes the
+/// canonical `token_expires_at` so a migrated row's stale value is overwritten
+/// rather than shadowed.
+pub(super) fn merge_rotated_tokens(
+    mut credentials: Value,
+    access_token: &str,
+    refresh_token: &str,
+    expires_at_ms: Option<i64>,
+    refreshed_at_ms: i64,
+) -> Value {
+    credentials["access_token"] = Value::String(access_token.to_owned());
+    credentials["refresh_token"] = Value::String(refresh_token.to_owned());
+    credentials["token_expires_at"] = match expires_at_ms {
+        Some(expires_at) => Value::from(expires_at),
+        None => Value::Null,
+    };
+    credentials["last_refreshed_at"] = Value::from(refreshed_at_ms);
+    credentials
+}
+
+/// Reads one provider's credential blob for a read-merge-write update. A row
+/// that is missing or unparseable reads as an empty object, so a refresh still
+/// stores the new tokens.
+pub(super) async fn read_credentials(
+    database: &AppDatabase,
+    id: &str,
+    action: &str,
+) -> Result<Value, APIError> {
+    let pool = database.sqlite_required(constants::database::PROVIDERS_UNSUPPORTED)?;
+    let current = sqlx::query_scalar::<_, String>("SELECT credentials FROM providers WHERE id = ?")
+        .bind(id)
+        .fetch_optional(&pool)
+        .await
+        .map_err(|error| APIError::new(500, constants::database::with_context(action, &error)))?;
+
+    Ok(current
+        .and_then(|raw| serde_json::from_str::<Value>(&raw).ok())
+        .filter(Value::is_object)
+        .unwrap_or_else(|| Value::Object(serde_json::Map::new())))
+}
+
+/// Stores a provider's credential blob and re-enables the row.
+pub(super) async fn write_credentials(
+    database: &AppDatabase,
+    id: &str,
+    credentials: &Value,
+    action: &str,
+) -> Result<(), APIError> {
+    let pool = database.sqlite_required(constants::database::PROVIDERS_UNSUPPORTED)?;
+
+    sqlx::query(
+        "UPDATE providers
+         SET credentials = ?, enabled = 1
+         WHERE id = ?",
+    )
+    .bind(credentials.to_string())
+    .bind(id)
+    .execute(&pool)
+    .await
+    .map_err(|error| APIError::new(500, constants::database::with_context(action, &error)))?;
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use serde_json::{Value, json};
 
-    use super::{account_expiry_ms, account_identity};
+    use super::{account_expiry_ms, account_identity, merge_rotated_tokens};
 
     fn object(value: Value) -> serde_json::Map<String, Value> {
         value.as_object().cloned().expect("an object literal")
+    }
+
+    #[test]
+    fn merge_preserves_unknown_credentials() {
+        let merged = merge_rotated_tokens(
+            json!({"organization_id": "org-1", "access_token": "old"}),
+            "new-access",
+            "new-refresh",
+            Some(1_700_000_000_000),
+            1_700_000_000_001,
+        );
+
+        assert_eq!(merged["organization_id"], "org-1");
+        assert_eq!(merged["access_token"], "new-access");
+        assert_eq!(merged["refresh_token"], "new-refresh");
+        assert_eq!(merged["token_expires_at"], 1_700_000_000_000_i64);
+        assert_eq!(merged["last_refreshed_at"], 1_700_000_000_001_i64);
     }
 
     #[test]
