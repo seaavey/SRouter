@@ -12,13 +12,14 @@ import type { DashboardTab } from "@/components/layout/sidebar"
 
 const TAB_ROUTES: Record<
   DashboardTab,
-  "/" | "/providers" | "/usage" | "/logs" | "/keys" | "/settings"
+  "/" | "/providers" | "/usage" | "/logs" | "/keys" | "/users" | "/settings"
 > = {
   overview: "/",
   providers: "/providers",
   usage: "/usage",
   logs: "/logs",
   keys: "/keys",
+  users: "/users",
   settings: "/settings",
 }
 
@@ -27,6 +28,7 @@ function getTabFromPathname(pathname: string): DashboardTab {
   if (pathname.startsWith("/usage")) return "usage"
   if (pathname.startsWith("/logs")) return "logs"
   if (pathname.startsWith("/keys")) return "keys"
+  if (pathname.startsWith("/users")) return "users"
   if (pathname.startsWith("/settings")) return "settings"
   return "overview"
 }

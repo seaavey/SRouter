@@ -4,6 +4,7 @@ import { useState } from "react"
 
 import { keyListQuery } from "@/api/keys"
 import type { APIKeyResponse } from "@/api/types"
+import { usersQuery } from "@/api/users"
 import ActionButton from "@/components/arc/action-button/action-button"
 import { Alert } from "@/components/arc/alert/alert"
 import { Button } from "@/components/arc/button/button"
@@ -18,11 +19,13 @@ import { KeysTable } from "./KeysTable"
 
 export function KeysView() {
   const { data, isPending, isError, error, refetch } = useQuery(keyListQuery)
+  const { data: userList } = useQuery(usersQuery)
   const [createOpen, setCreateOpen] = useState(false)
   const [editingKey, setEditingKey] = useState<APIKeyResponse | null>(null)
   const [creditKey, setCreditKey] = useState<APIKeyResponse | null>(null)
 
   const keys = data?.data ?? []
+  const users = userList?.data ?? []
 
   async function retry() {
     const result = await refetch()
@@ -89,6 +92,7 @@ export function KeysView() {
       {!isPending && !isError && keys.length > 0 && (
         <KeysTable
           keys={keys}
+          users={users}
           onEditKey={(key) => setEditingKey(key)}
           onAddCredit={(key) => setCreditKey(key)}
         />
