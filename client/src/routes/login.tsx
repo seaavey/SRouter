@@ -413,11 +413,10 @@ function Login() {
       try {
         await loginPortal(token)
         // Either role can leave the shared cookie behind, so a token sign-in
-        // must refresh both caches before the console's gate reads them.
-        await Promise.all([
-          queryClient.invalidateQueries({ queryKey: ["portal"] }),
-          queryClient.invalidateQueries({ queryKey: ["admin", "status"] }),
-        ])
+        // must clear the previous tenant's console and refresh the operator
+        // status before the portal gate reads either cache.
+        queryClient.removeQueries({ queryKey: ["portal"] })
+        await queryClient.invalidateQueries({ queryKey: ["admin", "status"] })
         toast.success("Signed in successfully")
         await navigate({ to: "/portal", replace: true })
       } catch (error) {

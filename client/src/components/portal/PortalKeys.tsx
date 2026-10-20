@@ -92,7 +92,7 @@ export default function PortalKeys({ keys }: PortalKeysProps) {
                   </td>
                   <td className="py-2.5 pr-4 text-right text-foreground tabular-nums">
                     {key.quota_limit === 0
-                      ? "Unlimited"
+                      ? `${NUMBER.format(key.usage_tokens)} / Unlimited`
                       : `${NUMBER.format(key.usage_tokens)} / ${NUMBER.format(key.quota_limit)}`}
                   </td>
                   <td className="py-2.5 pr-4 text-right text-foreground tabular-nums">

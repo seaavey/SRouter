@@ -109,8 +109,10 @@ export default function PortalPage() {
       tokens: sum.tokens + key.usage_tokens,
       spend: sum.spend + (key.usage_cost ?? 0),
       credit: sum.credit + (key.credit_limit ?? 0),
+      // One uncapped key makes the sum a subtotal, not an account limit.
+      uncapped: sum.uncapped || !key.credit_limit,
     }),
-    { tokens: 0, spend: 0, credit: 0 }
+    { tokens: 0, spend: 0, credit: 0, uncapped: false }
   )
 
   return (
@@ -163,7 +165,9 @@ export default function PortalPage() {
             <div>
               <dt className="text-xs text-muted-foreground">Credit limit</dt>
               <dd className="mt-0.5 text-sm font-medium text-foreground tabular-nums">
-                {totals.credit === 0 ? "No cap" : MONEY.format(totals.credit)}
+                {totals.uncapped || totals.credit === 0
+                  ? "No cap"
+                  : MONEY.format(totals.credit)}
               </dd>
             </div>
           </dl>
