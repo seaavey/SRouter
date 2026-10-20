@@ -4,11 +4,12 @@ import {
   KeyRound,
   LayoutDashboard,
   PanelLeftClose,
+  PanelLeftOpen,
   Settings,
   Terminal,
   X,
 } from "lucide-react"
-import { useEffect, type ComponentType } from "react"
+import { useEffect, useRef, useState, type ComponentType } from "react"
 
 import { ScrollArea } from "@/components/arc/scroll-area/scroll-area"
 import { Tooltip } from "@/components/arc/tooltip/tooltip"
@@ -58,6 +59,9 @@ const NAV_SECTIONS: NavSection[] = [
   },
 ]
 
+/** Long enough that a pointer crossing the rail does not open it by accident. */
+const PEEK_DELAY_MS = 120
+
 export type SidebarProps = {
   collapsed: boolean
   onToggleCollapse: () => void
@@ -75,6 +79,45 @@ export function Sidebar({
   mobileOpen,
   onCloseMobile,
 }: SidebarProps) {
+  // The collapsed rail widens over the page instead of pushing it, so a peek
+  // costs the content column nothing. The header control pins it open.
+  const [peek, setPeek] = useState(false)
+  const peekTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const peeking = collapsed && peek
+  const expanded = !collapsed || peeking
+
+  function cancelPeek() {
+    if (peekTimer.current !== null) {
+      clearTimeout(peekTimer.current)
+      peekTimer.current = null
+    }
+  }
+
+  function closePeek() {
+    cancelPeek()
+    setPeek(false)
+  }
+
+  function schedulePeek() {
+    if (!collapsed || peekTimer.current !== null) return
+    peekTimer.current = setTimeout(() => {
+      peekTimer.current = null
+      setPeek(true)
+    }, PEEK_DELAY_MS)
+  }
+
+  // A pin or a collapse clears the peek from the control that caused it; this
+  // only stops a pending open-timer from firing after unmount.
+  useEffect(
+    () => () => {
+      if (peekTimer.current !== null) {
+        clearTimeout(peekTimer.current)
+      }
+    },
+    []
+  )
+
   // The drawer covers the content and holds rows the pointer can reach, so it
   // carries the two ways out a pointer alone cannot give: Escape, and the
   // breakpoint where the permanent rail takes over.
@@ -102,9 +145,8 @@ export function Sidebar({
     }
   }, [mobileOpen, onCloseMobile])
 
-  // `rail` is the desktop icon-only rail. The drawer is always expanded, even
-  // when the rail was left collapsed, so the state cannot hide every label on a
-  // phone.
+  // `rail` is the icon-only state. The drawer is always expanded, even when the
+  // rail was left collapsed, so the state cannot hide every label on a phone.
   const renderNavItem = (item: NavItem, rail: boolean) => {
     const isActive = currentTab === item.id
     const label = TAB_LABELS[item.id]
@@ -118,6 +160,9 @@ export function Sidebar({
           onCloseMobile()
         }}
         aria-current={isActive ? "page" : undefined}
+        // A tooltip only describes an icon button; it does not name it. Without
+        // this the rail's buttons have no accessible name at all.
+        aria-label={rail ? label : undefined}
         className={`relative flex min-h-[var(--control-height-sm)] w-full cursor-pointer items-center gap-2.5 rounded-md px-2.5 text-sm tracking-tight transition-colors duration-150 ${
           isActive
             ? "bg-foreground/10 font-medium text-foreground"
@@ -172,14 +217,26 @@ export function Sidebar({
 
         {!rail && (
           <>
-            <Tooltip content="Collapse sidebar ([)" side="bottom">
+            <Tooltip
+              content={
+                peeking ? "Pin sidebar open ([)" : "Collapse sidebar ([)"
+              }
+              side="bottom"
+            >
               <button
                 type="button"
-                onClick={onToggleCollapse}
-                aria-label="Collapse sidebar"
+                onClick={() => {
+                  closePeek()
+                  onToggleCollapse()
+                }}
+                aria-label={peeking ? "Pin sidebar open" : "Collapse sidebar"}
                 className="hidden size-[var(--control-height-sm)] cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground md:inline-flex"
               >
-                <PanelLeftClose size={15} />
+                {peeking ? (
+                  <PanelLeftOpen size={15} />
+                ) : (
+                  <PanelLeftClose size={15} />
+                )}
               </button>
             </Tooltip>
             <button
@@ -234,13 +291,42 @@ export function Sidebar({
         {renderContent(false)}
       </aside>
 
-      {/* Desktop Persistent Sidebar */}
-      <aside
-        className={`hidden h-full shrink-0 flex-col border-r border-border bg-surface transition-[width] duration-200 ease-in-out md:flex ${
+      {/* The slot the rail occupies in the shell. The rail floats above the
+          page, so its peek widens without moving the content column. */}
+      <div
+        aria-hidden="true"
+        className={`hidden shrink-0 transition-[width] duration-200 ease-in-out motion-reduce:transition-none md:block ${
           collapsed ? "w-14" : "w-64"
         }`}
+      />
+
+      {/* Desktop Rail */}
+      <aside
+        onPointerEnter={(event) => {
+          // A touch pointer never leaves, so a tap must not leave it open.
+          if (event.pointerType !== "touch") {
+            schedulePeek()
+          }
+        }}
+        onPointerLeave={closePeek}
+        onFocusCapture={() => {
+          if (collapsed) {
+            cancelPeek()
+            setPeek(true)
+          }
+        }}
+        onBlur={(event) => {
+          if (
+            !event.currentTarget.contains(event.relatedTarget as Node | null)
+          ) {
+            closePeek()
+          }
+        }}
+        className={`absolute inset-y-0 left-0 z-30 hidden flex-col overflow-hidden border-r border-border bg-surface transition-[width,box-shadow] duration-200 ease-in-out motion-reduce:transition-none md:flex ${
+          expanded ? "w-64" : "w-14"
+        } ${peeking ? "shadow-[var(--shadow-floating)]" : ""}`}
       >
-        {renderContent(collapsed)}
+        {renderContent(!expanded)}
       </aside>
     </>
   )

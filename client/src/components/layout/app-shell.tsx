@@ -72,7 +72,9 @@ export function AppShell({ children, currentTab, onSelectTab }: AppShellProps) {
   }, [])
 
   return (
-    <div className="flex h-dvh w-full overflow-hidden bg-background font-sans text-foreground">
+    // `relative` anchors the desktop rail, which floats above the content so
+    // its hover peek widens without moving the column.
+    <div className="relative flex h-dvh w-full overflow-hidden bg-background font-sans text-foreground">
       {/* Collapsible App Rail Sidebar */}
       <Sidebar
         collapsed={collapsed}
