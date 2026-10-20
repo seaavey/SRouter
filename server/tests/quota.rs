@@ -1,7 +1,7 @@
 //! Integration tests for provider OAuth quota: `GET /v1/quota` and `GET /v1/qouta`.
 //!
 //! Verifies:
-//! - API-key auth requirement and loopback/key handling.
+//! - Admin-session requirement; loopback callers get no exemption.
 //! - Exact parity between `/v1/quota` and the retained compatibility alias `/v1/qouta`.
 //! - Filtering out non-OAuth providers (mirroring `apps/api/tests/quota-oauth-filter.test.ts`).
 //! - Live rate limit window extraction, status, and naming.
@@ -18,19 +18,24 @@ use axum::{
     http::{Request, StatusCode, header},
 };
 use srouter_server::app::create_router;
+use srouter_server::features::admin_auth::hash_session_token;
 use srouter_server::{AppState, QuotaCache, SecurityState};
 use support::codex_fake::{FakeCodexUpstream, codex_registry, connect_codex};
 use support::{FixtureAPIKeyStore, TestDatabase, test_config, with_loopback_client};
 use tower::ServiceExt;
 
+const SESSION_TOKEN: &str = "test-session-token";
+
 async fn app(database: &TestDatabase, fake: &FakeCodexUpstream) -> Router {
-    let database = database.connect().await.expect("temporary database");
+    let app_database = database.connect().await.expect("temporary database");
+    let security =
+        support::sqlx_security_state(database, vec![hash_session_token(SESSION_TOKEN)]).await;
     let state = AppState::with_security(
         test_config(),
-        codex_registry(Some(database.clone()), fake),
-        SecurityState::unconfigured(),
+        codex_registry(Some(app_database.clone()), fake),
+        security,
     )
-    .with_database(database)
+    .with_database(app_database)
     .with_quota_cache(Arc::new(QuotaCache::with_usage_url(fake.usage_url())));
 
     create_router(state)
@@ -41,6 +46,7 @@ fn get_request(uri: &str) -> Request<Body> {
         Request::builder()
             .method("GET")
             .uri(uri)
+            .header("cookie", format!("srouter_admin_session={SESSION_TOKEN}"))
             .body(Body::empty())
             .expect("request"),
     )
@@ -54,15 +60,15 @@ async fn json_body(response: axum::response::Response) -> serde_json::Value {
 }
 
 #[tokio::test]
-async fn quota_requires_api_key_when_configured() {
+async fn quota_requires_an_admin_session() {
     let database = TestDatabase::new().expect("temporary database");
     let fake = FakeCodexUpstream::start().await;
     let app_db = database.connect().await.expect("connect database");
 
-    // Configure security state with a key requirement
+    // No live sessions, so the admin-session guard rejects before the handler.
     let security = SecurityState::new(
         Arc::new(FixtureAPIKeyStore::new(true, Vec::new())),
-        Arc::new(srouter_server::features::admin_auth::EmptyAdminSessionStore),
+        Arc::new(srouter_server::features::admin_auth::EmptySessionStore),
     );
 
     let state = AppState::with_security(
@@ -75,7 +81,7 @@ async fn quota_requires_api_key_when_configured() {
 
     let router = create_router(state);
 
-    // Missing key -> 401
+    // No admin cookie -> 401
     let req = Request::builder()
         .method("GET")
         .uri("/v1/quota")

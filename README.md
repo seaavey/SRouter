@@ -159,15 +159,18 @@ Every setting is an environment variable, and [`server/.env.example`](server/.en
 | `POST`                        | `/v1/images/generations`                                                               | API key + rate limit            | Image generation                                             |
 | `GET`                         | `/v1/models`, `/v1/models/{*model}`                                                    | API key                         | Catalog with allowlist, favorites, and hidden models applied |
 | `GET`                         | `/v1/models/pricing`                                                                   | API key                         | models.dev pricing snapshot                                  |
-| `GET`                         | `/v1/quota` (alias `/v1/qouta`)                                                        | API key                         | Provider quota                                               |
-| `GET`                         | `/v1/logs`, `/v1/logs/{id}`, `/v1/logs/stats`, `/v1/logs/analytics`, `/v1/logs/events` | API key                         | Request logs, aggregates, and the SSE stream                 |
-| `GET`                         | `/v1/providers`, `/v1/providers/catalog`, `/v1/providers/{id}`                         | API key                         | Connections, catalog, and one provider                       |
+| `GET`                         | `/v1/quota` (alias `/v1/qouta`)                                                        | Admin session                   | Provider quota                                               |
+| `GET`                         | `/v1/logs`, `/v1/logs/{id}`, `/v1/logs/stats`, `/v1/logs/analytics`, `/v1/logs/events` | Admin session                   | Request logs, aggregates, and the SSE stream                 |
+| `GET`                         | `/v1/providers`, `/v1/providers/catalog`, `/v1/providers/{id}`                         | Admin session                   | Connections, catalog, and one provider                       |
 | `GET`                         | `/v1/settings`                                                                         | API key                         | `require_api_key`                                            |
 | `POST` `PUT` `PATCH` `DELETE` | `/v1/models/{*model}`                                                                  | Admin session                   | Model writes                                                 |
 | `PATCH`                       | `/v1/providers/{id}`, `/v1/providers/{id}/round-robin`                                 | Admin session                   | Provider edits and account rotation                          |
 | `POST` `DELETE`               | `/v1/providers`, `/v1/providers/verify`, `/v1/providers/connections/verify`            | Admin session                   | Custom providers and their verification                      |
 | `GET` `POST`                  | `/v1/auth/{qoder,cline,codebuddy,codebuddy-cn,grok-web,openai,antigravity,claude}/...` | Admin session; callbacks public | OAuth login and callbacks                                    |
 | `GET` `POST` `PATCH` `DELETE` | `/v1/keys`, `/v1/keys/{id}`, `/v1/keys/{id}/credit`                                    | Admin session                   | Gateway keys, quotas, and credit                             |
+| `GET` `POST` `PATCH`          | `/v1/users`, `/v1/users/{id}`, `/v1/users/{id}/token`                                  | Admin session                   | Customer accounts and their login tokens                     |
+| `POST`                        | `/v1/portal/login`                                                                     | none; throttled                 | Customer token sign-in                                       |
+| `GET` `POST`                  | `/v1/portal/{me,logs,logout}`                                                          | Customer session                | Customer console reads and sign-out                          |
 | `POST` `PATCH`                | `/v1/settings`                                                                         | Admin session                   | Settings writes                                              |
 | `GET` `POST`                  | `/v1/admin/{status,setup,login,logout,change-password}`                                | Per handler                     | Admin session                                                |
 | `GET` `POST`                  | `/v1/admin/database/{export,import}`                                                   | Admin session                   | Database transfer                                            |
@@ -186,6 +189,8 @@ Errors use the OpenAI envelope: `{"error": {"message", "type", "code", "param"}}
 | `/logs`                                | live: paginated table, SSE tail, bottom-sheet request detail                       |
 | `/usage`                               | live: quota, per-model spend, period breakdown                                     |
 | `/keys`                                | live: create, edit, credit, model allowlist                                        |
+| `/users`                               | live: list, create, rename, enable/disable, re-issue login token                   |
+| `/portal`                              | live: customer console; token sign-in, own keys and request logs                   |
 | `/settings`                            | static mockup: the admin-password and database-export buttons have no handlers yet |
 
 ```bash

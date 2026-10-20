@@ -39,7 +39,7 @@ Read this before touching a file. Nothing here is enforced by tooling; it is enf
 
 **Design**
 
-4. **No over-engineering.** The entire server defines **5 traits** (`APIKeyStore`, `APIKeyRepository`, `AdminSessionStore`, `AdminAuthRepository`, `ProviderExecutor`) and no DI container; the client has **19 runtime dependencies**. Do not add an abstraction, generic parameter, trait, registry, plugin point, feature flag, or dependency until a second concrete caller exists. Three repeated lines beat a premature helper.
+4. **No over-engineering.** The entire server defines **5 traits** (`APIKeyStore`, `APIKeyRepository`, `SessionStore`, `AdminAuthRepository`, `ProviderExecutor`) and no DI container; the client has **19 runtime dependencies**. Do not add an abstraction, generic parameter, trait, registry, plugin point, feature flag, or dependency until a second concrete caller exists. Three repeated lines beat a premature helper.
 5. **Reuse the vocabulary that exists.** `client/src/components/ui/` (shadcn/Base UI), the gauge kit for dials, `APIError` + `constants.rs` on the server, `TestDatabase` in tests, `create_*_router` for mounts. A second convention for a job that already has one is the defect — even when the new one is nicer.
 6. **Match the file you are in.** Same naming, module layout, error style, and comment style as its neighbours. Read the surrounding 50 lines before adding to anything.
 7. **Comments explain why, never what.** Record the trap that motivated the line (see `client/vite.config.ts` on `changeOrigin`, `state.rs` on `unconfigured`). No narration, no section banners, no restating the next line.

@@ -28,8 +28,10 @@ use crate::features::providers::management::{
 use crate::features::settings::{
     create_settings_management_router, create_settings_read_router, create_system_router,
 };
+use crate::features::users::{
+    create_portal_login_router, create_portal_router, create_users_router,
+};
 use crate::http::middleware::access_log::log_access;
-use crate::http::middleware::admin_session::require_admin_session;
 use crate::http::middleware::api_key_auth::api_key_auth;
 use crate::http::middleware::body_limit::body_limit;
 use crate::http::middleware::cors::cors;
@@ -37,6 +39,7 @@ use crate::http::middleware::csrf::csrf_origin_guard;
 use crate::http::middleware::failure_log::log_failed_requests;
 use crate::http::middleware::rate_limit::rate_limit;
 use crate::http::middleware::security_headers::security_headers;
+use crate::http::middleware::session_guard::{require_admin_session, require_user_session};
 use crate::http::static_files;
 use crate::state::AppState;
 
@@ -95,10 +98,23 @@ pub fn create_router(state: AppState) -> Router {
     // of the gateway's API-key/auth-session chain.
     let keys_routes =
         create_api_keys_router().layer(from_fn_with_state(state.clone(), require_admin_session));
-    // The provider catalog is a read surface, so it carries the gateway's
-    // API-key guard instead of the admin-session one.
-    let providers_read_routes =
-        create_providers_read_router().layer(from_fn_with_state(state.clone(), api_key_auth));
+    // A customer account is an operator action too: issuing the login token is
+    // how a customer gets a console session at all, so it shares the keys'
+    // admin-session guard.
+    let users_routes =
+        create_users_router().layer(from_fn_with_state(state.clone(), require_admin_session));
+    // The portal splits the way the device-flow pair does: sign-in is public
+    // because the customer has no session yet, while the console reads carry
+    // the customer-session guard.
+    let portal_login_routes = create_portal_login_router();
+    let portal_routes =
+        create_portal_router().layer(from_fn_with_state(state.clone(), require_user_session));
+    // The provider catalog is operator infrastructure — account names,
+    // connection status, model prefixes — so it carries the admin-session
+    // guard. Node installed none on `GET /providers`; the owner reversed that
+    // parity on 2026-10-20 because a customer key has no business enumerating it.
+    let providers_read_routes = create_providers_read_router()
+        .layer(from_fn_with_state(state.clone(), require_admin_session));
     // Hiding and restoring a model is an operator action, so it carries the
     // admin-session guard instead of the API-key one.
     let providers_mgmt_routes = create_providers_management_router()
@@ -135,8 +151,10 @@ pub fn create_router(state: AppState) -> Router {
     let antigravity_callback_pages =
         create_antigravity_callback_pages_router().layer(from_fn(body_limit));
     let claude_callback_pages = create_claude_callback_pages_router().layer(from_fn(body_limit));
-    let logs_routes = create_logs_router().layer(from_fn_with_state(state.clone(), api_key_auth));
-    let quota_routes = create_quota_router().layer(from_fn_with_state(state.clone(), api_key_auth));
+    let logs_routes =
+        create_logs_router().layer(from_fn_with_state(state.clone(), require_admin_session));
+    let quota_routes =
+        create_quota_router().layer(from_fn_with_state(state.clone(), require_admin_session));
     let pricing_routes =
         create_pricing_router().layer(from_fn_with_state(state.clone(), api_key_auth));
     let settings_read_routes =
@@ -160,6 +178,9 @@ pub fn create_router(state: AppState) -> Router {
         .merge(models_routes.clone())
         .merge(models_write_routes)
         .merge(keys_routes)
+        .merge(users_routes)
+        .merge(portal_login_routes)
+        .merge(portal_routes)
         .merge(create_admin_router())
         .merge(qoder_login_routes)
         .merge(cline_login_routes)

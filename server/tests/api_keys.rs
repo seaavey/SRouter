@@ -11,6 +11,7 @@ use axum::{
     response::Response,
 };
 use srouter_server::app::create_router;
+use srouter_server::constants;
 use srouter_server::features::admin_auth::hash_session_token;
 use srouter_server::features::api_keys::APIKeyRepository;
 use srouter_server::infrastructure::database::api_keys::{
@@ -29,6 +30,36 @@ async fn admin_app(database: &TestDatabase) -> Router {
     let security = sqlx_security_state(database, vec![hash_session_token(SESSION_TOKEN)]).await;
 
     create_router(empty_registry_state(security))
+}
+
+/// Admin app with a database attached, for the ownership tests: creating a
+/// customer is an operator route, so it needs `state.database`.
+async fn admin_app_with_users(database: &TestDatabase) -> Router {
+    let security = sqlx_security_state(database, vec![hash_session_token(SESSION_TOKEN)]).await;
+
+    create_router(
+        empty_registry_state(security)
+            .with_database(database.connect().await.expect("temporary database")),
+    )
+}
+
+/// Creates a customer through the admin route so the ownership check runs
+/// against a real `users` row.
+async fn create_user(app: &Router, name: &str) -> String {
+    let response = app
+        .clone()
+        .oneshot(admin_request(
+            "POST",
+            "/v1/users",
+            serde_json::json!({ "name": name }),
+        ))
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::CREATED);
+    let body = json_body(response).await;
+
+    body["id"].as_str().unwrap().to_owned()
 }
 
 /// A request carrying a valid admin-session cookie.
@@ -331,6 +362,123 @@ async fn an_empty_allowlist_is_stored_and_reported_as_null() {
 }
 
 #[tokio::test]
+async fn a_key_can_belong_to_a_user() {
+    let database = TestDatabase::new().unwrap();
+    let app = admin_app_with_users(&database).await;
+    let user_id = create_user(&app, "Acme").await;
+
+    let (status, created) = create_key(
+        &app,
+        serde_json::json!({ "name": "Acme Key", "user_id": user_id }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED);
+    assert_eq!(created["user_id"], user_id);
+    let id = created["id"].as_str().unwrap().to_owned();
+
+    let listed = app
+        .clone()
+        .oneshot(admin_request("GET", KEYS, serde_json::json!(null)))
+        .await
+        .unwrap();
+    assert_eq!(listed.status(), StatusCode::OK);
+    let body = json_body(listed).await;
+    assert_eq!(body["data"][0]["user_id"], user_id);
+
+    let patched = app
+        .oneshot(admin_request(
+            "PATCH",
+            &format!("{KEYS}/{id}"),
+            serde_json::json!({ "name": "Acme Key 2" }),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(patched.status(), StatusCode::OK);
+    let body = json_body(patched).await;
+    assert_eq!(body["name"], "Acme Key 2");
+    assert_eq!(body["user_id"], user_id);
+}
+
+#[tokio::test]
+async fn an_unknown_owner_is_400() {
+    let database = TestDatabase::new().unwrap();
+    let app = admin_app_with_users(&database).await;
+
+    let (status, body) = create_key(
+        &app,
+        serde_json::json!({ "name": "Orphan", "user_id": "usr_missing" }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_eq!(
+        body["error"]["message"],
+        constants::users::not_found("usr_missing")
+    );
+
+    // The same check guards a reassignment; the rejected patch must not write.
+    let (_, created) = create_key(&app, serde_json::json!({ "name": "Owned" })).await;
+    let id = created["id"].as_str().unwrap();
+    let response = app
+        .clone()
+        .oneshot(admin_request(
+            "PATCH",
+            &format!("{KEYS}/{id}"),
+            serde_json::json!({ "user_id": "usr_missing", "name": "Rewritten" }),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let body = json_body(response).await;
+    assert_eq!(
+        body["error"]["message"],
+        constants::users::not_found("usr_missing")
+    );
+
+    let response = app
+        .oneshot(admin_request("GET", KEYS, serde_json::json!(null)))
+        .await
+        .unwrap();
+    let body = json_body(response).await;
+    assert_eq!(body["data"][0]["name"], "Owned");
+    assert_eq!(body["data"][0]["user_id"], serde_json::Value::Null);
+}
+
+#[tokio::test]
+async fn clearing_the_owner_is_allowed() {
+    let database = TestDatabase::new().unwrap();
+    let app = admin_app_with_users(&database).await;
+    let user_id = create_user(&app, "Acme").await;
+    let (_, created) = create_key(
+        &app,
+        serde_json::json!({ "name": "Acme Key", "user_id": user_id }),
+    )
+    .await;
+    let id = created["id"].as_str().unwrap().to_owned();
+
+    let response = app
+        .clone()
+        .oneshot(admin_request(
+            "PATCH",
+            &format!("{KEYS}/{id}"),
+            serde_json::json!({ "user_id": null }),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        json_body(response).await["user_id"],
+        serde_json::Value::Null
+    );
+
+    let listed = app
+        .oneshot(admin_request("GET", KEYS, serde_json::json!(null)))
+        .await
+        .unwrap();
+    let body = json_body(listed).await;
+    assert_eq!(body["data"][0]["user_id"], serde_json::Value::Null);
+}
+
+#[tokio::test]
 async fn requests_without_an_admin_session_are_rejected() {
     let database = TestDatabase::new().unwrap();
     let app = admin_app(&database).await;
@@ -476,6 +624,7 @@ async fn a_completed_chat_request_bills_the_key_exactly_once() {
     let created = keys
         .create(CreateAPIKeyInput {
             name: "Billed once".to_owned(),
+            user_id: None,
             enabled: true,
             rate_limit: 0,
             quota_limit: 1_000_000,
@@ -544,6 +693,7 @@ async fn a_completed_anthropic_request_bills_the_key() {
     let created = keys
         .create(CreateAPIKeyInput {
             name: "Anthropic route".to_owned(),
+            user_id: None,
             enabled: true,
             rate_limit: 0,
             quota_limit: 1_000_000,
@@ -614,6 +764,7 @@ async fn reconcile_raises_usage_to_the_request_log_and_never_lowers_it() {
     let behind = keys
         .create(CreateAPIKeyInput {
             name: "Behind".to_owned(),
+            user_id: None,
             enabled: true,
             rate_limit: 0,
             quota_limit: 1_000_000,
@@ -626,6 +777,7 @@ async fn reconcile_raises_usage_to_the_request_log_and_never_lowers_it() {
     let ahead = keys
         .create(CreateAPIKeyInput {
             name: "Ahead".to_owned(),
+            user_id: None,
             enabled: true,
             rate_limit: 0,
             quota_limit: 1_000_000,
@@ -713,6 +865,7 @@ async fn a_usage_write_invalidates_the_cached_auth_record() {
     let created = store
         .create(CreateAPIKeyInput {
             name: "Quota".to_owned(),
+            user_id: None,
             enabled: true,
             rate_limit: 0,
             quota_limit: 100,
@@ -751,6 +904,7 @@ async fn a_cost_write_invalidates_the_cached_auth_record() {
     let created = store
         .create(CreateAPIKeyInput {
             name: "Credit".to_owned(),
+            user_id: None,
             enabled: true,
             rate_limit: 0,
             quota_limit: 0,

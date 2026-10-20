@@ -182,6 +182,7 @@ async fn a_custom_provider_lists_in_the_catalog_and_resolves() {
             Request::builder()
                 .method("GET")
                 .uri("/v1/providers/catalog")
+                .header("cookie", format!("srouter_admin_session={SESSION_TOKEN}"))
                 .body(Body::empty())
                 .unwrap(),
         ))
@@ -198,6 +199,7 @@ async fn a_custom_provider_lists_in_the_catalog_and_resolves() {
             Request::builder()
                 .method("GET")
                 .uri(format!("/v1/providers/{id}"))
+                .header("cookie", format!("srouter_admin_session={SESSION_TOKEN}"))
                 .body(Body::empty())
                 .unwrap(),
         ))
@@ -379,6 +381,7 @@ async fn deletes_a_custom_provider_and_then_reports_not_found() {
             Request::builder()
                 .method("GET")
                 .uri("/v1/providers/catalog")
+                .header("cookie", format!("srouter_admin_session={SESSION_TOKEN}"))
                 .body(Body::empty())
                 .unwrap(),
         ))
@@ -512,6 +515,7 @@ async fn the_detail_view_carries_the_registered_custom_model() {
             Request::builder()
                 .method("GET")
                 .uri(format!("/v1/providers/{id}"))
+                .header("cookie", format!("srouter_admin_session={SESSION_TOKEN}"))
                 .body(Body::empty())
                 .unwrap(),
         ))

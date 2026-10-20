@@ -113,7 +113,7 @@ async fn pricing_endpoint_requires_api_key_auth() {
     ));
     let security = SecurityState::new(
         store,
-        Arc::new(srouter_server::features::admin_auth::EmptyAdminSessionStore),
+        Arc::new(srouter_server::features::admin_auth::EmptySessionStore),
     );
     let app = test_app(security);
 

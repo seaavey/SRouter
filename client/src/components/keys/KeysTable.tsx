@@ -4,7 +4,7 @@ import { useState } from "react"
 
 import { APIError } from "@/api/client"
 import { deleteAPIKey, keyListQuery, updateAPIKey } from "@/api/keys"
-import type { APIKeyResponse, KeyListResponse } from "@/api/types"
+import type { APIKeyResponse, KeyListResponse, UserResponse } from "@/api/types"
 import { Button } from "@/components/arc/button/button"
 import { HoldToConfirm } from "@/components/arc/hold-to-confirm/hold-to-confirm"
 import {
@@ -17,13 +17,19 @@ import { MONEY, NUMBER, percent } from "@/components/usage/types"
 
 type KeysTableProps = {
   keys: APIKeyResponse[]
+  users: UserResponse[]
   onEditKey: (key: APIKeyResponse) => void
   onAddCredit: (key: APIKeyResponse) => void
 }
 
 type ToggleInput = { keyID: string; enabled: boolean }
 
-export function KeysTable({ keys, onEditKey, onAddCredit }: KeysTableProps) {
+export function KeysTable({
+  keys,
+  users,
+  onEditKey,
+  onAddCredit,
+}: KeysTableProps) {
   const queryClient = useQueryClient()
   // The row whose hold completed. It drives `confirmed` on that one button so a
   // failed revoke rewinds the hold instead of leaving the row stuck on "Revoked".
@@ -102,6 +108,22 @@ export function KeysTable({ keys, onEditKey, onAddCredit }: KeysTableProps) {
       render: (_value, row) => (
         <span className="font-mono text-xs text-muted-foreground">
           {row.key_prefix}
+        </span>
+      ),
+    },
+    {
+      key: "user_id",
+      label: "Owner",
+      width: 130,
+      // Sorting on the account UUID would order the column by something the
+      // operator cannot see, so the name is display-only.
+      sortable: false,
+      render: (_value, row) => (
+        <span className="block truncate text-xs text-muted-foreground">
+          {row.user_id === null
+            ? "Unassigned"
+            : (users.find((user) => user.id === row.user_id)?.name ??
+              "Unknown")}
         </span>
       ),
     },

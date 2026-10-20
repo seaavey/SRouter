@@ -19,7 +19,7 @@ use axum::{
     routing::{get, post},
 };
 use futures_util::future::BoxFuture;
-use srouter_server::features::admin_auth::AdminSessionStore;
+use srouter_server::features::admin_auth::{SessionScope, SessionStore};
 use srouter_server::features::api_keys::{APIKeyRecord, APIKeyStore};
 use srouter_server::features::provider_auth::CodeBuddyAuthEndpoints;
 use srouter_server::features::providers::antigravity::{self, AntigravityEndpoints};
@@ -2324,7 +2324,7 @@ pub fn security_state(
 ) -> SecurityState {
     SecurityState::new(
         Arc::new(FixtureAPIKeyStore::new(require_api_key, keys)),
-        Arc::new(FixtureAdminSessionStore::new(valid_session_hashes)),
+        Arc::new(FixtureSessionStore::new(valid_session_hashes)),
     )
 }
 
@@ -2340,7 +2340,7 @@ pub async fn sqlx_security_state(
 
     SecurityState::with_repository(
         store.clone(),
-        Arc::new(FixtureAdminSessionStore::new(valid_session_hashes)),
+        Arc::new(FixtureSessionStore::new(valid_session_hashes)),
         store,
     )
 }
@@ -2361,6 +2361,7 @@ pub fn api_key_record(id: &str) -> APIKeyRecord {
     APIKeyRecord {
         id: id.to_owned(),
         enabled: true,
+        owner_enabled: true,
         rate_limit: 0,
         quota_limit: 0.0,
         usage_tokens: 0.0,
@@ -2402,12 +2403,12 @@ impl APIKeyStore for FixtureAPIKeyStore {
     }
 }
 
-/// Admin sessions are looked up by token hash, exactly like the SQLx store will.
-pub struct FixtureAdminSessionStore {
+/// Console sessions are looked up by token hash; every live one is the operator.
+pub struct FixtureSessionStore {
     valid_hashes: HashSet<String>,
 }
 
-impl FixtureAdminSessionStore {
+impl FixtureSessionStore {
     pub fn new(valid_token_hashes: Vec<String>) -> Self {
         Self {
             valid_hashes: valid_token_hashes.into_iter().collect(),
@@ -2415,15 +2416,15 @@ impl FixtureAdminSessionStore {
     }
 }
 
-impl AdminSessionStore for FixtureAdminSessionStore {
-    fn has_valid_session<'a>(
+impl SessionStore for FixtureSessionStore {
+    fn resolve_session<'a>(
         &'a self,
         token_hash: &'a str,
         _now_ms: i64,
-    ) -> BoxFuture<'a, Result<bool, APIError>> {
+    ) -> BoxFuture<'a, Result<Option<SessionScope>, APIError>> {
         let valid = self.valid_hashes.contains(token_hash);
 
-        Box::pin(async move { Ok(valid) })
+        Box::pin(async move { Ok(valid.then_some(SessionScope::Admin)) })
     }
 }
 

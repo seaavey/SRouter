@@ -19,7 +19,7 @@ use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use crate::config::APIConfig;
 use crate::constants;
 use crate::error::APIError;
-use crate::infrastructure::database::migrations::{SCHEMA_VERSION, SCHEMA_VERSION_V3};
+use crate::infrastructure::database::migrations::SCHEMA_VERSION;
 use crate::infrastructure::database::{AppDatabase, migrations};
 
 use super::multipart::set_private_file_mode;
@@ -129,8 +129,9 @@ pub async fn export_snapshot(
 
 /// Validates and imports `candidate_path`, replacing the active database.
 ///
-/// A legacy (v1/v2) candidate is migrated on a scratch copy first, so the
-/// uploaded bytes are never written to and a rejected upload leaves no trace.
+/// A candidate below the current schema version is migrated on a scratch copy
+/// first, so the uploaded bytes are never written to and a rejected upload
+/// leaves no trace.
 pub async fn import_database(
     database: &AppDatabase,
     config: &APIConfig,
@@ -160,11 +161,20 @@ pub async fn import_database(
             pool.close().await;
             migrated?;
         }
-        // A migrated candidate must satisfy the same schema expectations.
-        validate_candidate(copy.path()).await?;
         effective = copy.path().to_path_buf();
         scratch = Some(copy);
     }
+
+    // The shape check runs on the effective file: a pre-v5 export only matches
+    // the current schema once the migration above has rewritten the scratch copy.
+    let pool = open_read_only(&effective)
+        .await
+        .map_err(|_| APIError::from(TransferError::InvalidDatabase))?;
+    let outcome = schema_matches(&pool)
+        .await
+        .map_err(|_| APIError::from(TransferError::InvalidDatabase));
+    pool.close().await;
+    outcome?;
 
     let result = replace_database(handle, config, &effective).await;
     // `scratch` drops here, removing the scratch copy on every path.
@@ -188,10 +198,10 @@ impl Drop for ScratchFile {
     }
 }
 
-/// Reads `PRAGMA user_version` and checks the schema when the file is already
-/// at [`SCHEMA_VERSION_V3`] or newer: those shapes come from this system and
-/// must match before anything rewrites them, while an older legacy candidate
-/// is validated only after the caller migrates a copy.
+/// Reads `PRAGMA user_version` and checks the file is an intact database no
+/// newer than [`SCHEMA_VERSION`]. The shape check belongs to the caller and
+/// runs after the optional migration, because a legacy candidate only matches
+/// the current schema once it has been upgraded.
 ///
 /// Returns the version so the caller can decide whether to migrate. A version
 /// above [`SCHEMA_VERSION`] is refused here rather than inside the migrator, so
@@ -216,11 +226,6 @@ pub async fn validate_candidate(candidate_path: &Path) -> Result<i64, APIError> 
             .map_err(|_| APIError::from(TransferError::InvalidDatabase))?;
         if version > SCHEMA_VERSION {
             return Err(APIError::from(TransferError::InvalidDatabase));
-        }
-        if version >= SCHEMA_VERSION_V3 {
-            schema_matches(&pool)
-                .await
-                .map_err(|_| APIError::from(TransferError::InvalidDatabase))?;
         }
         Ok(version)
     }

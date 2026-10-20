@@ -9,7 +9,7 @@ use axum::response::{IntoResponse, Response};
 use crate::clock::now_ms;
 use crate::constants;
 use crate::error::APIError;
-use crate::features::admin_auth::{ADMIN_SESSION_COOKIE, hash_session_token};
+use crate::features::admin_auth::{ADMIN_SESSION_COOKIE, SessionScope, hash_session_token};
 use crate::features::api_keys::{APIKeyRecord, APIPrincipal, AuthSource};
 use crate::state::AppState;
 
@@ -35,14 +35,15 @@ pub async fn api_key_auth(State(state): State<AppState>, request: Request, next:
     if let Some(token) = session_token {
         match state
             .security
-            .admin_sessions
-            .has_valid_session(&hash_session_token(&token), now_ms())
+            .sessions
+            .resolve_session(&hash_session_token(&token), now_ms())
             .await
         {
-            Ok(true) => {
+            // A customer console session must never authorize gateway traffic.
+            Ok(Some(SessionScope::Admin)) => {
                 return authorize(request, next, AuthSource::AdminSession, None).await;
             }
-            Ok(false) => {}
+            Ok(_) => {}
             Err(error) => return error.into_response(),
         }
     }
@@ -91,11 +92,21 @@ async fn authorize(
 }
 
 /// Rejection for a key that exists but may not serve requests, in Node's order:
-/// disabled, then credit, then token quota.
+/// disabled, owner disabled, then credit, then token quota.
 fn record_rejection(record: &APIKeyRecord) -> Option<APIError> {
     if !record.enabled {
         return Some(
             APIError::new(401, constants::api_key::DISABLED)
+                .with_error_type(constants::error_type::INVALID_REQUEST)
+                .with_code(constants::ErrorCode::ApiKeyDisabled),
+        );
+    }
+
+    // A suspended customer must stop spending through keys that are still
+    // enabled; the cache is invalidated by the users PATCH so this is immediate.
+    if !record.owner_enabled {
+        return Some(
+            APIError::new(401, constants::api_key::OWNER_DISABLED)
                 .with_error_type(constants::error_type::INVALID_REQUEST)
                 .with_code(constants::ErrorCode::ApiKeyDisabled),
         );

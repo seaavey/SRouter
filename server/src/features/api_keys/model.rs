@@ -14,6 +14,9 @@ const KEY_SECRET_PREFIX: &str = "sr-live-";
 pub struct APIKeyRecord {
     pub id: String,
     pub enabled: bool,
+    /// Whether the owning customer account is enabled; `true` for a key with no
+    /// owner. The middleware refuses a key whose owner is suspended.
+    pub owner_enabled: bool,
     /// Requests per minute; `0` means unlimited.
     pub rate_limit: u32,
     pub quota_limit: f64,
@@ -32,6 +35,8 @@ pub struct APIKey {
     pub id: String,
     pub key_prefix: String,
     pub name: String,
+    /// The customer account that owns the key; `None` is an operator key.
+    pub user_id: Option<String>,
     pub enabled: bool,
     pub rate_limit: u32,
     pub quota_limit: u32,
@@ -55,6 +60,8 @@ pub struct CreatedAPIKey {
 pub struct CreateAPIKeyInput {
     pub name: String,
     #[specta(optional)]
+    pub user_id: Option<String>,
+    #[specta(optional)]
     pub enabled: bool,
     #[specta(optional)]
     pub rate_limit: u32,
@@ -67,12 +74,14 @@ pub struct CreateAPIKeyInput {
 }
 
 /// Partial update accepted by `PATCH /v1/keys/:id`. Every field is optional;
-/// absent fields are left untouched. `allowed_models` distinguishes absent
-/// (`None`) from an explicit clear (`Some(None)`).
+/// absent fields are left untouched. `allowed_models` and `user_id`
+/// distinguish absent (`None`) from an explicit clear (`Some(None)`).
 #[derive(Clone, Debug, Default, PartialEq, specta::Type)]
 pub struct UpdateAPIKeyInput {
     #[specta(optional)]
     pub name: Option<String>,
+    #[specta(optional)]
+    pub user_id: Option<Option<String>>,
     #[specta(optional)]
     pub enabled: Option<bool>,
     #[specta(optional)]

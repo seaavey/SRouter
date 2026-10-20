@@ -50,7 +50,7 @@ async fn app(database: &TestDatabase) -> (Router, srouter_server::AppDatabase) {
 async fn seed_session(database: &TestDatabase) {
     let app_database = database.connect().await.expect("connect database");
     let pool = app_database.sqlite_pool().expect("SQLite pool");
-    sqlx::query("INSERT INTO admin_sessions (token_hash, created_at, expires_at) VALUES (?, ?, ?)")
+    sqlx::query("INSERT INTO auth_sessions (token_hash, created_at, expires_at) VALUES (?, ?, ?)")
         .bind(hash_session_token(SESSION_TOKEN))
         .bind(0i64)
         .bind(i64::MAX)
@@ -309,7 +309,7 @@ async fn import_replaces_the_database_and_is_visible_through_an_existing_router(
 
     // The admin cookie was cleared on the success response.
     let cleared =
-        sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM admin_sessions WHERE token_hash = ?")
+        sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM auth_sessions WHERE token_hash = ?")
             .bind(hash_session_token(SESSION_TOKEN))
             .fetch_one(&pool)
             .await
@@ -608,9 +608,26 @@ async fn database_transfer_is_not_available_under_the_v1_v1_compat_group() {
 // Import: validation rules against Rust's own DDL
 // ---------------------------------------------------------------------------
 
-/// Builds a valid v3 candidate and then applies `statements` to break it.
+/// Writes a valid current-schema SQLite file at `path`.
+///
+/// The shape and version come from `TestDatabase`'s own migration run, so a
+/// schema bump cannot leave this fixture claiming a stale version.
+///
+/// Broken candidates must claim the current version: the importer migrates
+/// anything older before it checks the shape, and the migration reconstructs
+/// missing tables and indexes.
+async fn write_current_candidate(path: &Path) {
+    let source = TestDatabase::new().expect("candidate database");
+    let database = source.connect().await.expect("candidate schema");
+    let pool = database.sqlite_pool().expect("candidate SQLite pool");
+    // Closing checkpoints the WAL, so the single copied file is complete.
+    pool.close().await;
+    std::fs::copy(source.path(), path).expect("copy candidate database");
+}
+
+/// Builds a valid current-schema candidate and then applies `statements` to break it.
 async fn write_broken_candidate(path: &Path, statements: &[&str]) {
-    write_valid_candidate(path).await;
+    write_current_candidate(path).await;
     let options = sqlx::sqlite::SqliteConnectOptions::new().filename(path);
     let pool = sqlx::sqlite::SqlitePoolOptions::new()
         .max_connections(1)
@@ -671,8 +688,12 @@ async fn import_rejects_candidates_missing_a_table_column_or_index() {
                  credit_limit REAL NOT NULL DEFAULT 0,\
                  usage_cost REAL NOT NULL DEFAULT 0,\
                  allowed_models TEXT,\
+                 user_id TEXT,\
                  created_at INTEGER NOT NULL)",
                 "CREATE INDEX idx_api_keys_key_hash ON api_keys (key_hash)",
+                // `DROP TABLE api_keys` took `idx_api_keys_user` with it; put it
+                // back so the missing index is not what rejects this candidate.
+                "CREATE INDEX idx_api_keys_user ON api_keys (user_id)",
             ],
         ),
     ];
@@ -722,7 +743,7 @@ async fn import_accepts_a_v1_candidate_by_migrating_it() {
     let response = import_candidate(&app, &candidate).await;
     assert_eq!(response.status(), StatusCode::OK);
 
-    // The legacy row survived the migration and the file is now v4.
+    // The legacy row survived the migration and the file is now v5.
     let pool = app_database.sqlite_pool().expect("SQLite pool");
     let marker: Option<String> =
         sqlx::query_scalar("SELECT value FROM settings WHERE key = 'legacy_marker'")
@@ -734,7 +755,7 @@ async fn import_accepts_a_v1_candidate_by_migrating_it() {
         .fetch_one(&pool)
         .await
         .unwrap();
-    assert_eq!(version, 4);
+    assert_eq!(version, 5);
 }
 
 // ---------------------------------------------------------------------------

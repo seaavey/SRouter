@@ -13,7 +13,7 @@ pub use password::{hash_admin_password, validate_admin_password, verify_admin_pa
 pub use repository::{AdminAuthRepository, EmptyAdminAuthRepository};
 pub use routes::create_admin_router;
 pub use session::{
-    ADMIN_SESSION_COOKIE, ADMIN_SESSION_TTL_MS, AdminSessionStore, EmptyAdminSessionStore,
+    ADMIN_SESSION_COOKIE, ADMIN_SESSION_TTL_MS, EmptySessionStore, SessionScope, SessionStore,
     generate_session_token, hash_session_token,
 };
 pub use throttle::LoginThrottle;

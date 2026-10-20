@@ -15,6 +15,11 @@ pub trait APIKeyRepository: Send + Sync {
     /// Every stored key, newest first.
     fn list(&self) -> BoxFuture<'_, Result<Vec<APIKey>, APIError>>;
 
+    /// Every key owned by one customer, newest first. The tenant predicate
+    /// belongs in SQL: loading the table and filtering in Rust would hand the
+    /// console path every tenant's keys.
+    fn list_for_user(&self, user_id: &str) -> BoxFuture<'_, Result<Vec<APIKey>, APIError>>;
+
     /// Persists a new key and returns it with the full secret, which is not
     /// recoverable afterwards.
     fn create(&self, input: CreateAPIKeyInput) -> BoxFuture<'_, Result<CreatedAPIKey, APIError>>;
@@ -70,6 +75,10 @@ pub struct EmptyAPIKeyRepository;
 
 impl APIKeyRepository for EmptyAPIKeyRepository {
     fn list(&self) -> BoxFuture<'_, Result<Vec<APIKey>, APIError>> {
+        Box::pin(async { Err(unconfigured()) })
+    }
+
+    fn list_for_user(&self, _user_id: &str) -> BoxFuture<'_, Result<Vec<APIKey>, APIError>> {
         Box::pin(async { Err(unconfigured()) })
     }
 

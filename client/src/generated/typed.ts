@@ -7,6 +7,7 @@ export type APIKeyResponse = {
 	id: string,
 	key_prefix: string,
 	name: string,
+	user_id: string | null,
 	enabled: boolean,
 	rate_limit: number,
 	quota_limit: number,
@@ -171,6 +172,7 @@ export type ChangePasswordInput = {
 /**  Fields accepted by `POST /v1/keys`, mirroring `CreateAPIKeySchema`. */
 export type CreateAPIKeyInput = {
 	name: string,
+	user_id?: string | null,
 	enabled?: boolean,
 	rate_limit?: number,
 	quota_limit?: number,
@@ -178,10 +180,23 @@ export type CreateAPIKeyInput = {
 	allowed_models?: string[] | null,
 };
 
+/**  Fields accepted by `POST /v1/users`. */
+export type CreateUserInput = {
+	name: string,
+};
+
 /**  Creation response: the management fields plus the one-time full secret. */
 export type CreatedAPIKeyResponse = {
 	key: string,
 } & APIKeyResponse;
+
+/**
+ *  Creation and rotation response: the management fields plus the one-time
+ *  login token.
+ */
+export type CreatedUserResponse = {
+	token: string,
+} & UserResponse;
 
 /**
  *  `POST /v1/admin/database/import`. A struct rather than a `json!` literal so
@@ -373,6 +388,25 @@ export type Pagination = {
 	total_pages: number,
 };
 
+/**
+ *  Fields accepted by `POST /v1/portal/login`.
+ * 
+ *  Carries a login credential and therefore derives no `Debug`: a derive would
+ *  make the token printable from any log line that formats the struct.
+ */
+export type PortalLoginInput = {
+	token: string,
+};
+
+/**
+ *  The signed-in customer and the keys they own. The totals on screen are a
+ *  reduce over `keys` in the client, the only place they are displayed.
+ */
+export type PortalMe = {
+	user: UserResponse,
+	keys: APIKeyResponse[],
+};
+
 export type PricingListResponse = {
 	object: string,
 	total: number,
@@ -535,11 +569,12 @@ export type SystemResponse = {
 
 /**
  *  Partial update accepted by `PATCH /v1/keys/:id`. Every field is optional;
- *  absent fields are left untouched. `allowed_models` distinguishes absent
- *  (`None`) from an explicit clear (`Some(None)`).
+ *  absent fields are left untouched. `allowed_models` and `user_id`
+ *  distinguish absent (`None`) from an explicit clear (`Some(None)`).
  */
 export type UpdateAPIKeyInput = {
 	name?: string | null,
+	user_id?: string | null,
 	enabled?: boolean | null,
 	rate_limit?: number | null,
 	quota_limit?: number | null,
@@ -560,6 +595,15 @@ export type UpdateSettingsInput = {
 	 *  (`z.record(z.string())`). A `BTreeMap` keeps the write order stable.
 	 */
 	settings?: { [key in string]: string } | null,
+};
+
+/**
+ *  Partial update accepted by `PATCH /v1/users/:id`. Absent fields are left
+ *  untouched.
+ */
+export type UpdateUserInput = {
+	name?: string | null,
+	enabled?: boolean | null,
 };
 
 /**  One `by_model` entry of [`UsageStatsReport`]. */
@@ -634,6 +678,23 @@ export type UsageTotals = {
 	requests: UsageRequestTotals,
 	tokens: UsageTokenTotals,
 	cost: UsageCostTotals,
+};
+
+export type UserListResponse = {
+	object: string,
+	data: UserResponse[],
+};
+
+/**
+ *  Management representation of an account. `token_prefix` is the non-secret
+ *  display prefix; the login token itself is only ever in a creation response.
+ */
+export type UserResponse = {
+	id: string,
+	name: string,
+	token_prefix: string,
+	enabled: boolean,
+	created_at: number,
 };
 
 /**  The verification response, mirroring Node's `VerifyConnection`. */

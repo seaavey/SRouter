@@ -206,6 +206,8 @@ pub mod admin {
 pub mod api_key {
     pub const INVALID: &str = "Invalid SRouter API Key";
     pub const DISABLED: &str = "The provided SRouter API Key is disabled";
+    /// The key is fine; the customer account that owns it is suspended.
+    pub const OWNER_DISABLED: &str = "The owner of this SRouter API Key is disabled";
     pub const CREDIT_EXCEEDED: &str =
         "Insufficient credit balance. Your credit limit has been reached.";
     pub const QUOTA_EXCEEDED: &str =
@@ -244,6 +246,30 @@ pub mod keys {
     pub fn could_not_generate_secret(error: impl std::fmt::Display) -> String {
         format!("could not generate a key secret: {error}")
     }
+}
+
+/// Customer accounts (`/v1/users`).
+pub mod users {
+    pub const INVALID_PAYLOAD: &str = "Invalid user payload";
+    pub const NAME_REQUIRED: &str = "Field 'name' is required";
+    pub const NAME_EMPTY: &str = "Field 'name' cannot be empty";
+    pub const DATABASE_REQUIRED: &str = "no database is configured; users cannot be managed";
+
+    pub fn not_found(id: impl std::fmt::Display) -> String {
+        format!("User '{id}' not found")
+    }
+
+    pub fn could_not_generate_token(error: impl std::fmt::Display) -> String {
+        format!("could not generate a user token: {error}")
+    }
+}
+
+/// Customer console (`/v1/portal/*`).
+pub mod portal {
+    pub const AUTH_REQUIRED: &str = "Customer sign-in is required";
+    pub const INVALID_TOKEN: &str = "Invalid access token";
+    pub const TOO_MANY_ATTEMPTS: &str = "Too many failed sign-in attempts";
+    pub const INVALID_LOGIN_PAYLOAD: &str = "Invalid sign-in payload";
 }
 
 /// Shared HTTP middleware rejections (auth, CSRF, rate limit, body limit).
@@ -715,6 +741,8 @@ pub mod database {
         "the PostgreSQL backend has no admin stores yet; schema v2 is SQLite-only";
     pub const API_KEYS_UNSUPPORTED: &str =
         "the PostgreSQL backend has no API-key stores yet; schema v2 is SQLite-only";
+    pub const USERS_UNSUPPORTED: &str =
+        "the PostgreSQL backend has no user store yet; schema v5 is SQLite-only";
     pub const PROVIDERS_UNSUPPORTED: &str =
         "the PostgreSQL backend has no provider stores yet; schema v2 is SQLite-only";
     pub const REQUEST_LOGS_UNSUPPORTED: &str =
@@ -896,12 +924,14 @@ pub mod database {
 
         // API-key store.
         pub const ADD_CREDIT: &str = "add credit to an API key";
+        pub const CHECK_API_KEY_OWNER: &str = "check an API key owner";
         pub const COMMIT_CREDIT_UPDATE: &str = "commit a credit update";
         pub const COMMIT_KEY_UPDATE: &str = "commit a key update";
         pub const CREATE_API_KEY: &str = "create an API key";
         pub const DELETE_API_KEY: &str = "delete an API key";
         pub const INCREMENT_API_KEY_USAGE: &str = "increment API-key usage";
         pub const LIST_API_KEYS: &str = "list API keys";
+        pub const LIST_USER_API_KEYS: &str = "list a user's API keys";
         pub const LOOK_UP_API_KEY: &str = "look up an API key";
         pub const READ_API_KEY: &str = "read an API key";
         pub const READ_REQUIRE_API_KEY: &str = "read the require_api_key setting";
@@ -912,10 +942,22 @@ pub mod database {
         pub const START_KEY_UPDATE: &str = "start a key update";
         pub const UPDATE_API_KEY: &str = "update an API key";
 
+        // Customer-account store.
+        pub const COMMIT_USER_UPDATE: &str = "commit a user update";
+        pub const CREATE_USER: &str = "create a user";
+        pub const DELETE_USER_SESSIONS: &str = "delete a user's sessions";
+        pub const FIND_USER_BY_TOKEN: &str = "find a user by login token";
+        pub const LIST_USERS: &str = "list users";
+        pub const READ_USER: &str = "read a user";
+        pub const ROTATE_USER_TOKEN: &str = "rotate a user's login token";
+        pub const START_USER_UPDATE: &str = "start a user update";
+        pub const UPDATE_USER: &str = "update a user";
+
         // Schema migration.
         pub const ADD_MISSING_COLUMN: &str = "add a column older databases are missing";
         pub const APPLY_REQUEST_LOG_V3: &str = "apply request-log v3 migration";
         pub const APPLY_CURRENT_SCHEMA: &str = "apply the current schema";
+        pub const APPLY_USERS_V5: &str = "apply the users v5 migration";
         pub const APPLY_TUNNEL_SETTINGS_CLEANUP: &str = "apply the tunnel settings cleanup";
         pub const COMMIT_SCHEMA_MIGRATION: &str = "commit the schema migration";
         pub const DROP_LEGACY_TABLE: &str = "drop a legacy table";

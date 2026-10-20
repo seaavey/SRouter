@@ -14,7 +14,7 @@ use axum::{
 use srouter_server::app::create_router;
 use srouter_server::features::admin_auth::hash_session_token;
 use srouter_server::features::providers::ProviderRegistry;
-use srouter_server::{AppDatabase, AppState, SecurityState};
+use srouter_server::{AppDatabase, AppState};
 use support::{TestDatabase, json_request_with_headers, with_loopback_client};
 use tower::ServiceExt;
 
@@ -107,10 +107,12 @@ fn admin_request(method: &str, uri: &str, body: serde_json::Value) -> Request<Bo
 }
 
 fn get_request(uri: &str) -> Request<Body> {
+    let cookie = format!("srouter_admin_session={SESSION_TOKEN}");
     with_loopback_client(
         Request::builder()
             .method("GET")
             .uri(uri)
+            .header("cookie", cookie)
             .body(Body::empty())
             .unwrap(),
     )
@@ -207,7 +209,7 @@ async fn providers_list_serves_the_seed_without_a_database() {
     let state = AppState::with_security(
         support::test_config(),
         ProviderRegistry::with_defaults().unwrap(),
-        SecurityState::unconfigured(),
+        support::security_state(false, vec![], vec![hash_session_token(SESSION_TOKEN)]),
     );
 
     let response = create_router(state)
@@ -256,7 +258,7 @@ async fn catalog_serves_the_seed_without_a_database() {
     let state = AppState::with_security(
         support::test_config(),
         ProviderRegistry::with_defaults().unwrap(),
-        SecurityState::unconfigured(),
+        support::security_state(false, vec![], vec![hash_session_token(SESSION_TOKEN)]),
     );
 
     let response = create_router(state)
@@ -482,7 +484,7 @@ async fn provider_detail_serves_the_seed_without_a_database() {
     let state = AppState::with_security(
         support::test_config(),
         ProviderRegistry::with_defaults().unwrap(),
-        SecurityState::unconfigured(),
+        support::security_state(false, vec![], vec![hash_session_token(SESSION_TOKEN)]),
     );
 
     let response = create_router(state)
@@ -1229,7 +1231,7 @@ async fn a_postgres_backend_reads_empty_and_refuses_provider_writes() {
     let state = AppState::with_security(
         support::test_config(),
         ProviderRegistry::with_defaults().unwrap(),
-        // Anonymous reads stay allowed, as on the SQLite fixtures.
+        // `get_request` carries this cookie as the admin session.
         support::security_state(false, vec![], vec![hash_session_token(SESSION_TOKEN)]),
     )
     .with_database(AppDatabase::Postgres(pool));

@@ -1,3 +1,6 @@
+import { useQuery } from "@tanstack/react-query"
+
+import { usersQuery } from "@/api/users"
 import { FloatingField } from "@/components/arc/floating-field/floating-field"
 import { Switch } from "@/components/arc/switch/switch"
 
@@ -15,6 +18,8 @@ import { ModelAllowlistField } from "./ModelAllowlistField"
  */
 export type KeyFormValues = {
   name: string
+  /** `""` is unassigned; the wire speaks `null`, which the input builders map. */
+  user_id: string
   enabled: boolean
   rate_limit: string
   quota_limit: string
@@ -24,6 +29,7 @@ export type KeyFormValues = {
 
 export const EMPTY_KEY_FORM: KeyFormValues = {
   name: "",
+  user_id: "",
   enabled: true,
   rate_limit: "",
   quota_limit: "",
@@ -56,6 +62,7 @@ function sameModels(left: string[], right: string[]) {
 export function keyFormValuesFromKey(key: APIKeyResponse): KeyFormValues {
   return {
     name: key.name,
+    user_id: key.user_id ?? "",
     enabled: key.enabled,
     rate_limit: limitText(key.rate_limit),
     quota_limit: limitText(key.quota_limit),
@@ -67,6 +74,7 @@ export function keyFormValuesFromKey(key: APIKeyResponse): KeyFormValues {
 export function createInputFromForm(values: KeyFormValues): CreateAPIKeyInput {
   return {
     name: values.name.trim(),
+    user_id: values.user_id === "" ? null : values.user_id,
     enabled: values.enabled,
     rate_limit: limitValue(values.rate_limit),
     quota_limit: limitValue(values.quota_limit),
@@ -83,6 +91,11 @@ export function updateInputFromForm(
   const patch: UpdateAPIKeyInput = {}
   const name = values.name.trim()
   if (name !== key.name) patch.name = name
+
+  // `null` is an explicit unassign; an absent field leaves the owner untouched.
+  if (values.user_id !== (key.user_id ?? "")) {
+    patch.user_id = values.user_id === "" ? null : values.user_id
+  }
 
   const rateLimit = limitValue(values.rate_limit)
   if (rateLimit !== key.rate_limit) patch.rate_limit = rateLimit
@@ -106,6 +119,9 @@ export function KeyFormFields({
   onChange,
   showEnabled = false,
 }: KeyFormFieldsProps) {
+  const { data } = useQuery(usersQuery)
+  const users = data?.data ?? []
+
   return (
     <div className="flex flex-col gap-4">
       <FloatingField
@@ -118,6 +134,32 @@ export function KeyFormFields({
         onChange={(event) => onChange({ name: event.currentTarget.value })}
         placeholder="Production gateway"
       />
+
+      <div className="flex flex-col gap-1.5">
+        <label
+          htmlFor="key-owner"
+          className="text-xs font-medium text-foreground"
+        >
+          Owner
+        </label>
+        <select
+          id="key-owner"
+          value={values.user_id}
+          onChange={(event) => onChange({ user_id: event.currentTarget.value })}
+          aria-describedby="key-owner-hint"
+          className="h-[var(--control-height-md)] w-full rounded-[var(--radius-control)] border border-border bg-surface-muted/50 px-2.5 text-xs text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
+        >
+          <option value="">Unassigned</option>
+          {users.map((user) => (
+            <option key={user.id} value={user.id}>
+              {user.name}
+            </option>
+          ))}
+        </select>
+        <span id="key-owner-hint" className="text-xs text-muted-foreground">
+          An owned key appears in that customer's console.
+        </span>
+      </div>
 
       {showEnabled && (
         <div className="flex items-center justify-between gap-3 rounded-[var(--radius-control)] border border-border bg-surface-muted/50 px-3 py-2">

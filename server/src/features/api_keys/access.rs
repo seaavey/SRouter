@@ -82,6 +82,7 @@ mod tests {
         APIKeyRecord {
             id: String::from("key_1"),
             enabled: true,
+            owner_enabled: true,
             rate_limit: 0,
             quota_limit: 0.0,
             usage_tokens: 0.0,

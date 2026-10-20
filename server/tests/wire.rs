@@ -6,6 +6,7 @@
 
 use serde_json::Value;
 use srouter_server::app::create_router;
+use srouter_server::features::admin_auth::hash_session_token;
 use srouter_server::infrastructure::database::request_logs::{RequestLogInput, insert_request_log};
 
 mod support;
@@ -16,11 +17,13 @@ use support::{
 };
 use tower::ServiceExt;
 
+const SESSION_TOKEN: &str = "test-session-token";
+
 async fn state(database: &TestDatabase) -> srouter_server::AppState {
     let security = security_state(
         true,
         vec![("wire-test-key".to_owned(), api_key_record("key_1"))],
-        vec![],
+        vec![hash_session_token(SESSION_TOKEN)],
     );
     let (_upstream, mut state) = app_state_with_fake_upstream().await;
     state.security = security;
@@ -30,8 +33,9 @@ async fn state(database: &TestDatabase) -> srouter_server::AppState {
 }
 
 async fn body_of(state: srouter_server::AppState, uri: &str) -> (u16, Value) {
+    let cookie = format!("srouter_admin_session={SESSION_TOKEN}");
     let request =
-        json_request_with_headers("GET", uri, Value::Null, &[("x-api-key", "wire-test-key")]);
+        json_request_with_headers("GET", uri, Value::Null, &[("cookie", cookie.as_str())]);
     let response = create_router(state).oneshot(request).await.unwrap();
     let status = response.status().as_u16();
     let bytes = axum::body::to_bytes(response.into_body(), 65_536)

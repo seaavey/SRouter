@@ -7,6 +7,7 @@ import {
   PanelLeftOpen,
   Settings,
   Terminal,
+  Users,
   X,
 } from "lucide-react"
 import { useEffect, useRef, useState, type ComponentType } from "react"
@@ -16,7 +17,7 @@ import { Tooltip } from "@/components/arc/tooltip/tooltip"
 import SRouterMark from "@/components/seavx/SRouterMark"
 
 export type DashboardTab =
-  "overview" | "providers" | "usage" | "logs" | "keys" | "settings"
+  "overview" | "providers" | "usage" | "logs" | "keys" | "users" | "settings"
 
 /**
  * The section names, keyed by their tab. The rail labels each row with it and
@@ -29,6 +30,7 @@ export const TAB_LABELS = {
   usage: "Usage and quota",
   logs: "Request logs",
   keys: "API keys",
+  users: "Users",
   settings: "Settings",
 } satisfies Record<DashboardTab, string>
 
@@ -51,6 +53,7 @@ const NAV_SECTIONS: NavSection[] = [
       { id: "usage", icon: BarChart3 },
       { id: "logs", icon: Terminal },
       { id: "keys", icon: KeyRound },
+      { id: "users", icon: Users },
     ],
   },
   {

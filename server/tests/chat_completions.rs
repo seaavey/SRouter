@@ -15,7 +15,7 @@ use srouter_server::features::api_keys::{
 use srouter_server::features::gateway::token_saver::TERSE_DIRECTIVE;
 use srouter_server::{APIError, AppState, SecurityState};
 use support::{
-    FakeUpstream, FixtureAPIKeyStore, FixtureAdminSessionStore, TestDatabase, api_key_record,
+    FakeUpstream, FixtureAPIKeyStore, FixtureSessionStore, TestDatabase, api_key_record,
     app_state_with_fake_upstream, app_state_with_fake_upstream_and_security, with_loopback_client,
 };
 use tower::ServiceExt;
@@ -1211,6 +1211,10 @@ impl APIKeyRepository for RecordingAPIKeyRepository {
         Box::pin(async { Err(not_recorded()) })
     }
 
+    fn list_for_user(&self, _user_id: &str) -> BoxFuture<'_, Result<Vec<APIKey>, APIError>> {
+        Box::pin(async { Err(not_recorded()) })
+    }
+
     fn create(&self, _input: CreateAPIKeyInput) -> BoxFuture<'_, Result<CreatedAPIKey, APIError>> {
         Box::pin(async { Err(not_recorded()) })
     }
@@ -1292,7 +1296,7 @@ async fn keyed_app(
             false,
             vec![("sr-live-quota-test".to_owned(), api_key_record("key-1"))],
         )),
-        Arc::new(FixtureAdminSessionStore::new(vec![])),
+        Arc::new(FixtureSessionStore::new(vec![])),
         repository.clone(),
     );
     let (upstream, state) = app_state_with_fake_upstream_and_security(security).await;
@@ -1638,7 +1642,7 @@ async fn a_failed_request_is_logged_with_its_message() {
 
     let database = database.connect().await.unwrap();
     let logs = srouter_server::infrastructure::database::request_logs::list_request_logs(
-        &database, None, 10, None,
+        &database, None, None, 10, None,
     )
     .await
     .unwrap();

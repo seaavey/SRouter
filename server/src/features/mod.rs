@@ -7,3 +7,4 @@ pub mod logs;
 pub mod provider_auth;
 pub mod providers;
 pub mod settings;
+pub mod users;

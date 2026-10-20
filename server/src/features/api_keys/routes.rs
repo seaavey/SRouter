@@ -107,6 +107,7 @@ pub(crate) struct APIKeyResponse {
     id: String,
     key_prefix: String,
     name: String,
+    user_id: Option<String>,
     enabled: bool,
     rate_limit: u32,
     quota_limit: u32,
@@ -125,6 +126,7 @@ impl From<&APIKey> for APIKeyResponse {
             id: key.id.clone(),
             key_prefix: key.key_prefix.clone(),
             name: key.name.clone(),
+            user_id: key.user_id.clone(),
             enabled: key.enabled,
             rate_limit: key.rate_limit,
             quota_limit: key.quota_limit,
@@ -171,6 +173,7 @@ fn parse_create_input(body: &[u8]) -> Result<CreateAPIKeyInput, APIError> {
 
     Ok(CreateAPIKeyInput {
         name,
+        user_id: parse_owner(object.get("user_id"))?.flatten(),
         enabled: optional_bool(object, "enabled")?.unwrap_or(true),
         rate_limit: optional_count(object, "rate_limit")?.unwrap_or(0),
         quota_limit: optional_count(object, "quota_limit")?.unwrap_or(0),
@@ -199,6 +202,7 @@ fn parse_update_input(body: &[u8]) -> Result<UpdateAPIKeyInput, APIError> {
 
     Ok(UpdateAPIKeyInput {
         name,
+        user_id: parse_owner(object.get("user_id"))?,
         enabled: optional_bool(object, "enabled")?,
         rate_limit: optional_count(object, "rate_limit")?,
         quota_limit: optional_count(object, "quota_limit")?,
@@ -269,6 +273,17 @@ fn optional_credit(
     }
 }
 
+/// `None` = field absent, `Some(None)` = explicit null (unowned),
+/// `Some(Some(id))` = a customer account id.
+fn parse_owner(raw: Option<&Value>) -> Result<Option<Option<String>>, APIError> {
+    match raw {
+        None => Ok(None),
+        Some(Value::Null) => Ok(Some(None)),
+        Some(Value::String(id)) if !id.is_empty() => Ok(Some(Some(id.clone()))),
+        Some(_) => Err(APIError::new(400, constants::keys::INVALID_PAYLOAD)),
+    }
+}
+
 /// `None` = field absent, `Some(None)` = explicit null (unrestricted),
 /// `Some(Some(list))` = a populated allowlist.
 fn parse_allowlist(raw: Option<&Value>) -> Result<Option<Option<Vec<String>>>, APIError> {
@@ -303,6 +318,7 @@ mod tests {
         let input = parse_create_input(body).unwrap();
 
         assert_eq!(input.name, "Client Key");
+        assert_eq!(input.user_id, None);
         assert!(input.enabled);
         assert_eq!(input.rate_limit, 0);
         assert_eq!(input.quota_limit, 0);
@@ -341,12 +357,20 @@ mod tests {
     fn update_distinguishes_absent_from_explicit_null() {
         let empty = parse_update_input(br#"{}"#).unwrap();
         assert_eq!(empty.allowed_models, None);
+        assert_eq!(empty.user_id, None);
 
         let cleared = parse_update_input(br#"{"allowed_models":null}"#).unwrap();
         assert_eq!(cleared.allowed_models, Some(None));
 
         let listed = parse_update_input(br#"{"allowed_models":["gpt-4o"]}"#).unwrap();
         assert_eq!(listed.allowed_models, Some(Some(vec!["gpt-4o".to_owned()])));
+
+        let unowned = parse_update_input(br#"{"user_id":null}"#).unwrap();
+        assert_eq!(unowned.user_id, Some(None));
+
+        let owned = parse_update_input(br#"{"user_id":"usr_1"}"#).unwrap();
+        assert_eq!(owned.user_id, Some(Some("usr_1".to_owned())));
+        assert!(parse_update_input(br#"{"user_id":""}"#).is_err());
     }
 
     #[test]

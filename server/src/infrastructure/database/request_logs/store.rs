@@ -205,9 +205,15 @@ fn publish_request_log(id: Uuid) {
     let _ = log_events().send(id);
 }
 
+/// Restricts the read to rows made with a key owned by one customer.
+const TENANT_SCOPE: &str = " AND EXISTS (SELECT 1 FROM api_keys k WHERE k.user_id = ? \
+     AND (k.id = request_logs.api_key_id OR k.id = request_logs.legacy_api_key_id))";
+
 /// Lists logs newest-first; PostgreSQL is unsupported until its repository exists.
+/// `tenant_user_id` restricts the read to one customer's keys.
 pub async fn list_request_logs(
     database: &AppDatabase,
+    tenant_user_id: Option<&str>,
     page: Option<i64>,
     limit: i64,
     status: Option<&str>,
@@ -215,19 +221,14 @@ pub async fn list_request_logs(
     let pool = database.sqlite_required(constants::database::REQUEST_LOGS_UNSUPPORTED)?;
     let limit = limit.clamp(1, 500);
     let page = page.map(|page| page.max(1));
-    let (count_query, logs_query) = match status {
-        Some("success") => (
-            "SELECT COUNT(*) FROM request_logs WHERE status_code >= 200 AND status_code < 300",
-            "SELECT * FROM request_logs WHERE status_code >= 200 AND status_code < 300 ORDER BY created_at DESC LIMIT ? OFFSET ?",
-        ),
-        Some("error") => (
-            "SELECT COUNT(*) FROM request_logs WHERE status_code < 200 OR status_code >= 300",
-            "SELECT * FROM request_logs WHERE status_code < 200 OR status_code >= 300 ORDER BY created_at DESC LIMIT ? OFFSET ?",
-        ),
-        Some("all") | None => (
-            "SELECT COUNT(*) FROM request_logs",
-            "SELECT * FROM request_logs ORDER BY created_at DESC LIMIT ? OFFSET ?",
-        ),
+    // `1 = 1` keeps the three branches on one two-part shape: a status predicate,
+    // then an optional tenant predicate that always brings its own `AND`.
+    let status = match status {
+        Some("success") => "status_code >= 200 AND status_code < 300",
+        // Parenthesised: the tenant scope appends `AND`, which would otherwise
+        // bind to the second arm only and let `< 200` rows bypass it.
+        Some("error") => "(status_code < 200 OR status_code >= 300)",
+        Some("all") | None => "1 = 1",
         Some(_) => {
             return Err(APIError::new(
                 400,
@@ -235,18 +236,37 @@ pub async fn list_request_logs(
             ));
         }
     };
-    let total: i64 = sqlx::query_scalar(count_query)
-        .fetch_one(&pool)
-        .await
-        .map_err(|error| {
-            APIError::new(
-                500,
-                constants::database::could_not_count_request_logs(&error),
-            )
-        })?;
+    let scope = if tenant_user_id.is_some() {
+        TENANT_SCOPE
+    } else {
+        ""
+    };
+
+    let mut count = sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
+        "SELECT COUNT(*) FROM request_logs WHERE {status}{scope}"
+    )));
+    if let Some(user_id) = tenant_user_id {
+        count = count.bind(user_id);
+    }
+    let total: i64 = count.fetch_one(&pool).await.map_err(|error| {
+        APIError::new(
+            500,
+            constants::database::could_not_count_request_logs(&error),
+        )
+    })?;
+
     let page_number = page.unwrap_or(1);
     let offset = page.map_or(0, |page| (page - 1).saturating_mul(limit));
-    let rows = sqlx::query(logs_query)
+    // The tenant placeholder lives inside the WHERE clause, so it binds before the
+    // LIMIT/OFFSET pair. Bound after them, every page is silently one page off.
+    let mut rows = sqlx::query(sqlx::AssertSqlSafe(format!(
+        "SELECT * FROM request_logs WHERE {status}{scope} \
+         ORDER BY created_at DESC LIMIT ? OFFSET ?"
+    )));
+    if let Some(user_id) = tenant_user_id {
+        rows = rows.bind(user_id);
+    }
+    let rows = rows
         .bind(limit)
         .bind(offset)
         .fetch_all(&pool)

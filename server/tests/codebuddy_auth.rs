@@ -13,7 +13,7 @@ use srouter_server::AppState;
 use srouter_server::features::admin_auth::hash_session_token;
 use srouter_server::features::provider_auth::create_codebuddy_login_router_with_endpoints;
 use srouter_server::features::providers::ProviderRegistry;
-use srouter_server::http::middleware::admin_session::require_admin_session;
+use srouter_server::http::middleware::session_guard::require_admin_session;
 use srouter_server::infrastructure::database::oauth_sessions::claim_session;
 use srouter_server::infrastructure::database::providers::list_connections;
 use support::{
