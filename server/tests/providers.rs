@@ -476,6 +476,35 @@ async fn provider_detail_serves_the_seed_without_a_database() {
 }
 
 #[tokio::test]
+async fn provider_detail_scopes_models_to_the_advertised_alias() {
+    let database = TestDatabase::new().unwrap();
+    let pool = sqlite(&database).await;
+
+    sqlx::query(
+        "INSERT INTO provider_model_overrides (provider_id, model_id, custom, created_at) \
+         VALUES ('cline', 'only-cline', 1, ?)",
+    )
+    .bind(1_700_000_000_i64)
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    let body = json_body(
+        app(&database)
+            .await
+            .oneshot(get_request("/v1/providers/opencode_zen"))
+            .await
+            .unwrap(),
+    )
+    .await;
+
+    let models = body["models"].as_array().unwrap();
+    assert!(!models.is_empty());
+    assert!(models.iter().all(|entry| entry["owned_by"] == "zen"));
+    assert!(!models.iter().any(|entry| entry["id"] == "cline/only-cline"));
+}
+
+#[tokio::test]
 async fn the_model_resource_hides_and_restores_a_model() {
     let database = TestDatabase::new().unwrap();
     let app = app(&database).await;
