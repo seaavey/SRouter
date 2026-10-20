@@ -450,6 +450,34 @@ async fn provider_detail_is_case_insensitive_and_rejects_unknown_ids() {
 }
 
 #[tokio::test]
+async fn provider_detail_accepts_a_seed_connection_id() {
+    let database = TestDatabase::new().unwrap();
+    let pool = sqlite(&database).await;
+
+    sqlx::query(
+        "INSERT INTO providers (id, provider_id, name, category, protocol, base_url, enabled, \
+         credentials, meta, created_at) \
+         VALUES ('opencode_zen_work', 'opencode_zen', 'Zen Work', 'free_tier', 'openai', \
+         'https://opencode.ai/zen/v1', 1, '{}', '{}', 1)",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    let body = json_body(
+        app(&database)
+            .await
+            .oneshot(get_request("/v1/providers/opencode_zen_work"))
+            .await
+            .unwrap(),
+    )
+    .await;
+
+    assert_eq!(body["id"], "opencode_zen");
+    assert!(!body["models"].as_array().unwrap().is_empty());
+}
+
+#[tokio::test]
 async fn provider_detail_serves_the_seed_without_a_database() {
     let state = AppState::with_security(
         support::test_config(),

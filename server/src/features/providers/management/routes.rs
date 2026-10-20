@@ -505,11 +505,16 @@ async fn detail_entry(state: &AppState, provider_id: &str) -> Result<ProviderEnt
             constants::providers::not_found(provider_id),
         ));
     };
+    let base_id = match &target {
+        ProviderTarget::Seed(metadata) => metadata.id,
+        ProviderTarget::Custom(row) => row.id.as_str(),
+    };
     // A provider advertises under its alias, which is not always its id:
-    // `opencode_zen` serves `zen/...` and `qoder` serves `qd/...`.
+    // `opencode_zen` serves `zen/...` and `qoder` serves `qd/...`. Resolve it
+    // from the collapsed target, because a seed connection id also lands here.
     let alias = state
         .providers
-        .alias_of(provider_id)
+        .alias_of(base_id)
         .ok_or_else(|| APIError::new(404, constants::providers::not_found(provider_id)))?;
     let models = provider_models(state, &alias).await?;
 
