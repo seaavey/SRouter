@@ -6,7 +6,7 @@ use futures_util::future::BoxFuture;
 
 use crate::constants;
 use crate::error::APIError;
-use crate::features::admin_auth::{AdminAuthRepository, AdminSessionStore};
+use crate::features::admin_auth::{AdminAuthRepository, SessionScope, SessionStore};
 use crate::infrastructure::database::AppDatabase;
 
 /// Admin account rows (`admin_accounts`, singleton `id = 1`) and login sessions
@@ -106,18 +106,21 @@ impl AdminAuthRepository for SQLxAdminAuthStore {
         token_hash: &str,
         created_at: i64,
         expires_at: i64,
+        user_id: Option<&str>,
     ) -> BoxFuture<'_, Result<(), APIError>> {
         let token_hash = token_hash.to_owned();
+        let user_id = user_id.map(str::to_owned);
 
         Box::pin(async move {
             let pool = self.pool()?;
             sqlx::query(
-                "INSERT OR REPLACE INTO auth_sessions (token_hash, created_at, expires_at) \
-                 VALUES (?, ?, ?)",
+                "INSERT OR REPLACE INTO auth_sessions (token_hash, created_at, expires_at, user_id) \
+                 VALUES (?, ?, ?, ?)",
             )
             .bind(token_hash)
             .bind(created_at)
             .bind(expires_at)
+            .bind(user_id)
             .execute(&pool)
             .await
             .map_err(sql_error(
@@ -146,24 +149,32 @@ impl AdminAuthRepository for SQLxAdminAuthStore {
     }
 }
 
-impl AdminSessionStore for SQLxAdminAuthStore {
-    fn has_valid_session<'a>(
+impl SessionStore for SQLxAdminAuthStore {
+    fn resolve_session<'a>(
         &'a self,
         token_hash: &'a str,
         now_ms: i64,
-    ) -> BoxFuture<'a, Result<bool, APIError>> {
+    ) -> BoxFuture<'a, Result<Option<SessionScope>, APIError>> {
         Box::pin(async move {
             let pool = self.pool()?;
-            let count: i64 = sqlx::query_scalar(
-                "SELECT COUNT(*) FROM auth_sessions WHERE token_hash = ? AND expires_at > ?",
+            let row: Option<(Option<String>, i64)> = sqlx::query_as(
+                "SELECT s.user_id, COALESCE(u.enabled, 1) AS owner_enabled \
+                 FROM auth_sessions s LEFT JOIN users u ON u.id = s.user_id \
+                 WHERE s.token_hash = ? AND s.expires_at > ?",
             )
             .bind(token_hash)
             .bind(now_ms)
-            .fetch_one(&pool)
+            .fetch_optional(&pool)
             .await
             .map_err(sql_error(constants::database::context::READ_ADMIN_SESSION))?;
 
-            Ok(count > 0)
+            // A disabled owner kills the console session on the next request,
+            // not on the next login.
+            Ok(row.and_then(|(user_id, owner_enabled)| match user_id {
+                Some(_) if owner_enabled == 0 => None,
+                Some(user_id) => Some(SessionScope::User(user_id)),
+                None => Some(SessionScope::Admin),
+            }))
         })
     }
 }

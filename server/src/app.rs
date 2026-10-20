@@ -29,7 +29,6 @@ use crate::features::settings::{
     create_settings_management_router, create_settings_read_router, create_system_router,
 };
 use crate::http::middleware::access_log::log_access;
-use crate::http::middleware::admin_session::require_admin_session;
 use crate::http::middleware::api_key_auth::api_key_auth;
 use crate::http::middleware::body_limit::body_limit;
 use crate::http::middleware::cors::cors;
@@ -37,6 +36,7 @@ use crate::http::middleware::csrf::csrf_origin_guard;
 use crate::http::middleware::failure_log::log_failed_requests;
 use crate::http::middleware::rate_limit::rate_limit;
 use crate::http::middleware::security_headers::security_headers;
+use crate::http::middleware::session_guard::require_admin_session;
 use crate::http::static_files;
 use crate::state::AppState;
 

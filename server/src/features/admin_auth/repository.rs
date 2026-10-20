@@ -1,5 +1,5 @@
 //! Admin account and session persistence for the admin-auth routes. Session
-//! *validation* stays on [`AdminSessionStore`]; this trait owns the account row
+//! *validation* stays on [`SessionStore`]; this trait owns the account row
 //! and the session lifecycle (create/delete).
 
 use futures_util::future::BoxFuture;
@@ -29,12 +29,14 @@ pub trait AdminAuthRepository: Send + Sync {
         now_ms: i64,
     ) -> BoxFuture<'_, Result<bool, APIError>>;
 
-    /// Persists a new session row keyed by the token hash.
+    /// Persists a new session row keyed by the token hash. `user_id` of `None`
+    /// is the operator; `Some` is a customer console session.
     fn create_session(
         &self,
         token_hash: &str,
         created_at: i64,
         expires_at: i64,
+        user_id: Option<&str>,
     ) -> BoxFuture<'_, Result<(), APIError>>;
 
     /// Deletes a session row; `false` when it was already gone.
@@ -77,6 +79,7 @@ impl AdminAuthRepository for EmptyAdminAuthRepository {
         _token_hash: &str,
         _created_at: i64,
         _expires_at: i64,
+        _user_id: Option<&str>,
     ) -> BoxFuture<'_, Result<(), APIError>> {
         Box::pin(async { Err(unconfigured()) })
     }

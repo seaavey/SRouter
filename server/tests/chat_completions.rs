@@ -15,7 +15,7 @@ use srouter_server::features::api_keys::{
 use srouter_server::features::gateway::token_saver::TERSE_DIRECTIVE;
 use srouter_server::{APIError, AppState, SecurityState};
 use support::{
-    FakeUpstream, FixtureAPIKeyStore, FixtureAdminSessionStore, TestDatabase, api_key_record,
+    FakeUpstream, FixtureAPIKeyStore, FixtureSessionStore, TestDatabase, api_key_record,
     app_state_with_fake_upstream, app_state_with_fake_upstream_and_security, with_loopback_client,
 };
 use tower::ServiceExt;
@@ -1292,7 +1292,7 @@ async fn keyed_app(
             false,
             vec![("sr-live-quota-test".to_owned(), api_key_record("key-1"))],
         )),
-        Arc::new(FixtureAdminSessionStore::new(vec![])),
+        Arc::new(FixtureSessionStore::new(vec![])),
         repository.clone(),
     );
     let (upstream, state) = app_state_with_fake_upstream_and_security(security).await;

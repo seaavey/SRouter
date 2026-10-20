@@ -4,7 +4,7 @@
 
 use axum::body::{Bytes, to_bytes};
 use axum::extract::{Request, State};
-use axum::http::{StatusCode, header};
+use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
@@ -18,10 +18,8 @@ use crate::request::{client_address, cookie_value, is_loopback_address};
 use crate::state::AppState;
 
 use super::password::{hash_admin_password, validate_admin_password, verify_admin_password};
-use super::session::{cleared_cookie, session_cookie};
-use super::{
-    ADMIN_SESSION_COOKIE, ADMIN_SESSION_TTL_MS, generate_session_token, hash_session_token,
-};
+use super::session::{SessionScope, attach_cleared_cookie, attach_session};
+use super::{ADMIN_SESSION_COOKIE, hash_session_token};
 
 /// Admin payloads are tiny; this only bounds a hostile upload before parsing.
 const MAX_ADMIN_BODY: usize = 1024 * 1024;
@@ -146,7 +144,7 @@ async fn admin_setup(
         }),
     )
         .into_response();
-    attach_session(&state, &mut response, now).await?;
+    attach_session(&state, &mut response, now, None).await?;
 
     Ok(response)
 }
@@ -188,7 +186,7 @@ async fn admin_login(
         authenticated: true,
     })
     .into_response();
-    attach_session(&state, &mut response, now).await?;
+    attach_session(&state, &mut response, now, None).await?;
 
     Ok(response)
 }
@@ -280,39 +278,10 @@ async fn is_authenticated(state: &AppState, token: Option<&str>) -> Result<bool,
 
     state
         .security
-        .admin_sessions
-        .has_valid_session(&hash_session_token(token), now_ms())
+        .sessions
+        .resolve_session(&hash_session_token(token), now_ms())
         .await
-}
-
-/// Creates a session row and sets the cookie on `response`.
-async fn attach_session(
-    state: &AppState,
-    response: &mut Response,
-    now: i64,
-) -> Result<(), APIError> {
-    let token = generate_session_token()?;
-    state
-        .security
-        .admin_auth
-        .create_session(&hash_session_token(&token), now, now + ADMIN_SESSION_TTL_MS)
-        .await?;
-
-    response.headers_mut().insert(
-        header::SET_COOKIE,
-        session_cookie(&token, state.config.secure_cookies)?,
-    );
-
-    Ok(())
-}
-
-fn attach_cleared_cookie(state: &AppState, response: &mut Response) -> Result<(), APIError> {
-    response.headers_mut().insert(
-        header::SET_COOKIE,
-        cleared_cookie(state.config.secure_cookies)?,
-    );
-
-    Ok(())
+        .map(|scope| matches!(scope, Some(SessionScope::Admin)))
 }
 
 async fn json_body(request: Request, message: &str) -> Result<Value, APIError> {

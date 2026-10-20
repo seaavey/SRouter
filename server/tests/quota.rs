@@ -62,7 +62,7 @@ async fn quota_requires_api_key_when_configured() {
     // Configure security state with a key requirement
     let security = SecurityState::new(
         Arc::new(FixtureAPIKeyStore::new(true, Vec::new())),
-        Arc::new(srouter_server::features::admin_auth::EmptyAdminSessionStore),
+        Arc::new(srouter_server::features::admin_auth::EmptySessionStore),
     );
 
     let state = AppState::with_security(

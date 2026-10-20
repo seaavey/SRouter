@@ -16,7 +16,7 @@ use srouter_server::features::provider_auth::{
     create_claude_callback_router_with_endpoints, create_claude_login_router,
 };
 use srouter_server::features::providers::ProviderRegistry;
-use srouter_server::http::middleware::admin_session::require_admin_session;
+use srouter_server::http::middleware::session_guard::require_admin_session;
 use srouter_server::infrastructure::database::providers::load_claude_credentials;
 use support::{
     FakeClaudeUpstream, TestDatabase, json_request_with_headers, sqlx_security_state, test_config,

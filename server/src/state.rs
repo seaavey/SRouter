@@ -4,8 +4,7 @@ use tokio::sync::Semaphore;
 use crate::config::APIConfig;
 use crate::error::APIError;
 use crate::features::admin_auth::{
-    AdminAuthRepository, AdminSessionStore, EmptyAdminAuthRepository, EmptyAdminSessionStore,
-    LoginThrottle,
+    AdminAuthRepository, EmptyAdminAuthRepository, EmptySessionStore, LoginThrottle, SessionStore,
 };
 use crate::features::api_keys::{
     APIKeyRepository, APIKeyStore, EmptyAPIKeyRepository, EmptyAPIKeyStore,
@@ -22,7 +21,7 @@ use crate::infrastructure::database::AppDatabase;
 #[derive(Clone)]
 pub struct SecurityState {
     pub api_keys: Arc<dyn APIKeyStore>,
-    pub admin_sessions: Arc<dyn AdminSessionStore>,
+    pub sessions: Arc<dyn SessionStore>,
     /// Management CRUD source behind `/v1/keys`. Separate from `api_keys`, which
     /// only serves authentication lookups.
     pub key_repository: Arc<dyn APIKeyRepository>,
@@ -37,20 +36,20 @@ impl SecurityState {
     /// Wraps explicit, persistence-backed stores with the unconfigured
     /// management repository. Prefer [`SecurityState::with_repository`] once a
     /// database backs `/v1/keys`.
-    pub fn new(api_keys: Arc<dyn APIKeyStore>, admin_sessions: Arc<dyn AdminSessionStore>) -> Self {
-        Self::with_repository(api_keys, admin_sessions, Arc::new(EmptyAPIKeyRepository))
+    pub fn new(api_keys: Arc<dyn APIKeyStore>, sessions: Arc<dyn SessionStore>) -> Self {
+        Self::with_repository(api_keys, sessions, Arc::new(EmptyAPIKeyRepository))
     }
 
     /// Wraps explicit, persistence-backed stores including the `/v1/keys`
     /// repository.
     pub fn with_repository(
         api_keys: Arc<dyn APIKeyStore>,
-        admin_sessions: Arc<dyn AdminSessionStore>,
+        sessions: Arc<dyn SessionStore>,
         key_repository: Arc<dyn APIKeyRepository>,
     ) -> Self {
         Self {
             api_keys,
-            admin_sessions,
+            sessions,
             key_repository,
             admin_auth: Arc::new(EmptyAdminAuthRepository),
             login_throttle: Arc::new(LoginThrottle::new()),
@@ -69,7 +68,7 @@ impl SecurityState {
     pub fn unconfigured() -> Self {
         Self {
             api_keys: Arc::new(EmptyAPIKeyStore),
-            admin_sessions: Arc::new(EmptyAdminSessionStore),
+            sessions: Arc::new(EmptySessionStore),
             key_repository: Arc::new(EmptyAPIKeyRepository),
             admin_auth: Arc::new(EmptyAdminAuthRepository),
             login_throttle: Arc::new(LoginThrottle::new()),
@@ -154,7 +153,7 @@ impl AppState {
 mod tests {
     use std::sync::Arc;
 
-    use crate::features::admin_auth::EmptyAdminSessionStore;
+    use crate::features::admin_auth::EmptySessionStore;
     use crate::features::api_keys::EmptyAPIKeyStore;
 
     use super::SecurityState;
@@ -168,8 +167,7 @@ mod tests {
 
     #[test]
     fn explicit_security_state_reports_persistence() {
-        let security =
-            SecurityState::new(Arc::new(EmptyAPIKeyStore), Arc::new(EmptyAdminSessionStore));
+        let security = SecurityState::new(Arc::new(EmptyAPIKeyStore), Arc::new(EmptySessionStore));
 
         assert!(security.is_persistence_configured());
     }

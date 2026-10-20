@@ -9,7 +9,7 @@ use axum::response::{IntoResponse, Response};
 use crate::clock::now_ms;
 use crate::constants;
 use crate::error::APIError;
-use crate::features::admin_auth::{ADMIN_SESSION_COOKIE, hash_session_token};
+use crate::features::admin_auth::{ADMIN_SESSION_COOKIE, SessionScope, hash_session_token};
 use crate::features::api_keys::{APIKeyRecord, APIPrincipal, AuthSource};
 use crate::state::AppState;
 
@@ -35,14 +35,15 @@ pub async fn api_key_auth(State(state): State<AppState>, request: Request, next:
     if let Some(token) = session_token {
         match state
             .security
-            .admin_sessions
-            .has_valid_session(&hash_session_token(&token), now_ms())
+            .sessions
+            .resolve_session(&hash_session_token(&token), now_ms())
             .await
         {
-            Ok(true) => {
+            // A customer console session must never authorize gateway traffic.
+            Ok(Some(SessionScope::Admin)) => {
                 return authorize(request, next, AuthSource::AdminSession, None).await;
             }
-            Ok(false) => {}
+            Ok(_) => {}
             Err(error) => return error.into_response(),
         }
     }

@@ -21,7 +21,7 @@ use serde_json::json;
 use srouter_server::{
     APIConfig, APIError, AppDatabase, AppState, ProviderRegistry, SecurityState,
     app::create_router,
-    features::admin_auth::{EmptyAdminAuthRepository, EmptyAdminSessionStore},
+    features::admin_auth::{EmptyAdminAuthRepository, EmptySessionStore},
     features::api_keys::{APIKeyRecord, APIKeyStore, EmptyAPIKeyRepository},
 };
 use tokio::net::TcpListener;
@@ -170,7 +170,7 @@ async fn main() -> Result<(), APIError> {
 
     let security = SecurityState::with_repository(
         Arc::new(OneKeyStore),
-        Arc::new(EmptyAdminSessionStore),
+        Arc::new(EmptySessionStore),
         Arc::new(EmptyAPIKeyRepository),
     )
     .with_admin_auth(Arc::new(EmptyAdminAuthRepository));

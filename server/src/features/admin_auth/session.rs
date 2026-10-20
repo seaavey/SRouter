@@ -1,7 +1,9 @@
-//! Admin session mechanics: cookie name, token hashing, and session lookup.
-//! Kept separate from API keys because admin login owns these values.
+//! Session mechanics: cookie name, token hashing, cookie writers, and lookup.
+//! One cookie serves the operator and customer consoles; the session row says
+//! which.
 
-use axum::http::HeaderValue;
+use axum::http::{HeaderValue, header};
+use axum::response::Response;
 use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use futures_util::future::BoxFuture;
@@ -9,6 +11,7 @@ use sha2::{Digest, Sha256};
 
 use crate::constants;
 use crate::error::APIError;
+use crate::state::AppState;
 
 /// Cookie name frozen by `docs/api-v1-contract.md`.
 pub const ADMIN_SESSION_COOKIE: &str = "srouter_admin_session";
@@ -67,35 +70,82 @@ pub(crate) fn cleared_cookie(secure: bool) -> Result<HeaderValue, APIError> {
     })
 }
 
-/// Source of admin session state. `token_hash` is always `hash_session_token`
+/// Who a live session belongs to. One cookie serves both audiences; the row
+/// carries the role, because a customer must never reach an operator route.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum SessionScope {
+    Admin,
+    User(String),
+}
+
+/// Source of session state. `token_hash` is always `hash_session_token`
 /// output; the raw cookie value never reaches a store.
-pub trait AdminSessionStore: Send + Sync {
-    fn has_valid_session<'a>(
+pub trait SessionStore: Send + Sync {
+    /// Resolves a cookie hash to its account. `None` covers an absent, expired,
+    /// or owner-disabled session.
+    fn resolve_session<'a>(
         &'a self,
         token_hash: &'a str,
         now_ms: i64,
-    ) -> BoxFuture<'a, Result<bool, APIError>>;
+    ) -> BoxFuture<'a, Result<Option<SessionScope>, APIError>>;
 }
 
 /// Stand-in for a database with no sessions: every session is invalid.
 #[derive(Clone, Copy, Debug, Default)]
-pub struct EmptyAdminSessionStore;
+pub struct EmptySessionStore;
 
-impl AdminSessionStore for EmptyAdminSessionStore {
-    fn has_valid_session<'a>(
+impl SessionStore for EmptySessionStore {
+    fn resolve_session<'a>(
         &'a self,
         _token_hash: &'a str,
         _now_ms: i64,
-    ) -> BoxFuture<'a, Result<bool, APIError>> {
-        Box::pin(async { Ok(false) })
+    ) -> BoxFuture<'a, Result<Option<SessionScope>, APIError>> {
+        Box::pin(async { Ok(None) })
     }
+}
+
+/// Creates a session row and sets the cookie on `response`.
+pub(crate) async fn attach_session(
+    state: &AppState,
+    response: &mut Response,
+    now: i64,
+    user_id: Option<&str>,
+) -> Result<(), APIError> {
+    let token = generate_session_token()?;
+    state
+        .security
+        .admin_auth
+        .create_session(
+            &hash_session_token(&token),
+            now,
+            now + ADMIN_SESSION_TTL_MS,
+            user_id,
+        )
+        .await?;
+
+    response.headers_mut().insert(
+        header::SET_COOKIE,
+        session_cookie(&token, state.config.secure_cookies)?,
+    );
+
+    Ok(())
+}
+
+pub(crate) fn attach_cleared_cookie(
+    state: &AppState,
+    response: &mut Response,
+) -> Result<(), APIError> {
+    response.headers_mut().insert(
+        header::SET_COOKIE,
+        cleared_cookie(state.config.secure_cookies)?,
+    );
+
+    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        AdminSessionStore, EmptyAdminSessionStore, generate_session_token, hash_session_token,
-    };
+    use super::{EmptySessionStore, SessionStore, generate_session_token, hash_session_token};
 
     #[test]
     fn generated_tokens_are_unpadded_base64url_and_unique() {
@@ -116,9 +166,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn empty_admin_session_store_rejects_every_session() {
-        let store = EmptyAdminSessionStore;
+    async fn empty_session_store_rejects_every_session() {
+        let store = EmptySessionStore;
 
-        assert!(!store.has_valid_session("hash", 1).await.unwrap());
+        assert!(store.resolve_session("hash", 1).await.unwrap().is_none());
     }
 }

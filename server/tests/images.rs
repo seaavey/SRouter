@@ -14,7 +14,7 @@ use srouter_server::features::providers::model::ModelDefinition;
 use srouter_server::infrastructure::upstream::UpstreamClient;
 use srouter_server::{AppState, SecurityState};
 use support::{
-    FakeUpstream, FixtureAPIKeyStore, FixtureAdminSessionStore, TestDatabase, api_key_record,
+    FakeUpstream, FixtureAPIKeyStore, FixtureSessionStore, TestDatabase, api_key_record,
     test_config, with_loopback_client,
 };
 use tower::ServiceExt;
@@ -259,7 +259,7 @@ async fn post_images_generations_enforces_model_allowlist() {
             false,
             vec![("sr-live-key-restricted".to_owned(), key_record)],
         )),
-        Arc::new(FixtureAdminSessionStore::new(vec![])),
+        Arc::new(FixtureSessionStore::new(vec![])),
     );
 
     let state = AppState::with_security(test_config(), providers, security);
