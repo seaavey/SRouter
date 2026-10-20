@@ -310,6 +310,35 @@ async fn deletes_a_custom_provider_and_then_reports_not_found() {
         .unwrap();
     let id = json(created).await["id"].as_str().unwrap().to_owned();
 
+    // Leftovers of the provider: an extra account, a custom model, a hidden override.
+    let pool = database.connect().await.unwrap().sqlite_pool().unwrap();
+    sqlx::query(
+        "INSERT INTO providers (id, provider_id, name, category, protocol, base_url, enabled, \
+         credentials, meta, created_at) \
+         VALUES ('conn_delete_me', ?, 'Second account', 'api_key', 'openai', \
+         'https://example.test/v1', 1, '{\"api_key\":\"sk-extra\"}', '{}', 1)",
+    )
+    .bind(&id)
+    .execute(&pool)
+    .await
+    .unwrap();
+    sqlx::query(
+        "INSERT INTO provider_model_overrides (provider_id, model_id, custom, created_at) \
+         VALUES (?, 'leftover-model', 1, 1)",
+    )
+    .bind(&id)
+    .execute(&pool)
+    .await
+    .unwrap();
+    sqlx::query(
+        "INSERT INTO provider_model_overrides (provider_id, model_id, custom, hidden, created_at) \
+         VALUES (?, 'leftover-hidden', 0, 1, 1)",
+    )
+    .bind(&id)
+    .execute(&pool)
+    .await
+    .unwrap();
+
     let deleted = app
         .clone()
         .oneshot(admin_request(
@@ -333,6 +362,17 @@ async fn deletes_a_custom_provider_and_then_reports_not_found() {
         .unwrap();
     assert_eq!(again.status(), StatusCode::NOT_FOUND);
 
+    let leftovers: i64 = sqlx::query_scalar(
+        "SELECT (SELECT COUNT(*) FROM providers WHERE provider_id = ?) \
+              + (SELECT COUNT(*) FROM provider_model_overrides WHERE provider_id = ?)",
+    )
+    .bind(&id)
+    .bind(&id)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(leftovers, 0);
+
     // The registry dropped it too, so the catalog no longer lists it.
     let catalog = app
         .oneshot(with_loopback_client(
@@ -351,6 +391,40 @@ async fn deletes_a_custom_provider_and_then_reports_not_found() {
             .len(),
         0
     );
+}
+
+#[tokio::test]
+async fn refuses_to_delete_a_builtin_provider_and_keeps_its_accounts() {
+    let database = TestDatabase::new().unwrap();
+    let app = app(&database).await;
+    let pool = database.connect().await.unwrap().sqlite_pool().unwrap();
+
+    sqlx::query(
+        "INSERT INTO providers (id, provider_id, name, category, protocol, base_url, enabled, \
+         credentials, meta, created_at) \
+         VALUES ('conn_seed', 'opencode_zen', 'Zen account', 'free_tier', 'openai', \
+         'https://opencode.ai/zen/v1', 1, '{\"api_key\":\"sr-keep-me\"}', '{}', 1)",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    let deleted = app
+        .oneshot(admin_request(
+            "DELETE",
+            "/v1/providers/opencode_zen",
+            serde_json::json!(null),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(deleted.status(), StatusCode::NOT_FOUND);
+
+    let remaining: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM providers WHERE id = 'conn_seed'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(remaining, 1);
 }
 
 #[tokio::test]

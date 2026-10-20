@@ -137,25 +137,47 @@ pub async fn create_custom_provider(
     Ok(())
 }
 
+fn delete_failed(error: sqlx::Error) -> APIError {
+    APIError::new(
+        500,
+        constants::database::with_context("delete the custom provider", error),
+    )
+}
+
 /// Deletes one custom provider row. Returns whether a row was removed, so the
 /// route can answer `404`.
 pub async fn delete_custom_provider(database: &AppDatabase, id: &str) -> Result<bool, APIError> {
     let pool = database.sqlite_required(constants::database::PROVIDERS_UNSUPPORTED)?;
+    let mut transaction = pool.begin().await.map_err(delete_failed)?;
 
     let affected =
         sqlx::query("DELETE FROM providers WHERE id = ? AND category = 'custom_provider'")
             .bind(id)
-            .execute(&pool)
+            .execute(&mut *transaction)
             .await
-            .map_err(|error| {
-                APIError::new(
-                    500,
-                    constants::database::with_context("delete the custom provider", error),
-                )
-            })?
+            .map_err(delete_failed)?
             .rows_affected();
 
-    Ok(affected > 0)
+    if affected == 0 {
+        return Ok(false);
+    }
+
+    // Its account rows and model overrides hang off the provider id with no
+    // foreign key, so the row delete alone would strand their credentials.
+    for statement in [
+        "DELETE FROM providers WHERE provider_id = ?",
+        "DELETE FROM provider_model_overrides WHERE provider_id = ?",
+    ] {
+        sqlx::query(statement)
+            .bind(id)
+            .execute(&mut *transaction)
+            .await
+            .map_err(delete_failed)?;
+    }
+
+    transaction.commit().await.map_err(delete_failed)?;
+
+    Ok(true)
 }
 
 /// The credential blob: the API key (Node's only accepted secret) plus any
