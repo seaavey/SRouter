@@ -1,7 +1,7 @@
 //! Integration tests for provider OAuth quota: `GET /v1/quota` and `GET /v1/qouta`.
 //!
 //! Verifies:
-//! - API-key auth requirement and loopback/key handling.
+//! - Admin-session requirement; loopback callers get no exemption.
 //! - Exact parity between `/v1/quota` and the retained compatibility alias `/v1/qouta`.
 //! - Filtering out non-OAuth providers (mirroring `apps/api/tests/quota-oauth-filter.test.ts`).
 //! - Live rate limit window extraction, status, and naming.
@@ -60,12 +60,12 @@ async fn json_body(response: axum::response::Response) -> serde_json::Value {
 }
 
 #[tokio::test]
-async fn quota_requires_api_key_when_configured() {
+async fn quota_requires_an_admin_session() {
     let database = TestDatabase::new().expect("temporary database");
     let fake = FakeCodexUpstream::start().await;
     let app_db = database.connect().await.expect("connect database");
 
-    // Configure security state with a key requirement
+    // No live sessions, so the admin-session guard rejects before the handler.
     let security = SecurityState::new(
         Arc::new(FixtureAPIKeyStore::new(true, Vec::new())),
         Arc::new(srouter_server::features::admin_auth::EmptySessionStore),
@@ -81,7 +81,7 @@ async fn quota_requires_api_key_when_configured() {
 
     let router = create_router(state);
 
-    // Missing key -> 401
+    // No admin cookie -> 401
     let req = Request::builder()
         .method("GET")
         .uri("/v1/quota")

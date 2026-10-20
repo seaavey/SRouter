@@ -1231,7 +1231,7 @@ async fn a_postgres_backend_reads_empty_and_refuses_provider_writes() {
     let state = AppState::with_security(
         support::test_config(),
         ProviderRegistry::with_defaults().unwrap(),
-        // Anonymous reads stay allowed, as on the SQLite fixtures.
+        // `get_request` carries this cookie as the admin session.
         support::security_state(false, vec![], vec![hash_session_token(SESSION_TOKEN)]),
     )
     .with_database(AppDatabase::Postgres(pool));

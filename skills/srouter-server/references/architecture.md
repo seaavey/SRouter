@@ -77,7 +77,7 @@ Cross-feature calls go through `AppState` (registry, security, database) or a sm
 
 ## State
 
-`AppState` carries `config`, `providers` (the registry), `security`, `database: Option<AppDatabase>`, `search`, and a quota cache. `SecurityState` holds `api_keys`, `admin_sessions`, `key_repository`, `admin_auth`, `login_throttle`, `rate_limiter`.
+`AppState` carries `config`, `providers` (the registry), `security`, `database: Option<AppDatabase>`, `search`, and a quota cache. `SecurityState` holds `api_keys`, `sessions`, `key_repository`, `admin_auth`, `login_throttle`, `rate_limiter`.
 
 Both are `Clone` (everything inside is `Arc`), which is why middleware clones the state rather than borrowing it. `SecurityState::unconfigured()` returns empty stores so a database-less boot still serves — and `is_persistence_configured()` exists so startup can warn instead of looking production-ready.
 

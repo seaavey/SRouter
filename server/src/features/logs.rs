@@ -1,4 +1,4 @@
-//! API-key-protected request-log endpoints and live events.
+//! Admin-session-protected request-log endpoints and live events.
 
 use std::convert::Infallible;
 use std::sync::atomic::{AtomicUsize, Ordering};

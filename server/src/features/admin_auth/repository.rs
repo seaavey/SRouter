@@ -1,6 +1,6 @@
-//! Admin account and session persistence for the admin-auth routes. Session
-//! *validation* stays on [`SessionStore`]; this trait owns the account row
-//! and the session lifecycle (create/delete).
+//! Account and session persistence for both consoles, admin and customer.
+//! Session *validation* stays on [`SessionStore`]; this trait owns the account
+//! row and the session lifecycle (create/delete).
 
 use futures_util::future::BoxFuture;
 
