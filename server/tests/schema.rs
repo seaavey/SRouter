@@ -21,9 +21,10 @@ const V3_TABLES: [&str; 11] = [
     "users",
 ];
 
-const V3_INDEXES: [&str; 6] = [
+const V3_INDEXES: [&str; 7] = [
     "idx_api_keys_key_hash",
     "idx_api_keys_user",
+    "idx_auth_sessions_user",
     "idx_request_logs_created",
     "idx_request_logs_provider",
     "idx_request_logs_model",

@@ -103,9 +103,7 @@ pub async fn run(pool: &SqlitePool) -> Result<(), APIError> {
     sqlx::raw_sql(USERS_V5_SQL)
         .execute(&mut *transaction)
         .await
-        .map_err(sql_error(
-            constants::database::context::APPLY_CURRENT_SCHEMA,
-        ))?;
+        .map_err(sql_error(constants::database::context::APPLY_USERS_V5))?;
 
     let record_version = format!("PRAGMA user_version = {SCHEMA_VERSION}");
     sqlx::raw_sql(sqlx::AssertSqlSafe(record_version))

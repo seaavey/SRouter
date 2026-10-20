@@ -610,35 +610,19 @@ async fn database_transfer_is_not_available_under_the_v1_v1_compat_group() {
 
 /// Writes a valid current-schema SQLite file at `path`.
 ///
+/// The shape and version come from `TestDatabase`'s own migration run, so a
+/// schema bump cannot leave this fixture claiming a stale version.
+///
 /// Broken candidates must claim the current version: the importer migrates
 /// anything older before it checks the shape, and the migration reconstructs
 /// missing tables and indexes.
 async fn write_current_candidate(path: &Path) {
-    let options = sqlx::sqlite::SqliteConnectOptions::new()
-        .filename(path)
-        .create_if_missing(true);
-    let pool = sqlx::sqlite::SqlitePoolOptions::new()
-        .max_connections(1)
-        .connect_with(options)
-        .await
-        .expect("candidate pool");
-
-    for migration in [
-        include_str!("../migrations/0002_v2_schema.sql"),
-        include_str!("../migrations/0003_request_logs.sql"),
-        include_str!("../migrations/0004_remove_tunnel_settings.sql"),
-        include_str!("../migrations/0005_users.sql"),
-    ] {
-        sqlx::raw_sql(sqlx::AssertSqlSafe(migration.to_owned()))
-            .execute(&pool)
-            .await
-            .expect("candidate schema");
-    }
-    sqlx::query("PRAGMA user_version = 5")
-        .execute(&pool)
-        .await
-        .expect("record version");
+    let source = TestDatabase::new().expect("candidate database");
+    let database = source.connect().await.expect("candidate schema");
+    let pool = database.sqlite_pool().expect("candidate SQLite pool");
+    // Closing checkpoints the WAL, so the single copied file is complete.
     pool.close().await;
+    std::fs::copy(source.path(), path).expect("copy candidate database");
 }
 
 /// Builds a valid current-schema candidate and then applies `statements` to break it.
@@ -707,6 +691,9 @@ async fn import_rejects_candidates_missing_a_table_column_or_index() {
                  user_id TEXT,\
                  created_at INTEGER NOT NULL)",
                 "CREATE INDEX idx_api_keys_key_hash ON api_keys (key_hash)",
+                // `DROP TABLE api_keys` took `idx_api_keys_user` with it; put it
+                // back so the missing index is not what rejects this candidate.
+                "CREATE INDEX idx_api_keys_user ON api_keys (user_id)",
             ],
         ),
     ];
