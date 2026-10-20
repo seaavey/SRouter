@@ -159,15 +159,18 @@ Semua pengaturan berupa environment variable, dan [`server/.env.example`](server
 | `POST`                        | `/v1/images/generations`                                                               | API key + rate limit        | Generasi gambar                                                           |
 | `GET`                         | `/v1/models`, `/v1/models/{*model}`                                                    | API key                     | Katalog dengan allowlist, favorit, dan model tersembunyi sudah diterapkan |
 | `GET`                         | `/v1/models/pricing`                                                                   | API key                     | Snapshot harga models.dev                                                 |
-| `GET`                         | `/v1/quota` (alias `/v1/qouta`)                                                        | API key                     | Kuota provider                                                            |
-| `GET`                         | `/v1/logs`, `/v1/logs/{id}`, `/v1/logs/stats`, `/v1/logs/analytics`, `/v1/logs/events` | API key                     | Log request, agregat, dan stream SSE                                      |
-| `GET`                         | `/v1/providers`, `/v1/providers/catalog`, `/v1/providers/{id}`                         | API key                     | Koneksi, katalog, dan satu provider                                       |
+| `GET`                         | `/v1/quota` (alias `/v1/qouta`)                                                        | Sesi admin                  | Kuota provider                                                            |
+| `GET`                         | `/v1/logs`, `/v1/logs/{id}`, `/v1/logs/stats`, `/v1/logs/analytics`, `/v1/logs/events` | Sesi admin                  | Log request, agregat, dan stream SSE                                      |
+| `GET`                         | `/v1/providers`, `/v1/providers/catalog`, `/v1/providers/{id}`                         | Sesi admin                  | Koneksi, katalog, dan satu provider                                       |
 | `GET`                         | `/v1/settings`                                                                         | API key                     | `require_api_key`                                                         |
 | `POST` `PUT` `PATCH` `DELETE` | `/v1/models/{*model}`                                                                  | Sesi admin                  | Penulisan model                                                           |
 | `PATCH`                       | `/v1/providers/{id}`, `/v1/providers/{id}/round-robin`                                 | Sesi admin                  | Penyuntingan provider dan rotasi akun                                     |
 | `POST` `DELETE`               | `/v1/providers`, `/v1/providers/verify`, `/v1/providers/connections/verify`            | Sesi admin                  | Provider custom dan verifikasinya                                         |
 | `GET` `POST`                  | `/v1/auth/{qoder,cline,codebuddy,codebuddy-cn,grok-web,openai,antigravity,claude}/...` | Sesi admin; callback publik | Login OAuth dan callback                                                  |
 | `GET` `POST` `PATCH` `DELETE` | `/v1/keys`, `/v1/keys/{id}`, `/v1/keys/{id}/credit`                                    | Sesi admin                  | API key gateway, kuota, dan kredit                                        |
+| `GET` `POST` `PATCH`          | `/v1/users`, `/v1/users/{id}`, `/v1/users/{id}/token`                                  | Sesi admin                  | Akun pelanggan dan token loginnya                                         |
+| `POST`                        | `/v1/portal/login`                                                                     | tidak ada; dibatasi         | Masuk konsol dengan token pelanggan                                       |
+| `GET` `POST`                  | `/v1/portal/{me,logs,logout}`                                                          | Sesi pelanggan              | Bacaan konsol pelanggan dan keluar                                        |
 | `POST` `PATCH`                | `/v1/settings`                                                                         | Sesi admin                  | Penulisan settings                                                        |
 | `GET` `POST`                  | `/v1/admin/{status,setup,login,logout,change-password}`                                | Per handler                 | Sesi admin                                                                |
 | `GET` `POST`                  | `/v1/admin/database/{export,import}`                                                   | Sesi admin                  | Transfer database                                                         |
@@ -186,6 +189,8 @@ Error memakai envelope OpenAI: `{"error": {"message", "type", "code", "param"}}`
 | `/logs`                                | live: tabel berpaginasi, tail SSE, detail request di bottom sheet                        |
 | `/usage`                               | live: kuota, biaya per model, rincian per periode                                        |
 | `/keys`                                | live: buat, edit, kredit, allowlist model                                                |
+| `/users`                               | live: daftar, buat, ganti nama, aktif/nonaktif, terbitkan ulang token login              |
+| `/portal`                              | live: konsol pelanggan; masuk dengan token, key dan log request miliknya                 |
 | `/settings`                            | masih mockup statis: tombol ganti password admin dan export database belum punya handler |
 
 ```bash

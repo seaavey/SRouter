@@ -95,8 +95,8 @@ logout.mutate(undefined, { onSuccess: () => navigate({ to: "/login" }) })
 
 - The session is an **HttpOnly `SameSite=Lax` cookie with a 7-day life**, set by `POST /v1/admin/setup` or `POST /v1/admin/login`. Nothing is stored in JS.
 - `GET /v1/admin/status` returns `{ setup_required, authenticated }` and is how the client decides between the setup form, the login form, and the dashboard.
-- Read surfaces accept _either_ an API key _or_ the admin session cookie — the cookie is what a browser dashboard uses.
-- Operator surfaces (`/v1/keys`, model writes, provider writes, `/v1/settings` mutations, database transfer) require the session **and** pass the server's `Origin` CSRF check. A same-origin `fetch` satisfies it; a rewrite that strips `Origin` breaks it.
+- Read surfaces that take a key (`/v1/models`, `/v1/models/pricing`, `GET /v1/settings`, the gateway) accept _either_ an API key _or_ the admin session cookie — the cookie is what a browser dashboard uses. Provider, log, and quota reads are session-only.
+- Operator surfaces (`/v1/keys`, `/v1/users`, provider reads and writes, model writes, `/v1/settings` mutations, database transfer) require the session **and** pass the server's `Origin` CSRF check. A same-origin `fetch` satisfies it; a rewrite that strips `Origin` breaks it.
 - Sessions expire server-side; a `401` with code `authentication_required` means redirect to `/login`.
 
 ## Endpoint table
@@ -117,23 +117,31 @@ All paths are relative to the origin. "Auth" is what the mount requires.
 | `PATCH /v1/keys/{id}`                                                                      | session                       | `APIKeyResponse`                            |
 | `DELETE /v1/keys/{id}`                                                                     | session                       | — (`204`)                                   |
 | `POST /v1/keys/{id}/credit`                                                                | session                       | `APIKeyResponse`                            |
+| `GET /v1/users`                                                                            | session                       | `UserListResponse`                          |
+| `POST /v1/users`                                                                           | session                       | `CreatedUserResponse`                       |
+| `PATCH /v1/users/{id}`                                                                     | session                       | `UserResponse`                              |
+| `POST /v1/users/{id}/token`                                                                | session                       | `CreatedUserResponse`                       |
 | `GET /v1/models`                                                                           | key or session                | `ModelListResponse`                         |
 | `GET /v1/models/{model}`                                                                   | key or session                | `CatalogModel`                              |
 | `POST /v1/models`, `PUT`/`PATCH`/`DELETE /v1/models/{model}`                               | session                       | model payload                               |
 | `GET /v1/models/pricing`                                                                   | key or session                | `PricingListResponse`                       |
-| `GET /v1/providers`                                                                        | key or session                | `ProviderListResponse`                      |
-| `GET /v1/providers/catalog`                                                                | key or session                | `CatalogResponse`                           |
-| `GET /v1/providers/{provider_id}`                                                          | key or session                | `ProviderEntry`                             |
+| `GET /v1/providers`                                                                        | session                       | `ProviderListResponse`                      |
+| `GET /v1/providers/catalog`                                                                | session                       | `CatalogResponse`                           |
+| `GET /v1/providers/{provider_id}`                                                          | session                       | `ProviderEntry`                             |
 | `PATCH /v1/providers/{provider_id}`                                                        | session                       | provider payload                            |
 | `PATCH /v1/providers/{provider_id}/round-robin`                                            | session                       | provider payload                            |
 | `POST /v1/providers`, `POST /v1/providers/verify`, `POST /v1/providers/connections/verify` | session                       | verification result                         |
 | `DELETE /v1/providers/{provider_id}`                                                       | session                       | —                                           |
-| `GET /v1/quota`                                                                            | key or session                | `QuotaResponse`                             |
-| `GET /v1/logs`                                                                             | key or session                | `LogsResponse`                              |
-| `GET /v1/logs/{id}`                                                                        | key or session                | `RequestLog`                                |
-| `GET /v1/logs/stats`                                                                       | key or session                | `UsageStatsReport`                          |
-| `GET /v1/logs/analytics`                                                                   | key or session                | `AnalyticsReport`                           |
-| `GET /v1/logs/events`                                                                      | key or session                | SSE stream of `LiveEvent`                   |
+| `GET /v1/quota`                                                                            | session                       | `QuotaResponse`                             |
+| `GET /v1/logs`                                                                             | session                       | `LogsResponse`                              |
+| `GET /v1/logs/{id}`                                                                        | session                       | `RequestLog`                                |
+| `GET /v1/logs/stats`                                                                       | session                       | `UsageStatsReport`                          |
+| `GET /v1/logs/analytics`                                                                   | session                       | `AnalyticsReport`                           |
+| `GET /v1/logs/events`                                                                      | session                       | SSE stream of `LiveEvent`                   |
+| `POST /v1/portal/login`                                                                    | none (throttled)              | `UserResponse`                              |
+| `GET /v1/portal/me`                                                                        | user session                  | `PortalMe`                                  |
+| `GET /v1/portal/logs`                                                                      | user session                  | `LogsResponse`                              |
+| `POST /v1/portal/logout`                                                                   | user session                  | — (`204`)                                   |
 | `GET /v1/settings`                                                                         | key or session                | `SettingsResponse`                          |
 | `PATCH` or `POST /v1/settings`                                                             | session                       | `SettingsResponse`                          |
 | `GET /v1/admin/database/export`, `POST /v1/admin/database/import`                          | session                       | multipart file                              |
