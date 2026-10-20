@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { KeyRound, Plus, Users } from "lucide-react"
+import { KeyRound, Pencil, Plus, Users } from "lucide-react"
 import { useState } from "react"
 
 import type { UserListResponse, UserResponse } from "@/api/types"
@@ -18,6 +18,7 @@ import { toast } from "@/components/arc/toast-stack/toast-stack"
 import { SectionHeader } from "@/components/layout/section-header"
 
 import CreateUserDialog from "./CreateUserDialog"
+import RenameUserDialog from "./RenameUserDialog"
 import TokenDialog from "./TokenDialog"
 
 type ToggleInput = { userID: string; enabled: boolean }
@@ -26,6 +27,7 @@ export default function UsersView() {
   const queryClient = useQueryClient()
   const { data, isPending, isError, error, refetch } = useQuery(usersQuery)
   const [createOpen, setCreateOpen] = useState(false)
+  const [renameUser, setRenameUser] = useState<UserResponse | null>(null)
   const [tokenUser, setTokenUser] = useState<UserResponse | null>(null)
 
   const users = data?.data ?? []
@@ -134,6 +136,14 @@ export default function UsersView() {
           <Button
             variant="secondary"
             size="sm"
+            aria-label={`Rename ${row.name}`}
+            onClick={() => setRenameUser(row)}
+          >
+            <Pencil size={14} strokeWidth={1.75} aria-hidden="true" />
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
             aria-label={`New login token for ${row.name}`}
             onClick={() => setTokenUser(row)}
           >
@@ -212,6 +222,11 @@ export default function UsersView() {
       )}
 
       <CreateUserDialog open={createOpen} onOpenChange={setCreateOpen} />
+      <RenameUserDialog
+        open={renameUser !== null}
+        onOpenChange={(open) => !open && setRenameUser(null)}
+        userRecord={renameUser}
+      />
       <TokenDialog
         open={tokenUser !== null}
         onOpenChange={(open) => !open && setTokenUser(null)}
