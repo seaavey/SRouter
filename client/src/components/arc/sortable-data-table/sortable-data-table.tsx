@@ -398,7 +398,6 @@ export function SortableDataTable<T extends Record<string, unknown>>({
 
   // A still tint under the sorted column fills the gaps that open while rows pass each other.
   const [band, setBand] = useState<{ left: number; width: number } | null>(null)
-  const seenSort = useRef(false)
   useLayoutEffect(() => {
     const table = tableRef.current
     const key = sort?.key
@@ -419,39 +418,6 @@ export function SortableDataTable<T extends Record<string, unknown>>({
     }
     update()
     if (!table || !key) return
-    // On a phone the header is a scrolling strip of sort controls; keep the active one in view.
-    const cell = table.querySelector<HTMLElement>(
-      `thead th[data-key="${CSS.escape(key)}"]`
-    )
-    const strip = cell?.parentElement
-    if (
-      cell &&
-      strip &&
-      strip.scrollWidth > strip.clientWidth &&
-      getComputedStyle(table).display !== "table"
-    ) {
-      const bounds = strip.getBoundingClientRect(),
-        target = cell.getBoundingClientRect(),
-        inset = 8
-      const start =
-        Math.max(
-          bounds.left,
-          strip.querySelector("th:not([data-key])")?.getBoundingClientRect()
-            .right ?? bounds.left
-        ) + inset
-      const shift =
-        target.right > bounds.right - inset
-          ? target.right - bounds.right + inset
-          : target.left < start
-            ? target.left - start
-            : 0
-      if (shift)
-        strip.scrollTo({
-          left: strip.scrollLeft + shift,
-          behavior: reduced || !seenSort.current ? "auto" : "smooth",
-        })
-    }
-    seenSort.current = true
     const observer = new ResizeObserver(update)
     observer.observe(table)
     return () => observer.disconnect()
