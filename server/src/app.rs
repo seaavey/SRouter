@@ -109,10 +109,12 @@ pub fn create_router(state: AppState) -> Router {
     let portal_login_routes = create_portal_login_router();
     let portal_routes =
         create_portal_router().layer(from_fn_with_state(state.clone(), require_user_session));
-    // The provider catalog is a read surface, so it carries the gateway's
-    // API-key guard instead of the admin-session one.
-    let providers_read_routes =
-        create_providers_read_router().layer(from_fn_with_state(state.clone(), api_key_auth));
+    // The provider catalog is operator infrastructure — account names,
+    // connection status, model prefixes — so it carries the admin-session
+    // guard. Node installed none on `GET /providers`; the owner reversed that
+    // parity on 2026-10-20 because a customer key has no business enumerating it.
+    let providers_read_routes = create_providers_read_router()
+        .layer(from_fn_with_state(state.clone(), require_admin_session));
     // Hiding and restoring a model is an operator action, so it carries the
     // admin-session guard instead of the API-key one.
     let providers_mgmt_routes = create_providers_management_router()
@@ -149,8 +151,10 @@ pub fn create_router(state: AppState) -> Router {
     let antigravity_callback_pages =
         create_antigravity_callback_pages_router().layer(from_fn(body_limit));
     let claude_callback_pages = create_claude_callback_pages_router().layer(from_fn(body_limit));
-    let logs_routes = create_logs_router().layer(from_fn_with_state(state.clone(), api_key_auth));
-    let quota_routes = create_quota_router().layer(from_fn_with_state(state.clone(), api_key_auth));
+    let logs_routes =
+        create_logs_router().layer(from_fn_with_state(state.clone(), require_admin_session));
+    let quota_routes =
+        create_quota_router().layer(from_fn_with_state(state.clone(), require_admin_session));
     let pricing_routes =
         create_pricing_router().layer(from_fn_with_state(state.clone(), api_key_auth));
     let settings_read_routes =

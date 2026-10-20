@@ -11,6 +11,7 @@ use futures_util::StreamExt;
 use serde_json::Value;
 use sqlx::postgres::PgPoolOptions;
 use srouter_server::app::create_router;
+use srouter_server::features::admin_auth::hash_session_token;
 use support::{
     TestDatabase, api_key_record, app_state_with_fake_upstream, json_request_with_headers,
     security_state, with_loopback_client,
@@ -18,6 +19,8 @@ use support::{
 use tower::ServiceExt;
 
 static EVENT_TEST_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
+const SESSION_TOKEN: &str = "test-session-token";
 
 fn app(state: srouter_server::AppState) -> Router {
     create_router(state)
@@ -27,7 +30,7 @@ fn get(uri: &str) -> Request<Body> {
     with_loopback_client(
         Request::builder()
             .uri(uri)
-            .header("x-api-key", "logs-test-key")
+            .header("cookie", format!("srouter_admin_session={SESSION_TOKEN}"))
             .body(Body::empty())
             .unwrap(),
     )
@@ -150,7 +153,7 @@ async fn logs_state(database: &TestDatabase) -> srouter_server::AppState {
     let security = security_state(
         true,
         vec![("logs-test-key".to_owned(), api_key_record("key_1"))],
-        vec![],
+        vec![hash_session_token(SESSION_TOKEN)],
     );
     let (_upstream, mut state) = app_state_with_fake_upstream().await;
     state.security = security;
@@ -432,7 +435,7 @@ async fn logs_analytics_bucket_aggregates_and_orders_top_models() {
 }
 
 #[tokio::test]
-async fn logs_routes_require_api_key_authentication() {
+async fn logs_require_an_admin_session() {
     let test_database = TestDatabase::new().unwrap();
     let state = logs_state(&test_database).await;
     let response = app(state)
@@ -442,6 +445,25 @@ async fn logs_routes_require_api_key_authentication() {
                 .body(Body::empty())
                 .unwrap(),
         )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+}
+
+/// The fixture key still authorizes the gateway, but the operator read is a
+/// session surface: a key alone no longer reaches the log rows (D5a).
+#[tokio::test]
+async fn logs_reject_an_api_key_after_the_guard_move() {
+    let test_database = TestDatabase::new().unwrap();
+    let state = logs_state(&test_database).await;
+    let response = app(state)
+        .oneshot(with_loopback_client(
+            Request::builder()
+                .uri("/v1/logs")
+                .header("x-api-key", "logs-test-key")
+                .body(Body::empty())
+                .unwrap(),
+        ))
         .await
         .unwrap();
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
@@ -470,7 +492,7 @@ async fn logs_events_send_connected_then_saved_request_and_headers() {
     state.security = security_state(
         true,
         vec![("logs-test-key".to_owned(), api_key_record("key_1"))],
-        vec![],
+        vec![hash_session_token(SESSION_TOKEN)],
     );
     state.database = Some(test_database.connect().await.unwrap());
     let app = app(state);
@@ -729,7 +751,10 @@ async fn live_real_curl_request_test() {
     let client = reqwest::Client::new();
     let res = client
         .get(format!("http://127.0.0.1:{port}/v1/logs/{log_id}"))
-        .header("Authorization", "Bearer logs-test-key")
+        .header(
+            reqwest::header::COOKIE,
+            format!("srouter_admin_session={SESSION_TOKEN}"),
+        )
         .send()
         .await
         .expect("send live request");

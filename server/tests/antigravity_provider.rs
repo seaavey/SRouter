@@ -11,8 +11,8 @@ use axum::{
     http::{Request, StatusCode, Version, header},
     response::Response,
 };
-use srouter_server::SecurityState;
 use srouter_server::app::create_router;
+use srouter_server::features::admin_auth::hash_session_token;
 use srouter_server::features::providers::antigravity::translate::is_valid_ide_request_id;
 use srouter_server::infrastructure::database::providers::{
     AntigravityConnectionWrite, load_antigravity_credentials, upsert_antigravity_connection,
@@ -23,10 +23,14 @@ use support::{
 };
 use tower::ServiceExt;
 
+const SESSION_TOKEN: &str = "test-session-token";
+
 async fn app(database: &TestDatabase, fake: &FakeAntigravityUpstream) -> Router {
+    let security =
+        support::sqlx_security_state(database, vec![hash_session_token(SESSION_TOKEN)]).await;
     create_router(antigravity_state(
         database.connect().await.expect("temporary database"),
-        SecurityState::unconfigured(),
+        security,
         fake,
     ))
 }
@@ -60,6 +64,7 @@ fn analytics_request() -> Request<Body> {
             .method("GET")
             .uri("/v1/logs/analytics?window=1h")
             .version(Version::HTTP_11)
+            .header("cookie", format!("srouter_admin_session={SESSION_TOKEN}"))
             .body(Body::empty())
             .expect("analytics request"),
     )

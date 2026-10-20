@@ -41,8 +41,10 @@ use crate::state::AppState;
 
 const INVALID_PATCH_PAYLOAD: &str = constants::common::INVALID_PAYLOAD;
 
-/// Read routes. The composition root layers API-key auth on top, matching the
-/// Node router, which installs no admin guard on `GET /providers`.
+/// Read routes. The composition root layers the admin-session guard on top.
+/// Node installed no admin guard on `GET /providers`; that parity was
+/// deliberately reversed on 2026-10-20, because the catalog is operator
+/// infrastructure and a customer key has no business listing it.
 pub fn create_providers_read_router() -> Router<AppState> {
     Router::new()
         .route("/providers", get(list_providers))

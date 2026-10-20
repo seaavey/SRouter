@@ -18,19 +18,24 @@ use axum::{
     http::{Request, StatusCode, header},
 };
 use srouter_server::app::create_router;
+use srouter_server::features::admin_auth::hash_session_token;
 use srouter_server::{AppState, QuotaCache, SecurityState};
 use support::codex_fake::{FakeCodexUpstream, codex_registry, connect_codex};
 use support::{FixtureAPIKeyStore, TestDatabase, test_config, with_loopback_client};
 use tower::ServiceExt;
 
+const SESSION_TOKEN: &str = "test-session-token";
+
 async fn app(database: &TestDatabase, fake: &FakeCodexUpstream) -> Router {
-    let database = database.connect().await.expect("temporary database");
+    let app_database = database.connect().await.expect("temporary database");
+    let security =
+        support::sqlx_security_state(database, vec![hash_session_token(SESSION_TOKEN)]).await;
     let state = AppState::with_security(
         test_config(),
-        codex_registry(Some(database.clone()), fake),
-        SecurityState::unconfigured(),
+        codex_registry(Some(app_database.clone()), fake),
+        security,
     )
-    .with_database(database)
+    .with_database(app_database)
     .with_quota_cache(Arc::new(QuotaCache::with_usage_url(fake.usage_url())));
 
     create_router(state)
@@ -41,6 +46,7 @@ fn get_request(uri: &str) -> Request<Body> {
         Request::builder()
             .method("GET")
             .uri(uri)
+            .header("cookie", format!("srouter_admin_session={SESSION_TOKEN}"))
             .body(Body::empty())
             .expect("request"),
     )
