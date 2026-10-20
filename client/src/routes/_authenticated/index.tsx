@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { Cpu, Download, Radio, Zap } from "lucide-react"
+import { Cpu, Radio, Zap } from "lucide-react"
 import { useMemo, useState } from "react"
 
 import { analyticsQuery, type AnalyticsWindow, useLogEvents } from "@/api/logs"
@@ -18,7 +18,6 @@ import {
   SortableDataTable,
   type DataColumn,
 } from "@/components/arc/sortable-data-table/sortable-data-table"
-import { toast } from "@/components/arc/toast-stack/toast-stack"
 import { SectionHeader } from "@/components/layout/section-header"
 
 export const Route = createFileRoute("/_authenticated/")({
@@ -276,24 +275,6 @@ function OverviewPage() {
     })
   }, [analytics])
 
-  const handleExport = () => {
-    const exportPayload = {
-      exported_at: new Date().toISOString(),
-      window: range,
-      analytics,
-    }
-    const blob = new Blob([JSON.stringify(exportPayload, null, 2)], {
-      type: "application/json",
-    })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = `srouter-telemetry-${range}-${Date.now()}.json`
-    a.click()
-    URL.revokeObjectURL(url)
-    toast.success("Telemetry report exported")
-  }
-
   return (
     <div className="flex max-w-full min-w-0 flex-col gap-5 overflow-hidden sm:gap-6">
       <SectionHeader
@@ -307,18 +288,12 @@ function OverviewPage() {
               : "Stream idle"
         }
         actions={
-          <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
-            <SegmentedControl
-              options={RANGE_OPTIONS}
-              value={range}
-              onValueChange={(val) => setRange(val as AnalyticsWindow)}
-              label="Time range"
-            />
-            <Button variant="secondary" size="sm" onClick={handleExport}>
-              <Download size={14} aria-hidden="true" />
-              <span>Export</span>
-            </Button>
-          </div>
+          <SegmentedControl
+            options={RANGE_OPTIONS}
+            value={range}
+            onValueChange={(val) => setRange(val as AnalyticsWindow)}
+            label="Time range"
+          />
         }
       />
 
