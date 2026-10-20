@@ -32,6 +32,11 @@
 //! | `CreatedAPIKeyResponse` | `POST /v1/keys`                                |
 //! | `CreateAPIKeyInput`     | `POST /v1/keys` body                           |
 //! | `UpdateAPIKeyInput`     | `PATCH /v1/keys/:id` body                      |
+//! | `UserListResponse`      | `GET /v1/users`                                |
+//! | `UserResponse`          | that list, plus the `PATCH` answer             |
+//! | `CreatedUserResponse`   | `POST /v1/users`, `POST /v1/users/:id/token`   |
+//! | `CreateUserInput`       | `POST /v1/users` body                          |
+//! | `UpdateUserInput`       | `PATCH /v1/users/:id` body                     |
 //! | `ModelListResponse`     | `GET /v1/models`                               |
 //! | `CatalogModel`          | one entry of that list                         |
 //! | `PricingListResponse`   | `GET /v1/models/pricing`                       |
@@ -76,6 +81,8 @@ use crate::features::providers::management::routes::ProviderListResponse;
 use crate::features::providers::model::ProviderProtocol;
 use crate::features::providers::quota::{LiveModelQuotaItem, ProviderQuotaAccount};
 use crate::features::settings::{SettingsResponse, SystemResponse, UpdateSettingsInput};
+use crate::features::users::model::{CreateUserInput, UpdateUserInput};
+use crate::features::users::routes::{CreatedUserResponse, UserListResponse, UserResponse};
 use crate::infrastructure::database::request_logs::{
     AnalyticsReport, RequestLog, UsageCacheTokens, UsageCostTotals, UsageData, UsageRequestTotals,
     UsageStatsReport, UsageTokenTotals, UsageTotals,
@@ -105,6 +112,11 @@ pub fn types() -> Types {
         .register::<APIKeyResponse>()
         .register::<CreatedAPIKeyResponse>()
         .register::<KeyListResponse>()
+        .register::<CreateUserInput>()
+        .register::<UpdateUserInput>()
+        .register::<UserResponse>()
+        .register::<CreatedUserResponse>()
+        .register::<UserListResponse>()
         .register::<CatalogModel>()
         .register::<ModelListResponse>()
         .register::<PricingListResponse>()

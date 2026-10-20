@@ -17,6 +17,7 @@ pub mod request_logs;
 pub(crate) mod row;
 pub mod settings;
 mod sqlite;
+pub mod users;
 
 use std::path::Path;
 use std::sync::Arc;

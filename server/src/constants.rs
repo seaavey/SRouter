@@ -246,6 +246,22 @@ pub mod keys {
     }
 }
 
+/// Customer accounts (`/v1/users`).
+pub mod users {
+    pub const INVALID_PAYLOAD: &str = "Invalid user payload";
+    pub const NAME_REQUIRED: &str = "Field 'name' is required";
+    pub const NAME_EMPTY: &str = "Field 'name' cannot be empty";
+    pub const DATABASE_REQUIRED: &str = "no database is configured; users cannot be managed";
+
+    pub fn not_found(id: impl std::fmt::Display) -> String {
+        format!("User '{id}' not found")
+    }
+
+    pub fn could_not_generate_token(error: impl std::fmt::Display) -> String {
+        format!("could not generate a user token: {error}")
+    }
+}
+
 /// Shared HTTP middleware rejections (auth, CSRF, rate limit, body limit).
 pub mod middleware {
     pub const CSRF_REJECTED: &str = "Cross-origin admin mutation is not allowed";
@@ -715,6 +731,8 @@ pub mod database {
         "the PostgreSQL backend has no admin stores yet; schema v2 is SQLite-only";
     pub const API_KEYS_UNSUPPORTED: &str =
         "the PostgreSQL backend has no API-key stores yet; schema v2 is SQLite-only";
+    pub const USERS_UNSUPPORTED: &str =
+        "the PostgreSQL backend has no user store yet; schema v5 is SQLite-only";
     pub const PROVIDERS_UNSUPPORTED: &str =
         "the PostgreSQL backend has no provider stores yet; schema v2 is SQLite-only";
     pub const REQUEST_LOGS_UNSUPPORTED: &str =
@@ -911,6 +929,17 @@ pub mod database {
         pub const START_CREDIT_UPDATE: &str = "start a credit update";
         pub const START_KEY_UPDATE: &str = "start a key update";
         pub const UPDATE_API_KEY: &str = "update an API key";
+
+        // Customer-account store.
+        pub const COMMIT_USER_UPDATE: &str = "commit a user update";
+        pub const CREATE_USER: &str = "create a user";
+        pub const DELETE_USER_SESSIONS: &str = "delete a user's sessions";
+        pub const FIND_USER_BY_TOKEN: &str = "find a user by login token";
+        pub const LIST_USERS: &str = "list users";
+        pub const READ_USER: &str = "read a user";
+        pub const ROTATE_USER_TOKEN: &str = "rotate a user's login token";
+        pub const START_USER_UPDATE: &str = "start a user update";
+        pub const UPDATE_USER: &str = "update a user";
 
         // Schema migration.
         pub const ADD_MISSING_COLUMN: &str = "add a column older databases are missing";

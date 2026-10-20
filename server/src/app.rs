@@ -28,6 +28,7 @@ use crate::features::providers::management::{
 use crate::features::settings::{
     create_settings_management_router, create_settings_read_router, create_system_router,
 };
+use crate::features::users::create_users_router;
 use crate::http::middleware::access_log::log_access;
 use crate::http::middleware::api_key_auth::api_key_auth;
 use crate::http::middleware::body_limit::body_limit;
@@ -95,6 +96,11 @@ pub fn create_router(state: AppState) -> Router {
     // of the gateway's API-key/auth-session chain.
     let keys_routes =
         create_api_keys_router().layer(from_fn_with_state(state.clone(), require_admin_session));
+    // A customer account is an operator action too: issuing the login token is
+    // how a customer gets a console session at all, so it shares the keys'
+    // admin-session guard.
+    let users_routes =
+        create_users_router().layer(from_fn_with_state(state.clone(), require_admin_session));
     // The provider catalog is a read surface, so it carries the gateway's
     // API-key guard instead of the admin-session one.
     let providers_read_routes =
@@ -160,6 +166,7 @@ pub fn create_router(state: AppState) -> Router {
         .merge(models_routes.clone())
         .merge(models_write_routes)
         .merge(keys_routes)
+        .merge(users_routes)
         .merge(create_admin_router())
         .merge(qoder_login_routes)
         .merge(cline_login_routes)
