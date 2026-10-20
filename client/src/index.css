@@ -179,7 +179,7 @@
   }
 }
 
-/* View Transition: Symmetrical split from center seam (UIARC theme-switch split) */
+/* View Transition: one upward reveal, the new theme rising from the bottom edge. */
 ::view-transition-old(root),
 ::view-transition-new(root) {
   animation: none;
@@ -192,12 +192,12 @@
 
 ::view-transition-new(root) {
   z-index: 2;
-  animation: theme-split 0.48s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: theme-rise 0.48s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-@keyframes theme-split {
+@keyframes theme-rise {
   from {
-    clip-path: inset(0 50% 0 50%);
+    clip-path: inset(100% 0 0 0);
   }
   to {
     clip-path: inset(0 0 0 0);
