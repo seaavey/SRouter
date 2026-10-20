@@ -35,14 +35,12 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, Redirect, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
-use base64::Engine;
-use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use serde_json::Value;
 
 use super::{
     CallbackResponse, ConnectedProvider, LoginResponse, Protocol, TokenImportResponse,
-    account_suffix, error_page, parse_callback, pkce_challenge, pkce_verifier, query_params,
-    require_database, success_page, text_field,
+    account_suffix, email_from_token, error_page, parse_callback, parse_import_body,
+    pkce_challenge, query_params, require_database, start_login_session, success_page, text_field,
 };
 use crate::clock::now_ms;
 use crate::constants;
@@ -53,8 +51,7 @@ use crate::features::providers::antigravity::types::{
 };
 use crate::infrastructure::database::AppDatabase;
 use crate::infrastructure::database::oauth_sessions::{
-    SESSION_TTL_MS, claim_session, cleanup_expired_sessions, delete_session, release_session,
-    save_session,
+    claim_session, delete_session, release_session,
 };
 use crate::infrastructure::database::providers::{
     AntigravityConnectionWrite, upsert_antigravity_connection,
@@ -110,7 +107,6 @@ async fn login(
 ) -> Result<Response, APIError> {
     let params = query_params(query.as_deref());
     let database = require_database(&state, constants::providers::oauth::DATABASE_REQUIRED)?;
-    cleanup_expired_sessions(database, now_ms() - SESSION_TTL_MS).await?;
 
     let client_id = params
         .get("client_id")
@@ -128,28 +124,19 @@ async fn login(
         .filter(|value| !value.is_empty())
         .unwrap_or(ANTIGRAVITY_OAUTH_PROMPT);
 
-    let code_verifier = pkce_verifier();
-    let state_token = uuid::Uuid::new_v4().to_string();
-    save_session(
-        database,
-        &state_token,
-        &code_verifier,
-        &client_id,
-        &redirect_uri,
-    )
-    .await?;
+    let session = start_login_session(database, &client_id, &redirect_uri).await?;
 
     let authorize_url = authorize_url(
         &client_id,
         &redirect_uri,
         prompt,
-        &pkce_challenge(&code_verifier),
-        &state_token,
+        &pkce_challenge(&session.code_verifier),
+        &session.state,
     );
     let body = LoginResponse {
         authorize_url,
-        state: state_token,
-        code_verifier,
+        state: session.state,
+        code_verifier: session.code_verifier,
         redirect_uri,
     };
 
@@ -252,18 +239,8 @@ async fn complete_callback(
 /// and `201`.
 async fn import_token(State(state): State<AppState>, body: Bytes) -> Result<Response, APIError> {
     let database = require_database(&state, constants::providers::oauth::DATABASE_REQUIRED)?;
-    let payload: Value = serde_json::from_slice(&body)
-        .map_err(|_| APIError::new(400, constants::providers::oauth::INVALID_JSON_BODY))?;
-    if !payload.is_object() {
-        return Err(APIError::new(
-            400,
-            constants::providers::oauth::INVALID_JSON_BODY,
-        ));
-    }
+    let (payload, access_token) = parse_import_body(&body)?;
 
-    let access_token = text_field(&payload, "accessToken")
-        .or_else(|| text_field(&payload, "access_token"))
-        .ok_or_else(|| APIError::new(400, constants::providers::oauth::MISSING_ACCESS_TOKEN))?;
     let id_token = text_field(&payload, "idToken").or_else(|| text_field(&payload, "id_token"));
     let timestamp = now_ms();
     let id = format!("antigravity_{timestamp}");
@@ -438,52 +415,6 @@ fn authorize_url(
     }
 
     url.to_string()
-}
-
-/// The JSON payload of a JWT, without verifying its signature. The Node oracle
-/// reads identity claims the same way (`ExtractEmailFromToken`).
-fn jwt_claims(token: &str) -> Option<Value> {
-    let payload = token.split('.').nth(1)?;
-    let decoded = URL_SAFE_NO_PAD.decode(payload.as_bytes()).ok()?;
-
-    serde_json::from_slice(&decoded).ok()
-}
-
-/// The account email an id or access token carries, in the order the Node
-/// oracle checks the claims.
-fn email_from_token(token: &str) -> Option<String> {
-    let claims = jwt_claims(token)?;
-    let email_like = |value: &Value| {
-        value
-            .as_str()
-            .map(str::to_owned)
-            .filter(|value| value.contains('@'))
-    };
-
-    if let Some(email) = claims.get("email").and_then(email_like) {
-        return Some(email);
-    }
-    if let Some(email) = claims
-        .get("https://api.openai.com/profile")
-        .and_then(|profile| profile.get("email"))
-        .and_then(email_like)
-    {
-        return Some(email);
-    }
-    if let Some(email) = claims
-        .get("user_metadata")
-        .and_then(|metadata| metadata.get("email"))
-        .and_then(email_like)
-    {
-        return Some(email);
-    }
-    for key in ["preferred_username", "unique_name"] {
-        if let Some(email) = claims.get(key).and_then(email_like) {
-            return Some(email);
-        }
-    }
-
-    None
 }
 
 /// The label an unnamed account gets, matching the Node `BuildAccountIdentity`

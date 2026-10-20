@@ -15,8 +15,8 @@ use serde_json::Value;
 
 use super::{
     CallbackResponse, ConnectedProvider, LoginResponse, PollFailure, PollResponse, Protocol,
-    account_suffix, error_page, parse_callback, pkce_challenge, pkce_verifier, query_params,
-    require_database, state_from_body, success_page,
+    account_suffix, error_page, parse_callback, pkce_challenge, query_params, require_database,
+    start_login_session, state_from_body, success_page,
 };
 use crate::clock::now_ms;
 use crate::constants;
@@ -25,8 +25,7 @@ use crate::features::providers::qoder::executor::machine_id_for;
 use crate::features::providers::qoder::types::{QODER_PROVIDER, QODER_USER_AGENT, QoderEndpoints};
 use crate::infrastructure::database::AppDatabase;
 use crate::infrastructure::database::oauth_sessions::{
-    SESSION_TTL_MS, claim_session, cleanup_expired_sessions, delete_session, release_session,
-    save_session,
+    claim_session, delete_session, release_session,
 };
 use crate::infrastructure::database::providers::{QoderConnectionWrite, upsert_qoder_connection};
 use crate::infrastructure::upstream::UpstreamClient;
@@ -72,30 +71,21 @@ async fn login(
         &state,
         constants::database::OAUTH_SESSIONS_DATABASE_REQUIRED,
     )?;
-    cleanup_expired_sessions(database, now_ms() - SESSION_TTL_MS).await?;
-
-    let code_verifier = pkce_verifier();
-    let state_token = uuid::Uuid::new_v4().to_string();
-    save_session(
-        database,
-        &state_token,
-        &code_verifier,
-        params.get("client_id").map(String::as_str).unwrap_or(""),
-        params.get("redirect_uri").map(String::as_str).unwrap_or(""),
-    )
-    .await?;
+    let client_id = params.get("client_id").map(String::as_str).unwrap_or("");
+    let redirect_uri = params.get("redirect_uri").map(String::as_str).unwrap_or("");
+    let session = start_login_session(database, client_id, redirect_uri).await?;
 
     let endpoints = qoder_endpoints(&state);
     let authorize_url = endpoints.authorize_url(
-        &pkce_challenge(&code_verifier),
+        &pkce_challenge(&session.code_verifier),
         &machine_id_for(database).await?,
-        &state_token,
+        &session.state,
     );
     let body = LoginResponse {
         authorize_url,
-        state: state_token,
-        code_verifier,
-        redirect_uri: params.get("redirect_uri").cloned().unwrap_or_default(),
+        state: session.state,
+        code_verifier: session.code_verifier,
+        redirect_uri: redirect_uri.to_owned(),
     };
 
     if params.get("format").map(String::as_str) == Some("json") {
@@ -434,21 +424,6 @@ mod tests {
 
     use super::{account_suffix, token_expiry_ms};
     use crate::clock::now_ms;
-    use crate::features::provider_auth::{
-        CallbackParams, parse_callback, pkce_challenge, pkce_verifier,
-    };
-
-    #[test]
-    fn the_challenge_is_the_s256_of_the_verifier() {
-        // RFC 7636 appendix B, the reference vector for S256.
-        let (verifier, expected) = (
-            "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk",
-            "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
-        );
-
-        assert_eq!(pkce_challenge(verifier), expected);
-        assert_eq!(pkce_verifier().len(), 43, "RFC 7636 wants 43 characters");
-    }
 
     #[test]
     fn an_account_without_a_name_gets_a_numbered_label() {
@@ -474,35 +449,5 @@ mod tests {
             1_900_000_000_000
         );
         assert_eq!(token_expiry_ms(&json!({})), now + 30 * 24 * 60 * 60 * 1000);
-    }
-
-    #[test]
-    fn the_callback_reads_code_and_state_from_any_carrier() {
-        let from_query =
-            parse_callback(Some("code=code-1&state=state-1"), b"").expect("query parameters parse");
-
-        assert_eq!(from_query.code, "code-1");
-        assert_eq!(from_query.state, "state-1");
-
-        let from_url = parse_callback(
-            None,
-            br#"{"callback_url":"http://localhost:1455/auth/qoder/callback?code=code-2&state=state-2"}"#,
-        )
-        .expect("callback url parses");
-
-        assert_eq!(
-            from_url,
-            CallbackParams {
-                code: "code-2".to_owned(),
-                state: "state-2".to_owned(),
-            }
-        );
-    }
-
-    #[test]
-    fn a_callback_without_code_or_state_is_rejected() {
-        let error = parse_callback(None, b"{}").expect_err("both fields are required");
-
-        assert_eq!(error.status(), 400);
     }
 }

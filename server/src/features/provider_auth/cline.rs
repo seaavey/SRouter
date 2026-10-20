@@ -19,7 +19,7 @@ use serde_json::{Value, json};
 
 use super::{
     ConnectedProvider, PollFailure, PollResponse, Protocol, account_suffix, query_params,
-    require_database, state_from_body, text_field,
+    require_database, state_from_body, sweep_expired_sessions, text_field,
 };
 use crate::clock::now_ms;
 use crate::constants;
@@ -30,8 +30,7 @@ use crate::features::providers::cline::types::{
 };
 use crate::infrastructure::database::AppDatabase;
 use crate::infrastructure::database::oauth_sessions::{
-    SESSION_TTL_MS, claim_session, cleanup_expired_sessions, delete_session, release_session,
-    save_device_session,
+    claim_session, delete_session, release_session, save_device_session,
 };
 use crate::infrastructure::database::providers::{ClineConnectionWrite, upsert_cline_connection};
 use crate::infrastructure::upstream::UpstreamClient;
@@ -68,7 +67,7 @@ async fn device(State(state): State<AppState>) -> Result<Json<DeviceResponse>, A
         &state,
         constants::database::OAUTH_SESSIONS_DATABASE_REQUIRED,
     )?;
-    cleanup_expired_sessions(database, now_ms() - SESSION_TTL_MS).await?;
+    sweep_expired_sessions(database).await?;
 
     let endpoints = cline_endpoints(&state);
     let client = UpstreamClient::new()?;

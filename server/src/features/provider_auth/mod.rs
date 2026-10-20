@@ -18,11 +18,15 @@ use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use serde::Serialize;
 use serde_json::Value;
 
+use crate::clock::now_ms;
 use crate::config::APIConfig;
 use crate::constants;
 use crate::error::APIError;
 use crate::http::form_decode;
 use crate::infrastructure::database::AppDatabase;
+use crate::infrastructure::database::oauth_sessions::{
+    SESSION_TTL_MS, cleanup_expired_sessions, save_session,
+};
 use crate::state::AppState;
 
 pub use antigravity::{
@@ -153,6 +157,102 @@ fn pkce_challenge(code_verifier: &str) -> String {
     use sha2::{Digest, Sha256};
 
     URL_SAFE_NO_PAD.encode(Sha256::digest(code_verifier.as_bytes()))
+}
+
+/// The PKCE material a login hands to the browser, and the state it comes
+/// back with.
+pub(crate) struct LoginSession {
+    pub(crate) code_verifier: String,
+    pub(crate) state: String,
+}
+
+/// Starts a login session: the expired ones are swept and a fresh
+/// verifier/state pair is stored for the callback to claim.
+pub(crate) async fn start_login_session(
+    database: &AppDatabase,
+    client_id: &str,
+    redirect_uri: &str,
+) -> Result<LoginSession, APIError> {
+    sweep_expired_sessions(database).await?;
+
+    let code_verifier = pkce_verifier();
+    let state = uuid::Uuid::new_v4().to_string();
+    save_session(database, &state, &code_verifier, client_id, redirect_uri).await?;
+
+    Ok(LoginSession {
+        code_verifier,
+        state,
+    })
+}
+
+/// Drops the OAuth sessions that outlived their window. Every login sweeps
+/// before it starts one.
+pub(crate) async fn sweep_expired_sessions(database: &AppDatabase) -> Result<(), APIError> {
+    cleanup_expired_sessions(database, now_ms() - SESSION_TTL_MS).await
+}
+
+/// The pasted token body: the parsed object and the access token it carries,
+/// under either spelling.
+pub(crate) fn parse_import_body(body: &[u8]) -> Result<(Value, String), APIError> {
+    let payload: Value = serde_json::from_slice(body)
+        .map_err(|_| APIError::new(400, constants::providers::oauth::INVALID_JSON_BODY))?;
+    if !payload.is_object() {
+        return Err(APIError::new(
+            400,
+            constants::providers::oauth::INVALID_JSON_BODY,
+        ));
+    }
+
+    let access_token = text_field(&payload, "accessToken")
+        .or_else(|| text_field(&payload, "access_token"))
+        .ok_or_else(|| APIError::new(400, constants::providers::oauth::MISSING_ACCESS_TOKEN))?;
+
+    Ok((payload, access_token))
+}
+
+/// The JSON payload of a JWT, without verifying its signature.
+pub(crate) fn jwt_claims(token: &str) -> Option<Value> {
+    let payload = token.split('.').nth(1)?;
+    let decoded = URL_SAFE_NO_PAD.decode(payload.as_bytes()).ok()?;
+
+    serde_json::from_slice(&decoded).ok()
+}
+
+/// The account email an id or access token carries; the vendor claims are
+/// checked in the order the tokens carry them.
+pub(crate) fn email_from_token(token: &str) -> Option<String> {
+    let claims = jwt_claims(token)?;
+    let email_like = |value: &Value| {
+        value
+            .as_str()
+            .map(str::to_owned)
+            .filter(|value| value.contains('@'))
+    };
+
+    if let Some(email) = claims.get("email").and_then(email_like) {
+        return Some(email);
+    }
+    if let Some(email) = claims
+        .get("https://api.openai.com/profile")
+        .and_then(|profile| profile.get("email"))
+        .and_then(email_like)
+    {
+        return Some(email);
+    }
+    if let Some(email) = claims
+        .get("user_metadata")
+        .and_then(|metadata| metadata.get("email"))
+        .and_then(email_like)
+    {
+        return Some(email);
+    }
+    for key in ["preferred_username", "unique_name"] {
+        if let Some(email) = claims.get(key).and_then(email_like) {
+            return Some(email);
+        }
+    }
+
+    None
 }
 
 /// The database a provider-auth route needs. A process without one answers 500
@@ -323,7 +423,22 @@ mod tests {
 
     use crate::config::APIConfig;
 
-    use super::{CallbackParams, default_callback_uri, parse_callback, resolve_callback_url};
+    use super::{
+        CallbackParams, default_callback_uri, parse_callback, pkce_challenge, pkce_verifier,
+        resolve_callback_url,
+    };
+
+    #[test]
+    fn the_challenge_is_the_s256_of_the_verifier() {
+        // RFC 7636 appendix B, the reference vector for S256.
+        let (verifier, expected) = (
+            "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk",
+            "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
+        );
+
+        assert_eq!(pkce_challenge(verifier), expected);
+        assert_eq!(pkce_verifier().len(), 43, "RFC 7636 wants 43 characters");
+    }
 
     fn config(environment: &[(&str, &str)]) -> APIConfig {
         let mut map = HashMap::from([("HOME".to_owned(), "/tmp/srouter-test-home".to_owned())]);

@@ -13,15 +13,14 @@ use serde_json::Value;
 
 use super::{
     ConnectedProvider, PollFailure, PollResponse, Protocol, account_suffix, query_params,
-    require_database, state_from_body,
+    require_database, state_from_body, sweep_expired_sessions,
 };
 use crate::clock::now_ms;
 use crate::constants;
 use crate::error::APIError;
 use crate::features::providers::codebuddy::types::{CODEBUDDY_CHAT_URL, CODEBUDDY_CN_CHAT_URL};
 use crate::infrastructure::database::oauth_sessions::{
-    SESSION_TTL_MS, claim_session, cleanup_expired_sessions, delete_session, release_session,
-    save_session,
+    claim_session, delete_session, release_session, save_session,
 };
 use crate::infrastructure::database::providers::{
     CodeBuddyConnectionWrite, upsert_codebuddy_connection,
@@ -171,7 +170,7 @@ async fn login(
     query: Option<&str>,
 ) -> Result<Response, APIError> {
     let database = require_database(state, constants::database::OAUTH_SESSIONS_DATABASE_REQUIRED)?;
-    cleanup_expired_sessions(database, now_ms() - SESSION_TTL_MS).await?;
+    sweep_expired_sessions(database).await?;
     let authorization = request_authorization(flavor, endpoints)
         .await
         .map_err(|message| {
