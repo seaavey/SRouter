@@ -140,6 +140,24 @@ impl APIKeyRepository for SQLxAPIKeyStore {
         })
     }
 
+    fn list_for_user(&self, user_id: &str) -> BoxFuture<'_, Result<Vec<APIKey>, APIError>> {
+        let user_id = user_id.to_owned();
+
+        Box::pin(async move {
+            let pool = self.pool()?;
+            let statement = format!(
+                "SELECT {KEY_COLUMNS} FROM api_keys WHERE user_id = ? ORDER BY created_at DESC, id"
+            );
+            let rows = sqlx::query(sqlx::AssertSqlSafe(statement))
+                .bind(&user_id)
+                .fetch_all(&pool)
+                .await
+                .map_err(sql_error(constants::database::context::LIST_USER_API_KEYS))?;
+
+            rows.iter().map(api_key_from_row).collect()
+        })
+    }
+
     fn create(&self, input: CreateAPIKeyInput) -> BoxFuture<'_, Result<CreatedAPIKey, APIError>> {
         Box::pin(async move {
             let pool = self.pool()?;

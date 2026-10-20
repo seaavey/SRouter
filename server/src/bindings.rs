@@ -36,14 +36,16 @@
 //! | `UserResponse`          | that list, plus the `PATCH` answer             |
 //! | `CreatedUserResponse`   | `POST /v1/users`, `POST /v1/users/:id/token`   |
 //! | `CreateUserInput`       | `POST /v1/users` body                          |
-//! | `UpdateUserInput`       | `PATCH /v1/users/:id` body                     |
+//! | `UpdateUserInput`       | `PATCH /v1/users/:id` body                      |
+//! | `PortalLoginInput`      | `POST /v1/portal/login` body                    |
+//! | `PortalMe`              | `GET /v1/portal/me`                             |
 //! | `ModelListResponse`     | `GET /v1/models`                               |
 //! | `CatalogModel`          | one entry of that list                         |
 //! | `PricingListResponse`   | `GET /v1/models/pricing`                       |
 //! | `QuotaResponse`         | `GET /v1/quota`, `GET /v1/qouta`               |
 //! | `ProviderListResponse`  | `GET /v1/providers`                            |
 //! | `CatalogResponse`       | `GET /v1/providers/catalog`                    |
-//! | `LogsResponse`          | `GET /v1/logs`                                 |
+//! | `LogsResponse`          | `GET /v1/logs`, `GET /v1/portal/logs`          |
 //! | `RequestLog`            | one entry of that list, `GET /v1/logs/:id`     |
 //! | `UsageStatsReport`      | `GET /v1/logs/stats`                           |
 //! | `UsageData`             | that report's `data` object                    |
@@ -82,6 +84,7 @@ use crate::features::providers::model::ProviderProtocol;
 use crate::features::providers::quota::{LiveModelQuotaItem, ProviderQuotaAccount};
 use crate::features::settings::{SettingsResponse, SystemResponse, UpdateSettingsInput};
 use crate::features::users::model::{CreateUserInput, UpdateUserInput};
+use crate::features::users::portal::{PortalLoginInput, PortalMe};
 use crate::features::users::routes::{CreatedUserResponse, UserListResponse, UserResponse};
 use crate::infrastructure::database::request_logs::{
     AnalyticsReport, RequestLog, UsageCacheTokens, UsageCostTotals, UsageData, UsageRequestTotals,
@@ -117,6 +120,8 @@ pub fn types() -> Types {
         .register::<UserResponse>()
         .register::<CreatedUserResponse>()
         .register::<UserListResponse>()
+        .register::<PortalLoginInput>()
+        .register::<PortalMe>()
         .register::<CatalogModel>()
         .register::<ModelListResponse>()
         .register::<PricingListResponse>()

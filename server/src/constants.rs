@@ -262,6 +262,14 @@ pub mod users {
     }
 }
 
+/// Customer console (`/v1/portal/*`).
+pub mod portal {
+    pub const AUTH_REQUIRED: &str = "Customer sign-in is required";
+    pub const INVALID_TOKEN: &str = "Invalid access token";
+    pub const TOO_MANY_ATTEMPTS: &str = "Too many failed sign-in attempts";
+    pub const INVALID_LOGIN_PAYLOAD: &str = "Invalid sign-in payload";
+}
+
 /// Shared HTTP middleware rejections (auth, CSRF, rate limit, body limit).
 pub mod middleware {
     pub const CSRF_REJECTED: &str = "Cross-origin admin mutation is not allowed";
@@ -920,6 +928,7 @@ pub mod database {
         pub const DELETE_API_KEY: &str = "delete an API key";
         pub const INCREMENT_API_KEY_USAGE: &str = "increment API-key usage";
         pub const LIST_API_KEYS: &str = "list API keys";
+        pub const LIST_USER_API_KEYS: &str = "list a user's API keys";
         pub const LOOK_UP_API_KEY: &str = "look up an API key";
         pub const READ_API_KEY: &str = "read an API key";
         pub const READ_REQUIRE_API_KEY: &str = "read the require_api_key setting";

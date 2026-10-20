@@ -454,7 +454,7 @@ async fn postgres_request_log_repository_fails_explicitly() {
         .unwrap();
     let database = srouter_server::AppDatabase::Postgres(pool);
     let error = srouter_server::infrastructure::database::request_logs::list_request_logs(
-        &database, None, 50, None,
+        &database, None, None, 50, None,
     )
     .await
     .unwrap_err();

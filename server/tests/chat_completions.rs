@@ -1211,6 +1211,10 @@ impl APIKeyRepository for RecordingAPIKeyRepository {
         Box::pin(async { Err(not_recorded()) })
     }
 
+    fn list_for_user(&self, _user_id: &str) -> BoxFuture<'_, Result<Vec<APIKey>, APIError>> {
+        Box::pin(async { Err(not_recorded()) })
+    }
+
     fn create(&self, _input: CreateAPIKeyInput) -> BoxFuture<'_, Result<CreatedAPIKey, APIError>> {
         Box::pin(async { Err(not_recorded()) })
     }
@@ -1638,7 +1642,7 @@ async fn a_failed_request_is_logged_with_its_message() {
 
     let database = database.connect().await.unwrap();
     let logs = srouter_server::infrastructure::database::request_logs::list_request_logs(
-        &database, None, 10, None,
+        &database, None, None, 10, None,
     )
     .await
     .unwrap();

@@ -36,10 +36,10 @@ pub fn create_logs_router() -> Router<AppState> {
 }
 
 #[derive(Deserialize)]
-struct LogsQuery {
-    page: Option<String>,
-    limit: Option<String>,
-    status: Option<String>,
+pub(crate) struct LogsQuery {
+    pub(crate) page: Option<String>,
+    pub(crate) limit: Option<String>,
+    pub(crate) status: Option<String>,
 }
 
 #[derive(Serialize, specta::Type)]
@@ -71,6 +71,17 @@ async fn list_logs(
         .database
         .as_ref()
         .ok_or_else(|| APIError::new(500, constants::logs::DATABASE_REQUIRED))?;
+
+    Ok(Json(logs_page(database, None, &query).await?))
+}
+
+/// The one paginated log read. The operator route passes no tenant; the portal
+/// passes its user id, and the scope is applied in SQL.
+pub(crate) async fn logs_page(
+    database: &crate::infrastructure::database::AppDatabase,
+    tenant_user_id: Option<&str>,
+    query: &LogsQuery,
+) -> Result<LogsResponse, APIError> {
     let page = query
         .page
         .as_deref()
@@ -86,6 +97,7 @@ async fn list_logs(
     let paginated = query.page.is_some();
     let page = list_request_logs(
         database,
+        tenant_user_id,
         paginated.then_some(page),
         limit,
         paginated.then_some(query.status.as_deref()).flatten(),
@@ -101,11 +113,11 @@ async fn list_logs(
             1 + (page.total - 1) / page.limit
         },
     });
-    Ok(Json(LogsResponse {
+    Ok(LogsResponse {
         object: ObjectKind::List,
         data: page.data,
         pagination,
-    }))
+    })
 }
 
 /// Usage totals over every recorded request, shaped like the `usage.updated`
@@ -260,7 +272,7 @@ async fn live_events(
         let stats = usage_stats(database).await?;
         let log = match log_id {
             Some(id) => get_request_log(database, id).await?,
-            None => list_request_logs(database, None, 1, None)
+            None => list_request_logs(database, None, None, 1, None)
                 .await?
                 .data
                 .into_iter()
