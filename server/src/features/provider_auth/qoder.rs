@@ -115,7 +115,7 @@ async fn poll(
         .get("state")
         .cloned()
         .or_else(|| state_from_body(&body))
-        .ok_or_else(|| APIError::new(400, constants::providers::qoder::MISSING_STATE))?;
+        .ok_or_else(|| APIError::new(400, constants::providers::oauth::MISSING_STATE))?;
     let database = require_database(
         &state,
         constants::database::OAUTH_SESSIONS_DATABASE_REQUIRED,
@@ -123,7 +123,7 @@ async fn poll(
 
     let Some(session) = claim_session(database, &state_token).await? else {
         return Ok(Json(PollResponse::pending(Some(
-            constants::providers::qoder::SESSION_EXPIRED.to_owned(),
+            constants::providers::oauth::SESSION_EXPIRED.to_owned(),
         ))));
     };
 
@@ -192,7 +192,7 @@ async fn complete_callback(
 
     let session = claim_session(database, &parsed.state)
         .await?
-        .ok_or_else(|| APIError::new(500, constants::providers::qoder::SESSION_EXPIRED))?;
+        .ok_or_else(|| APIError::new(500, constants::providers::oauth::SESSION_EXPIRED))?;
 
     connect(
         state,
@@ -204,7 +204,7 @@ async fn complete_callback(
     .await
     .map_err(|failure| match failure {
         PollFailure::Fatal(error) => error,
-        PollFailure::Pending => APIError::new(500, constants::providers::qoder::SESSION_EXPIRED),
+        PollFailure::Pending => APIError::new(500, constants::providers::oauth::SESSION_EXPIRED),
         PollFailure::Message(message) => APIError::new(500, message),
     })
 }

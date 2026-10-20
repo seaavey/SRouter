@@ -18,6 +18,7 @@ use super::{
 use crate::clock::now_ms;
 use crate::constants;
 use crate::error::APIError;
+use crate::features::providers::codebuddy::types::{CODEBUDDY_CHAT_URL, CODEBUDDY_CN_CHAT_URL};
 use crate::infrastructure::database::oauth_sessions::{
     SESSION_TTL_MS, claim_session, cleanup_expired_sessions, delete_session, release_session,
     save_session,
@@ -29,8 +30,7 @@ use crate::infrastructure::upstream::UpstreamClient;
 use crate::state::AppState;
 
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
-const GLOBAL_BASE_URL: &str = "https://www.codebuddy.ai/v2/chat/completions";
-const CN_BASE_URL: &str = "https://copilot.tencent.com/v2/chat/completions";
+// The auth endpoints expect the plugin version; inference expects the CLI version.
 const GLOBAL_USER_AGENT: &str = "IDE/2.63.2 CodeBuddy/2.63.2";
 const CN_USER_AGENT: &str = "CLI/2.96.0 CodeBuddy/2.96.0";
 
@@ -86,8 +86,8 @@ impl Flavor {
 
     fn base_url(self) -> &'static str {
         match self {
-            Self::Global => GLOBAL_BASE_URL,
-            Self::China => CN_BASE_URL,
+            Self::Global => CODEBUDDY_CHAT_URL,
+            Self::China => CODEBUDDY_CN_CHAT_URL,
         }
     }
 
@@ -224,11 +224,11 @@ async fn poll(
         .get("state")
         .cloned()
         .or_else(|| state_from_body(body))
-        .ok_or_else(|| APIError::new(400, constants::providers::codebuddy::MISSING_STATE))?;
+        .ok_or_else(|| APIError::new(400, constants::providers::oauth::MISSING_STATE))?;
     let database = require_database(state, constants::database::OAUTH_SESSIONS_DATABASE_REQUIRED)?;
     let Some(_) = claim_session(database, &state_token).await? else {
         return Ok(Json(PollResponse::pending(Some(
-            constants::providers::codebuddy::SESSION_EXPIRED.to_owned(),
+            constants::providers::oauth::SESSION_EXPIRED.to_owned(),
         ))));
     };
 

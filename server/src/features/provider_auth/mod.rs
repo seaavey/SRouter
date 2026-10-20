@@ -190,6 +190,15 @@ pub(crate) struct CallbackResponse {
     provider: ConnectedProvider,
 }
 
+/// The JSON answer a finished token import returns, the same shape as a
+/// finished callback.
+#[derive(Serialize)]
+pub(crate) struct TokenImportResponse {
+    success: bool,
+    message: &'static str,
+    provider: ConnectedProvider,
+}
+
 /// The `code` and `state` of a finished redirect, however the client carried
 /// them.
 #[derive(Debug, Default, PartialEq, Eq)]

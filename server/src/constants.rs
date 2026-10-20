@@ -422,13 +422,17 @@ pub mod providers {
         format!("could not parse default OpenCode tools: {error}")
     }
 
-    /// Messages shared by every provider OAuth route: the callback carrier and
-    /// the state lifecycle. Wording is frozen against `apps/api`
-    /// (`AuthController.CallbackFor`, `AuthLogic.ProcessOAuthCallbackFor`).
+    /// Messages shared by every provider OAuth route: the callback carrier, the
+    /// state lifecycle, and the token-import body. Wording is frozen against
+    /// `apps/api` (`AuthController.CallbackFor`, `AuthLogic.ProcessOAuthCallbackFor`).
     pub mod oauth {
         pub const CALLBACK_MISSING_PARAMS: &str =
             "Missing required 'code' or 'state' parameters in OAuth callback";
         pub const INVALID_OR_EXPIRED_STATE: &str = "Invalid or expired OAuth state parameter";
+        pub const MISSING_STATE: &str = "Missing state parameter";
+        pub const SESSION_EXPIRED: &str = "Session expired or not found";
+        pub const MISSING_ACCESS_TOKEN: &str = "Missing required 'accessToken' parameter";
+        pub const INVALID_JSON_BODY: &str = "Invalid JSON body";
         pub const DATABASE_REQUIRED: &str =
             "no database is configured; the OAuth session cannot be stored";
     }
@@ -440,8 +444,6 @@ pub mod providers {
         pub const OAUTH_SUCCESS: &str = "Login Antigravity OAuth Berhasil!";
         pub const TOKEN_IMPORT_SUCCESS: &str =
             "Antigravity Access Token registered and saved directly to SQLite database!";
-        pub const MISSING_ACCESS_TOKEN: &str = "Missing required 'accessToken' parameter";
-        pub const INVALID_JSON_BODY: &str = "Invalid JSON body";
         pub const EMPTY_TOKEN_RESPONSE: &str =
             "Antigravity token exchange returned no access token";
         pub const NOT_CONNECTED: &str = "No active Antigravity connection found. Connect the Antigravity account in the Providers tab.";
@@ -489,8 +491,6 @@ pub mod providers {
         pub const OAUTH_SUCCESS: &str = "Login Claude Code OAuth Berhasil!";
         pub const TOKEN_IMPORT_SUCCESS: &str =
             "Claude Code OAuth token registered and saved directly to SQLite database!";
-        pub const MISSING_ACCESS_TOKEN: &str = "Missing required 'accessToken' parameter";
-        pub const INVALID_JSON_BODY: &str = "Invalid JSON body";
         pub const EMPTY_TOKEN_RESPONSE: &str = "Claude OAuth Exchange returned no access token";
         pub const NOT_CONNECTED: &str = "No active Claude Code connection found. Connect the Claude account in the Providers tab.";
         pub const DATABASE_REQUIRED: &str =
@@ -532,8 +532,6 @@ pub mod providers {
         pub const OAUTH_SUCCESS: &str = "Login OpenAI Codex Berhasil!";
         pub const TOKEN_IMPORT_SUCCESS: &str =
             "OpenAI Codex Access Token registered and saved directly to SQLite database!";
-        pub const MISSING_ACCESS_TOKEN: &str = "Missing required 'accessToken' parameter";
-        pub const INVALID_JSON_BODY: &str = "Invalid JSON body";
         pub const EMPTY_TOKEN_RESPONSE: &str =
             "OpenAI Codex token exchange returned no access token";
 
@@ -553,11 +551,7 @@ pub mod providers {
             "the Qoder connection has no user id; reconnect the Qoder account";
         pub const MISSING_TOKEN: &str =
             "the Qoder connection has no access token; reconnect the Qoder account";
-        pub const MISSING_STATE: &str = "Missing state parameter";
-        pub const SESSION_EXPIRED: &str = "Session expired or not found";
         pub const EMPTY_TOKEN: &str = "Qoder device token poll returned empty token";
-        pub const CALLBACK_MISSING_PARAMS: &str =
-            "Missing required 'code' or 'state' parameters in OAuth callback";
         pub const NOT_CONNECTED: &str =
             "No active Qoder connection found. Connect the Qoder account in the Providers tab.";
         pub const TOKEN_EXPIRED: &str =
@@ -581,8 +575,6 @@ pub mod providers {
     }
 
     pub mod codebuddy {
-        pub const MISSING_STATE: &str = "Missing state parameter";
-        pub const SESSION_EXPIRED: &str = "Session expired or not found";
         pub const EMPTY_TOKEN: &str = "CodeBuddy token response returned no access token";
         pub const NOT_CONNECTED: &str = "No active CodeBuddy connection found. Connect the CodeBuddy account in the Providers tab.";
         pub const DATABASE_REQUIRED: &str =
@@ -592,8 +584,6 @@ pub mod providers {
     /// Messages of the `cline` provider: the WorkOS device flow, the credential
     /// load, and the lazy refresh. Every string a client can see lives here.
     pub mod cline {
-        pub const MISSING_STATE: &str = "Missing state parameter";
-        pub const SESSION_EXPIRED: &str = "Session expired or not found";
         pub const EMPTY_TOKEN: &str = "Cline token registration returned an empty access token";
         pub const INVALID_WORKOS_TOKEN_RESPONSE: &str = "Invalid WorkOS token response";
         pub const NOT_CONNECTED: &str =

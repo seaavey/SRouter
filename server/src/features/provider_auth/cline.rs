@@ -142,7 +142,7 @@ async fn poll(
         .get("state")
         .cloned()
         .or_else(|| state_from_body(&body))
-        .ok_or_else(|| APIError::new(400, constants::providers::cline::MISSING_STATE))?;
+        .ok_or_else(|| APIError::new(400, constants::providers::oauth::MISSING_STATE))?;
     let database = require_database(
         &state,
         constants::database::OAUTH_SESSIONS_DATABASE_REQUIRED,
@@ -150,13 +150,13 @@ async fn poll(
 
     let Some(session) = claim_session(database, &state_token).await? else {
         return Ok(Json(PollResponse::pending(Some(
-            constants::providers::cline::SESSION_EXPIRED.to_owned(),
+            constants::providers::oauth::SESSION_EXPIRED.to_owned(),
         ))));
     };
     let Some(device_code) = session.device_code.filter(|code| !code.is_empty()) else {
         release_session(database, &state_token).await?;
         return Ok(Json(PollResponse::pending(Some(
-            constants::providers::cline::SESSION_EXPIRED.to_owned(),
+            constants::providers::oauth::SESSION_EXPIRED.to_owned(),
         ))));
     };
 

@@ -37,13 +37,12 @@ use axum::routing::{get, post};
 use axum::{Json, Router};
 use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
-use serde::Serialize;
 use serde_json::Value;
 
 use super::{
-    CallbackResponse, ConnectedProvider, LoginResponse, Protocol, account_suffix, error_page,
-    parse_callback, pkce_challenge, pkce_verifier, query_params, require_database, success_page,
-    text_field,
+    CallbackResponse, ConnectedProvider, LoginResponse, Protocol, TokenImportResponse,
+    account_suffix, error_page, parse_callback, pkce_challenge, pkce_verifier, query_params,
+    require_database, success_page, text_field,
 };
 use crate::clock::now_ms;
 use crate::constants;
@@ -102,13 +101,6 @@ pub fn create_antigravity_callback_pages_router_with_endpoints(
             get(callback_page).post(callback_page),
         )
         .layer(Extension(endpoints))
-}
-
-#[derive(Serialize)]
-struct TokenImportResponse {
-    success: bool,
-    message: &'static str,
-    provider: ConnectedProvider,
 }
 
 /// Starts a login: a session row plus the URL the browser opens.
@@ -261,19 +253,17 @@ async fn complete_callback(
 async fn import_token(State(state): State<AppState>, body: Bytes) -> Result<Response, APIError> {
     let database = require_database(&state, constants::providers::oauth::DATABASE_REQUIRED)?;
     let payload: Value = serde_json::from_slice(&body)
-        .map_err(|_| APIError::new(400, constants::providers::antigravity::INVALID_JSON_BODY))?;
+        .map_err(|_| APIError::new(400, constants::providers::oauth::INVALID_JSON_BODY))?;
     if !payload.is_object() {
         return Err(APIError::new(
             400,
-            constants::providers::antigravity::INVALID_JSON_BODY,
+            constants::providers::oauth::INVALID_JSON_BODY,
         ));
     }
 
     let access_token = text_field(&payload, "accessToken")
         .or_else(|| text_field(&payload, "access_token"))
-        .ok_or_else(|| {
-            APIError::new(400, constants::providers::antigravity::MISSING_ACCESS_TOKEN)
-        })?;
+        .ok_or_else(|| APIError::new(400, constants::providers::oauth::MISSING_ACCESS_TOKEN))?;
     let id_token = text_field(&payload, "idToken").or_else(|| text_field(&payload, "id_token"));
     let timestamp = now_ms();
     let id = format!("antigravity_{timestamp}");
