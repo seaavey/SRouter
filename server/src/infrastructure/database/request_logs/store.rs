@@ -382,49 +382,6 @@ pub(super) fn log_row_error(error: impl std::fmt::Display) -> APIError {
     APIError::new(500, constants::database::could_not_map_request_log(&error))
 }
 
-#[derive(Clone, Debug)]
-pub struct OwnedRequestLogInput {
-    pub request_id: String,
-    pub method: String,
-    pub path: String,
-    pub api_key_id: Option<String>,
-    pub ip_address: Option<String>,
-    pub user_agent: Option<String>,
-    pub provider_id: String,
-    pub model: String,
-    pub status_code: u16,
-    pub latency_ms: i64,
-    pub usage: UsageBreakdown,
-    pub estimated_cost: f64,
-    pub resolved_model: Option<String>,
-    pub error_code: Option<String>,
-    pub error_message: Option<String>,
-    pub created_at: i64,
-}
-
-impl OwnedRequestLogInput {
-    pub fn as_borrowed(&self) -> RequestLogInput<'_> {
-        RequestLogInput {
-            request_id: &self.request_id,
-            method: &self.method,
-            path: &self.path,
-            api_key_id: self.api_key_id.as_deref(),
-            ip_address: self.ip_address.as_deref(),
-            user_agent: self.user_agent.as_deref(),
-            provider_id: &self.provider_id,
-            model: &self.model,
-            status_code: self.status_code,
-            latency_ms: self.latency_ms,
-            usage: &self.usage,
-            estimated_cost: self.estimated_cost,
-            resolved_model: self.resolved_model.as_deref(),
-            error_code: self.error_code.as_deref(),
-            error_message: self.error_message.as_deref(),
-            created_at: self.created_at,
-        }
-    }
-}
-
 pub struct RequestLogInput<'a> {
     pub request_id: &'a str,
     pub method: &'a str,

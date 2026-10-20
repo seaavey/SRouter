@@ -77,13 +77,6 @@ function UsagePage() {
                 prefetchRange(value as AnalyticsWindow)
               }}
             />
-            <ActionButton
-              label="Refresh"
-              pendingLabel="Refreshing"
-              successLabel="Refreshed"
-              onAction={refresh}
-              onActionError={() => toast.error("Could not refresh usage data")}
-            />
           </div>
         }
       />
