@@ -40,7 +40,7 @@ function getTabFromPathname(pathname: string): DashboardTab {
  */
 export const Route = createFileRoute("/_authenticated")({
   beforeLoad: async ({ context, location }) => {
-    const status = await context.queryClient.ensureQueryData(adminStatusQuery)
+    const status = await context.queryClient.query(adminStatusQuery)
 
     // A server with no admin account cannot authenticate anyone. Send the
     // operator to the setup form instead of a login form they cannot use.
