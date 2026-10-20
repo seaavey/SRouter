@@ -1396,10 +1396,6 @@ fn header_text(headers: &HeaderMap, name: &str) -> String {
         .to_owned()
 }
 
-/// Keys the fake `model/list` serves, in the order the catalog sorts them. One
-/// of them is an alias target, so the friendly-name path stays exercised.
-pub const FAKE_QODER_KEYS: &[&str] = &["auto", "gfmodel", "qmodel", "qmodel_latest"];
-
 /// Every id the fake catalog advertises, written by hand: the served keys plus
 /// the display names that survive transcription. A test that counts rows against
 /// this list cannot be satisfied by a catalog that invents or drops a name.
@@ -1613,16 +1609,6 @@ pub fn codebuddy_registry(
             .expect("codebuddy cn adapter"),
     );
     providers
-}
-
-/// Application state wired to the fake CodeBuddy upstream and the given database.
-pub fn codebuddy_state(
-    database: AppDatabase,
-    security: SecurityState,
-    fake: &FakeCodeBuddyUpstream,
-) -> AppState {
-    let providers = codebuddy_registry(Some(database.clone()), fake);
-    AppState::with_security(test_config(), providers, security).with_database(database)
 }
 
 type SharedGrokState = Arc<StdMutex<FakeGrokState>>;

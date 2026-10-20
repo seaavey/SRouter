@@ -90,13 +90,6 @@ impl SearchService {
         }
     }
 
-    /// Creates a search service with explicit API credentials.
-    pub fn with_config(config: WebSearchConfig) -> Self {
-        let mut service = Self::new();
-        service.config = config;
-        service
-    }
-
     /// Creates a mock search service for testing without network requests.
     pub fn with_mock<F>(mock_fn: F) -> Self
     where

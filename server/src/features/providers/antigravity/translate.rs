@@ -1279,22 +1279,12 @@ pub struct GeminiStreamState {
     pub gemini_tool_call_count: usize,
     pub finish_reason: Option<String>,
     pub usage: Option<Value>,
-    pub tool_name_map: Option<BTreeMap<String, String>>,
-    pub remaining_credits: Option<Value>,
 }
 
 impl GeminiStreamState {
     pub fn new(model: &str) -> Self {
         Self {
             model: model.to_owned(),
-            ..Self::default()
-        }
-    }
-
-    pub fn with_tool_names(model: &str, tool_name_map: Option<BTreeMap<String, String>>) -> Self {
-        Self {
-            model: model.to_owned(),
-            tool_name_map,
             ..Self::default()
         }
     }
@@ -1434,18 +1424,6 @@ pub fn gemini_stream_to_openai_chunks(
         state.usage = Some(map_usage(usage_meta));
     }
 
-    if let Some(credits) = chunk
-        .get("remainingCredits")
-        .filter(|value| value.is_array())
-        .or_else(|| {
-            response
-                .get("remainingCredits")
-                .filter(|value| value.is_array())
-        })
-    {
-        state.remaining_credits = Some(credits.clone());
-    }
-
     if let Some(reason) = candidate.get("finishReason").and_then(Value::as_str) {
         let mut finish_reason = if reason == "STOP" {
             "stop".to_owned()
@@ -1512,15 +1490,10 @@ fn emit_function_call(
     thought_signature: Option<&str>,
     now_ms: i64,
 ) -> Value {
-    let raw_name = function_call
+    let name = function_call
         .get("name")
         .and_then(Value::as_str)
         .unwrap_or("");
-    let name = state
-        .tool_name_map
-        .as_ref()
-        .and_then(|names| names.get(raw_name))
-        .map_or(raw_name, String::as_str);
     let args = strip_zero_width(
         function_call
             .get("args")

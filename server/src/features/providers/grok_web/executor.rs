@@ -85,14 +85,6 @@ impl GrokWebExecutor {
         })
     }
 
-    /// Overrides the establishment and stream-idle timeouts. Tests use this to
-    /// exercise the stall paths without waiting out the production values.
-    pub fn with_timeouts(mut self, session: Duration, idle: Duration) -> Self {
-        self.session_timeout = session;
-        self.idle_timeout = idle;
-        self
-    }
-
     pub fn id(&self) -> &str {
         self.id
     }

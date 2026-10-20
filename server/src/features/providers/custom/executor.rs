@@ -311,12 +311,6 @@ impl CustomProvider {
         )
     }
 
-    /// Clears the catalog when the row is gone, so a deleted provider stops
-    /// advertising models before the registry drops it.
-    pub async fn clear_catalog(&self) {
-        write_catalog(&self.catalog).models.clear();
-    }
-
     /// An OpenAI-compatible image request. The Anthropic shape does not serve
     /// image generation, so it falls through to the trait default.
     pub async fn generate_image(

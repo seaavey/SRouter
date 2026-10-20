@@ -75,7 +75,6 @@ XcW+ML9FoCI6AOvOzwIDAQAB
 -----END PUBLIC KEY-----";
 
 pub const QODER_DEFAULT_MAX_OUTPUT: i64 = 32_768;
-pub const QODER_DEFAULT_CONTEXT: i64 = 180_000;
 
 /// Settings key holding the stable machine id used in the COSY headers.
 pub const QODER_MACHINE_ID_SETTING: &str = "qoder_machine_id";

@@ -87,7 +87,6 @@ pub enum ErrorCode {
 pub mod error_type {
     pub const INVALID_REQUEST: &str = "invalid_request_error";
     pub const INSUFFICIENT_QUOTA: &str = "insufficient_quota";
-    pub const UPSTREAM: &str = "upstream_error";
 }
 
 /// Response headers the API freezes: custom names beyond `axum::http::header`,
@@ -141,10 +140,6 @@ pub mod json {
     /// Canonical message for an unhandled malformed-JSON body: Node maps an
     /// unhandled `SyntaxError` to this text (`apps/api/src/index.ts:88-99`).
     pub const MALFORMED: &str = "Malformed JSON in request body";
-    /// The `ValidateJson` middleware wording, still used by the Anthropic
-    /// messages route which parses its own body
-    /// (`apps/api/src/middleware/Validation.ts`).
-    pub const MALFORMED_VERIFY: &str = "Malformed JSON in request body. Please verify JSON syntax.";
     /// A body that parsed as empty rather than malformed.
     pub const EMPTY_BODY: &str = "Request body cannot be empty. Valid JSON is required.";
     /// Shared by every route that caps the body it reads.
@@ -269,7 +264,6 @@ pub mod gateway {
     pub const MESSAGES_REQUIRED: &str = "Missing required parameter 'messages'";
     pub const PROMPT_REQUIRED: &str = "Missing required parameter 'prompt'";
     pub const MODEL_ID_REQUIRED: &str = "Model ID parameter is required";
-    pub const MESSAGES_EMPTY: &str = "messages: at least 1 message is required";
     pub const COULD_NOT_BUILD_STREAM: &str = "Could not build the stream response";
 
     pub fn model_not_registered(model: &str) -> String {
@@ -581,10 +575,6 @@ pub mod providers {
             format!("Qoder device token poll failed ({status})")
         }
 
-        pub fn userinfo_failed(status: u16) -> String {
-            format!("Qoder userinfo request failed ({status})")
-        }
-
         pub fn poll_transport_failed() -> String {
             "Qoder device token poll failed".to_owned()
         }
@@ -677,7 +667,6 @@ pub mod providers {
         pub const UID_NOT_ISSUED: &str =
             "Grok Web did not issue a user id for this session; reconnect the Grok Web account.";
         pub const SESSION_TIMEOUT: &str = "Grok Web did not attach a conversation in time";
-        pub const HANDSHAKE_FAILED: &str = "Grok Web WebSocket handshake failed";
         pub const EMPTY_QUERY: &str = "Empty query after processing";
         pub const COOKIE_PAYLOAD_INVALID: &str = "Expected the session cookie as a JSON field ('cookie', 'sso', or 'api_key'), as a raw text body, or as a multipart file upload";
         pub const COOKIE_VALUE_INVALID: &str = "The extracted 'sso' cookie value is empty, too long, or contains characters a cookie value may not carry";

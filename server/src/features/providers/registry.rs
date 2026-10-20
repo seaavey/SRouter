@@ -7,11 +7,7 @@ use std::sync::{Arc, Mutex, RwLock, RwLockReadGuard};
 use crate::error::APIError;
 use crate::features::providers::adapter::ProviderAdapter;
 use crate::features::providers::antigravity;
-use crate::features::providers::antigravity::AntigravityExecutor;
-use crate::features::providers::antigravity::types::AntigravityEndpoints;
 use crate::features::providers::claude;
-use crate::features::providers::claude::ClaudeExecutor;
-use crate::features::providers::claude::types::ClaudeEndpoints;
 use crate::features::providers::cline;
 use crate::features::providers::cline::ClineExecutor;
 use crate::features::providers::cline::types::ClineEndpoints;
@@ -149,24 +145,6 @@ impl ProviderRegistry {
         self.read_adapters()
             .values()
             .find_map(|adapter| adapter.downcast_ref::<CodexExecutor>())
-            .map(|executor| executor.endpoints().clone())
-    }
-
-    /// The Antigravity endpoints in use, so the OAuth routes and tests talk to
-    /// the same hosts the executor does.
-    pub fn antigravity_endpoints(&self) -> Option<AntigravityEndpoints> {
-        self.read_adapters()
-            .values()
-            .find_map(|adapter| adapter.downcast_ref::<AntigravityExecutor>())
-            .map(|executor| executor.endpoints().clone())
-    }
-
-    /// The Claude endpoints in use, so the OAuth routes and tests talk to the
-    /// same hosts the executor does.
-    pub fn claude_endpoints(&self) -> Option<ClaudeEndpoints> {
-        self.read_adapters()
-            .values()
-            .find_map(|adapter| adapter.downcast_ref::<ClaudeExecutor>())
             .map(|executor| executor.endpoints().clone())
     }
 
