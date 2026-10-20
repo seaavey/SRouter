@@ -1,17 +1,27 @@
+import { useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router"
 import { motion } from "motion/react"
 import { useRef, useState } from "react"
 
 import { APIError } from "@/api/client"
+import { loginPortal } from "@/api/portal"
 import { useAdminAuth } from "@/components/admin-auth-provider"
 import { ActionButton } from "@/components/arc/action-button/action-button"
 import { PasswordField } from "@/components/arc/password-field/password-field"
+import SegmentedControl from "@/components/arc/segmented-control/segmented-control"
 import { ThemeSwitch } from "@/components/arc/theme-switch/theme-switch"
 import { toast } from "@/components/arc/toast-stack/toast-stack"
 import SRouterMark from "@/components/seavx/SRouterMark"
 import { useTheme } from "@/components/theme-provider"
 
 type LoginSearch = { redirect?: string }
+
+type LoginMode = "password" | "token"
+
+const LOGIN_MODE_OPTIONS: { value: LoginMode; label: string }[] = [
+  { value: "password", label: "Password" },
+  { value: "token", label: "Access token" },
+]
 
 export const Route = createFileRoute("/login")({
   validateSearch: (search): LoginSearch => ({
@@ -289,12 +299,18 @@ function Login() {
   const navigate = useNavigate()
   const { redirect } = useSearch({ from: "/login" })
   const { status, login, setup } = useAdminAuth()
+  const queryClient = useQueryClient()
 
+  const [mode, setMode] = useState<LoginMode>("password")
   const [password, setPassword] = useState("")
+  const [token, setToken] = useState("")
   const [confirmation, setConfirmation] = useState("")
   const submitButtonRef = useRef<HTMLButtonElement>(null)
 
   const setupRequired = status.data?.setup_required ?? false
+  // A fresh install has no customer, so the mode switch stays hidden and the
+  // setup form always applies.
+  const usingToken = !setupRequired && mode === "token"
 
   // The provider already refreshes the cached status on success; this only
   // lands the operator back on the screen the guard bounced them off.
@@ -391,6 +407,26 @@ function Login() {
     setupRequired && confirmation.length > 0 && confirmation !== password
 
   const handleAuth = async () => {
+    if (usingToken) {
+      if (token.length === 0) return
+
+      try {
+        await loginPortal(token)
+        // Either role can leave the shared cookie behind, so a token sign-in
+        // must refresh both caches before the console's gate reads them.
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["portal"] }),
+          queryClient.invalidateQueries({ queryKey: ["admin", "status"] }),
+        ])
+        toast.success("Signed in successfully")
+        await navigate({ to: "/portal", replace: true })
+      } catch (error) {
+        toast.error(describe(error as Error))
+        throw error
+      }
+      return
+    }
+
     if (password.length === 0) return
     if (setupRequired && (confirmation.length === 0 || mismatch)) return
 
@@ -435,7 +471,9 @@ function Login() {
               <p className="m-0 text-sm leading-[1.45] text-muted-foreground">
                 {setupRequired
                   ? "Set the master password to initialize and secure this gateway."
-                  : "Enter the operator password to access the gateway console."}
+                  : usingToken
+                    ? "Enter the access token issued by the operator to open your account console."
+                    : "Enter the operator password to access the gateway console."}
               </p>
             </div>
 
@@ -449,17 +487,37 @@ function Login() {
                 }
               }}
             >
-              <div className="flex flex-col gap-5">
-                <PasswordField
-                  id="password"
-                  label={setupRequired ? "Master password" : "Password"}
-                  autoComplete={
-                    setupRequired ? "new-password" : "current-password"
-                  }
-                  autoFocus
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
+              {!setupRequired && (
+                <SegmentedControl
+                  options={LOGIN_MODE_OPTIONS}
+                  value={mode}
+                  onValueChange={(value) => setMode(value as LoginMode)}
+                  label="Sign-in method"
                 />
+              )}
+
+              <div className="flex flex-col gap-5">
+                {usingToken ? (
+                  <PasswordField
+                    id="token"
+                    label="Access token"
+                    autoComplete="off"
+                    autoFocus
+                    value={token}
+                    onChange={(event) => setToken(event.target.value)}
+                  />
+                ) : (
+                  <PasswordField
+                    id="password"
+                    label={setupRequired ? "Master password" : "Password"}
+                    autoComplete={
+                      setupRequired ? "new-password" : "current-password"
+                    }
+                    autoFocus
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                  />
+                )}
 
                 {setupRequired ? (
                   <PasswordField
@@ -484,7 +542,7 @@ function Login() {
                   successLabel={setupRequired ? "Created" : "Signed in"}
                   shortcut="↵"
                   disabled={
-                    password.length === 0 ||
+                    (usingToken ? token.length === 0 : password.length === 0) ||
                     (setupRequired &&
                       (confirmation.length === 0 || mismatch)) ||
                     active.isPending
@@ -502,7 +560,9 @@ function Login() {
           <span className="size-1.5 rounded-full bg-success" />
           <span>Gateway online</span>
         </div>
-        <span>Operator authentication</span>
+        <span>
+          {usingToken ? "Customer authentication" : "Operator authentication"}
+        </span>
       </footer>
     </div>
   )
