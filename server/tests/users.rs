@@ -492,6 +492,71 @@ async fn portal_logs_count_only_the_callers_rows() {
     assert_eq!(all["data"].as_array().unwrap().len(), 5);
 }
 
+/// The `error` predicate is a disjunction, so without its parentheses the
+/// appended `AND EXISTS` binds to the second arm only and `< 200` rows from
+/// every tenant leak into the page.
+#[tokio::test]
+async fn portal_logs_keep_the_tenant_scope_on_the_error_branch() {
+    let database = TestDatabase::new().unwrap();
+    let app = admin_app(&database).await;
+    let (_, acme) = create_user(&app, "Acme").await;
+    let (_, globex) = create_user(&app, "Globex").await;
+    let database = database.connect().await.expect("temporary database");
+    seed_key(&database, "key_acme", acme["id"].as_str().unwrap()).await;
+    seed_key(&database, "key_globex", globex["id"].as_str().unwrap()).await;
+    seed_log(&database, &log_id(1), "key_acme", 199).await;
+    seed_log(&database, &log_id(2), "key_globex", 199).await;
+
+    let (_, acme_cookie, _) = login(&app, acme["token"].as_str().unwrap()).await;
+    let (status, page) = send(
+        &app,
+        portal_request(
+            &acme_cookie,
+            "GET",
+            "/v1/portal/logs?page=1&status=error",
+            json!({}),
+        ),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(page["pagination"]["total"], 1);
+    let rows = page["data"].as_array().unwrap();
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0]["id"], log_id(1));
+}
+
+#[tokio::test]
+async fn a_rotated_token_logs_in_and_the_old_one_does_not() {
+    let database = TestDatabase::new().unwrap();
+    let app = admin_app(&database).await;
+    let (_, created) = create_user(&app, "Acme").await;
+    let id = created["id"].as_str().unwrap().to_owned();
+    let old_token = created["token"].as_str().unwrap().to_owned();
+
+    let (status, _, _) = login(&app, &old_token).await;
+    assert_eq!(status, StatusCode::OK);
+
+    let (status, rotated) = send(
+        &app,
+        admin_request("POST", &format!("{USERS}/{id}/token"), json!({})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let new_token = rotated["token"].as_str().unwrap();
+
+    let (status, body) = send(
+        &app,
+        json_request("POST", PORTAL_LOGIN, json!({ "token": old_token })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    assert_eq!(body["error"]["message"], constants::portal::INVALID_TOKEN);
+
+    let (status, _, _) = login(&app, new_token).await;
+    assert_eq!(status, StatusCode::OK);
+}
+
 #[tokio::test]
 async fn a_user_without_keys_sees_an_empty_console() {
     let database = TestDatabase::new().unwrap();

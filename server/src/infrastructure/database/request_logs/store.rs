@@ -225,7 +225,9 @@ pub async fn list_request_logs(
     // then an optional tenant predicate that always brings its own `AND`.
     let status = match status {
         Some("success") => "status_code >= 200 AND status_code < 300",
-        Some("error") => "status_code < 200 OR status_code >= 300",
+        // Parenthesised: the tenant scope appends `AND`, which would otherwise
+        // bind to the second arm only and let `< 200` rows bypass it.
+        Some("error") => "(status_code < 200 OR status_code >= 300)",
         Some("all") | None => "1 = 1",
         Some(_) => {
             return Err(APIError::new(

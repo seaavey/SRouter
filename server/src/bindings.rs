@@ -33,7 +33,7 @@
 //! | `CreateAPIKeyInput`     | `POST /v1/keys` body                           |
 //! | `UpdateAPIKeyInput`     | `PATCH /v1/keys/:id` body                      |
 //! | `UserListResponse`      | `GET /v1/users`                                |
-//! | `UserResponse`          | that list, plus the `PATCH` answer             |
+//! | `UserResponse`          | that list, the `PATCH` answer, and the portal login |
 //! | `CreatedUserResponse`   | `POST /v1/users`, `POST /v1/users/:id/token`   |
 //! | `CreateUserInput`       | `POST /v1/users` body                          |
 //! | `UpdateUserInput`       | `PATCH /v1/users/:id` body                      |
