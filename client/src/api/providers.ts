@@ -2,7 +2,6 @@ import { queryOptions } from "@tanstack/react-query"
 
 import { request } from "./client"
 import type {
-  CatalogResponse,
   ProviderEntry,
   ProviderListResponse,
   VerifyResponse,
@@ -17,14 +16,6 @@ export const providersListQuery = queryOptions({
     request<ProviderListResponse>("/v1/providers", { signal }),
   staleTime: 10_000,
   refetchOnMount: "always",
-})
-
-/** `GET /v1/providers/catalog`. Grouped catalog: oauth, free_tier, api_key, custom_provider. */
-export const providersCatalogQuery = queryOptions({
-  queryKey: ["providers", "catalog"] as const,
-  queryFn: ({ signal }) =>
-    request<CatalogResponse>("/v1/providers/catalog", { signal }),
-  staleTime: 10_000,
 })
 
 /** `GET /v1/providers/{provider_id}`. Provider detail with connections and models. */
