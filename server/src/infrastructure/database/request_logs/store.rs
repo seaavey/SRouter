@@ -153,7 +153,7 @@ pub struct RequestLog {
     pub id: Uuid,
     pub request_id: Uuid,
     pub user_id: Option<Uuid>,
-    pub api_key_id: Option<Uuid>,
+    pub api_key_id: Option<String>,
     pub method: HTTPMethod,
     pub path: String,
     pub status_code: i16,
@@ -302,6 +302,11 @@ fn map_request_log(row: &sqlx::sqlite::SqliteRow) -> Result<RequestLog, APIError
         .map_err(log_row_error)?;
     let reasoning_tokens: Option<i64> = row.try_get("reasoning_tokens").map_err(log_row_error)?;
     let estimated_cost: Option<f64> = row.try_get("estimated_cost").map_err(log_row_error)?;
+    // A key id is `key_...` and never parses as a UUID, so current rows carry it in
+    // `legacy_api_key_id`; either column names the key that made this request.
+    let api_key_id: Option<String> = row.try_get("api_key_id").map_err(log_row_error)?;
+    let legacy_api_key_id: Option<String> =
+        row.try_get("legacy_api_key_id").map_err(log_row_error)?;
 
     let model_for_cost = resolved_model.as_deref().or(model.as_deref());
     let costs = model_for_cost
@@ -334,7 +339,7 @@ fn map_request_log(row: &sqlx::sqlite::SqliteRow) -> Result<RequestLog, APIError
         id: Uuid::parse_str(&id).map_err(log_row_error)?,
         request_id: Uuid::parse_str(&request_id).map_err(log_row_error)?,
         user_id: optional_uuid(row, "user_id")?,
-        api_key_id: optional_uuid(row, "api_key_id")?,
+        api_key_id: api_key_id.or(legacy_api_key_id),
         method,
         path: row.try_get("path").map_err(log_row_error)?,
         status_code: i16::try_from(status_code).map_err(|error| {

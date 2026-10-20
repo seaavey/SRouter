@@ -56,6 +56,28 @@ async fn seed_log(database: &srouter_server::AppDatabase, id: &str, created_at: 
     .unwrap();
 }
 
+async fn seed_log_with_key_ids(
+    database: &srouter_server::AppDatabase,
+    id: &str,
+    api_key_id: Option<&str>,
+    legacy_api_key_id: Option<&str>,
+) {
+    sqlx::query(
+        "INSERT INTO request_logs (
+            id, request_id, method, path, api_key_id, legacy_api_key_id,
+            provider_id, model, status_code, latency_ms, created_at
+        ) VALUES (?, ?, 'POST', '/v1/chat/completions', ?, ?, 'opencode_zen', 'test-model',
+            200, 12, 100)",
+    )
+    .bind(id)
+    .bind(id)
+    .bind(api_key_id)
+    .bind(legacy_api_key_id)
+    .execute(&database.sqlite_pool().unwrap())
+    .await
+    .unwrap();
+}
+
 async fn seed_complete_log(
     database: &srouter_server::AppDatabase,
     id: &str,
@@ -202,6 +224,39 @@ async fn log_detail_returns_snake_case_uuid_record_and_404_for_missing_id() {
         .await
         .unwrap();
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn log_detail_reports_the_key_id_from_whichever_column_holds_it() {
+    let test_database = TestDatabase::new().unwrap();
+    let state = logs_state(&test_database).await;
+    let database = state.database.as_ref().unwrap();
+    let current_key_log = "00000000-0000-4000-8000-000000000004";
+    let node_era_log = "00000000-0000-4000-8000-000000000005";
+    seed_log_with_key_ids(database, current_key_log, None, Some("key_current")).await;
+    seed_log_with_key_ids(
+        database,
+        node_era_log,
+        Some("11111111-1111-4111-8111-111111111111"),
+        Some("key_older"),
+    )
+    .await;
+    let app = app(state);
+
+    let response = app
+        .clone()
+        .oneshot(get(&format!("/v1/logs/{current_key_log}")))
+        .await
+        .unwrap();
+    let body = json(response).await;
+    assert_eq!(body["api_key_id"], "key_current");
+
+    let response = app
+        .oneshot(get(&format!("/v1/logs/{node_era_log}")))
+        .await
+        .unwrap();
+    let body = json(response).await;
+    assert_eq!(body["api_key_id"], "11111111-1111-4111-8111-111111111111");
 }
 
 #[tokio::test]
