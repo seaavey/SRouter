@@ -58,7 +58,7 @@ pub async fn serve_static(Extension(dist): Extension<PathBuf>, request: Request)
     }
 
     let head_only = request.method() == Method::HEAD;
-    let relative = percent_decode(request.uri().path().trim_start_matches('/'));
+    let relative = super::percent_decode(request.uri().path().trim_start_matches('/'));
 
     if let Some(requested) = safe_join(&dist, &relative)
         && requested.is_file()
@@ -152,43 +152,6 @@ fn safe_join(dist: &Path, relative: &str) -> Option<PathBuf> {
     }
 
     Some(path)
-}
-
-/// Percent-decodes a path; invalid escapes pass through unchanged.
-fn percent_decode(value: &str) -> String {
-    let bytes = value.as_bytes();
-    let mut decoded = Vec::with_capacity(bytes.len());
-    let mut index = 0;
-
-    while index < bytes.len() {
-        match bytes[index] {
-            b'%' if index + 2 < bytes.len() => {
-                match std::str::from_utf8(&bytes[index + 1..index + 3])
-                    .ok()
-                    .and_then(|hex| u8::from_str_radix(hex, 16).ok())
-                {
-                    Some(byte) => {
-                        decoded.push(byte);
-                        index += 3;
-                    }
-                    None => {
-                        decoded.push(b'%');
-                        index += 1;
-                    }
-                }
-            }
-            b'+' => {
-                decoded.push(b' ');
-                index += 1;
-            }
-            byte => {
-                decoded.push(byte);
-                index += 1;
-            }
-        }
-    }
-
-    String::from_utf8_lossy(&decoded).into_owned()
 }
 
 /// The directory that holds the monorepo markers, else `cwd` itself.

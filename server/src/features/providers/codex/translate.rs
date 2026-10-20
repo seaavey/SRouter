@@ -13,7 +13,7 @@ use crate::clock::now_ms;
 use crate::constants;
 use crate::error::APIError;
 use crate::features::providers::adapter::ProviderStream;
-use crate::features::providers::wire::{field_error_message, random_hex};
+use crate::features::providers::wire::{SseDecoder, SsePayload, field_error_message, random_hex};
 use crate::infrastructure::upstream::STREAM_IDLE_TIMEOUT;
 use crate::protocol::model::{ChatCompletionRequest, ChatContent, ChatMessage};
 use crate::protocol::sse;
@@ -104,75 +104,32 @@ pub(super) enum DecodedFrame {
 /// Splits an SSE body into events across arbitrary TCP fragmentations: lines
 /// accumulate until the blank line that ends an event.
 #[derive(Default)]
-pub(super) struct EventDecoder {
-    buffer: String,
-    event_lines: Vec<String>,
-    finished: bool,
-}
+pub(super) struct EventDecoder(SseDecoder);
 
 impl EventDecoder {
     pub(super) fn push(&mut self, bytes: &[u8]) -> Vec<DecodedFrame> {
-        if self.finished {
-            return Vec::new();
-        }
-        self.buffer.push_str(&String::from_utf8_lossy(bytes));
-        let mut frames = Vec::new();
-
-        while let Some(position) = self.buffer.find('\n') {
-            let line = self.buffer[..position].trim_end_matches('\r').to_owned();
-            self.buffer.drain(..=position);
-            if line.is_empty() {
-                if let Some(frame) = self.take_event() {
-                    frames.push(frame);
-                }
-            } else {
-                self.event_lines.push(line);
-            }
-        }
-
-        frames
+        self.0.push(bytes).into_iter().map(decode_frame).collect()
     }
 
     pub(super) fn finish(&mut self) -> Vec<DecodedFrame> {
-        if self.finished {
-            return Vec::new();
-        }
-        if !self.buffer.is_empty() {
-            self.event_lines.push(
-                std::mem::take(&mut self.buffer)
-                    .trim_end_matches('\r')
-                    .to_owned(),
-            );
-        }
-
-        self.take_event().into_iter().collect()
+        self.0.finish().into_iter().map(decode_frame).collect()
     }
+}
 
-    fn take_event(&mut self) -> Option<DecodedFrame> {
-        let lines = std::mem::take(&mut self.event_lines);
-        let payload = lines
-            .iter()
-            .filter_map(|line| line.strip_prefix("data:").map(str::trim_start))
-            .collect::<Vec<_>>()
-            .join("\n");
-        if payload.is_empty() {
-            return None;
-        }
-        if payload.trim() == "[DONE]" {
-            self.finished = true;
-            return Some(DecodedFrame::Done);
-        }
+fn decode_frame(payload: SsePayload) -> DecodedFrame {
+    let SsePayload::Data(payload) = payload else {
+        return DecodedFrame::Done;
+    };
 
-        match serde_json::from_str::<Value>(&payload)
-            .ok()
-            .and_then(|value| serde_json::from_value::<ResponsesEvent>(value).ok())
-        {
-            Some(event) => match event.error() {
-                Some(message) => Some(DecodedFrame::Error(APIError::new(500, message))),
-                None => Some(DecodedFrame::Event(event)),
-            },
-            None => Some(DecodedFrame::Raw),
-        }
+    match serde_json::from_str::<Value>(&payload)
+        .ok()
+        .and_then(|value| serde_json::from_value::<ResponsesEvent>(value).ok())
+    {
+        Some(event) => match event.error() {
+            Some(message) => DecodedFrame::Error(APIError::new(500, message)),
+            None => DecodedFrame::Event(event),
+        },
+        None => DecodedFrame::Raw,
     }
 }
 

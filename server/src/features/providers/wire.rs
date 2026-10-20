@@ -117,3 +117,76 @@ pub(crate) fn stream_error_message(value: &Value, fallback: &str) -> Option<Stri
         .map(str::to_owned)
         .or_else(|| Some(fallback.to_owned()))
 }
+
+/// What one complete SSE event carried: its `data:` payload, or the `[DONE]`
+/// sentinel the OpenAI dialect ends a stream with.
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum SsePayload {
+    Data(String),
+    Done,
+}
+
+/// Splits an SSE body into events across arbitrary TCP fragmentations: lines
+/// accumulate until the blank line that ends an event.
+#[derive(Default)]
+pub(crate) struct SseDecoder {
+    buffer: String,
+    event_lines: Vec<String>,
+    finished: bool,
+}
+
+impl SseDecoder {
+    pub(crate) fn push(&mut self, bytes: &[u8]) -> Vec<SsePayload> {
+        if self.finished {
+            return Vec::new();
+        }
+        self.buffer.push_str(&String::from_utf8_lossy(bytes));
+        let mut frames = Vec::new();
+
+        while let Some(position) = self.buffer.find('\n') {
+            let line = self.buffer[..position].trim_end_matches('\r').to_owned();
+            self.buffer.drain(..=position);
+            if line.is_empty() {
+                if let Some(frame) = self.take_event() {
+                    frames.push(frame);
+                }
+            } else {
+                self.event_lines.push(line);
+            }
+        }
+
+        frames
+    }
+
+    pub(crate) fn finish(&mut self) -> Vec<SsePayload> {
+        if self.finished {
+            return Vec::new();
+        }
+        if !self.buffer.is_empty() {
+            self.event_lines.push(
+                std::mem::take(&mut self.buffer)
+                    .trim_end_matches('\r')
+                    .to_owned(),
+            );
+        }
+
+        self.take_event().into_iter().collect()
+    }
+
+    fn take_event(&mut self) -> Option<SsePayload> {
+        let lines = std::mem::take(&mut self.event_lines);
+        let payload = lines
+            .iter()
+            .filter_map(|line| line.strip_prefix("data:").map(str::trim_start))
+            .collect::<Vec<_>>()
+            .join("\n");
+        if payload.is_empty() {
+            return None;
+        }
+        if payload.trim() == "[DONE]" {
+            self.finished = true;
+            return Some(SsePayload::Done);
+        }
+        Some(SsePayload::Data(payload))
+    }
+}

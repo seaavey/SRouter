@@ -221,6 +221,21 @@ async fn unmatched_v1_paths_answer_json_404_instead_of_the_spa() {
 }
 
 #[tokio::test]
+async fn report_plus_in_a_file_name_stays_literal() {
+    let dist = WebDist::new();
+    dist.write("index.html", "<!doctype html><title>dashboard</title>");
+    dist.write("report+final.txt", "the report");
+
+    let response = app(Some(dist.path().to_path_buf()))
+        .oneshot(get("/report+final.txt"))
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(text(response).await, "the report");
+}
+
+#[tokio::test]
 async fn a_path_traversal_attempt_does_not_escape_the_dist() {
     let dist = WebDist::new();
     dist.write("index.html", "<!doctype html><title>dashboard</title>");
