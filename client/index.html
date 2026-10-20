@@ -5,6 +5,19 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="SRouter operator console" />
+    <!-- The toolbar colour before the bundle runs. ThemeProvider replaces these
+         with the painted background once a theme is applied, because a manual
+         choice cannot be expressed through the OS media query. -->
+    <meta
+      name="theme-color"
+      content="#ffffff"
+      media="(prefers-color-scheme: light)"
+    />
+    <meta
+      name="theme-color"
+      content="#141414"
+      media="(prefers-color-scheme: dark)"
+    />
     <title>SRouter</title>
   </head>
   <body>

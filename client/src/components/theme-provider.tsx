@@ -78,6 +78,31 @@ function isEditableTarget(target: EventTarget | null) {
   return false
 }
 
+/**
+ * Chrome on Android and Safari paint their toolbar from this meta. The
+ * media-scoped defaults in `index.html` follow the OS, which cannot express a
+ * manual choice, so the painted background replaces them on the first apply.
+ */
+function syncThemeColor() {
+  const background = window.getComputedStyle(document.body).backgroundColor
+  if (!background || background === "rgba(0, 0, 0, 0)") {
+    return
+  }
+
+  let meta = document.querySelector<HTMLMetaElement>(
+    'meta[name="theme-color"]:not([media])'
+  )
+  if (!meta) {
+    for (const stale of document.querySelectorAll('meta[name="theme-color"]')) {
+      stale.remove()
+    }
+    meta = document.createElement("meta")
+    meta.name = "theme-color"
+    document.head.appendChild(meta)
+  }
+  meta.content = background
+}
+
 type ViewTransition = {
   ready: Promise<void>
   finished: Promise<void>
@@ -108,13 +133,6 @@ export function ThemeProvider({
   const isMountedRef = React.useRef(false)
   const currentThemeRef = React.useRef<ResolvedTheme | null>(null)
 
-  // The painted theme as state, so readers re-render when the OS setting
-  // flips under `system`. `applyTheme` already repaints the DOM on that
-  // flip; this mirrors it into React for callers that branch on the value.
-  const [resolvedTheme, setResolvedTheme] = React.useState<ResolvedTheme>(() =>
-    getSystemTheme()
-  )
-
   const setTheme = React.useCallback(
     (nextTheme: Theme) => {
       localStorage.setItem(storageKey, nextTheme)
@@ -140,6 +158,7 @@ export function ThemeProvider({
         root.classList.remove("light", "dark")
         root.classList.add(resolvedTheme)
         root.setAttribute("data-theme", resolvedTheme)
+        syncThemeColor()
 
         if (restoreTransitions) {
           restoreTransitions()
@@ -167,25 +186,28 @@ export function ThemeProvider({
     [disableTransitionOnChange]
   )
 
+  // The painted theme is derived, not mirrored: `system` resolves against the
+  // OS setting, so a flip there re-renders through the store instead of an
+  // effect writing state.
+  const systemTheme = React.useSyncExternalStore(
+    React.useCallback(
+      (onChange) => {
+        const media = window.matchMedia(COLOR_SCHEME_QUERY)
+        const handleChange = () => {
+          if (theme === "system") applyTheme("system")
+          onChange()
+        }
+        media.addEventListener("change", handleChange)
+        return () => media.removeEventListener("change", handleChange)
+      },
+      [applyTheme, theme]
+    ),
+    getSystemTheme
+  )
+  const resolvedTheme: ResolvedTheme = theme === "system" ? systemTheme : theme
+
   React.useEffect(() => {
     applyTheme(theme)
-    setResolvedTheme(theme === "system" ? getSystemTheme() : theme)
-
-    if (theme !== "system") {
-      return undefined
-    }
-
-    const mediaQuery = window.matchMedia(COLOR_SCHEME_QUERY)
-    const handleChange = () => {
-      applyTheme("system")
-      setResolvedTheme(getSystemTheme())
-    }
-
-    mediaQuery.addEventListener("change", handleChange)
-
-    return () => {
-      mediaQuery.removeEventListener("change", handleChange)
-    }
   }, [theme, applyTheme])
 
   React.useEffect(() => {

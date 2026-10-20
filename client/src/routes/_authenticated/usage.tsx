@@ -13,6 +13,7 @@ import { PeriodSpendSection } from "@/components/usage/PeriodSpendSection"
 import { RANGE_OPTIONS } from "@/components/usage/types"
 
 export const Route = createFileRoute("/_authenticated/usage")({
+  head: () => ({ meta: [{ title: "SRouter - Usage and quota" }] }),
   component: UsagePage,
 })
 

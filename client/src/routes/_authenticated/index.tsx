@@ -22,6 +22,7 @@ import { toast } from "@/components/arc/toast-stack/toast-stack"
 import { SectionHeader } from "@/components/layout/section-header"
 
 export const Route = createFileRoute("/_authenticated/")({
+  head: () => ({ meta: [{ title: "SRouter - Gateway overview" }] }),
   component: OverviewPage,
 })
 

@@ -5,6 +5,7 @@ import useLogsData from "@/components/logs/hooks/useLogsData"
 import { LogViewerSection } from "@/components/logs/LogViewerSection"
 
 export const Route = createFileRoute("/_authenticated/logs")({
+  head: () => ({ meta: [{ title: "SRouter - Request logs" }] }),
   component: LogsPage,
 })
 

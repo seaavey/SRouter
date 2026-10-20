@@ -1,5 +1,9 @@
 import { QueryClient } from "@tanstack/react-query"
-import { createRootRouteWithContext, Outlet } from "@tanstack/react-router"
+import {
+  createRootRouteWithContext,
+  HeadContent,
+  Outlet,
+} from "@tanstack/react-router"
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools"
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools"
 
@@ -34,6 +38,7 @@ const RootComponent = () => (
   // sits here too: the login screen and the session guard must share one
   // `["admin", "status"]` entry.
   <ThemeProvider>
+    <HeadContent />
     <AdminAuthProvider>
       <ToastStackProvider>
         <Outlet />
@@ -50,5 +55,6 @@ const RootComponent = () => (
 )
 
 export const Route = createRootRouteWithContext<RouterContext>()({
+  head: () => ({ meta: [{ title: "SRouter" }] }),
   component: RootComponent,
 })
