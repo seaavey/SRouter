@@ -1,31 +1,39 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { createFileRoute, Link, useParams } from "@tanstack/react-router"
+import {
+  createFileRoute,
+  Link,
+  useNavigate,
+  useParams,
+} from "@tanstack/react-router"
 import {
   ArrowLeft,
   Eye,
   EyeOff,
   Network,
   Plus,
-  RefreshCw,
   Sparkles,
   Star,
 } from "lucide-react"
-import { useMemo, useState } from "react"
+import { useState } from "react"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 
 import {
+  deleteProvider,
   deleteProviderConnection,
   patchProvider,
   providerDetailQuery,
   toggleRoundRobin,
 } from "@/api/providers"
 import type { ProviderConnectionView } from "@/api/types"
+import ActionButton from "@/components/arc/action-button/action-button"
+import { Alert } from "@/components/arc/alert/alert"
 import { Badge, type BadgeTone } from "@/components/arc/badge/badge"
 import { Button } from "@/components/arc/button/button"
 import { CopyButton } from "@/components/arc/copy-button/copy-button"
 import { EmptyState } from "@/components/arc/empty-state/empty-state"
 import HoldToConfirm from "@/components/arc/hold-to-confirm/hold-to-confirm"
 import { SearchField } from "@/components/arc/search-field/search-field"
+import { Skeleton } from "@/components/arc/skeleton/skeleton"
 import { useSearch } from "@/hooks/useSearch"
 import { Switch } from "@/components/arc/switch/switch"
 import {
@@ -40,6 +48,7 @@ import { ConnectAccountModal } from "@/components/providers/modals/ConnectAccoun
 import { ProviderLogo } from "@/components/providers/provider-logo"
 
 export const Route = createFileRoute("/_authenticated/providers/$providerId")({
+  head: () => ({ meta: [{ title: "SRouter - Provider" }] }),
   component: ProviderDetailPage,
 })
 
@@ -98,11 +107,10 @@ function ProviderDetailPage() {
   const { providerId } = useParams({
     from: "/_authenticated/providers/$providerId",
   })
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const reducedMotion = useReducedMotion() ?? false
   const [connectModalOpen, setConnectModalOpen] = useState(false)
-  // Track IDs hidden from UI for exit animation
-  const [removedConnectionIDs, setRemovedConnectionIDs] = useState<string[]>([])
 
   const {
     data: provider,
@@ -110,7 +118,6 @@ function ProviderDetailPage() {
     isError,
     error,
     refetch,
-    isFetching,
   } = useQuery(providerDetailQuery(providerId))
 
   const toggleEnabledMutation = useMutation({
@@ -180,46 +187,42 @@ function ProviderDetailPage() {
   })
 
   const removeConnectionMutation = useMutation({
-    mutationFn: (connectionID: string) =>
-      deleteProviderConnection(providerId, connectionID),
-    onSuccess: () => {
+    mutationFn: (connection: ProviderConnectionView) =>
+      deleteProviderConnection(providerId, connection.id),
+    onSuccess: (_result, connection) => {
       void queryClient.invalidateQueries({ queryKey: ["providers"] })
+      toast.success(`Removed ${connection.name}`)
     },
-    onError: (err, connectionID) => {
-      setRemovedConnectionIDs((prev) =>
-        prev.filter((id) => id !== connectionID)
-      )
+    onError: (err) => {
       toast.error(
         err instanceof Error ? err.message : "Failed to remove the connection"
       )
     },
   })
 
-  const connections = useMemo(() => {
-    const raw = provider?.connections ?? []
-    return raw.filter((c) => !removedConnectionIDs.includes(c.id))
-  }, [provider?.connections, removedConnectionIDs])
+  const deleteProviderMutation = useMutation({
+    mutationFn: () => deleteProvider(providerId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["providers"] })
+      toast.success("Custom provider deleted")
+      void navigate({ to: "/providers" })
+    },
+    onError: (err) => {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to delete the provider"
+      )
+    },
+  })
 
-  function handleRemoveConnection(connection: ProviderConnectionView) {
-    const connectionID = connection.id
-    setRemovedConnectionIDs((prev) => [...prev, connectionID])
-    removeConnectionMutation.mutate(connectionID)
-    toast.success(`Removed ${connection.name}`)
+  // The row leaves when the invalidation refetches, so nothing is hidden locally.
+  const connections = provider?.connections ?? []
+
+  async function refreshProvider() {
+    const result = await refetch()
+    if (result.error) throw result.error
   }
 
-  // Filter models so only models actually belonging to this provider are shown
-  // (e.g. `qoder/...` or owned_by === `qoder`)
-  const models = useMemo(() => {
-    const allModels = provider?.models ?? []
-    if (!provider) return []
-    const prefix = `${provider.id.toLowerCase()}/`
-    const owner = provider.id.toLowerCase()
-    return allModels.filter((m) => {
-      const id = m.id.toLowerCase()
-      const ownedBy = m.owned_by.toLowerCase()
-      return id.startsWith(prefix) || ownedBy === owner
-    })
-  }, [provider])
+  const models = provider?.models ?? []
 
   const {
     query: modelSearch,
@@ -233,23 +236,25 @@ function ProviderDetailPage() {
   if (isLoading) {
     return (
       <div className="flex flex-col gap-6">
-        <div className="flex items-center gap-2">
-          <div className="h-4 w-28 animate-pulse rounded bg-surface-muted" />
-        </div>
-        <div className="flex animate-pulse items-center justify-between rounded-xl border border-border bg-surface p-6">
-          <div className="flex items-center gap-4">
-            <div className="size-14 rounded-xl bg-surface-muted" />
-            <div className="space-y-2">
-              <div className="h-6 w-40 rounded bg-surface-muted" />
-              <div className="h-4 w-24 rounded bg-surface-muted" />
-            </div>
-          </div>
+        <Link
+          to="/providers"
+          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ArrowLeft size={14} aria-hidden="true" />
+          <span>Back to providers</span>
+        </Link>
+        <div
+          className="rounded-xl border border-border bg-surface p-5"
+          aria-busy="true"
+          aria-label="Loading provider"
+        >
+          <Skeleton label="Loading provider" lines={2} avatar />
         </div>
       </div>
     )
   }
 
-  if (isError || !provider) {
+  if (!provider) {
     return (
       <div className="flex flex-col gap-6">
         <Link
@@ -259,24 +264,27 @@ function ProviderDetailPage() {
           <ArrowLeft size={14} aria-hidden="true" />
           <span>Back to providers</span>
         </Link>
-        <div className="rounded-xl border border-danger/30 bg-danger/10 p-6 text-center">
-          <p className="text-sm font-medium text-danger">
-            {error instanceof Error ? error.message : "Provider not found"}
-          </p>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => void refetch()}
-            className="mt-3"
-          >
-            Retry
-          </Button>
-        </div>
+        <Alert tone="danger" title="Could not load provider">
+          <span className="flex flex-col items-start gap-3">
+            <span className="break-words">
+              {error instanceof Error
+                ? error.message
+                : "The provider detail is unavailable."}
+            </span>
+            <ActionButton
+              label="Retry provider"
+              pendingLabel="Retrying"
+              successLabel="Provider loaded"
+              onAction={refreshProvider}
+              className="!border-border !bg-surface !text-foreground"
+            />
+          </span>
+        </Alert>
       </div>
     )
   }
 
-  const isLive = provider.status.connected_count > 0
+  const hasActiveConnections = provider.status.connected_count > 0
 
   return (
     <div className="flex flex-col gap-6">
@@ -303,7 +311,7 @@ function ProviderDetailPage() {
               <h1 className="text-lg font-medium tracking-tight text-foreground">
                 {provider.name}
               </h1>
-              {isLive ? (
+              {hasActiveConnections ? (
                 <Badge
                   tone="success"
                   size="sm"
@@ -314,11 +322,11 @@ function ProviderDetailPage() {
                     />
                   }
                 >
-                  {provider.status.connected_count} live
+                  {provider.status.connected_count} active
                 </Badge>
               ) : (
                 <Badge tone="neutral" size="sm">
-                  0 live
+                  0 active
                 </Badge>
               )}
             </div>
@@ -362,22 +370,50 @@ function ProviderDetailPage() {
             />
           </div>
 
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => void refetch()}
-            disabled={isFetching}
-            className="flex items-center gap-1.5"
-          >
-            <RefreshCw
-              size={13}
-              className={isFetching ? "animate-spin" : ""}
-              aria-hidden="true"
-            />
-            <span>Refresh</span>
-          </Button>
+          <ActionButton
+            label="Refresh"
+            pendingLabel="Refreshing"
+            successLabel="Refreshed"
+            onAction={refreshProvider}
+            className="!border-border !bg-surface !text-foreground"
+          />
+          {provider.category === "custom_provider" && (
+            <Tooltip content="Deletes the endpoint, its accounts, and its stored models.">
+              <span className="inline-flex">
+                <HoldToConfirm
+                  label="Hold to delete"
+                  confirmedLabel="Deleted"
+                  tone="danger"
+                  size="sm"
+                  confirmed={false}
+                  disabled={deleteProviderMutation.isPending}
+                  onConfirm={() => deleteProviderMutation.mutate()}
+                />
+              </span>
+            </Tooltip>
+          )}
         </div>
       </div>
+
+      {isError && (
+        <Alert tone="danger" title="Could not refresh provider">
+          <span className="flex flex-col items-start gap-3">
+            <span className="break-words">
+              {error instanceof Error
+                ? error.message
+                : "The provider detail is unavailable."}
+              {" Showing the last loaded data."}
+            </span>
+            <ActionButton
+              label="Retry refresh"
+              pendingLabel="Retrying"
+              successLabel="Provider loaded"
+              onAction={refreshProvider}
+              className="!border-border !bg-surface !text-foreground"
+            />
+          </span>
+        </Alert>
+      )}
 
       {/* Tab Navigation: Connections vs Models */}
       <Tabs defaultValue="connections" className="w-full">
@@ -503,11 +539,13 @@ function ProviderDetailPage() {
                             </span>
                             <HoldToConfirm
                               label="Hold to remove"
-                              confirmedLabel="Removed"
                               tone="danger"
                               size="sm"
+                              confirmed={false}
                               disabled={removeConnectionMutation.isPending}
-                              onConfirm={() => handleRemoveConnection(conn)}
+                              onConfirm={() =>
+                                removeConnectionMutation.mutate(conn)
+                              }
                             />
                           </div>
                         </motion.div>
@@ -687,6 +725,11 @@ function ProviderDetailPage() {
                         <Button
                           variant="ghost"
                           size="sm"
+                          aria-label={
+                            m.hidden
+                              ? "Hidden: restore model"
+                              : "Active: hide model"
+                          }
                           onClick={() => {
                             if (m.hidden) {
                               patchModelMutation.mutate({ restore: [m.id] })

@@ -24,6 +24,7 @@ import {
 } from "@/components/providers/provider-labels"
 
 export const Route = createFileRoute("/_authenticated/providers/")({
+  head: () => ({ meta: [{ title: "SRouter - Model providers" }] }),
   component: ProvidersListPage,
 })
 
@@ -47,7 +48,7 @@ const SEARCH_KEYS = ["name", "id", "protocol"] as const
 const CARD_GRID = "grid grid-cols-1 gap-4 lg:grid-cols-2 2xl:grid-cols-3"
 
 function connectionLabel(count: number) {
-  return `${count} ${count === 1 ? "connection" : "connections"}`
+  return `${count} active ${count === 1 ? "connection" : "connections"}`
 }
 
 function ProvidersListPage() {

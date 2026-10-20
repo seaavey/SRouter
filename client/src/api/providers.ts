@@ -207,6 +207,14 @@ export function addCustomProvider(body: {
   })
 }
 
+/** `DELETE /v1/providers/{provider_id}`. Removes a custom provider with its stored accounts. */
+export function deleteProvider(providerID: string) {
+  return request<{ message: string }>(
+    `/v1/providers/${encodeURIComponent(providerID)}`,
+    { method: "DELETE" }
+  )
+}
+
 /** `DELETE /v1/providers/{provider_id}/connections/{connection_id}`. Removes one stored connection of a driver. */
 export function deleteProviderConnection(
   providerID: string,
