@@ -7,7 +7,7 @@
 /* The glass wakes up with the field: muted at rest, full contrast while searching. */
 .shell > svg { flex: 0 0 auto; color: var(--text-muted); transition: color var(--duration-fast) var(--ease-standard); }
 .shell:focus-within > svg, .shell[data-filled="true"] > svg { color: var(--foreground); }
-.input { width: 100%; min-width: 0; border: 0; background: transparent; color: var(--foreground); font: inherit; font-size: var(--text-sm); letter-spacing: var(--tracking-body); outline: 0; }
+.input { width: 100%; min-width: 0; align-self: stretch; border: 0; background: transparent; color: var(--foreground); font: inherit; font-size: var(--text-sm); letter-spacing: var(--tracking-body); outline: 0; }
 .input:focus-visible { outline: 0; }
 .input::placeholder { color: var(--text-muted); }
 .input::-webkit-search-cancel-button { display: none; }

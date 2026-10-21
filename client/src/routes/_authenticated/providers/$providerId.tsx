@@ -46,11 +46,18 @@ import { toast } from "@/components/arc/toast-stack/toast-stack"
 import { Tooltip } from "@/components/arc/tooltip/tooltip"
 import { ConnectAccountModal } from "@/components/providers/modals/ConnectAccounts"
 import { ProviderLogo } from "@/components/providers/provider-logo"
+import {
+  categoryLabel,
+  PROTOCOL_LABELS,
+} from "@/components/providers/provider-labels"
 
 export const Route = createFileRoute("/_authenticated/providers/$providerId")({
   head: () => ({ meta: [{ title: "SRouter - Provider" }] }),
   component: ProviderDetailPage,
 })
+
+/** Models rendered before the rest are asked for. */
+const MODEL_PAGE_SIZE = 100
 
 /** What one connection row can say, and what it has to leave open. */
 type ConnectionStatus = {
@@ -233,12 +240,22 @@ function ProviderDetailPage() {
     keys: ["id", "owned_by"],
   })
 
+  // A driver can advertise hundreds of models, and every row carries a
+  // button pair, so the list is paged rather than mounted whole. The choice
+  // belongs to the query that was in force when it was made, so a new search
+  // pages again.
+  const [showAllFor, setShowAllFor] = useState<string | null>(null)
+  const showAllModels = showAllFor === modelSearch
+  const visibleModels = showAllModels
+    ? filteredModels
+    : filteredModels.slice(0, MODEL_PAGE_SIZE)
+
   if (isLoading) {
     return (
       <div className="flex flex-col gap-6">
         <Link
           to="/providers"
-          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex min-h-[var(--control-height-sm)] items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft size={14} aria-hidden="true" />
           <span>Back to providers</span>
@@ -259,7 +276,7 @@ function ProviderDetailPage() {
       <div className="flex flex-col gap-6">
         <Link
           to="/providers"
-          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex min-h-[var(--control-height-sm)] items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft size={14} aria-hidden="true" />
           <span>Back to providers</span>
@@ -292,7 +309,7 @@ function ProviderDetailPage() {
       <div>
         <Link
           to="/providers"
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex min-h-[var(--control-height-sm)] items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft size={14} aria-hidden="true" />
           <span>Back to providers</span>
@@ -303,7 +320,12 @@ function ProviderDetailPage() {
       <div className="flex flex-col gap-4 rounded-xl border border-border bg-surface p-5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-4">
           <div className="flex size-13 shrink-0 items-center justify-center rounded-xl border border-border bg-surface-muted text-foreground shadow-2xs">
-            <ProviderLogo providerID={provider.id} className="size-7" />
+            <ProviderLogo
+              providerID={provider.id}
+              protocol={provider.protocol}
+              baseURL={provider.default_base_url}
+              className="size-7"
+            />
           </div>
 
           <div className="flex flex-col">
@@ -335,11 +357,11 @@ function ProviderDetailPage() {
                 {provider.id}
               </span>
               <span className="text-xs text-muted-foreground/60">•</span>
-              <Badge tone="neutral" size="sm" className="capitalize">
-                {provider.category.replace("_", " ")}
+              <Badge tone="neutral" size="sm">
+                {categoryLabel(provider.category)}
               </Badge>
-              <Badge tone="neutral" size="sm" className="font-mono text-xs">
-                {provider.protocol}
+              <Badge tone="neutral" size="sm">
+                {PROTOCOL_LABELS[provider.protocol]}
               </Badge>
             </div>
           </div>
@@ -423,14 +445,18 @@ function ProviderDetailPage() {
             className="flex items-center gap-1.5"
           >
             <Network size={14} aria-hidden="true" />
-            <span>Connections & Routing</span>
+            {/* The full name does not fit a phone strip, so the short one
+                carries it there and the long one names it from `sm` up. */}
+            <span className="sm:hidden">Connections</span>
+            <span className="hidden sm:inline">Connections & Routing</span>
             <span className="py-0.2 ml-1 rounded-full bg-surface-muted px-1.5 font-mono text-[10px] text-muted-foreground">
               {connections.length}
             </span>
           </TabsTrigger>
           <TabsTrigger value="models" className="flex items-center gap-1.5">
             <Sparkles size={14} aria-hidden="true" />
-            <span>Supported Models</span>
+            <span className="sm:hidden">Models</span>
+            <span className="hidden sm:inline">Supported Models</span>
             <span className="py-0.2 ml-1 rounded-full bg-surface-muted px-1.5 font-mono text-[10px] text-muted-foreground">
               {models.length}
             </span>
@@ -658,18 +684,14 @@ function ProviderDetailPage() {
             </div>
 
             {filteredModels.length > 0 ? (
-              <div className="mt-3 divide-y divide-border/40">
-                {filteredModels.map((m) => (
-                  <div
-                    key={m.id}
-                    className="flex items-center justify-between py-2.5 text-xs transition-colors hover:bg-surface-muted/20 sm:px-2"
-                  >
-                    <div className="flex min-w-0 items-center gap-2.5 pr-3">
-                      <Tooltip
-                        content={
-                          m.favorite ? "Unmark favorite" : "Mark as favorite"
-                        }
-                      >
+              <>
+                <div className="mt-3 divide-y divide-border/40">
+                  {visibleModels.map((m) => (
+                    <div
+                      key={m.id}
+                      className="flex items-center justify-between py-2.5 text-xs transition-colors hover:bg-surface-muted/20 sm:px-2"
+                    >
+                      <div className="flex min-w-0 items-center gap-2.5 pr-3">
                         <button
                           type="button"
                           onClick={() => {
@@ -679,7 +701,7 @@ function ProviderDetailPage() {
                               patchModelMutation.mutate({ favorite: [m.id] })
                             }
                           }}
-                          className={`cursor-pointer transition-colors ${
+                          className={`flex min-h-[var(--control-height-sm)] min-w-[var(--control-height-sm)] shrink-0 cursor-pointer items-center justify-center transition-colors ${
                             m.favorite
                               ? "text-warning hover:text-warning/80"
                               : "text-muted-foreground hover:text-foreground"
@@ -693,35 +715,28 @@ function ProviderDetailPage() {
                             fill={m.favorite ? "currentColor" : "none"}
                           />
                         </button>
-                      </Tooltip>
 
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`font-mono text-xs font-medium ${
-                              m.hidden
-                                ? "text-muted-foreground line-through"
-                                : "text-foreground"
-                            }`}
-                          >
-                            {m.id}
+                        <div className="min-w-0">
+                          <div className="flex min-w-0 items-center gap-2">
+                            <span
+                              title={m.id}
+                              className={`min-w-0 truncate font-mono text-xs font-medium ${
+                                m.hidden
+                                  ? "text-muted-foreground line-through"
+                                  : "text-foreground"
+                              }`}
+                            >
+                              {m.id}
+                            </span>
+                            <CopyButton value={m.id} iconOnly variant="plain" />
+                          </div>
+                          <span className="block text-[11px] text-muted-foreground">
+                            owned by {m.owned_by}
                           </span>
-                          <CopyButton value={m.id} iconOnly variant="plain" />
                         </div>
-                        <span className="block text-[11px] text-muted-foreground">
-                          owned by {m.owned_by}
-                        </span>
                       </div>
-                    </div>
 
-                    <div className="flex shrink-0 items-center gap-2">
-                      <Tooltip
-                        content={
-                          m.hidden
-                            ? "Restore to /v1/models"
-                            : "Hide from /v1/models catalog"
-                        }
-                      >
+                      <div className="flex shrink-0 items-center gap-2">
                         <Button
                           variant="ghost"
                           size="sm"
@@ -729,6 +744,11 @@ function ProviderDetailPage() {
                             m.hidden
                               ? "Hidden: restore model"
                               : "Active: hide model"
+                          }
+                          title={
+                            m.hidden
+                              ? "Restore to /v1/models"
+                              : "Hide from /v1/models catalog"
                           }
                           onClick={() => {
                             if (m.hidden) {
@@ -759,11 +779,22 @@ function ProviderDetailPage() {
                             </>
                           )}
                         </Button>
-                      </Tooltip>
+                      </div>
                     </div>
+                  ))}
+                </div>
+                {visibleModels.length < filteredModels.length && (
+                  <div className="mt-3 flex justify-center">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setShowAllFor(modelSearch)}
+                    >
+                      Show all {filteredModels.length} models
+                    </Button>
                   </div>
-                ))}
-              </div>
+                )}
+              </>
             ) : (
               <EmptyState
                 label="Model catalog"

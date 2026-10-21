@@ -4,8 +4,6 @@ import {
   HeadContent,
   Outlet,
 } from "@tanstack/react-router"
-import { ReactQueryDevtools } from "@tanstack/react-query-devtools"
-import { TanStackRouterDevtools } from "@tanstack/react-router-devtools"
 
 import { AdminAuthProvider } from "@/components/admin-auth-provider"
 import {
@@ -45,12 +43,6 @@ const RootComponent = () => (
         <ToastStack position="top-right" />
       </ToastStackProvider>
     </AdminAuthProvider>
-    {import.meta.env.DEV ? (
-      <>
-        <TanStackRouterDevtools position="bottom-right" />
-        <ReactQueryDevtools buttonPosition="bottom-left" />
-      </>
-    ) : null}
   </ThemeProvider>
 )
 

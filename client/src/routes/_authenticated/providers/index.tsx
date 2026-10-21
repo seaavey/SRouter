@@ -81,9 +81,10 @@ function ProvidersListPage() {
   const categoryOptions = CATEGORIES.map((category) => {
     const count = data
       ? category.id === "all"
-        ? providers.length
-        : providers.filter((provider) => provider.category === category.id)
-            .length
+        ? searchedProviders.length
+        : searchedProviders.filter(
+            (provider) => provider.category === category.id
+          ).length
       : null
     return {
       value: category.id,
@@ -149,23 +150,14 @@ function ProvidersListPage() {
         title="Model providers"
         description="Manage model drivers, enabled connections, and custom endpoints."
         actions={
-          <>
-            <Button
-              variant="primary"
-              size="md"
-              onClick={() => setAddDialogOpen(true)}
-            >
-              <Plus size={16} aria-hidden="true" />
-              <span>Add custom provider</span>
-            </Button>
-            <ActionButton
-              label="Refresh list"
-              pendingLabel="Refreshing list"
-              successLabel="List updated"
-              onAction={refreshProviders}
-              className="!border-border !bg-surface !text-foreground"
-            />
-          </>
+          <Button
+            variant="primary"
+            size="md"
+            onClick={() => setAddDialogOpen(true)}
+          >
+            <Plus size={16} aria-hidden="true" />
+            <span>Add custom provider</span>
+          </Button>
         }
       />
 
@@ -182,9 +174,12 @@ function ProvidersListPage() {
           options={categoryOptions}
           value={[selectedCategory]}
           onValueChange={(next) => {
-            const picked = next.find((value) => value !== selectedCategory)
+            // The group sends an empty list when the active chip is clicked
+            // again; the explicit "All" chip is the only way back to it.
+            const picked = next[0]
+            if (!picked) return
             const category = CATEGORIES.find((option) => option.id === picked)
-            setSelectedCategory(category ? category.id : "all")
+            if (category) setSelectedCategory(category.id)
           }}
           multiple={false}
           maxVisible={3}
@@ -274,7 +269,7 @@ function ProvidersListPage() {
               Available providers
             </h2>
             <p className="text-xs text-muted-foreground">
-              {filteredProviders.length} of {providers.length} drivers
+              {filteredProviders.length} of {providers.length} providers
             </p>
           </div>
           <div className={CARD_GRID}>
@@ -283,10 +278,21 @@ function ProvidersListPage() {
                 key={provider.id}
                 title={provider.name}
                 avatar={
-                  <ProviderLogo providerID={provider.id} className="size-8" />
+                  <ProviderLogo
+                    providerID={provider.id}
+                    protocol={provider.protocol}
+                    baseURL={provider.default_base_url}
+                    className="size-8"
+                  />
                 }
                 meta={<span className="font-mono">{provider.id}</span>}
-                status={provider.status.message}
+                // The driver's message describes the empty state, so it only
+                // reads true while no account is connected.
+                status={
+                  provider.status.state === "no_connections"
+                    ? provider.status.message
+                    : undefined
+                }
                 action={
                   <Button
                     variant="secondary"
@@ -302,6 +308,8 @@ function ProvidersListPage() {
                   </Button>
                 }
               >
+                {/* The separator rides with the item that follows it, so a
+                    wrapped line never ends on a lone bullet. */}
                 <div className="mt-4 flex flex-wrap items-center gap-2">
                   <Badge
                     tone={provider.enabled ? "success" : "neutral"}
@@ -312,21 +320,19 @@ function ProvidersListPage() {
                   <span className="text-xs text-muted-foreground">
                     {connectionLabel(provider.status.connected_count)}
                   </span>
-                  <span className="text-xs text-muted-foreground">•</span>
-                  <span className="text-xs text-muted-foreground">
+                  <span className="flex items-center gap-2 text-xs whitespace-nowrap text-muted-foreground">
+                    <span aria-hidden="true">•</span>
                     {categoryLabel(provider.category)}
                   </span>
-                  <span className="text-xs text-muted-foreground">•</span>
-                  <span className="text-xs text-muted-foreground">
+                  <span className="flex items-center gap-2 text-xs whitespace-nowrap text-muted-foreground">
+                    <span aria-hidden="true">•</span>
                     {PROTOCOL_LABELS[provider.protocol]}
                   </span>
                   {provider.round_robin && (
-                    <>
-                      <span className="text-xs text-muted-foreground">•</span>
-                      <span className="text-xs text-muted-foreground">
-                        Rotation on
-                      </span>
-                    </>
+                    <span className="flex items-center gap-2 text-xs whitespace-nowrap text-muted-foreground">
+                      <span aria-hidden="true">•</span>
+                      Rotation on
+                    </span>
                   )}
                 </div>
               </Card>
@@ -342,10 +348,6 @@ function ProvidersListPage() {
         className="sr-only"
       >
         {resultAnnouncement}
-      </p>
-
-      <p role="status" className="sr-only">
-        {isFetching ? "Refreshing provider list" : ""}
       </p>
 
       <AddCustomProviderDialog

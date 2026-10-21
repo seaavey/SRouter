@@ -151,7 +151,7 @@ export default function CustomProviderFormPanel({
       onSubmit={preventSubmit}
       className="flex flex-col gap-4"
     >
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3">
         <FloatingField
           id="custom-provider-name"
           label="Provider name"
@@ -192,7 +192,7 @@ export default function CustomProviderFormPanel({
         />
       </fieldset>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3">
         <FloatingField
           ref={baseURLRef}
           id="custom-provider-url"

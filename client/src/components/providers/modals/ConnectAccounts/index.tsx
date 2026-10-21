@@ -11,6 +11,7 @@ import {
   TabsTrigger,
 } from "@/components/arc/tabs/tabs"
 import { ProviderLogo } from "@/components/providers/provider-logo"
+import { categoryLabel } from "@/components/providers/provider-labels"
 import {
   Dialog,
   DialogContent,
@@ -19,7 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import useMediaQuery from "@/hooks/useMediaQuery"
+import useIsMobile from "@/components/seavx/ResponsiveDialog/hooks/useIsMobile"
 
 import APIKeyPanel from "./panels/APIKeyPanel"
 import OAuthPanel from "./panels/OAuthPanel"
@@ -45,7 +46,7 @@ export function ConnectAccountModal({
 }: ConnectAccountModalProps) {
   const [authMode, setAuthMode] = useState<AuthMode>("oauth")
   const [connectionName, setConnectionName] = useState("")
-  const isMobile = useMediaQuery("(max-width: 639px)")
+  const isMobile = useIsMobile()
 
   const oauth = useOAuthFlow({
     providerID: provider.id,
@@ -179,7 +180,12 @@ export function ConnectAccountModal({
         <DialogHeader className="gap-1">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border/80 bg-surface-muted/50 text-foreground shadow-xs">
-              <ProviderLogo providerID={provider.id} className="size-6" />
+              <ProviderLogo
+                providerID={provider.id}
+                protocol={provider.protocol}
+                baseURL={provider.default_base_url}
+                className="size-6"
+              />
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
@@ -187,7 +193,7 @@ export function ConnectAccountModal({
                   Connect {provider.name}
                 </DialogTitle>
                 <span className="rounded border border-border/60 bg-surface-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground">
-                  {provider.category}
+                  {categoryLabel(provider.category)}
                 </span>
               </div>
               <DialogDescription className="mt-0.5 truncate text-xs text-muted-foreground">

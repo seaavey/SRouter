@@ -12,7 +12,7 @@
 .scrollRight { right: 0; border-radius: 0 var(--radius-control) var(--radius-control) 0; }
 .scrollButton:disabled { opacity: 0; pointer-events: none; }
 .scrollButton:focus-visible { --focus-outline-offset: -3px; }
-.trigger { position: relative; -webkit-tap-highlight-color: transparent; display: inline-flex; flex: 1 1 0%; place-items: center; justify-content: center; min-width: 0; min-height: var(--control-height-sm); border: 0; border-radius: calc(var(--radius-control) - 3px); padding: 0 var(--space-3); background: transparent; color: var(--text-muted); font: inherit; font-size: var(--text-sm); font-weight: 500; white-space: nowrap; cursor: pointer; transition: color var(--duration-fast) var(--ease-standard); }
+.trigger { position: relative; -webkit-tap-highlight-color: transparent; display: inline-flex; flex: 1 0 auto; place-items: center; justify-content: center; min-width: 0; min-height: var(--control-height-sm); border: 0; border-radius: calc(var(--radius-control) - 3px); padding: 0 var(--space-3); background: transparent; color: var(--text-muted); font: inherit; font-size: var(--text-sm); font-weight: 500; white-space: nowrap; cursor: pointer; transition: color var(--duration-fast) var(--ease-standard); }
 @media (hover: hover) and (pointer: fine) { .trigger:hover { color: var(--foreground); } }
 .trigger:active { color: var(--foreground); }.trigger[data-state="active"] { color: var(--accent-strong); }
 .selection { position: absolute; z-index: -1; inset: 0; border: 1px solid var(--border); border-radius: inherit; background: var(--surface); box-shadow: var(--shadow-resting); will-change: transform; }

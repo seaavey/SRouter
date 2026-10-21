@@ -11,13 +11,13 @@ export interface BreadcrumbItem {
   /** Runs when the crumb is chosen. Without an href the crumb renders as a button, for paths that live in local state. */
   onClick?: (event: MouseEvent<HTMLElement>) => void;
 }
-export interface BreadcrumbProps { items: BreadcrumbItem[]; ariaLabel?: string }
+export interface BreadcrumbProps { items: BreadcrumbItem[]; ariaLabel?: string; className?: string }
 /** Crumbs present on first render stay still; crumbs added later slide in from the path before them. */
-export function Breadcrumb({ items, ariaLabel = "Breadcrumb" }: BreadcrumbProps) {
+export function Breadcrumb({ items, ariaLabel = "Breadcrumb", className }: BreadcrumbProps) {
   const reduced = useReducedMotion() ?? false;
   const still = { duration: 0 };
   const path = items.map(item => item.label).join("/");
-  return <nav aria-label={ariaLabel}><ol className={styles.list}><AnimatePresence mode="popLayout" initial={false}>{items.map((item, index) => {
+  return <nav aria-label={ariaLabel} className={className}><ol className={styles.list}><AnimatePresence mode="popLayout" initial={false}>{items.map((item, index) => {
     const current = index === items.length - 1;
     return <motion.li key={`${item.label}-${index}`}
       layout={reduced ? false : "position"} layoutDependency={path}

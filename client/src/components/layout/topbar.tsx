@@ -102,8 +102,10 @@ export function Topbar({
       )}
 
       {/* Crumbs name the section on the left, the theme switch sits opposite
-          on the right, so the two ends of the bar balance. */}
-      <Breadcrumb items={breadcrumbItems} />
+          on the right, so the two ends of the bar balance. The crumb row
+          takes the room the controls do not, and a long path truncates at the
+          last crumb instead of wrapping out of the fixed-height bar. */}
+      <Breadcrumb items={breadcrumbItems} className="min-w-0 flex-1" />
 
       <div className="ml-auto flex shrink-0 items-center">
         <ThemeSwitch
