@@ -2,13 +2,12 @@
 
 use serde_json::Value;
 
-use crate::clock::now_ms;
 use crate::constants;
 use crate::error::APIError;
 use crate::infrastructure::database::AppDatabase;
 use crate::infrastructure::database::row::text;
 
-use super::credential_string;
+use super::{ConnectionRow, credential_string, upsert_connection};
 
 /// The connection row the Grok Web connect route writes after the cookie
 /// probe succeeds.
@@ -27,7 +26,6 @@ pub async fn upsert_grok_web_connection(
     database: &AppDatabase,
     write: &GrokWebConnectionWrite,
 ) -> Result<(), APIError> {
-    let pool = database.sqlite_required(constants::database::PROVIDERS_UNSUPPORTED)?;
     let credentials = serde_json::json!({
         "api_key": write.sso,
         "provider_specific_data": {
@@ -35,27 +33,20 @@ pub async fn upsert_grok_web_connection(
         },
     });
 
-    sqlx::query(
-        "INSERT INTO providers
-         (id, provider_id, name, category, protocol, enabled, credentials, meta, base_url, created_at)
-         VALUES (?, 'grok-web', ?, 'api_key', 'openai', 1, ?, '{}', 'https://grok.com/', ?)
-         ON CONFLICT(id) DO UPDATE SET
-           name = excluded.name, credentials = excluded.credentials, enabled = 1",
+    upsert_connection(
+        database,
+        &ConnectionRow {
+            id: &write.id,
+            provider_id: "grok-web",
+            name: &write.name,
+            category: "api_key",
+            protocol: "openai",
+            base_url: Some("https://grok.com/"),
+            credentials,
+            action: "store the Grok Web connection",
+        },
     )
-    .bind(&write.id)
-    .bind(&write.name)
-    .bind(credentials.to_string())
-    .bind(now_ms())
-    .execute(&pool)
     .await
-    .map_err(|error| {
-        APIError::new(
-            500,
-            constants::database::with_context("store the Grok Web connection", error),
-        )
-    })?;
-
-    Ok(())
 }
 
 /// Loads the credentials of every enabled Grok Web connection, newest first.

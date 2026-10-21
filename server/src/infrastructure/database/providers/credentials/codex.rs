@@ -8,7 +8,10 @@ use crate::error::APIError;
 use crate::infrastructure::database::AppDatabase;
 use crate::infrastructure::database::row::text;
 
-use super::{credential_string, merge_rotated_tokens, read_credentials, write_credentials};
+use super::{
+    ConnectionRow, credential_string, merge_rotated_tokens, read_credentials, upsert_connection,
+    write_credentials,
+};
 
 /// Credential store for Codex: the ChatGPT OAuth session behind `openai_codex`.
 #[derive(Clone, Debug)]
@@ -124,7 +127,6 @@ pub async fn upsert_codex_connection(
     database: &AppDatabase,
     write: &CodexConnectionWrite,
 ) -> Result<(), APIError> {
-    let pool = database.sqlite_required(constants::database::PROVIDERS_UNSUPPORTED)?;
     let credentials = serde_json::json!({
         "access_token": write.access_token,
         "refresh_token": write.refresh_token,
@@ -133,26 +135,18 @@ pub async fn upsert_codex_connection(
         "last_refreshed_at": now_ms(),
     });
 
-    sqlx::query(
-        "INSERT INTO providers
-         (id, provider_id, name, category, protocol, enabled, credentials, meta, base_url, created_at)
-         VALUES (?, 'openai_codex', ?, 'oauth', 'openai', 1, ?, '{}',
-                 'https://chatgpt.com/backend-api/codex', ?)
-         ON CONFLICT(id) DO UPDATE SET
-           name = excluded.name, credentials = excluded.credentials, enabled = 1",
+    upsert_connection(
+        database,
+        &ConnectionRow {
+            id: &write.id,
+            provider_id: "openai_codex",
+            name: &write.name,
+            category: "oauth",
+            protocol: "openai",
+            base_url: Some("https://chatgpt.com/backend-api/codex"),
+            credentials,
+            action: "store the Codex connection",
+        },
     )
-    .bind(&write.id)
-    .bind(&write.name)
-    .bind(credentials.to_string())
-    .bind(now_ms())
-    .execute(&pool)
     .await
-    .map_err(|error| {
-        APIError::new(
-            500,
-            constants::database::with_context("store the Codex connection", &error),
-        )
-    })?;
-
-    Ok(())
 }

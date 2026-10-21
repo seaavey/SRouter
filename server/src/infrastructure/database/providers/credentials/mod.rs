@@ -13,6 +13,7 @@ mod qoder;
 
 use serde_json::Value;
 
+use crate::clock::now_ms;
 use crate::constants;
 use crate::error::APIError;
 use crate::infrastructure::database::AppDatabase;
@@ -211,6 +212,57 @@ pub(super) async fn write_credentials(
     .execute(&pool)
     .await
     .map_err(|error| APIError::new(500, constants::database::with_context(action, &error)))?;
+
+    Ok(())
+}
+
+/// The row a driver writes when it stores a connection.
+pub(super) struct ConnectionRow<'a> {
+    pub id: &'a str,
+    pub provider_id: &'a str,
+    pub name: &'a str,
+    pub category: &'a str,
+    pub protocol: &'a str,
+    /// The upstream base URL, when the driver has one.
+    pub base_url: Option<&'a str>,
+    /// The credential blob, already shaped by the driver.
+    pub credentials: Value,
+    /// The action the error message names. It is per driver because the message
+    /// is client-visible.
+    pub action: &'a str,
+}
+
+/// Writes or replaces one connection row. The id is the primary key, so a
+/// repeated callback for the same account updates the row in place.
+pub(super) async fn upsert_connection(
+    database: &AppDatabase,
+    row: &ConnectionRow<'_>,
+) -> Result<(), APIError> {
+    let pool = database.sqlite_required(constants::database::PROVIDERS_UNSUPPORTED)?;
+
+    sqlx::query(
+        "INSERT INTO providers
+         (id, provider_id, name, category, protocol, enabled, credentials, meta, base_url, created_at)
+         VALUES (?, ?, ?, ?, ?, 1, ?, '{}', ?, ?)
+         ON CONFLICT(id) DO UPDATE SET
+           name = excluded.name, credentials = excluded.credentials, enabled = 1",
+    )
+    .bind(row.id)
+    .bind(row.provider_id)
+    .bind(row.name)
+    .bind(row.category)
+    .bind(row.protocol)
+    .bind(row.credentials.to_string())
+    .bind(row.base_url)
+    .bind(now_ms())
+    .execute(&pool)
+    .await
+    .map_err(|error| {
+        APIError::new(
+            500,
+            constants::database::with_context(row.action, error),
+        )
+    })?;
 
     Ok(())
 }

@@ -8,7 +8,10 @@ use crate::error::APIError;
 use crate::infrastructure::database::AppDatabase;
 use crate::infrastructure::database::row::text;
 
-use super::{credential_string, merge_rotated_tokens, read_credentials, write_credentials};
+use super::{
+    ConnectionRow, credential_string, merge_rotated_tokens, read_credentials, upsert_connection,
+    write_credentials,
+};
 
 /// A stored Antigravity connection's usable credentials. It never enters a
 /// response or a log line; it exists so the executor can sign one upstream
@@ -128,30 +131,22 @@ pub async fn upsert_antigravity_connection(
     database: &AppDatabase,
     write: &AntigravityConnectionWrite,
 ) -> Result<(), APIError> {
-    let pool = database.sqlite_required(constants::database::PROVIDERS_UNSUPPORTED)?;
     let credentials = connection_credentials(write, now_ms());
 
-    sqlx::query(
-        "INSERT INTO providers \
-         (id, provider_id, name, category, protocol, enabled, credentials, meta, created_at) \
-         VALUES (?, 'antigravity', ?, 'oauth', 'openai', 1, ?, '{}', ?) \
-         ON CONFLICT(id) DO UPDATE SET \
-           name = excluded.name, credentials = excluded.credentials, enabled = 1",
+    upsert_connection(
+        database,
+        &ConnectionRow {
+            id: &write.id,
+            provider_id: "antigravity",
+            name: &write.name,
+            category: "oauth",
+            protocol: "openai",
+            base_url: None,
+            credentials,
+            action: "store the Antigravity connection",
+        },
     )
-    .bind(&write.id)
-    .bind(&write.name)
-    .bind(credentials.to_string())
-    .bind(now_ms())
-    .execute(&pool)
     .await
-    .map_err(|error| {
-        APIError::new(
-            500,
-            constants::database::with_context("store the Antigravity connection", error),
-        )
-    })?;
-
-    Ok(())
 }
 
 /// Writes the rotated token fields back into the Antigravity connection row,

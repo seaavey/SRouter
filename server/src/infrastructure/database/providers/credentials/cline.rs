@@ -8,7 +8,7 @@ use crate::error::APIError;
 use crate::infrastructure::database::AppDatabase;
 use crate::infrastructure::database::row::text;
 
-use super::{credential_string, write_credentials};
+use super::{ConnectionRow, credential_string, upsert_connection, write_credentials};
 
 /// The connection row the auth routes write after a successful device flow.
 #[derive(Clone, Debug)]
@@ -27,7 +27,6 @@ pub async fn upsert_cline_connection(
     database: &AppDatabase,
     write: &ClineConnectionWrite,
 ) -> Result<(), APIError> {
-    let pool = database.sqlite_required(constants::database::PROVIDERS_UNSUPPORTED)?;
     let credentials = serde_json::json!({
         "access_token": write.access_token,
         "refresh_token": write.refresh_token,
@@ -39,27 +38,20 @@ pub async fn upsert_cline_connection(
         },
     });
 
-    sqlx::query(
-        "INSERT INTO providers
-         (id, provider_id, name, category, protocol, enabled, credentials, meta, base_url, created_at)
-         VALUES (?, 'cline', ?, 'oauth', 'openai', 1, ?, '{}', 'https://api.cline.bot/api/v1', ?)
-         ON CONFLICT(id) DO UPDATE SET
-           name = excluded.name, credentials = excluded.credentials, enabled = 1",
+    upsert_connection(
+        database,
+        &ConnectionRow {
+            id: &write.id,
+            provider_id: "cline",
+            name: &write.name,
+            category: "oauth",
+            protocol: "openai",
+            base_url: Some("https://api.cline.bot/api/v1"),
+            credentials,
+            action: "store the Cline connection",
+        },
     )
-    .bind(&write.id)
-    .bind(&write.name)
-    .bind(credentials.to_string())
-    .bind(now_ms())
-    .execute(&pool)
     .await
-    .map_err(|error| {
-        APIError::new(
-            500,
-            constants::database::with_context("store the Cline connection", error),
-        )
-    })?;
-
-    Ok(())
 }
 
 /// Loads the credentials of every enabled Cline connection, newest first.

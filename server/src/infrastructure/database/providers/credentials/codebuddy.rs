@@ -9,7 +9,7 @@ use crate::error::APIError;
 use crate::infrastructure::database::AppDatabase;
 use crate::infrastructure::database::row::text;
 
-use super::credential_string;
+use super::{ConnectionRow, credential_string, upsert_connection};
 
 /// The connection row the auth routes write after a successful login.
 #[derive(Clone, Debug)]
@@ -27,7 +27,6 @@ pub async fn upsert_codebuddy_connection(
     database: &AppDatabase,
     write: &CodeBuddyConnectionWrite,
 ) -> Result<(), APIError> {
-    let pool = database.sqlite_required(constants::database::PROVIDERS_UNSUPPORTED)?;
     let credentials = serde_json::json!({
         "access_token": write.access_token,
         "refresh_token": write.refresh_token,
@@ -35,30 +34,20 @@ pub async fn upsert_codebuddy_connection(
         "last_refreshed_at": now_ms(),
     });
 
-    sqlx::query(
-        "INSERT INTO providers
-         (id, provider_id, name, category, protocol, enabled, credentials, meta, base_url, created_at)
-         VALUES (?, ?, ?, 'oauth', 'openai', 1, ?, '{}', ?, ?)
-         ON CONFLICT(id) DO UPDATE SET
-           name = excluded.name, credentials = excluded.credentials, base_url = excluded.base_url,
-           enabled = 1",
+    upsert_connection(
+        database,
+        &ConnectionRow {
+            id: &write.id,
+            provider_id: &write.provider_id,
+            name: &write.name,
+            category: "oauth",
+            protocol: "openai",
+            base_url: Some(&write.base_url),
+            credentials,
+            action: "store the CodeBuddy connection",
+        },
     )
-    .bind(&write.id)
-    .bind(&write.provider_id)
-    .bind(&write.name)
-    .bind(credentials.to_string())
-    .bind(&write.base_url)
-    .bind(now_ms())
-    .execute(&pool)
     .await
-    .map_err(|error| {
-        APIError::new(
-            500,
-            constants::database::with_context("store the CodeBuddy connection", error),
-        )
-    })?;
-
-    Ok(())
 }
 
 /// Credential store for CodeBuddy: the OAuth session behind `codebuddy` /
