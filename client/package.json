@@ -8,6 +8,9 @@
     "generate-routes": "tsr generate",
     "build": "tsr generate && tsc -b && vite build",
     "lint": "eslint .",
+    "e2e": "playwright test",
+    "e2e:stack": "bun e2e/support/stack.ts",
+    "e2e:lightpanda": "bun e2e/lightpanda/smoke.mjs",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
     "typecheck": "tsr generate && tsc --noEmit",
     "preview": "vite preview"
@@ -36,6 +39,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10",
+    "@playwright/test": "1.64.1",
     "@tanstack/router-cli": "^1.167.40",
     "@tanstack/router-plugin": "^1.168.42",
     "@types/node": "^24",

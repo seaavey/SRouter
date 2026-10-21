@@ -29,6 +29,9 @@ dist-ssr
 # TanStack Router scratch directory; `routeTree.gen.ts` is committed on purpose
 # (the TanStack convention) so a fresh clone typechecks before any generation.
 client/.tanstack/
+# Playwright/E2E scratch: temp database, storage state, traces, screenshots
+client/e2e/.tmp/
+client/playwright-report/
 .claude
 .superpowers/
 .mcp.json
