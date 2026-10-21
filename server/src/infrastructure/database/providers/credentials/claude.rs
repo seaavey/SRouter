@@ -140,7 +140,7 @@ pub async fn upsert_claude_connection(
             protocol: "anthropic",
             base_url: None,
             credentials,
-            action: "store the Claude connection",
+            action: constants::providers::claude::STORE_CONNECTION,
         },
     )
     .await

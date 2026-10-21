@@ -44,7 +44,7 @@ pub async fn upsert_codebuddy_connection(
             protocol: "openai",
             base_url: Some(&write.base_url),
             credentials,
-            action: "store the CodeBuddy connection",
+            action: constants::providers::codebuddy::STORE_CONNECTION,
         },
     )
     .await

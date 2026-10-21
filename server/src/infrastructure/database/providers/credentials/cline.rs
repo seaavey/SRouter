@@ -48,7 +48,7 @@ pub async fn upsert_cline_connection(
             protocol: "openai",
             base_url: Some("https://api.cline.bot/api/v1"),
             credentials,
-            action: "store the Cline connection",
+            action: constants::providers::cline::STORE_CONNECTION,
         },
     )
     .await

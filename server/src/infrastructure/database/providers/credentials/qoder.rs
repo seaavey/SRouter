@@ -117,7 +117,7 @@ pub async fn upsert_qoder_connection(
             protocol: "openai",
             base_url: None,
             credentials,
-            action: "store the Qoder connection",
+            action: constants::providers::qoder::STORE_CONNECTION,
         },
     )
     .await

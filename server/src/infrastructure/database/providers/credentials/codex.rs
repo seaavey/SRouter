@@ -145,7 +145,7 @@ pub async fn upsert_codex_connection(
             protocol: "openai",
             base_url: Some("https://chatgpt.com/backend-api/codex"),
             credentials,
-            action: "store the Codex connection",
+            action: constants::providers::codex::STORE_CONNECTION,
         },
     )
     .await

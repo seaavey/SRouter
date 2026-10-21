@@ -506,6 +506,7 @@ pub mod providers {
                 None => format!("Antigravity Provider Error ({status}): {detail}"),
             }
         }
+        pub const STORE_CONNECTION: &str = "store the Antigravity connection";
     }
 
     /// Messages of the `claude` OAuth routes and executor: starting the Claude
@@ -549,6 +550,7 @@ pub mod providers {
         pub fn provider_stream_error(status: u16, detail: &str) -> String {
             format!("Anthropic API Stream Error ({status}): {detail}")
         }
+        pub const STORE_CONNECTION: &str = "store the Claude connection";
     }
 
     /// Messages of the `openai_codex` OAuth routes: starting the authorization
@@ -598,6 +600,7 @@ pub mod providers {
         pub fn poll_transport_failed() -> String {
             "Qoder device token poll failed".to_owned()
         }
+        pub const STORE_CONNECTION: &str = "store the Qoder connection";
     }
 
     pub mod codebuddy {
@@ -605,6 +608,7 @@ pub mod providers {
         pub const NOT_CONNECTED: &str = "No active CodeBuddy connection found. Connect the CodeBuddy account in the Providers tab.";
         pub const DATABASE_REQUIRED: &str =
             "no database is configured; the CodeBuddy connection cannot be read";
+        pub const STORE_CONNECTION: &str = "store the CodeBuddy connection";
     }
 
     /// Messages of the `cline` provider: the WorkOS device flow, the credential
@@ -651,6 +655,7 @@ pub mod providers {
         pub fn refresh_transport_failed(error: impl std::fmt::Display) -> String {
             format!("Cline token refresh failed: {error}")
         }
+        pub const STORE_CONNECTION: &str = "store the Cline connection";
     }
 
     /// Messages of the `codex` provider: the credential load and the lazy
@@ -670,6 +675,7 @@ pub mod providers {
         pub fn refresh_transport_failed(error: impl std::fmt::Display) -> String {
             format!("OpenAI Codex token refresh failed: {error}")
         }
+        pub const STORE_CONNECTION: &str = "store the Codex connection";
     }
 
     /// Messages of the `grok-web` provider: the SSO cookie load, the uid page
@@ -708,6 +714,7 @@ pub mod providers {
         pub fn response_failed(reason: &str) -> String {
             format!("Grok Web response did not complete: {reason}")
         }
+        pub const STORE_CONNECTION: &str = "store the Grok Web connection";
     }
 }
 

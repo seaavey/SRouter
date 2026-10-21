@@ -143,7 +143,7 @@ pub async fn upsert_antigravity_connection(
             protocol: "openai",
             base_url: None,
             credentials,
-            action: "store the Antigravity connection",
+            action: constants::providers::antigravity::STORE_CONNECTION,
         },
     )
     .await

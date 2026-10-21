@@ -43,7 +43,7 @@ pub async fn upsert_grok_web_connection(
             protocol: "openai",
             base_url: Some("https://grok.com/"),
             credentials,
-            action: "store the Grok Web connection",
+            action: constants::providers::grok_web::STORE_CONNECTION,
         },
     )
     .await
