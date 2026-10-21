@@ -32,7 +32,7 @@ client/src/
 │   │   ├── providers/       providers management (wired: providersListQuery, providerDetailQuery)
 │   │   ├── settings.tsx     settings — STATIC MOCKUP
 │   │   └── usage.tsx        usage/quota (wired: analyticsQuery, usageStatsQuery, keyListQuery)
-│   └── login.tsx            "/login" — setup + sign-in (wired)
+│   └── login.tsx            "/login" — thin route; the screen lives in components/auth/
 ├── hooks/
 │   └── useClipboard.ts      mandatory hook for copy/clipboard access (wraps Arc useCopyFeedback, adds paste)
 ├── api/
@@ -49,6 +49,7 @@ client/src/
 │   ├── ui/                  shadcn primitives (Base UI): alert, button, field, input, label, separator, textarea, …
 │   ├── gauge/               self-contained SVG gauge kit
 │   ├── layout/              app-shell, sidebar, topbar, section-header
+│   ├── auth/                sign-in screen: LoginPage + shell, admin/ (operator), user/ (customer)
 │   ├── admin-auth-provider.tsx  admin session context: status query + auth mutations
 │   └── theme-provider.tsx   dark/light/system context
 ├── generated/               GENERATED (specta) — do not edit anything here
@@ -64,7 +65,7 @@ client/src/
 StrictMode
 └─ QueryClientProvider (queryClient)
    └─ RouterProvider
-      └─ __root__: ThemeProvider → AdminAuthProvider → Outlet (+ devtools in dev)
+      └─ __root__: ThemeProvider → AdminAuthProvider → Outlet
 ```
 
 `ThemeProvider` sits **inside** the router root, not above it: `index.css` defines the `.dark` palette, so without it the app is locked to light mode. It stores the choice under the `"theme"` localStorage key, applies `.dark` to `documentElement`, mirrors other tabs via the `storage` event, and toggles on the `d` key (ignored while an editable element has focus).
