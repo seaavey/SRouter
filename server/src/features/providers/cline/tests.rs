@@ -2,14 +2,12 @@ use serde_json::{Value, json};
 
 use crate::features::providers::cline::catalog::read_catalog;
 use crate::features::providers::cline::types::ClineEndpoints;
+use crate::features::providers::refresh::{TOKEN_REFRESH_FALLBACK_MS, TOKEN_REFRESH_LEAD_MS};
 use crate::infrastructure::database::providers::ClineCredentials;
 use crate::infrastructure::upstream::UpstreamClient;
 use crate::protocol::model::ChatCompletionRequest;
 
-use super::auth::{
-    TOKEN_REFRESH_FALLBACK_MS, TOKEN_REFRESH_LEAD_MS, bearer_token, parse_rfc3339_ms,
-    token_refresh_is_due,
-};
+use super::auth::{bearer_token, parse_rfc3339_ms, token_refresh_is_due};
 use super::executor::ClineExecutor;
 use super::request::{model_requires_reasoning, strip_cline_prefix, strip_reasoning_disables};
 use super::translate::{Aggregator, DecodedFrame, EventDecoder};

@@ -22,15 +22,12 @@ use crate::error::APIError;
 use crate::features::providers::antigravity::types::{
     ANTIGRAVITY_OAUTH_CLIENT_ID, ANTIGRAVITY_OAUTH_CLIENT_SECRET,
 };
+use crate::features::providers::refresh::{NoExpiry, refresh_due};
 use crate::features::providers::wire::{apply_headers, payload_reports_invalid_grant};
 use crate::infrastructure::database::providers::{
     AntigravityCredentials, load_antigravity_credentials, update_antigravity_project_id,
     update_antigravity_tokens,
 };
-
-/// Refresh this long before the access token expires; the Codex sweeper's lead
-/// time (`apps/api/src/services/tokenRefresh.ts`).
-const TOKEN_REFRESH_LEAD_MS: i64 = 5 * 60 * 1000;
 
 impl AntigravityExecutor {
     /// The newest enabled Antigravity connection, or the "not connected" error.
@@ -233,10 +230,7 @@ impl AntigravityExecutor {
 /// recorded expiry (an imported token) is refreshed once; a successful refresh
 /// writes an expiry, so the next check is governed by the lead window.
 pub(super) fn token_refresh_is_due(credentials: &AntigravityCredentials, now: i64) -> bool {
-    match credentials.expires_at {
-        Some(expires_at) => now >= expires_at.saturating_sub(TOKEN_REFRESH_LEAD_MS),
-        None => true,
-    }
+    refresh_due(credentials.expires_at, None, NoExpiry::Always, now)
 }
 
 /// The fallback project id the Node oracle generates when `loadCodeAssist`

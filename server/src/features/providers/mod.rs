@@ -15,6 +15,7 @@ pub mod model;
 pub mod opencode;
 pub mod qoder;
 pub mod quota;
+mod refresh;
 pub mod registry;
 pub mod rotation;
 mod wire;

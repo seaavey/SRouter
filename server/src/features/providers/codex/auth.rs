@@ -10,18 +10,13 @@ use crate::clock::now_ms;
 use crate::constants;
 use crate::error::APIError;
 use crate::features::providers::codex::types::CODEX_OAUTH_CLIENT_ID;
+use crate::features::providers::refresh::{NoExpiry, refresh_due};
 use crate::features::providers::wire::payload_reports_invalid_grant;
 use crate::infrastructure::database::providers::{
     CodexCredentials, load_codex_credentials, update_codex_tokens,
 };
 
 use super::executor::CodexExecutor;
-
-/// Refresh this long before the access token expires; mirrors the Node sweeper's
-/// lead time (`apps/api/src/services/tokenRefresh.ts`).
-const TOKEN_REFRESH_LEAD_MS: i64 = 5 * 60 * 1000;
-/// Refresh a token with no known expiry once a day, the Node fallback.
-const TOKEN_REFRESH_FALLBACK_MS: i64 = 12 * 60 * 60 * 1000;
 
 impl CodexExecutor {
     async fn credentials(&self) -> Result<CodexCredentials, APIError> {
@@ -169,10 +164,10 @@ impl CodexExecutor {
 }
 
 pub(super) fn token_refresh_is_due(credentials: &CodexCredentials, now: i64) -> bool {
-    match credentials.token_expires_at {
-        Some(expires_at) => now >= expires_at.saturating_sub(TOKEN_REFRESH_LEAD_MS),
-        None => credentials
-            .last_refreshed_at
-            .is_none_or(|refreshed_at| now - refreshed_at >= TOKEN_REFRESH_FALLBACK_MS),
-    }
+    refresh_due(
+        credentials.token_expires_at,
+        credentials.last_refreshed_at,
+        NoExpiry::Stale,
+        now,
+    )
 }

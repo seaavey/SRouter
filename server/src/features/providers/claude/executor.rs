@@ -35,6 +35,7 @@ use crate::features::providers::anthropic::{
     anthropic_body, anthropic_response_to_openai, stream_response,
 };
 use crate::features::providers::executor::{BoxFuture, ProviderExecutor};
+use crate::features::providers::refresh::{NoExpiry, refresh_due};
 use crate::infrastructure::database::AppDatabase;
 use crate::infrastructure::database::providers::{
     ClaudeCredentials, load_claude_credentials, update_claude_tokens,
@@ -44,9 +45,6 @@ use crate::protocol::model::ChatCompletionRequest;
 
 /// Registry lookup keys: the base id and its alias, both `claude`.
 pub const CLAUDE_KEYS: &[&str] = &["claude"];
-
-/// Refresh the access token this long before it expires.
-const TOKEN_REFRESH_LEAD_MS: i64 = 5 * 60 * 1000;
 
 /// The Claude provider: an Anthropic OAuth session and a live model catalog.
 #[derive(Clone)]
@@ -392,9 +390,7 @@ impl ClaudeExecutor {
 
 /// Whether the access token is inside the refresh lead window.
 fn token_refresh_is_due(credentials: &ClaudeCredentials, now_ms: i64) -> bool {
-    credentials
-        .expires_at
-        .is_some_and(|expiry| expiry - now_ms <= TOKEN_REFRESH_LEAD_MS)
+    refresh_due(credentials.expires_at, None, NoExpiry::Never, now_ms)
 }
 
 impl ProviderExecutor for ClaudeExecutor {
