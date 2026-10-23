@@ -5,6 +5,7 @@ mod antigravity;
 mod claude;
 mod cline;
 mod codebuddy;
+mod commandcode;
 mod grok_web;
 mod openai;
 mod qoder;
@@ -43,6 +44,10 @@ pub use cline::create_cline_login_router;
 pub use codebuddy::{
     CodeBuddyAuthEndpoints, create_codebuddy_login_router,
     create_codebuddy_login_router_with_endpoints,
+};
+pub use commandcode::{
+    create_commandcode_callback_router, create_commandcode_callback_router_with_endpoints,
+    create_commandcode_login_router, create_commandcode_login_router_with_endpoints,
 };
 pub use grok_web::create_grok_web_login_router;
 pub use openai::{

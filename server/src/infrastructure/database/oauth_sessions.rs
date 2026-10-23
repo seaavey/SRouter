@@ -93,6 +93,37 @@ pub async fn save_device_session(
     Ok(())
 }
 
+/// Stores the payload a finished browser hand-off handed back, so the poll that
+/// follows owns the exchange. `false` when no live, unclaimed session matches —
+/// an unknown, expired, or already-claimed state, which the caller reports as an
+/// invalid callback rather than silently accepting the key.
+pub async fn record_session_key(
+    database: &AppDatabase,
+    state: &str,
+    payload: &str,
+) -> Result<bool, APIError> {
+    let pool = database.sqlite_required(constants::database::OAUTH_SESSIONS_UNSUPPORTED)?;
+
+    let updated = sqlx::query(
+        "UPDATE oauth_sessions SET device_code = ? \
+         WHERE state = ? AND claimed_at IS NULL AND created_at >= ?",
+    )
+    .bind(payload)
+    .bind(state)
+    .bind(now_ms() - SESSION_TTL_MS)
+    .execute(&pool)
+    .await
+    .map_err(|error| {
+        APIError::new(
+            500,
+            constants::database::with_context("store the OAuth session key", error),
+        )
+    })?
+    .rows_affected();
+
+    Ok(updated > 0)
+}
+
 /// Marks the session as in use and returns it. An unknown, expired, or already
 /// claimed state reads as `None`, which the route reports as "pending".
 pub async fn claim_session(

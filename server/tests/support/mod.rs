@@ -2497,6 +2497,21 @@ pub fn test_config() -> APIConfig {
     APIConfig::from_env_map(&environment).expect("test configuration")
 }
 
+/// `test_config` with the Command Code studio origin in the CORS allowlist, which
+/// its browser hand-off needs.
+pub fn commandcode_config() -> APIConfig {
+    let environment = HashMap::from([
+        ("HOME".to_owned(), "/tmp/srouter-test-home".to_owned()),
+        ("NODE_ENV".to_owned(), "development".to_owned()),
+        ("WEB_DIST_PATH".to_owned(), NO_DASHBOARD_WEB_DIST.to_owned()),
+        (
+            "SROUTER_CORS_ORIGINS".to_owned(),
+            "https://commandcode.ai".to_owned(),
+        ),
+    ]);
+    APIConfig::from_env_map(&environment).expect("Command Code test configuration")
+}
+
 /// `test_config` with `NODE_ENV=production`, so production-only defaults (the
 /// per-request access log) turn off.
 pub fn production_config() -> APIConfig {

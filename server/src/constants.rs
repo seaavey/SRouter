@@ -622,9 +622,23 @@ pub mod providers {
         pub const EMPTY_STREAM: &str = "Command Code returned an empty or incomplete stream";
         pub const STORE_CONNECTION: &str = "store the Command Code connection";
 
+        /// The browser posts the key from the studio's own origin, so that origin
+        /// has to be reflected by CORS or the request never arrives.
+        pub const STUDIO_ORIGIN_NOT_ALLOWED: &str = "the Command Code sign-in needs https://commandcode.ai in SROUTER_CORS_ORIGINS; add it and restart";
+        pub const OAUTH_SUCCESS: &str = "Command Code account connected";
+        pub const TOKEN_IMPORT_SUCCESS: &str =
+            "Command Code API key registered and saved directly to SQLite database!";
+        pub const KEY_CHECK_FAILED: &str =
+            "could not verify the Command Code key with the provider";
+
         /// An in-stream `error` event, carrying the status the relay stated.
         pub fn stream_error(message: &str) -> String {
             format!("Command Code stream error: {message}")
+        }
+
+        /// `/alpha/whoami` answered without accepting the key.
+        pub fn key_rejected(status: u16) -> String {
+            format!("Command Code rejected the key ({status})")
         }
     }
 
