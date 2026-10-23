@@ -15,7 +15,6 @@ use srouter_server::features::admin_auth::hash_session_token;
 use srouter_server::features::provider_auth::{
     create_claude_callback_router_with_endpoints, create_claude_login_router,
 };
-use srouter_server::features::providers::ProviderRegistry;
 use srouter_server::http::middleware::session_guard::require_admin_session;
 use srouter_server::infrastructure::database::providers::load_claude_credentials;
 use support::{
@@ -29,12 +28,8 @@ const SESSION_TOKEN: &str = "test-session-token";
 async fn app(database: &TestDatabase, fake: &FakeClaudeUpstream) -> Router {
     let security = sqlx_security_state(database, vec![hash_session_token(SESSION_TOKEN)]).await;
     let app_database = database.connect().await.expect("temporary database");
-    let state = AppState::with_security(
-        test_config(),
-        ProviderRegistry::with_defaults().expect("provider registry"),
-        security,
-    )
-    .with_database(app_database);
+    let state = AppState::with_security(test_config(), support::default_providers(), security)
+        .with_database(app_database);
     let login_routes = create_claude_login_router()
         .layer(from_fn_with_state(state.clone(), require_admin_session));
     let callback_routes = create_claude_callback_router_with_endpoints(fake.endpoints());

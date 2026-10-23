@@ -111,6 +111,9 @@ pub struct FakeUpstreamState {
     pub stream_cancelled: bool,
     /// Set when a response body runs to its natural end.
     pub stream_finished: bool,
+    /// The live model list `GET /v1/models` answers with. Unset means an empty
+    /// list, so an opencode catalog refresh merges nothing beyond the seed.
+    pub model_catalog: serde_json::Value,
 }
 
 type SharedFakeUpstreamState = Arc<StdMutex<FakeUpstreamState>>;
@@ -129,6 +132,7 @@ impl FakeUpstream {
         let router = Router::new()
             .route("/v1/chat/completions", post(fake_chat_completion))
             .route("/v1/images/generations", post(fake_image_generation))
+            .route("/v1/models", get(fake_model_list))
             .with_state(state.clone());
         let listener = TcpListener::bind("127.0.0.1:0")
             .await
@@ -237,6 +241,21 @@ pub async fn app_state_with_fake_upstream_and_security(
         upstream,
         AppState::with_security(test_config(), providers, security),
     )
+}
+
+/// A loopback base URL nothing listens on: a driver pointed here fails a
+/// catalog refresh immediately instead of reaching the real upstream.
+pub const OFFLINE_BASE_URL: &str = "http://127.0.0.1:1/v1";
+
+/// Every built-in provider, with `opencode_zen` kept off the network. A suite
+/// that fakes one driver still registers zen for the catalog, and listing
+/// models must not start a real fetch.
+pub fn default_providers() -> ProviderRegistry {
+    let mut providers = ProviderRegistry::with_defaults().expect("default providers");
+    providers
+        .register(opencode::adapter_with_base_url(OFFLINE_BASE_URL).expect("opencode_zen adapter"));
+
+    providers
 }
 
 /// What the fake Qoder upstream remembers about the calls it served.
@@ -1482,7 +1501,8 @@ pub async fn connect_second_qoder(database: &TestDatabase) {
 pub fn qoder_registry(database: Option<AppDatabase>, fake: &FakeQoderUpstream) -> ProviderRegistry {
     // Both built-in drivers, exactly like `ProviderRegistry::with_database`.
     let mut providers = ProviderRegistry::new();
-    providers.register(opencode::adapter().expect("opencode_zen adapter"));
+    providers
+        .register(opencode::adapter_with_base_url(OFFLINE_BASE_URL).expect("opencode_zen adapter"));
     providers.register(
         qoder::adapter_with_endpoints(fake.endpoints(), database).expect("qoder adapter"),
     );
@@ -1545,7 +1565,8 @@ pub async fn connect_second_cline(database: &TestDatabase) {
 /// A registry whose Cline adapter and WorkOS device flow share fake endpoints.
 pub fn cline_registry(database: Option<AppDatabase>, fake: &FakeClineUpstream) -> ProviderRegistry {
     let mut providers = ProviderRegistry::new();
-    providers.register(opencode::adapter().expect("opencode_zen adapter"));
+    providers
+        .register(opencode::adapter_with_base_url(OFFLINE_BASE_URL).expect("opencode_zen adapter"));
     providers.register(
         cline::adapter_with_endpoints(fake.endpoints(), database).expect("cline adapter"),
     );
@@ -1597,7 +1618,8 @@ pub fn codebuddy_registry(
     fake: &FakeCodeBuddyUpstream,
 ) -> ProviderRegistry {
     let mut providers = ProviderRegistry::new();
-    providers.register(opencode::adapter().expect("opencode_zen adapter"));
+    providers
+        .register(opencode::adapter_with_base_url(OFFLINE_BASE_URL).expect("opencode_zen adapter"));
     providers.register(
         codebuddy::adapter_with_endpoints(
             Flavor::Global,
@@ -1619,7 +1641,8 @@ pub fn commandcode_registry(
     fake: &FakeCommandCodeUpstream,
 ) -> ProviderRegistry {
     let mut providers = ProviderRegistry::new();
-    providers.register(opencode::adapter().expect("opencode_zen adapter"));
+    providers
+        .register(opencode::adapter_with_base_url(OFFLINE_BASE_URL).expect("opencode_zen adapter"));
     providers.register(
         commandcode::adapter_with_endpoints(fake.endpoints(), database)
             .expect("commandcode adapter"),
@@ -2170,7 +2193,8 @@ pub fn grok_web_registry(
     fake: &FakeGrokUpstream,
 ) -> ProviderRegistry {
     let mut providers = ProviderRegistry::new();
-    providers.register(opencode::adapter().expect("opencode_zen adapter"));
+    providers
+        .register(opencode::adapter_with_base_url(OFFLINE_BASE_URL).expect("opencode_zen adapter"));
     providers.register(
         grok_web::adapter_with_endpoints(fake.endpoints(), database).expect("grok-web adapter"),
     );
@@ -2458,7 +2482,8 @@ pub fn antigravity_registry(
     fake: &FakeAntigravityUpstream,
 ) -> ProviderRegistry {
     let mut providers = ProviderRegistry::new();
-    providers.register(opencode::adapter().expect("opencode_zen adapter"));
+    providers
+        .register(opencode::adapter_with_base_url(OFFLINE_BASE_URL).expect("opencode_zen adapter"));
     providers.register(
         antigravity::adapter_with_endpoints(fake.endpoints(), database)
             .expect("antigravity adapter"),
@@ -2745,6 +2770,21 @@ async fn fake_image_generation(
         ]
     }))
     .into_response()
+}
+
+/// Answers the live model list an opencode catalog refresh reads.
+async fn fake_model_list(State(state): State<SharedFakeUpstreamState>) -> Json<serde_json::Value> {
+    let catalog = state
+        .lock()
+        .expect("fake upstream state")
+        .model_catalog
+        .clone();
+
+    Json(if catalog.is_null() {
+        serde_json::json!({ "object": "list", "data": [] })
+    } else {
+        catalog
+    })
 }
 
 async fn fake_chat_completion(
@@ -3369,7 +3409,8 @@ pub fn claude_registry(
     fake: &FakeClaudeUpstream,
 ) -> ProviderRegistry {
     let mut providers = ProviderRegistry::new();
-    providers.register(opencode::adapter().expect("opencode_zen adapter"));
+    providers
+        .register(opencode::adapter_with_base_url(OFFLINE_BASE_URL).expect("opencode_zen adapter"));
     providers.register(
         claude::adapter_with_endpoints(fake.endpoints(), database).expect("claude adapter"),
     );

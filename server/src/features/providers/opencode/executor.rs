@@ -2,6 +2,7 @@
 
 use futures_util::StreamExt;
 use serde_json::Value;
+use std::sync::Arc;
 
 use crate::constants;
 use crate::error::APIError;
@@ -11,6 +12,7 @@ use crate::features::providers::adapter::{
 };
 use crate::features::providers::executor::{BoxFuture, ProviderExecutor};
 use crate::features::providers::model::ModelDefinition;
+use crate::features::providers::opencode::catalog::{OpenCodeCatalog, SharedCatalog, read_catalog};
 use crate::features::providers::opencode::types::{
     OPENCODE_ZEN_BASE_URL, OPENCODE_ZEN_KEYS, OPENCODE_ZEN_MODELS, OPENCODE_ZEN_PROVIDER,
 };
@@ -43,9 +45,12 @@ const OPENCODE_GATE_TOOL_STUB_DESCRIPTION: &str =
 pub struct OpenCodeExecutor {
     id: &'static str,
     keys: &'static [&'static str],
-    base_url: String,
-    models: &'static [ModelDefinition],
-    client: UpstreamClient,
+    pub(super) base_url: String,
+    pub(super) models: &'static [ModelDefinition],
+    pub(super) client: UpstreamClient,
+    /// The live list merged onto the seed; empty until the first fetch lands.
+    pub(super) catalog: SharedCatalog,
+    pub(super) catalog_refresh_lock: Arc<tokio::sync::Mutex<()>>,
 }
 
 impl OpenCodeExecutor {
@@ -62,6 +67,8 @@ impl OpenCodeExecutor {
             base_url: base_url.into(),
             models,
             client,
+            catalog: OpenCodeCatalog::shared_empty(),
+            catalog_refresh_lock: Arc::new(tokio::sync::Mutex::new(())),
         }
     }
 
@@ -78,6 +85,16 @@ impl OpenCodeExecutor {
     }
 
     pub fn models(&self) -> Vec<String> {
+        let catalog = read_catalog(&self.catalog);
+        if catalog.models.is_empty() {
+            return self.seed_models();
+        }
+
+        catalog.models.clone()
+    }
+
+    /// The curated seed, owned, for the fallback above and the refresh merge.
+    pub(super) fn seed_models(&self) -> Vec<String> {
         self.models
             .iter()
             .map(|model| model.id.to_owned())
@@ -93,6 +110,8 @@ impl OpenCodeExecutor {
         model: &str,
         request: &ChatCompletionRequest,
     ) -> Result<Value, APIError> {
+        self.maybe_refresh(false).await;
+
         // Every free-tier model refuses a non-streaming body with
         // 403 FreeTierError, so the call is always made with stream=true and the
         // deltas are aggregated into a standard non-streaming response below.
@@ -161,6 +180,8 @@ impl OpenCodeExecutor {
         model: &str,
         request: &ChatCompletionRequest,
     ) -> Result<ProviderStream, APIError> {
+        self.maybe_refresh(false).await;
+
         let session_id = generate_opencode_session_id();
         let response = self
             .client
@@ -516,6 +537,10 @@ impl ProviderExecutor for OpenCodeExecutor {
 
     fn models(&self) -> Vec<String> {
         OpenCodeExecutor::models(self)
+    }
+
+    fn maybe_refresh(&self, force: bool) -> BoxFuture<'_, ()> {
+        Box::pin(async move { OpenCodeExecutor::maybe_refresh(self, force).await })
     }
 
     fn chat_completion<'a>(

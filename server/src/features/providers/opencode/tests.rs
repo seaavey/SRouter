@@ -35,7 +35,7 @@ fn opencode_zen_exposes_verified_free_models() {
     assert_eq!(
         ids,
         [
-            "space-bunny-free",
+            "flint-40b-free",
             "beam-free",
             "nemotron-3.5-lightning-free",
             "nemotron-3.5-super-vl-free",

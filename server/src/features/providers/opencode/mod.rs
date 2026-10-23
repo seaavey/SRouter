@@ -1,6 +1,8 @@
 //! OpenCode Zen provider module.
 
+pub mod catalog;
 pub mod executor;
+pub mod refresh;
 pub mod types;
 
 #[cfg(test)]

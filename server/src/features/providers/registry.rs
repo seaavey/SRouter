@@ -435,9 +435,9 @@ mod tests {
     #[test]
     fn resolves_a_bare_advertised_model_id() {
         let registry = registry_with_opencode();
-        let resolved = registry.resolve("space-bunny-free").expect("bare model");
+        let resolved = registry.resolve("beam-free").expect("bare model");
 
-        assert_eq!(resolved.model, "space-bunny-free");
+        assert_eq!(resolved.model, "beam-free");
     }
 
     #[test]
@@ -524,11 +524,7 @@ mod tests {
                 .iter()
                 .all(|entry| entry.object == "model" && entry.owned_by == "zen")
         );
-        assert!(
-            models
-                .iter()
-                .any(|entry| entry.id == "zen/space-bunny-free")
-        );
+        assert!(models.iter().any(|entry| entry.id == "zen/beam-free"));
     }
 
     #[test]

@@ -12,7 +12,6 @@ use axum::{
 use srouter_server::AppState;
 use srouter_server::features::admin_auth::hash_session_token;
 use srouter_server::features::provider_auth::create_codebuddy_login_router_with_endpoints;
-use srouter_server::features::providers::ProviderRegistry;
 use srouter_server::http::middleware::session_guard::require_admin_session;
 use srouter_server::infrastructure::database::oauth_sessions::claim_session;
 use srouter_server::infrastructure::database::providers::list_connections;
@@ -27,12 +26,8 @@ const SESSION_TOKEN: &str = "test-session-token";
 async fn app(database: &TestDatabase, fake: &FakeCodeBuddyUpstream) -> Router {
     let security = sqlx_security_state(database, vec![hash_session_token(SESSION_TOKEN)]).await;
     let app_database = database.connect().await.expect("temporary database");
-    let state = AppState::with_security(
-        test_config(),
-        ProviderRegistry::with_defaults().expect("provider registry"),
-        security,
-    )
-    .with_database(app_database);
+    let state = AppState::with_security(test_config(), support::default_providers(), security)
+        .with_database(app_database);
     let routes = create_codebuddy_login_router_with_endpoints(fake.endpoints())
         .layer(from_fn_with_state(state.clone(), require_admin_session));
 

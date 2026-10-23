@@ -5,9 +5,9 @@
 //! nothing and gives the caller the same shape OpenAI uses.
 //!
 //! The window is read per model from the pricing snapshot rather than assumed:
-//! `space-bunny-free` and `longcat-2.5-preview-free` hold 1M tokens while
-//! `mimo-v2.6-flash-free` holds 200k, so one constant would either refuse
-//! legitimate traffic or admit doomed requests.
+//! `longcat-2.5-preview-free` holds 1M tokens while `mimo-v2.6-flash-free`
+//! holds 200k, so one constant would either refuse legitimate traffic or admit
+//! doomed requests.
 
 use crate::constants;
 use crate::error::APIError;
@@ -125,26 +125,20 @@ mod tests {
     #[test]
     fn every_spelling_of_a_zen_model_resolves_to_its_bare_id() {
         assert_eq!(
-            zen_model_id("opencode_zen/space-bunny-free").as_deref(),
-            Some("space-bunny-free")
+            zen_model_id("opencode_zen/beam-free").as_deref(),
+            Some("beam-free")
+        );
+        assert_eq!(zen_model_id("zen/beam-free").as_deref(), Some("beam-free"));
+        assert_eq!(
+            zen_model_id("opencode/beam-free").as_deref(),
+            Some("beam-free")
         );
         assert_eq!(
-            zen_model_id("zen/space-bunny-free").as_deref(),
-            Some("space-bunny-free")
-        );
-        assert_eq!(
-            zen_model_id("opencode/space-bunny-free").as_deref(),
-            Some("space-bunny-free")
-        );
-        assert_eq!(
-            zen_model_id("OPENCODE_ZEN/Space-Bunny-Free").as_deref(),
-            Some("space-bunny-free")
+            zen_model_id("OPENCODE_ZEN/Beam-Free").as_deref(),
+            Some("beam-free")
         );
         // The shape `/v1/models` advertises.
-        assert_eq!(
-            zen_model_id("space-bunny-free").as_deref(),
-            Some("space-bunny-free")
-        );
+        assert_eq!(zen_model_id("beam-free").as_deref(), Some("beam-free"));
         assert_eq!(zen_model_id("big-pickle").as_deref(), Some("big-pickle"));
     }
 
@@ -158,11 +152,11 @@ mod tests {
     #[test]
     fn tool_schemas_count_towards_the_window() {
         let without = request(serde_json::json!({
-            "model": "zen/space-bunny-free",
+            "model": "zen/beam-free",
             "messages": [{ "role": "user", "content": "hi" }]
         }));
         let with = request(serde_json::json!({
-            "model": "zen/space-bunny-free",
+            "model": "zen/beam-free",
             "messages": [{ "role": "user", "content": "hi" }],
             "tools": [{
                 "type": "function",
@@ -183,7 +177,7 @@ mod tests {
     #[test]
     fn the_output_budget_counts_towards_the_window() {
         let capped = request(serde_json::json!({
-            "model": "zen/space-bunny-free",
+            "model": "zen/beam-free",
             "messages": [{ "role": "user", "content": "hi" }],
             "max_tokens": 500
         }));
