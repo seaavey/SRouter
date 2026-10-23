@@ -10,8 +10,6 @@ type AuthFormProps = {
   children: ReactNode
   /** Whether the submit button accepts a click. */
   disabled: boolean
-  /** The method toggle, rendered above the fields. */
-  methodSwitch: ReactNode
   /** Runs the sign-in. */
   onAction: () => Promise<void>
   pendingLabel: string
@@ -27,7 +25,6 @@ type AuthFormProps = {
 export default function AuthForm({
   children,
   disabled,
-  methodSwitch,
   onAction,
   pendingLabel,
   submitLabel,
@@ -45,7 +42,6 @@ export default function AuthForm({
 
   return (
     <form className="flex flex-col gap-5" onSubmit={preventSubmit}>
-      {methodSwitch}
       <div className="flex flex-col gap-5">{children}</div>
       <div className="mt-1">
         <ActionButton

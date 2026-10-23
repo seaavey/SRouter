@@ -89,20 +89,42 @@ export default function LoginPage({ redirect }: LoginPageProps) {
     />
   )
 
+  // The card frame and the method switch stay mounted across the audience
+  // swap, so the selection glides to the new option instead of remounting at
+  // the far end. Only the fields and the action below it are per-audience.
+  const copy = setupRequired
+    ? {
+        title: "Create admin password",
+        description:
+          "Set the master password to initialize and secure this gateway.",
+      }
+    : usingToken
+      ? {
+          title: "Sign in to SRouter",
+          description:
+            "Enter the access token issued by the operator to open your account console.",
+        }
+      : {
+          title: "Sign in to SRouter",
+          description:
+            "Enter the operator password to access the gateway console.",
+        }
+
   return (
     <AuthShell
       audience={usingToken ? "customer" : "operator"}
       connection="online"
     >
-      {usingToken ? (
-        <UserSignIn methodSwitch={methodSwitch} />
-      ) : (
-        <AdminSignIn
-          methodSwitch={setupRequired ? null : methodSwitch}
-          redirect={redirect}
-          setupRequired={setupRequired}
-        />
-      )}
+      <AuthCard title={copy.title} description={copy.description}>
+        <div className="flex flex-col gap-5">
+          {setupRequired ? null : methodSwitch}
+          {usingToken ? (
+            <UserSignIn />
+          ) : (
+            <AdminSignIn redirect={redirect} setupRequired={setupRequired} />
+          )}
+        </div>
+      </AuthCard>
     </AuthShell>
   )
 }

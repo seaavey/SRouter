@@ -1,30 +1,25 @@
 import { useNavigate } from "@tanstack/react-router"
 import { useState } from "react"
-import type { ReactNode } from "react"
 
 import { useAdminAuth } from "@/components/admin-auth-provider"
 import { PasswordField } from "@/components/arc/password-field/password-field"
 import { toast } from "@/components/arc/toast-stack/toast-stack"
 
-import AuthCard from "../AuthCard"
 import AuthForm from "../AuthForm"
 import describeError from "../describe-error"
 
 type AdminSignInProps = {
-  /** The method toggle, or null while the install has no password yet. */
-  methodSwitch: ReactNode
   /** Where the operator lands after signing in. */
   redirect?: string
-  /** The install has no master password yet, so the card creates one. */
+  /** The install has no master password yet, so the form creates one. */
   setupRequired: boolean
 }
 
 /**
- * The operator card: the master password signs the gateway owner in, and a
+ * The operator fields: the master password signs the gateway owner in, and a
  * fresh install has the operator create that password first.
  */
 export default function AdminSignIn({
-  methodSwitch,
   redirect,
   setupRequired,
 }: AdminSignInProps) {
@@ -63,47 +58,37 @@ export default function AdminSignIn({
   }
 
   return (
-    <AuthCard
-      title={setupRequired ? "Create admin password" : "Sign in to SRouter"}
-      description={
-        setupRequired
-          ? "Set the master password to initialize and secure this gateway."
-          : "Enter the operator password to access the gateway console."
+    <AuthForm
+      disabled={
+        password.length === 0 ||
+        (setupRequired && (confirmation.length === 0 || mismatch)) ||
+        active.isPending
       }
+      onAction={handleAuth}
+      pendingLabel={setupRequired ? "Creating..." : "Signing in..."}
+      submitLabel={setupRequired ? "Create admin password" : "Sign in"}
+      successLabel={setupRequired ? "Created" : "Signed in"}
     >
-      <AuthForm
-        methodSwitch={methodSwitch}
-        disabled={
-          password.length === 0 ||
-          (setupRequired && (confirmation.length === 0 || mismatch)) ||
-          active.isPending
-        }
-        onAction={handleAuth}
-        pendingLabel={setupRequired ? "Creating..." : "Signing in..."}
-        submitLabel={setupRequired ? "Create admin password" : "Sign in"}
-        successLabel={setupRequired ? "Created" : "Signed in"}
-      >
-        <PasswordField
-          id="password"
-          label={setupRequired ? "Master password" : "Password"}
-          autoComplete={setupRequired ? "new-password" : "current-password"}
-          autoFocus
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-        />
+      <PasswordField
+        id="password"
+        label={setupRequired ? "Master password" : "Password"}
+        autoComplete={setupRequired ? "new-password" : "current-password"}
+        autoFocus
+        value={password}
+        onChange={(event) => setPassword(event.target.value)}
+      />
 
-        {setupRequired ? (
-          <PasswordField
-            id="confirmation"
-            label="Confirm master password"
-            autoComplete="new-password"
-            value={confirmation}
-            onChange={(event) => setConfirmation(event.target.value)}
-            aria-invalid={mismatch ? true : undefined}
-            description={mismatch ? "Passwords must match." : undefined}
-          />
-        ) : null}
-      </AuthForm>
-    </AuthCard>
+      {setupRequired ? (
+        <PasswordField
+          id="confirmation"
+          label="Confirm master password"
+          autoComplete="new-password"
+          value={confirmation}
+          onChange={(event) => setConfirmation(event.target.value)}
+          aria-invalid={mismatch ? true : undefined}
+          description={mismatch ? "Passwords must match." : undefined}
+        />
+      ) : null}
+    </AuthForm>
   )
 }
