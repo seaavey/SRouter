@@ -16,6 +16,7 @@ use crate::features::providers::codebuddy::Flavor;
 use crate::features::providers::codex;
 use crate::features::providers::codex::CodexExecutor;
 use crate::features::providers::codex::types::CodexEndpoints;
+use crate::features::providers::commandcode;
 use crate::features::providers::grok_web;
 use crate::features::providers::grok_web::GrokWebExecutor;
 use crate::features::providers::grok_web::types::GrokWebEndpoints;
@@ -107,6 +108,7 @@ impl ProviderRegistry {
         registry.register(codebuddy::adapter(Flavor::China, database.clone())?);
         registry.register(antigravity::adapter(database.clone())?);
         registry.register(claude::adapter(database.clone())?);
+        registry.register(commandcode::adapter(database.clone())?);
         registry.register(codex::adapter(database)?);
 
         Ok(registry)

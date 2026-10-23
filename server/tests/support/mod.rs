@@ -27,6 +27,7 @@ use srouter_server::features::providers::claude::{self, ClaudeEndpoints};
 use srouter_server::features::providers::cline::{self, ClineEndpoints};
 use srouter_server::features::providers::codebuddy::{self, Flavor, types::CodeBuddyEndpoints};
 use srouter_server::features::providers::codex::{self, CodexEndpoints};
+use srouter_server::features::providers::commandcode::{self, types::CommandCodeEndpoints};
 use srouter_server::features::providers::grok_web::{self, GrokWebEndpoints};
 use srouter_server::features::providers::qoder::{self, QoderEndpoints};
 use srouter_server::features::providers::{ProviderRegistry, opencode};
@@ -35,9 +36,10 @@ use srouter_server::infrastructure::database::admin_auth::SQLxAdminAuthStore;
 use srouter_server::infrastructure::database::api_keys::SQLxAPIKeyStore;
 use srouter_server::infrastructure::database::providers::{
     AntigravityConnectionWrite, ClaudeConnectionWrite, ClineConnectionWrite,
-    CodeBuddyConnectionWrite, CodexConnectionWrite, GrokWebConnectionWrite, QoderConnectionWrite,
-    upsert_antigravity_connection, upsert_claude_connection, upsert_cline_connection,
-    upsert_codebuddy_connection, upsert_codex_connection, upsert_grok_web_connection,
+    CodeBuddyConnectionWrite, CodexConnectionWrite, CommandCodeConnectionWrite,
+    GrokWebConnectionWrite, QoderConnectionWrite, upsert_antigravity_connection,
+    upsert_claude_connection, upsert_cline_connection, upsert_codebuddy_connection,
+    upsert_codex_connection, upsert_commandcode_connection, upsert_grok_web_connection,
     upsert_qoder_connection,
 };
 use srouter_server::{APIConfig, APIError, AppState, SecurityState};
@@ -1609,6 +1611,221 @@ pub fn codebuddy_registry(
             .expect("codebuddy cn adapter"),
     );
     providers
+}
+
+/// A registry whose Command Code adapter points at the fake relay.
+pub fn commandcode_registry(
+    database: Option<AppDatabase>,
+    fake: &FakeCommandCodeUpstream,
+) -> ProviderRegistry {
+    let mut providers = ProviderRegistry::new();
+    providers.register(opencode::adapter().expect("opencode_zen adapter"));
+    providers.register(
+        commandcode::adapter_with_endpoints(fake.endpoints(), database)
+            .expect("commandcode adapter"),
+    );
+    providers
+}
+
+/// Stores the connection row a finished sign-in would have written, without
+/// going through the studio hand-off.
+pub async fn connect_commandcode(database: &TestDatabase, name: &str) {
+    let app_database = database.connect().await.expect("temporary database");
+    upsert_commandcode_connection(
+        &app_database,
+        &CommandCodeConnectionWrite {
+            id: format!("commandcode_{name}"),
+            provider_id: "commandcode".to_owned(),
+            name: name.to_owned(),
+            access_token: "fixture-commandcode-key".to_owned(),
+            user_id: Some("user-1".to_owned()),
+            user_name: Some("Fixture Account".to_owned()),
+            base_url:
+                srouter_server::features::providers::commandcode::types::COMMANDCODE_GENERATE_URL
+                    .to_owned(),
+        },
+    )
+    .await
+    .expect("Command Code connection stored");
+}
+
+/// Recorded behavior of the fake Command Code relay.
+#[derive(Default)]
+pub struct FakeCommandCodeState {
+    /// `default`, `tool`, `error`, or `empty`.
+    pub generate_mode: String,
+    pub generate_requests: usize,
+    pub models_requests: usize,
+    pub whoami_requests: usize,
+    pub last_authorization: String,
+    pub last_session_id: String,
+    pub last_generate_body: serde_json::Value,
+}
+
+type SharedCommandCodeState = Arc<StdMutex<FakeCommandCodeState>>;
+
+/// A local `/alpha/generate` stand-in speaking the CLI's NDJSON protocol, plus
+/// the public catalog and the key probe, aborted on drop.
+pub struct FakeCommandCodeUpstream {
+    base_url: String,
+    state: SharedCommandCodeState,
+    task: JoinHandle<()>,
+}
+
+impl FakeCommandCodeUpstream {
+    pub async fn start() -> Self {
+        let state: SharedCommandCodeState = Arc::new(StdMutex::new(FakeCommandCodeState {
+            generate_mode: "default".to_owned(),
+            ..FakeCommandCodeState::default()
+        }));
+        let router = Router::new()
+            .route("/alpha/generate", post(commandcode_generate))
+            .route("/provider/v1/models", get(commandcode_models))
+            .route("/alpha/whoami", get(commandcode_whoami))
+            .with_state(state.clone());
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind the fake Command Code relay");
+        let address = listener
+            .local_addr()
+            .expect("fake Command Code relay address");
+        let task = tokio::spawn(async move {
+            let _ = axum::serve(listener, router).await;
+        });
+
+        Self {
+            base_url: format!("http://{address}"),
+            state,
+            task,
+        }
+    }
+
+    pub fn endpoints(&self) -> CommandCodeEndpoints {
+        CommandCodeEndpoints::on_origin(&self.base_url)
+    }
+
+    pub fn base_url(&self) -> &str {
+        &self.base_url
+    }
+
+    pub fn with<F, R>(&self, edit: F) -> R
+    where
+        F: FnOnce(&mut FakeCommandCodeState) -> R,
+    {
+        let mut state = self.state.lock().expect("fake Command Code state");
+        edit(&mut state)
+    }
+
+    pub fn set_generate_mode(&self, mode: &str) {
+        self.with(|state| state.generate_mode = mode.to_owned());
+    }
+
+    pub fn generate_requests(&self) -> usize {
+        self.with(|state| state.generate_requests)
+    }
+
+    pub fn models_requests(&self) -> usize {
+        self.with(|state| state.models_requests)
+    }
+
+    pub fn last_generate_body(&self) -> serde_json::Value {
+        self.with(|state| state.last_generate_body.clone())
+    }
+
+    pub fn last_authorization(&self) -> String {
+        self.with(|state| state.last_authorization.clone())
+    }
+
+    pub fn last_session_id(&self) -> String {
+        self.with(|state| state.last_session_id.clone())
+    }
+}
+
+impl Drop for FakeCommandCodeUpstream {
+    fn drop(&mut self) {
+        self.task.abort();
+    }
+}
+
+async fn commandcode_generate(
+    State(state): State<SharedCommandCodeState>,
+    headers: HeaderMap,
+    Json(payload): Json<serde_json::Value>,
+) -> Response {
+    let mode = {
+        let mut guard = state.lock().expect("fake Command Code state");
+        guard.generate_requests += 1;
+        guard.last_authorization = header_text(&headers, "authorization");
+        guard.last_session_id = header_text(&headers, "x-session-id");
+        guard.last_generate_body = payload;
+        guard.generate_mode.clone()
+    };
+
+    let body = match mode.as_str() {
+        "tool" => concat!(
+            "{\"type\":\"text-delta\",\"text\":\"Let me look.\"}\n",
+            "{\"type\":\"tool-call\",\"toolCallId\":\"call-1\",\"toolName\":\"read_file\",\"input\":{\"path\":\"/tmp/a\"}}\n",
+            "{\"type\":\"finish\",\"finishReason\":\"tool-calls\",\"totalUsage\":{\"inputTokens\":8,\"outputTokens\":2}}\n",
+        )
+        .to_owned(),
+        "error" => {
+            "{\"type\":\"error\",\"statusCode\":402,\"error\":\"Insufficient Balance\"}\n".to_owned()
+        }
+        "empty" => "{\"type\":\"start\"}\n".to_owned(),
+        _ => concat!(
+            "{\"type\":\"start\"}\n",
+            "{\"type\":\"text-delta\",\"text\":\"Hello\"}\n",
+            "{\"type\":\"text-delta\",\"text\":\" world\"}\n",
+            "{\"type\":\"finish-step\",\"totalUsage\":{\"inputTokens\":5,\"outputTokens\":1}}\n",
+            "{\"type\":\"finish\",\"finishReason\":\"stop\",\"totalUsage\":{\"inputTokens\":5,\"outputTokens\":2,\"inputTokenDetails\":{\"cacheReadTokens\":3}}}\n",
+        )
+        .to_owned(),
+    };
+
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, "application/x-ndjson")
+        .body(Body::from(body))
+        .expect("fake Command Code stream")
+}
+
+async fn commandcode_models(State(state): State<SharedCommandCodeState>) -> Response {
+    state
+        .lock()
+        .expect("fake Command Code state")
+        .models_requests += 1;
+
+    Json(serde_json::json!({
+        "object": "list",
+        "data": [
+            { "id": "deepseek/deepseek-v4.1-flash" },
+            { "id": "Qwen/Qwen3.8-Max-0902" }
+        ]
+    }))
+    .into_response()
+}
+
+async fn commandcode_whoami(
+    State(state): State<SharedCommandCodeState>,
+    headers: HeaderMap,
+) -> Response {
+    let authorization = {
+        let mut guard = state.lock().expect("fake Command Code state");
+        guard.whoami_requests += 1;
+        header_text(&headers, "authorization")
+    };
+    if authorization.contains("rejected") {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({ "error": "invalid key" })),
+        )
+            .into_response();
+    }
+
+    Json(serde_json::json!({
+        "user": { "id": "user-1", "userName": "Fixture Account" }
+    }))
+    .into_response()
 }
 
 type SharedGrokState = Arc<StdMutex<FakeGrokState>>;
