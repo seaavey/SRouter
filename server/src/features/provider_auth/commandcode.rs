@@ -25,10 +25,9 @@ use crate::clock::now_ms;
 use crate::constants;
 use crate::error::APIError;
 use crate::features::providers::commandcode::types::{
-    COMMANDCODE_GENERATE_URL, COMMANDCODE_PROVIDER, COMMANDCODE_STUDIO_AUTH_URL,
-    COMMANDCODE_STUDIO_ORIGIN, CommandCodeEndpoints,
+    COMMANDCODE_CALLBACK_PATH, COMMANDCODE_GENERATE_URL, COMMANDCODE_PROVIDER,
+    COMMANDCODE_STUDIO_AUTH_URL, CommandCodeEndpoints,
 };
-use crate::http::middleware::cors::get_allowed_origin;
 use crate::infrastructure::database::oauth_sessions::{
     claim_session, delete_session, record_session_key, release_session, save_session,
 };
@@ -67,24 +66,16 @@ pub fn create_commandcode_callback_router_with_endpoints(
     endpoints: CommandCodeEndpoints,
 ) -> Router<AppState> {
     Router::new()
-        .route("/auth/commandcode/callback", post(callback))
+        .route(COMMANDCODE_CALLBACK_PATH, post(callback))
         .layer(Extension(endpoints))
 }
 
 /// Starts a sign-in: a state row plus the studio URL that carries our callback.
 async fn login(State(state): State<AppState>) -> Result<Json<LoginResponse>, APIError> {
     let database = require_database(&state, constants::providers::oauth::DATABASE_REQUIRED)?;
-    // The browser's fetch is cross-origin; without this origin in the allowlist
-    // it is blocked before it reaches us, which no error page can report.
-    if get_allowed_origin(Some(COMMANDCODE_STUDIO_ORIGIN), &state.config.cors_origins).is_none() {
-        return Err(APIError::new(
-            400,
-            constants::providers::commandcode::STUDIO_ORIGIN_NOT_ALLOWED,
-        ));
-    }
     sweep_expired_sessions(database).await?;
 
-    let redirect_uri = default_callback_uri(&state.config, "/auth/commandcode/callback");
+    let redirect_uri = default_callback_uri(&state.config, COMMANDCODE_CALLBACK_PATH);
     let state_token = uuid::Uuid::new_v4().to_string();
     save_session(database, &state_token, "", "commandcode", &redirect_uri).await?;
 

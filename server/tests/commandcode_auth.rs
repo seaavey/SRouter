@@ -19,8 +19,8 @@ use srouter_server::http::middleware::session_guard::require_admin_session;
 use srouter_server::infrastructure::database::providers::list_connections;
 use srouter_server::{APIConfig, AppState};
 use support::{
-    FakeCommandCodeUpstream, TestDatabase, commandcode_config, commandcode_registry,
-    json_request_with_headers, sqlx_security_state, with_loopback_client,
+    FakeCommandCodeUpstream, TestDatabase, commandcode_registry, json_request_with_headers,
+    sqlx_security_state, test_config, with_loopback_client,
 };
 use tower::ServiceExt;
 
@@ -49,7 +49,7 @@ async fn app_with(
 }
 
 async fn app(database: &TestDatabase, fake: &FakeCommandCodeUpstream) -> Router {
-    app_with(commandcode_config(), database, fake).await
+    app_with(test_config(), database, fake).await
 }
 
 fn admin_get(uri: &str) -> Request<Body> {
@@ -145,28 +145,6 @@ async fn login_returns_the_studio_url_and_a_live_state() {
     let poll = json_body(poll).await;
     assert_eq!(poll["status"], "pending");
     assert_eq!(connection_count(&database).await, 0);
-}
-
-#[tokio::test]
-async fn login_refuses_when_the_studio_origin_is_not_allowed() {
-    let database = TestDatabase::new().expect("temporary database");
-    let fake = FakeCommandCodeUpstream::start().await;
-    let app = app_with(support::test_config(), &database, &fake).await;
-
-    let response = app
-        .oneshot(admin_get("/v1/auth/commandcode/login"))
-        .await
-        .expect("login response");
-
-    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
-    let body = json_body(response).await;
-    assert!(
-        body["error"]["message"]
-            .as_str()
-            .unwrap_or_default()
-            .contains("SROUTER_CORS_ORIGINS"),
-        "{body}"
-    );
 }
 
 #[tokio::test]

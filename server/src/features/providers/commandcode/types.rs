@@ -19,6 +19,9 @@ pub const COMMANDCODE_WHOAMI_URL: &str = "https://api.commandcode.ai/alpha/whoam
 /// The marketing site, and the studio page the operator signs in through.
 pub const COMMANDCODE_STUDIO_ORIGIN: &str = "https://commandcode.ai";
 pub const COMMANDCODE_STUDIO_AUTH_URL: &str = "https://commandcode.ai/studio/auth/cli";
+/// The public callback the studio page posts the key to. CORS reads the same
+/// string, because that one route reflects the studio origin by itself.
+pub const COMMANDCODE_CALLBACK_PATH: &str = "/auth/commandcode/callback";
 /// The CLI wire version the relay reads for capability gating. It is a vendor
 /// version, not ours: it may need bumping without any change on this side.
 pub const COMMANDCODE_CLI_VERSION: &str = "0.52.1";

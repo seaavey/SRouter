@@ -9,6 +9,9 @@ use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
 
 use crate::constants;
+use crate::features::providers::commandcode::types::{
+    COMMANDCODE_CALLBACK_PATH, COMMANDCODE_STUDIO_ORIGIN,
+};
 use crate::state::AppState;
 
 /// Checks if a parsed URL points to a loopback host (localhost, 127.0.0.1, [::1]).
@@ -51,6 +54,16 @@ pub fn get_allowed_origin<'a>(origin: Option<&'a str>, allowlist: &[String]) -> 
     None
 }
 
+/// The Command Code studio page posts the key to its public callback from its
+/// own origin, so that one route reflects the studio origin whether or not it is
+/// allowlisted: the sign-in must not depend on `SROUTER_CORS_ORIGINS`. Every
+/// other route keeps the configured list.
+fn studio_callback_origin(path: &str, origin: &str) -> Option<&'static str> {
+    (path.ends_with(COMMANDCODE_CALLBACK_PATH)
+        && origin.eq_ignore_ascii_case(COMMANDCODE_STUDIO_ORIGIN))
+    .then_some(COMMANDCODE_STUDIO_ORIGIN)
+}
+
 /// Enforces the CORS contract on incoming HTTP requests.
 pub async fn cors(State(state): State<AppState>, request: Request, next: Next) -> Response {
     let origin_header = request
@@ -61,7 +74,9 @@ pub async fn cors(State(state): State<AppState>, request: Request, next: Next) -
 
     // Preflight OPTIONS requests with an Origin header are handled directly.
     if request.method() == Method::OPTIONS && origin_header.is_some() {
-        let allowed = get_allowed_origin(origin_header, &state.config.cors_origins);
+        let path = request.uri().path();
+        let allowed = get_allowed_origin(origin_header, &state.config.cors_origins)
+            .or_else(|| origin_header.and_then(|origin| studio_callback_origin(path, origin)));
         let mut response = StatusCode::NO_CONTENT.into_response();
         let headers = response.headers_mut();
 
@@ -95,9 +110,13 @@ pub async fn cors(State(state): State<AppState>, request: Request, next: Next) -
         return response;
     }
 
-    // Normal request path.
-    let allowed_origin =
-        get_allowed_origin(origin_header, &state.config.cors_origins).map(str::to_owned);
+    // Normal request path. The studio allowance is resolved before the request
+    // moves into the inner service, so neither borrow outlives it.
+    let studio =
+        origin_header.and_then(|origin| studio_callback_origin(request.uri().path(), origin));
+    let allowed_origin = get_allowed_origin(origin_header, &state.config.cors_origins)
+        .or(studio)
+        .map(str::to_owned);
     let mut response = next.run(request).await;
 
     if let Some(allowed) = allowed_origin {
