@@ -87,9 +87,9 @@ pub(crate) enum LogError<'a> {
 /// replaces the reservation and the estimated cost is added to the key. A failed
 /// request releases the reservation in full instead.
 ///
-/// A route that reserves nothing bills the tokens it observed: `/v1/messages`
-/// never reserves, and Node's `LogCompletion` increments the same way for a
-/// request whose `reservedTokens` is undefined.
+/// A route that reserves nothing bills the tokens it observed: images never
+/// reserve, and Node's `LogCompletion` increments the same way for a request
+/// whose `reservedTokens` is undefined.
 ///
 /// This is the only writer of `api_keys.usage_tokens`/`usage_cost`. It runs after
 /// the request-log insert, which deliberately leaves those columns alone so one

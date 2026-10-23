@@ -23,7 +23,7 @@ use crate::features::gateway::interception::{
     observe_usage, read_json_body, run_buffered_interception, stream_error_payload,
     stream_log_status, try_intercept, unresolved_provider_id,
 };
-use crate::features::gateway::limits::ensure_within_context_limit;
+use crate::features::gateway::limits::{ensure_within_context_limit, reserve_api_key_quota};
 use crate::features::gateway::token_saver::apply_to_request;
 use crate::features::gateway::translation::{
     AnthropicMessageRequest, AnthropicStreamTranslator, AnthropicThinking, anthropic_error,
@@ -44,7 +44,7 @@ pub async fn create_message(
     request: Request,
 ) -> Response {
     let version = request.version();
-    let log_context = match RequestLogContext::from_request(
+    let mut log_context = match RequestLogContext::from_request(
         &request,
         principal.as_ref(),
         state.config.trust_cf_connecting_ip,
@@ -88,6 +88,14 @@ pub async fn create_message(
     apply_to_request(&mut chat_request);
 
     if stream {
+        // Mirrors the chat route: reserve before the stream opens, while the
+        // spawned loop logs every outcome and so always settles or releases.
+        log_context.reserved_tokens =
+            match reserve_api_key_quota(&state, principal.as_ref(), &chat_request).await {
+                Ok(reserved) => reserved,
+                Err(error) => return anthropic_error(error.status(), error.message()),
+            };
+
         return stream_anthropic_message(
             state,
             original_model,
@@ -107,6 +115,14 @@ pub async fn create_message(
             );
         }
     };
+
+    // Resolve before reserving: an unregistered model returns without logging,
+    // and a reservation that is never settled would stay charged.
+    log_context.reserved_tokens =
+        match reserve_api_key_quota(&state, principal.as_ref(), &chat_request).await {
+            Ok(reserved) => reserved,
+            Err(error) => return anthropic_error(error.status(), error.message()),
+        };
 
     let final_response =
         match run_buffered_interception(&state, &resolved, chat_request, &log_context).await {

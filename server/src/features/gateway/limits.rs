@@ -1,24 +1,33 @@
-//! Context-window admission for the OpenCode Zen free tier.
+//! Admission limits shared by the gateway routes: the provider context window
+//! the request must fit, and the API key's token budget reserved before an
+//! upstream call.
 //!
-//! Zen answers an over-long request with a `400` after a full round trip, and
-//! the body has already been billed as a rejection. Rejecting it here costs
-//! nothing and gives the caller the same shape OpenAI uses.
-//!
-//! The window is read per model from the pricing snapshot rather than assumed:
-//! `longcat-2.5-preview-free` holds 1M tokens while `mimo-v2.6-flash-free`
-//! holds 200k, so one constant would either refuse legitimate traffic or admit
-//! doomed requests.
+//! The Zen window is read per model from the pricing snapshot rather than
+//! assumed: `longcat-2.5-preview-free` holds 1M tokens while
+//! `mimo-v2.6-flash-free` holds 200k, so one constant would either refuse
+//! legitimate traffic or admit doomed requests. Zen answers an over-long
+//! request with a `400` after a full round trip, and the body has already been
+//! billed as a rejection; rejecting it here costs nothing and gives the caller
+//! the same shape OpenAI uses.
+
+use axum::extract::Extension;
 
 use crate::constants;
 use crate::error::APIError;
+use crate::features::api_keys::APIPrincipal;
 use crate::features::catalog::context_limit;
 use crate::features::providers::OPENCODE_ZEN_MODELS;
 use crate::protocol::model::{ChatCompletionRequest, ChatContent};
+use crate::state::AppState;
 
 /// Used for a Zen model the pricing snapshot does not cover. Deliberately the
 /// lowest window the free tier serves, so an unknown model is refused early
 /// instead of forwarded to an upstream that will reject it anyway.
 const UNKNOWN_ZEN_MODEL_CONTEXT: usize = 300_000;
+
+/// Default per-request token budget reserved on an API key when the request
+/// carries no `max_tokens` (`apps/api/src/controllers/chat.controller.ts`).
+const DEFAULT_RESERVED_TOKENS: u32 = 4096;
 
 /// Rejects a request that cannot fit the window of the model it names.
 pub(crate) fn ensure_within_context_limit(request: &ChatCompletionRequest) -> Result<(), APIError> {
@@ -111,6 +120,39 @@ fn estimate_request_tokens(request: &ChatCompletionRequest) -> usize {
     }
 
     tokens.saturating_add(request.max_tokens.unwrap_or(0) as usize)
+}
+
+/// Reserves the request's token budget on the API key, mirroring the Node chat
+/// controller: `max_tokens`, defaulting to [`DEFAULT_RESERVED_TOKENS`], must fit
+/// the key's quota or the request is rejected with `429 quota_exceeded` before
+/// any upstream call. Both chat routes call this, so neither can overshoot the
+/// lifetime token quota by a request that was already in flight.
+///
+/// Returns the reserved budget so the completion can settle it. Anonymous
+/// requests reserve nothing.
+pub(crate) async fn reserve_api_key_quota(
+    state: &AppState,
+    principal: Option<&Extension<APIPrincipal>>,
+    chat_request: &ChatCompletionRequest,
+) -> Result<Option<i64>, APIError> {
+    let Some(api_key) = principal.and_then(|extension| extension.0.api_key.as_ref()) else {
+        return Ok(None);
+    };
+
+    let reserved = i64::from(chat_request.max_tokens.unwrap_or(DEFAULT_RESERVED_TOKENS));
+    if !state
+        .security
+        .key_repository
+        .reserve_quota(&api_key.id, reserved)
+        .await?
+    {
+        return Err(
+            APIError::new(429, constants::api_key::RESERVATION_UNAVAILABLE)
+                .with_code(constants::ErrorCode::QuotaExceeded),
+        );
+    }
+
+    Ok(Some(reserved))
 }
 
 #[cfg(test)]
