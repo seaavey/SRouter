@@ -54,7 +54,7 @@
 .close:active { color: var(--foreground); }
 
 /* The content scrolls only at the tallest detent; below it, a drag or scroll opens the sheet first. */
-.body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: var(--space-1) var(--space-5) var(--space-6); overscroll-behavior: contain; scrollbar-width: thin; touch-action: pan-y; font-size: var(--text-sm); line-height: var(--leading-body); }
+.body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: var(--space-1) var(--space-5) var(--space-6); overscroll-behavior: contain; touch-action: pan-y; font-size: var(--text-sm); line-height: var(--leading-body); }
 .sheet:not([data-expanded]) .body { overflow: hidden; touch-action: none; }
 
 .srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }

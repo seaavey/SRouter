@@ -64,19 +64,18 @@ function UsagePage() {
               : "Stream idle"
         }
         actions={
-          <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
-            <SegmentedControl
-              options={RANGE_OPTIONS}
-              value={range}
-              onValueChange={(value) => setRange(value as AnalyticsWindow)}
-              label="Period"
-              // Pointing at a period starts its request, so choosing it lands on
-              // data instead of a second wait.
-              onOptionIntent={(value) => {
-                prefetchRange(value as AnalyticsWindow)
-              }}
-            />
-          </div>
+          <SegmentedControl
+            options={RANGE_OPTIONS}
+            value={range}
+            onValueChange={(value) => setRange(value as AnalyticsWindow)}
+            label="Period"
+            // Pointing at a period starts its request, so choosing it lands on
+            // data instead of a second wait.
+            onOptionIntent={(value) => {
+              prefetchRange(value as AnalyticsWindow)
+            }}
+            className="w-full sm:w-auto"
+          />
         }
       />
 

@@ -177,6 +177,45 @@
     -moz-appearance: textfield;
     appearance: textfield;
   }
+
+  /* Native scrollbars, for the scrollers that stay native (dialog, textarea, table,
+     text-bearing panels): a thin pill on an empty track with no stepper arrows, the
+     same idle 30% / hover 46% foreground mix the Arc ScrollArea overlay uses. The
+     standard properties are scoped to engines without ::-webkit-scrollbar because
+     setting them makes Chromium ignore the pseudo-element rules below. */
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  *::-webkit-scrollbar-track,
+  *::-webkit-scrollbar-corner,
+  *::-webkit-scrollbar-button {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-button {
+    display: none;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    border: 3px solid transparent;
+    border-radius: var(--radius-pill);
+    background: color-mix(in oklab, var(--foreground) 30%, transparent)
+      padding-box;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: color-mix(in oklab, var(--foreground) 46%, transparent);
+  }
+
+  @supports not selector(::-webkit-scrollbar) {
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: color-mix(in oklab, var(--foreground) 30%, transparent)
+        transparent;
+    }
+  }
 }
 
 /* View Transition: one upward reveal, the new theme rising from the bottom edge. */

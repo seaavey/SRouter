@@ -35,7 +35,7 @@ export function SectionHeader({
         </p>
       </div>
       {actions && (
-        <div className="flex shrink-0 flex-wrap items-center gap-2 self-start sm:gap-2.5 sm:self-auto">
+        <div className="flex shrink-0 flex-wrap items-center gap-2 self-stretch sm:gap-2.5 sm:self-auto">
           {actions}
         </div>
       )}
