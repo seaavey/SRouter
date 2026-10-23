@@ -510,10 +510,13 @@ async fn detail_entry(state: &AppState, provider_id: &str) -> Result<ProviderEnt
     // A provider advertises under its alias, which is not always its id:
     // `opencode_zen` serves `zen/...` and `qoder` serves `qd/...`. Resolve it
     // from the collapsed target, because a seed connection id also lands here.
+    // A custom provider whose adapter is not (yet) in the live registry still
+    // deserves a detail view: fall back to its own id as the alias, which is
+    // also `model_prefix()` when no custom prefix was set.
     let alias = state
         .providers
         .alias_of(target.id())
-        .ok_or_else(|| APIError::new(404, constants::providers::not_found(provider_id)))?;
+        .unwrap_or_else(|| target.id().to_owned());
     let models = provider_models(state, &alias).await?;
 
     match target {
