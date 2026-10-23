@@ -1,17 +1,27 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
-import { Plus } from "lucide-react"
+import { Plus, Settings2 } from "lucide-react"
 import { useEffect, useState } from "react"
-import { addCustomProvider, providersListQuery } from "@/api/providers"
+import {
+  addCustomProvider,
+  patchProvider,
+  providersListQuery,
+} from "@/api/providers"
+import type { ProviderEntry } from "@/api/types"
 import ActionButton from "@/components/arc/action-button/action-button"
 import { Alert } from "@/components/arc/alert/alert"
 import { Badge } from "@/components/arc/badge/badge"
 import { Button } from "@/components/arc/button/button"
-import { Card } from "@/components/arc/card/card"
 import ChipGroup from "@/components/arc/chip-group/chip-group"
 import { EmptyState } from "@/components/arc/empty-state/empty-state"
 import { SearchField } from "@/components/arc/search-field/search-field"
 import { Skeleton } from "@/components/arc/skeleton/skeleton"
+import { SplitButton } from "@/components/arc/split-button/split-button"
+import {
+  type DataColumn,
+  SortableDataTable,
+} from "@/components/arc/sortable-data-table/sortable-data-table"
+import useClipboard from "@/hooks/useClipboard"
 import { useSearch } from "@/hooks/useSearch"
 import { toast } from "@/components/arc/toast-stack/toast-stack"
 import { SectionHeader } from "@/components/layout/section-header"
@@ -41,15 +51,8 @@ type AddCustomProviderInput = Parameters<typeof addCustomProvider>[0]
 
 const SEARCH_KEYS = ["name", "id", "protocol"] as const
 
-/* The rail and the topbar take their width out of the viewport before this grid
-   sees any of it, so a viewport breakpoint here overstates the room a card has.
-   One column until the content column is wide enough for two cards at their
-   natural size, then three only on a wide desk. */
-const CARD_GRID = "grid grid-cols-1 gap-4 lg:grid-cols-2 2xl:grid-cols-3"
-
-function connectionLabel(count: number) {
-  return `${count} active ${count === 1 ? "connection" : "connections"}`
-}
+/** The table sorts on a row field, so the nested status count is lifted onto it. */
+type ProviderRow = ProviderEntry & { connected_count: number }
 
 function ProvidersListPage() {
   const queryClient = useQueryClient()
@@ -61,6 +64,32 @@ function ProvidersListPage() {
   const { data, isLoading, isError, error, refetch, isFetching } =
     useQuery(providersListQuery)
   const addProvider = useMutation({ mutationFn: addCustomProvider })
+  const { copy } = useClipboard()
+  // The row action turns one driver off without leaving the list, so the table
+  // refetches as soon as the server agrees.
+  const toggleDriver = useMutation({
+    mutationFn: (input: {
+      providerID: string
+      name: string
+      enabled: boolean
+    }) => patchProvider(input.providerID, { enabled: input.enabled }),
+    onSuccess: (_entry, input) => {
+      void queryClient.invalidateQueries({ queryKey: ["providers"] })
+      toast.success(input.enabled ? "Driver enabled" : "Driver disabled", {
+        description: `${input.name} ${
+          input.enabled
+            ? "takes traffic again."
+            : "takes no traffic until you enable it."
+        }`,
+      })
+    },
+    onError: (mutationError) => {
+      toast.error("Could not change driver status", {
+        description:
+          mutationError instanceof Error ? mutationError.message : undefined,
+      })
+    },
+  })
   const providers = data?.data ?? []
   const {
     query: search,
@@ -92,6 +121,13 @@ function ProvidersListPage() {
     }
   })
   const filtersActive = hasQuery || selectedCategory !== "all"
+  const rows: ProviderRow[] = filteredProviders.map((provider) => ({
+    ...provider,
+    connected_count: provider.status.connected_count,
+  }))
+  const connectedCount = providers.filter(
+    (provider) => provider.status.connected_count > 0
+  ).length
 
   useEffect(() => {
     if (!data || isFetching) return
@@ -144,11 +180,132 @@ function ProvidersListPage() {
     setSelectedCategory("all")
   }
 
+  const columns: DataColumn<ProviderRow>[] = [
+    {
+      key: "name",
+      label: "Provider",
+      render: (_value, row) => (
+        <span className="flex items-center gap-2.5">
+          <ProviderLogo
+            providerID={row.id}
+            protocol={row.protocol}
+            baseURL={row.default_base_url}
+            className="size-5 shrink-0"
+          />
+          <span className="flex min-w-0 flex-col">
+            <span className="block truncate text-xs font-medium text-foreground">
+              {row.name}
+            </span>
+            <span className="block truncate font-mono text-xs text-muted-foreground">
+              {row.id}
+            </span>
+          </span>
+        </span>
+      ),
+    },
+    {
+      key: "category",
+      label: "Category",
+      width: 110,
+      render: (_value, row) => (
+        <span className="text-xs text-muted-foreground">
+          {categoryLabel(row.category)}
+        </span>
+      ),
+    },
+    {
+      key: "protocol",
+      label: "Protocol",
+      width: 110,
+      render: (_value, row) => (
+        <span className="text-xs text-muted-foreground">
+          {PROTOCOL_LABELS[row.protocol]}
+        </span>
+      ),
+    },
+    {
+      key: "connected_count",
+      label: "Connections",
+      width: 130,
+      numeric: true,
+      render: (_value, row) => (
+        <span className="flex flex-col items-end gap-0.5">
+          <span className="text-xs text-foreground tabular-nums">
+            {row.connected_count}
+          </span>
+          {row.round_robin && (
+            <span className="text-xs text-muted-foreground">Rotation on</span>
+          )}
+        </span>
+      ),
+    },
+    {
+      key: "enabled",
+      label: "Status",
+      width: 120,
+      render: (_value, row) => (
+        <Badge tone={row.enabled ? "success" : "neutral"} size="sm">
+          {row.enabled ? "Enabled" : "Disabled"}
+        </Badge>
+      ),
+    },
+    {
+      key: "actions",
+      label: "Actions",
+      width: 210,
+      sortable: false,
+      render: (_value, row) => (
+        <span className="flex justify-end">
+          <SplitButton
+            variant="secondary"
+            label="Configure"
+            icon={<Settings2 size={14} strokeWidth={1.75} aria-hidden="true" />}
+            ariaLabel={`Configure ${row.name}`}
+            disabled={toggleDriver.isPending}
+            onClick={() =>
+              void navigate({
+                to: "/providers/$providerId",
+                params: { providerId: row.id },
+              })
+            }
+            actions={[
+              {
+                label: "Copy ID",
+                onSelect: () => {
+                  void copy(row.id).then((copied) =>
+                    copied
+                      ? toast.success("Provider ID copied", {
+                          description: row.id,
+                        })
+                      : toast.error("Could not copy the provider ID")
+                  )
+                },
+              },
+              {
+                label: row.enabled ? "Disable driver" : "Enable driver",
+                onSelect: () =>
+                  toggleDriver.mutate({
+                    providerID: row.id,
+                    name: row.name,
+                    enabled: !row.enabled,
+                  }),
+              },
+            ]}
+          />
+        </span>
+      ),
+    },
+  ]
+
   return (
     <div className="flex flex-col gap-6">
       <SectionHeader
         title="Model providers"
-        description="Manage model drivers, enabled connections, and custom endpoints."
+        description={
+          data
+            ? `${connectedCount} of ${providers.length} drivers have a connected account.`
+            : "Every model driver this gateway can route to."
+        }
         actions={
           <Button
             variant="primary"
@@ -165,7 +322,7 @@ function ProvidersListPage() {
         <SearchField
           id="provider-search"
           label="Search providers"
-          placeholder="Filter by name, id, or protocol..."
+          placeholder="Filter by name, ID, or protocol..."
           className="w-full sm:max-w-xs"
           {...searchFieldProps}
         />
@@ -212,22 +369,7 @@ function ProvidersListPage() {
         </Alert>
       )}
 
-      {isLoading && !data && (
-        <div
-          aria-busy="true"
-          aria-label="Loading providers"
-          className={CARD_GRID}
-        >
-          {Array.from({ length: 6 }, (_, index) => (
-            <div
-              key={index}
-              className="rounded-[var(--radius-panel)] border border-border bg-surface p-5"
-            >
-              <Skeleton label="Loading providers" lines={2} avatar />
-            </div>
-          ))}
-        </div>
-      )}
+      {isLoading && !data && <Skeleton label="Loading providers" lines={6} />}
 
       {!isLoading && data && filteredProviders.length === 0 && (
         <EmptyState
@@ -257,88 +399,12 @@ function ProvidersListPage() {
       )}
 
       {!isLoading && data && filteredProviders.length > 0 && (
-        <section
-          aria-labelledby="provider-list-title"
-          className="flex flex-col gap-3"
-        >
-          <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-            <h2
-              id="provider-list-title"
-              className="text-sm font-medium text-foreground"
-            >
-              Available providers
-            </h2>
-            <p className="text-xs text-muted-foreground">
-              {filteredProviders.length} of {providers.length} providers
-            </p>
-          </div>
-          <div className={CARD_GRID}>
-            {filteredProviders.map((provider) => (
-              <Card
-                key={provider.id}
-                title={provider.name}
-                avatar={
-                  <ProviderLogo
-                    providerID={provider.id}
-                    protocol={provider.protocol}
-                    baseURL={provider.default_base_url}
-                    className="size-8"
-                  />
-                }
-                meta={<span className="font-mono">{provider.id}</span>}
-                // The driver's message describes the empty state, so it only
-                // reads true while no account is connected.
-                status={
-                  provider.status.state === "no_connections"
-                    ? provider.status.message
-                    : undefined
-                }
-                action={
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() =>
-                      void navigate({
-                        to: "/providers/$providerId",
-                        params: { providerId: provider.id },
-                      })
-                    }
-                  >
-                    Configure
-                  </Button>
-                }
-              >
-                {/* The separator rides with the item that follows it, so a
-                    wrapped line never ends on a lone bullet. */}
-                <div className="mt-4 flex flex-wrap items-center gap-2">
-                  <Badge
-                    tone={provider.enabled ? "success" : "neutral"}
-                    size="sm"
-                  >
-                    {provider.enabled ? "Enabled" : "Disabled"}
-                  </Badge>
-                  <span className="text-xs text-muted-foreground">
-                    {connectionLabel(provider.status.connected_count)}
-                  </span>
-                  <span className="flex items-center gap-2 text-xs whitespace-nowrap text-muted-foreground">
-                    <span aria-hidden="true">•</span>
-                    {categoryLabel(provider.category)}
-                  </span>
-                  <span className="flex items-center gap-2 text-xs whitespace-nowrap text-muted-foreground">
-                    <span aria-hidden="true">•</span>
-                    {PROTOCOL_LABELS[provider.protocol]}
-                  </span>
-                  {provider.round_robin && (
-                    <span className="flex items-center gap-2 text-xs whitespace-nowrap text-muted-foreground">
-                      <span aria-hidden="true">•</span>
-                      Rotation on
-                    </span>
-                  )}
-                </div>
-              </Card>
-            ))}
-          </div>
-        </section>
+        <SortableDataTable
+          rows={rows}
+          columns={columns}
+          rowKey="id"
+          caption="Model providers"
+        />
       )}
 
       <p
