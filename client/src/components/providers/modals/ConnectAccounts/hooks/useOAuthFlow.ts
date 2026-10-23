@@ -29,7 +29,8 @@ export default function useOAuthFlow({
   const isDeviceFlow =
     normalized.includes("qoder") ||
     normalized.includes("cline") ||
-    normalized.includes("codebuddy")
+    normalized.includes("codebuddy") ||
+    normalized.includes("commandcode")
 
   useEffect(() => {
     if (!oauthData?.state || !isDeviceFlow) {

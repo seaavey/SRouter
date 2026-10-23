@@ -93,6 +93,8 @@ export function initiateOAuthLogin(providerID: string) {
     authPath = "/v1/auth/cline/device"
   } else if (normalized.includes("codebuddy")) {
     authPath = "/v1/auth/codebuddy/device"
+  } else if (normalized.includes("commandcode")) {
+    authPath = "/v1/auth/commandcode/login"
   } else if (normalized.includes("grok")) {
     authPath = "/v1/auth/grok/login?format=json"
   }
@@ -119,6 +121,8 @@ export function importOAuthToken(
     tokenPath = "/v1/auth/claude/token"
   } else if (normalized.includes("antigravity")) {
     tokenPath = "/v1/auth/antigravity/token"
+  } else if (normalized.includes("commandcode")) {
+    tokenPath = "/v1/auth/commandcode/token"
   }
 
   return request<{
@@ -166,6 +170,8 @@ export function pollOAuthSession(providerID: string, state: string) {
     pollBase = "/v1/auth/codebuddy/poll"
   } else if (normalized.includes("qoder")) {
     pollBase = "/v1/auth/qoder/poll"
+  } else if (normalized.includes("commandcode")) {
+    pollBase = "/v1/auth/commandcode/poll"
   } else {
     return Promise.reject(
       new Error(
