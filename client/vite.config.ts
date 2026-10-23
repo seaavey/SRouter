@@ -18,6 +18,23 @@ export default defineConfig({
       "@": resolve(import.meta.dirname, "./src"),
     },
   },
+  build: {
+    // Assets are content-hashed and served `immutable`, so an app-only deploy
+    // should not invalidate the runtime: keeping React and TanStack in their
+    // own chunk leaves those bytes in the browser cache between releases.
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          groups: [
+            {
+              name: "vendor",
+              test: /node_modules[\\/](?:@tanstack[\\/]|react(?:-dom)?[\\/]|scheduler[\\/])/,
+            },
+          ],
+        },
+      },
+    },
+  },
   server: {
     // The admin session is an HttpOnly cookie with `SameSite=Lax`. A browser
     // treats `localhost:5173` and `127.0.0.1:3000` as different *sites*, so a
