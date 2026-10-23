@@ -13,7 +13,6 @@ use axum::{
 };
 use srouter_server::app::create_router;
 use srouter_server::features::admin_auth::hash_session_token;
-use srouter_server::features::providers::ProviderRegistry;
 use srouter_server::{AppDatabase, AppState};
 use support::{TestDatabase, json_request_with_headers, with_loopback_client};
 use tower::ServiceExt;
@@ -25,7 +24,7 @@ async fn app(database: &TestDatabase) -> Router {
         support::sqlx_security_state(database, vec![hash_session_token(SESSION_TOKEN)]).await;
     let state = AppState::with_security(
         support::test_config(),
-        ProviderRegistry::with_defaults().expect("default providers"),
+        support::default_providers(),
         security,
     )
     .with_database(database.connect().await.expect("connect"));
@@ -208,7 +207,7 @@ async fn providers_list_returns_the_seeded_entry() {
 async fn providers_list_serves_the_seed_without_a_database() {
     let state = AppState::with_security(
         support::test_config(),
-        ProviderRegistry::with_defaults().unwrap(),
+        support::default_providers(),
         support::security_state(false, vec![], vec![hash_session_token(SESSION_TOKEN)]),
     );
 
@@ -234,7 +233,7 @@ async fn catalog_groups_the_seeded_entries_by_category() {
 
     assert_eq!(response.status(), StatusCode::OK);
     let body = json_body(response).await;
-    assert_eq!(body["total"], 9);
+    assert_eq!(body["total"], 10);
     assert_eq!(body["categories"]["free_tier"][0]["id"], "opencode_zen");
     assert_eq!(
         body["categories"]["free_tier"][0]["enabled"],
@@ -257,7 +256,7 @@ async fn catalog_groups_the_seeded_entries_by_category() {
 async fn catalog_serves_the_seed_without_a_database() {
     let state = AppState::with_security(
         support::test_config(),
-        ProviderRegistry::with_defaults().unwrap(),
+        support::default_providers(),
         support::security_state(false, vec![], vec![hash_session_token(SESSION_TOKEN)]),
     );
 
@@ -268,7 +267,7 @@ async fn catalog_serves_the_seed_without_a_database() {
 
     assert_eq!(response.status(), StatusCode::OK);
     let body = json_body(response).await;
-    assert_eq!(body["total"], 9);
+    assert_eq!(body["total"], 10);
     assert_eq!(
         body["categories"]["free_tier"][0]["enabled"],
         serde_json::json!(true)
@@ -342,7 +341,7 @@ async fn provider_detail_reports_hidden_and_favorite_flags_per_model() {
     .unwrap();
 
     sqlx::query("INSERT INTO favorite_models (model_id, created_at) VALUES (?, ?)")
-        .bind("zen/space-bunny-free")
+        .bind("zen/beam-free")
         .bind(1_700_000_000_i64)
         .execute(&pool)
         .await
@@ -375,14 +374,8 @@ async fn provider_detail_reports_hidden_and_favorite_flags_per_model() {
     );
     assert_eq!(model("zen/big-pickle")["object"], "model");
     assert_eq!(model("zen/big-pickle")["owned_by"], "zen");
-    assert_eq!(
-        model("zen/space-bunny-free")["hidden"],
-        serde_json::json!(false)
-    );
-    assert_eq!(
-        model("zen/space-bunny-free")["favorite"],
-        serde_json::json!(true)
-    );
+    assert_eq!(model("zen/beam-free")["hidden"], serde_json::json!(false));
+    assert_eq!(model("zen/beam-free")["favorite"], serde_json::json!(true));
     assert_eq!(body["connections"], serde_json::json!([]));
 }
 
@@ -483,7 +476,7 @@ async fn provider_detail_accepts_a_seed_connection_id() {
 async fn provider_detail_serves_the_seed_without_a_database() {
     let state = AppState::with_security(
         support::test_config(),
-        ProviderRegistry::with_defaults().unwrap(),
+        support::default_providers(),
         support::security_state(false, vec![], vec![hash_session_token(SESSION_TOKEN)]),
     );
 
@@ -935,49 +928,43 @@ async fn patching_favorites_round_trips_through_the_global_table() {
             .oneshot(admin_request(
                 "PATCH",
                 "/v1/providers/opencode_zen",
-                serde_json::json!({ "favorite": ["Zen/Space-Bunny-Free"] }),
+                serde_json::json!({ "favorite": ["Zen/Beam-Free"] }),
             ))
             .await
             .unwrap(),
     )
     .await;
-    assert_eq!(
-        favorite_flag(&favorited, "zen/space-bunny-free"),
-        Some(true)
-    );
+    assert_eq!(favorite_flag(&favorited, "zen/beam-free"), Some(true));
 
     let pool = sqlite(&database).await;
     // The table is global and stores lowercased ids, so one respelled request
     // still lands on a single row.
-    assert_eq!(favorite_row_count(&pool, "zen/space-bunny-free").await, 1);
+    assert_eq!(favorite_row_count(&pool, "zen/beam-free").await, 1);
 
     let again = app
         .clone()
         .oneshot(admin_request(
             "PATCH",
             "/v1/providers/opencode_zen",
-            serde_json::json!({ "favorite": ["zen/space-bunny-free"] }),
+            serde_json::json!({ "favorite": ["zen/beam-free"] }),
         ))
         .await
         .unwrap();
     assert_eq!(again.status(), StatusCode::OK);
-    assert_eq!(favorite_row_count(&pool, "zen/space-bunny-free").await, 1);
+    assert_eq!(favorite_row_count(&pool, "zen/beam-free").await, 1);
 
     let unfavorited = json_body(
         app.oneshot(admin_request(
             "PATCH",
             "/v1/providers/opencode_zen",
-            serde_json::json!({ "unfavorite": ["ZEN/SPACE-BUNNY-FREE"] }),
+            serde_json::json!({ "unfavorite": ["ZEN/BEAM-FREE"] }),
         ))
         .await
         .unwrap(),
     )
     .await;
-    assert_eq!(
-        favorite_flag(&unfavorited, "zen/space-bunny-free"),
-        Some(false)
-    );
-    assert_eq!(favorite_row_count(&pool, "zen/space-bunny-free").await, 0);
+    assert_eq!(favorite_flag(&unfavorited, "zen/beam-free"), Some(false));
+    assert_eq!(favorite_row_count(&pool, "zen/beam-free").await, 0);
 }
 
 #[tokio::test]
@@ -993,7 +980,7 @@ async fn one_patch_carries_every_edit_at_once() {
                 serde_json::json!({
                     "enabled": false,
                     "hide": ["zen/big-pickle"],
-                    "favorite": ["zen/space-bunny-free"]
+                    "favorite": ["zen/beam-free"]
                 }),
             ))
             .await
@@ -1003,7 +990,7 @@ async fn one_patch_carries_every_edit_at_once() {
 
     assert_eq!(body["enabled"], serde_json::json!(false));
     assert_eq!(hidden_flag(&body, "zen/big-pickle"), Some(true));
-    assert_eq!(favorite_flag(&body, "zen/space-bunny-free"), Some(true));
+    assert_eq!(favorite_flag(&body, "zen/beam-free"), Some(true));
     assert_eq!(
         stored_setting(&sqlite(&database).await, "provider_enabled_opencode_zen").await,
         Some(String::from("false"))
@@ -1072,7 +1059,7 @@ async fn a_patch_requires_an_admin_session() {
 async fn a_patch_fails_loudly_without_a_database() {
     let state = AppState::with_security(
         support::test_config(),
-        ProviderRegistry::with_defaults().unwrap(),
+        support::default_providers(),
         support::security_state(true, vec![], vec![hash_session_token(SESSION_TOKEN)]),
     );
 
@@ -1230,7 +1217,7 @@ async fn a_postgres_backend_reads_empty_and_refuses_provider_writes() {
         .unwrap();
     let state = AppState::with_security(
         support::test_config(),
-        ProviderRegistry::with_defaults().unwrap(),
+        support::default_providers(),
         // `get_request` carries this cookie as the admin session.
         support::security_state(false, vec![], vec![hash_session_token(SESSION_TOKEN)]),
     )

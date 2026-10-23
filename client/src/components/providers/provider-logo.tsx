@@ -15,6 +15,7 @@ const LOGOS: Record<string, string> = {
   cline: "cline",
   codebuddy: "codebuddy",
   "codebuddy-cn": "codebuddy",
+  commandcode: "commandcode",
   "grok-web": "grok",
   openai_codex: "openai",
   opencode_zen: "opencode",
@@ -31,6 +32,7 @@ const LOGOS: Record<string, string> = {
 const MONOCHROME = new Set([
   "anthropic",
   "cline",
+  "commandcode",
   "grok",
   "openai",
   "opencode",

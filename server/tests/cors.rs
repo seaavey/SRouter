@@ -103,6 +103,78 @@ async fn allowlisted_origin_receives_reflected_origin_with_credentials() {
 }
 
 #[tokio::test]
+async fn the_studio_origin_is_approved_for_the_commandcode_callback_without_an_allowlist() {
+    let app = app_with_cors_origins(&[]);
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("OPTIONS")
+                .uri("/v1/auth/commandcode/callback")
+                .header(header::ORIGIN, "https://commandcode.ai")
+                .header("access-control-request-method", "POST")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::NO_CONTENT);
+    assert_eq!(
+        response
+            .headers()
+            .get(header::ACCESS_CONTROL_ALLOW_ORIGIN)
+            .unwrap(),
+        "https://commandcode.ai"
+    );
+}
+
+#[tokio::test]
+async fn the_studio_origin_can_read_the_callback_response_without_an_allowlist() {
+    let app = app_with_cors_origins(&[]);
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/auth/commandcode/callback")
+                .header(header::ORIGIN, "https://commandcode.ai")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from("{}"))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    // The browser has to read the result of the POST, not just pass the preflight.
+    assert_eq!(
+        response
+            .headers()
+            .get(header::ACCESS_CONTROL_ALLOW_ORIGIN)
+            .unwrap(),
+        "https://commandcode.ai"
+    );
+}
+
+#[tokio::test]
+async fn the_studio_origin_gets_nothing_on_other_routes() {
+    let app = app_with_cors_origins(&[]);
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/v1/providers")
+                .header(header::ORIGIN, "https://commandcode.ai")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        response.headers().get(header::ACCESS_CONTROL_ALLOW_ORIGIN),
+        None
+    );
+}
+
+#[tokio::test]
 async fn loopback_dev_origins_keep_working() {
     let app = app_with_cors_origins(&[]);
 

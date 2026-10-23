@@ -7,6 +7,7 @@ pub mod claude;
 pub mod cline;
 pub mod codebuddy;
 pub mod codex;
+pub mod commandcode;
 pub mod custom;
 pub mod executor;
 pub mod grok_web;
@@ -28,6 +29,7 @@ pub use codebuddy::{
     CODEBUDDY_CN_KEYS, CODEBUDDY_CN_PROVIDER, CODEBUDDY_KEYS, CODEBUDDY_PROVIDER, Flavor,
 };
 pub use codex::{CODEX_KEYS, CODEX_PROVIDER};
+pub use commandcode::{COMMANDCODE_KEYS, COMMANDCODE_PROVIDER};
 pub use executor::ProviderExecutor;
 pub use grok_web::{GROK_WEB_KEYS, GROK_WEB_PROVIDER};
 pub use model::{ModelDefinition, ModelObject, ProviderMetadata, ProviderProtocol};
@@ -49,5 +51,6 @@ pub const SEED_PROVIDERS: &[ProviderMetadata] = &[
     CODEBUDDY_CN_PROVIDER,
     ANTIGRAVITY_PROVIDER,
     CLAUDE_PROVIDER,
+    COMMANDCODE_PROVIDER,
 ];
 pub use registry::{ProviderRegistry, ResolvedModel};

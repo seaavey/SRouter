@@ -563,3 +563,80 @@ async fn mid_stream_failure_emits_an_error_event_and_logs_the_failure_status() {
         0
     );
 }
+
+/// `/v1/messages` reserves the request's `max_tokens` on the key exactly like
+/// `/v1/chat/completions`: a budget that cannot fit the remaining quota is
+/// refused before the upstream and charges nothing.
+#[tokio::test]
+async fn a_message_that_cannot_reserve_its_budget_is_rejected_before_the_upstream() {
+    use std::sync::Arc;
+
+    use srouter_server::SecurityState;
+    use srouter_server::features::api_keys::{APIKeyRepository, CreateAPIKeyInput};
+    use srouter_server::infrastructure::database::admin_auth::SQLxAdminAuthStore;
+    use srouter_server::infrastructure::database::api_keys::SQLxAPIKeyStore;
+
+    let database = TestDatabase::new().unwrap();
+    let app_database = database.connect().await.unwrap();
+
+    let keys = Arc::new(SQLxAPIKeyStore::new(app_database.clone()));
+    let created = keys
+        .create(CreateAPIKeyInput {
+            name: "Messages quota".to_owned(),
+            user_id: None,
+            enabled: true,
+            rate_limit: 0,
+            quota_limit: 100,
+            credit_limit: 0.0,
+            allowed_models: None,
+        })
+        .await
+        .unwrap();
+
+    let security = SecurityState::with_repository(
+        keys.clone(),
+        Arc::new(SQLxAdminAuthStore::new(app_database.clone())),
+        keys.clone(),
+    );
+    let (upstream, state) = app_state_with_fake_upstream_and_security(security).await;
+    let app = create_router(state.with_database(app_database));
+
+    let body = serde_json::json!({
+        "model": "opencode_zen/space-bunny-free",
+        "messages": [{ "role": "user", "content": "Hello" }],
+        "max_tokens": 1024,
+        "stream": false
+    });
+    let request = with_loopback_client(
+        Request::builder()
+            .method("POST")
+            .uri("/v1/messages")
+            .version(Version::HTTP_11)
+            .header(header::CONTENT_TYPE, "application/json")
+            .header("anthropic-version", "2023-06-01")
+            .header("authorization", format!("Bearer {}", created.secret))
+            .body(Body::from(serde_json::to_vec(&body).unwrap()))
+            .unwrap(),
+    );
+
+    let response = app.oneshot(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::TOO_MANY_REQUESTS);
+    let json = json_body(response).await;
+    assert_eq!(json["type"], "error");
+    assert_eq!(json["error"]["type"], "rate_limit_error");
+    assert_eq!(
+        json["error"]["message"],
+        "Token quota exceeded. The requested budget is unavailable."
+    );
+
+    // The rejected request never reached the upstream and never charged the key.
+    assert_eq!(upstream.chat_requests(), 0);
+    let stored = keys
+        .list()
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|key| key.id == created.key.id)
+        .expect("the stored key");
+    assert_eq!(stored.usage_tokens, 0);
+}

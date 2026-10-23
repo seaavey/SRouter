@@ -177,7 +177,7 @@ async fn main() -> Result<(), APIError> {
     .with_admin_auth(Arc::new(EmptyAdminAuthRepository));
 
     // Real registry, but the opencode provider is repointed at the local fake
-    // so the model id `space-bunny-free` resolves to it instead of the network.
+    // so the model id `beam-free` resolves to it instead of the network.
     let upstream_url = start_fake_upstream().await?;
     let mut providers = ProviderRegistry::new();
     providers.register(

@@ -267,7 +267,7 @@ async fn the_catalog_advertises_only_what_upstream_returned() {
     let qd: Vec<&String> = ids.iter().filter(|id| id.starts_with("qd/")).collect();
 
     assert_eq!(qd, expected.iter().collect::<Vec<_>>(), "{ids:?}");
-    assert!(ids.contains(&"zen/space-bunny-free".to_owned()));
+    assert!(ids.contains(&"zen/beam-free".to_owned()));
     assert_eq!(
         fake.model_list_requests(),
         1,

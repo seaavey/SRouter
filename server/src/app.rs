@@ -18,7 +18,8 @@ use crate::features::provider_auth::{
     create_antigravity_callback_pages_router, create_antigravity_callback_router,
     create_antigravity_login_router, create_claude_callback_pages_router,
     create_claude_callback_router, create_claude_login_router, create_cline_login_router,
-    create_codebuddy_login_router, create_grok_web_login_router,
+    create_codebuddy_login_router, create_commandcode_callback_router,
+    create_commandcode_login_router, create_grok_web_login_router,
     create_openai_callback_pages_router, create_openai_callback_router, create_openai_login_router,
     create_qoder_callback_pages_router, create_qoder_callback_router, create_qoder_login_router,
 };
@@ -139,10 +140,15 @@ pub fn create_router(state: AppState) -> Router {
         .layer(from_fn_with_state(state.clone(), require_admin_session));
     let claude_login_routes = create_claude_login_router()
         .layer(from_fn_with_state(state.clone(), require_admin_session));
+    let commandcode_login_routes = create_commandcode_login_router()
+        .layer(from_fn_with_state(state.clone(), require_admin_session));
     let qoder_callback_routes = create_qoder_callback_router();
     let openai_callback_routes = create_openai_callback_router();
     let antigravity_callback_routes = create_antigravity_callback_router();
     let claude_callback_routes = create_claude_callback_router();
+    // The studio page posts the key from its own origin, without a session
+    // cookie, so this route carries neither guard.
+    let commandcode_callback_routes = create_commandcode_callback_router();
     // The browser callback lives at the application root, outside `/v1`, because
     // the vendor only accepts `http://127.0.0.1:{1455,1457}/auth/callback`. It
     // carries the body limit but neither the API-key nor the admin guard.
@@ -189,10 +195,12 @@ pub fn create_router(state: AppState) -> Router {
         .merge(openai_login_routes)
         .merge(antigravity_login_routes)
         .merge(claude_login_routes)
+        .merge(commandcode_login_routes)
         .merge(qoder_callback_routes)
         .merge(openai_callback_routes)
         .merge(antigravity_callback_routes)
         .merge(claude_callback_routes)
+        .merge(commandcode_callback_routes)
         .merge(providers_read_routes)
         .merge(providers_mgmt_routes)
         .merge(custom_provider_routes)

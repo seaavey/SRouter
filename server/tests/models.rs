@@ -7,7 +7,7 @@ use axum::{
 };
 use srouter_server::SecurityState;
 use srouter_server::app::create_router;
-use srouter_server::features::providers::{OPENCODE_ZEN_MODELS, ProviderRegistry};
+use srouter_server::features::providers::OPENCODE_ZEN_MODELS;
 use srouter_server::infrastructure::database::catalog_flags::favorite_model_ids;
 use support::{
     FAKE_QODER_ADVERTISED, FakeClineUpstream, FakeQoderUpstream, api_key_record, connect_cline,
@@ -17,7 +17,7 @@ use support::{
 use tower::ServiceExt;
 
 fn test_app(security: SecurityState) -> Router {
-    let providers = ProviderRegistry::with_defaults().expect("default providers");
+    let providers = support::default_providers();
     let state =
         srouter_server::AppState::with_security(support::test_config(), providers, security);
 
@@ -25,7 +25,7 @@ fn test_app(security: SecurityState) -> Router {
 }
 
 fn app_with_database(database: srouter_server::AppDatabase) -> Router {
-    let providers = ProviderRegistry::with_defaults().expect("default providers");
+    let providers = support::default_providers();
     let state = srouter_server::AppState::with_security(
         support::test_config(),
         providers,
@@ -111,7 +111,7 @@ async fn get_v1_models_returns_the_catalog_with_cache_control() {
         .iter()
         .map(|entry| entry["id"].as_str().unwrap())
         .collect();
-    assert!(ids.contains(&"zen/space-bunny-free"));
+    assert!(ids.contains(&"zen/beam-free"));
     assert!(ids.contains(&"zen/big-pickle"));
     assert_eq!(json["data"][0]["object"], "model");
 }
@@ -147,17 +147,17 @@ async fn get_single_model_returns_the_entry_or_404() {
 
     let found = app
         .clone()
-        .oneshot(get_request("/v1/models/zen%2Fspace-bunny-free"))
+        .oneshot(get_request("/v1/models/zen%2Fbeam-free"))
         .await
         .unwrap();
     assert_eq!(found.status(), StatusCode::OK);
     let json = json_body(found).await;
-    assert_eq!(json["id"], "zen/space-bunny-free");
+    assert_eq!(json["id"], "zen/beam-free");
     assert_eq!(json["object"], "model");
 
     let bare = app
         .clone()
-        .oneshot(get_request("/v1/models/space-bunny-free"))
+        .oneshot(get_request("/v1/models/beam-free"))
         .await
         .unwrap();
     assert_eq!(bare.status(), StatusCode::OK);
@@ -175,7 +175,7 @@ async fn get_single_model_returns_the_entry_or_404() {
 async fn allowlisted_keys_see_only_their_models() {
     const KEY: &str = "sr-live-test";
     let mut record = api_key_record("key_1");
-    record.allowed_models = Some(vec![String::from("zen/space-bunny-free")]);
+    record.allowed_models = Some(vec![String::from("zen/beam-free")]);
     let security = security_state(false, vec![(KEY.to_owned(), record)], vec![]);
     let app = test_app(security);
 
@@ -195,7 +195,7 @@ async fn allowlisted_keys_see_only_their_models() {
     assert_eq!(list.status(), StatusCode::OK);
     let json = json_body(list).await;
     assert_eq!(json["data"].as_array().unwrap().len(), 1);
-    assert_eq!(json["data"][0]["id"], "zen/space-bunny-free");
+    assert_eq!(json["data"][0]["id"], "zen/beam-free");
 
     let denied = app
         .oneshot(with_remote_client(
@@ -220,7 +220,7 @@ async fn favorite_model_ids_returns_lowercased_stored_ids() {
     let database = test_database.connect().await.unwrap();
 
     sqlx::query("INSERT INTO favorite_models (model_id, created_at) VALUES (?, ?)")
-        .bind("Zen/Space-Bunny-Free")
+        .bind("Zen/Beam-Free")
         .bind(1_700_000_000_i64)
         .execute(&database.sqlite_pool().unwrap())
         .await
@@ -228,7 +228,7 @@ async fn favorite_model_ids_returns_lowercased_stored_ids() {
 
     let ids = favorite_model_ids(&database).await.unwrap();
 
-    assert!(ids.contains("zen/space-bunny-free"));
+    assert!(ids.contains("zen/beam-free"));
     assert_eq!(ids.len(), 1);
 }
 
@@ -259,10 +259,7 @@ async fn models_list_marks_favorited_entries() {
             .clone()
     };
     assert_eq!(entry("zen/big-pickle")["favorite"], serde_json::json!(true));
-    assert_eq!(
-        entry("zen/space-bunny-free")["favorite"],
-        serde_json::json!(false)
-    );
+    assert_eq!(entry("zen/beam-free")["favorite"], serde_json::json!(false));
 }
 
 #[tokio::test]
@@ -474,7 +471,7 @@ async fn get_single_model_reports_favorite() {
     let database = test_database.connect().await.unwrap();
 
     sqlx::query("INSERT INTO favorite_models (model_id, created_at) VALUES (?, ?)")
-        .bind("zen/space-bunny-free")
+        .bind("zen/beam-free")
         .bind(1_700_000_000_i64)
         .execute(&database.sqlite_pool().unwrap())
         .await
@@ -484,12 +481,12 @@ async fn get_single_model_reports_favorite() {
 
     let favorited = app
         .clone()
-        .oneshot(get_request("/v1/models/zen%2Fspace-bunny-free"))
+        .oneshot(get_request("/v1/models/zen%2Fbeam-free"))
         .await
         .unwrap();
     assert_eq!(favorited.status(), StatusCode::OK);
     let json = json_body(favorited).await;
-    assert_eq!(json["id"], "zen/space-bunny-free");
+    assert_eq!(json["id"], "zen/beam-free");
     assert_eq!(json["favorite"], serde_json::json!(true));
 
     let plain = app

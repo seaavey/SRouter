@@ -106,14 +106,18 @@ function Sheet({ title, description, detents = [.45, .92], initialDetent = 0, on
 
   const offset = useCallback((stop: Stop) => {
     const full = height.get();
-    return stop === "closed" ? full + CLOSED_GAP : full * (1 - stops[stop]! / stops[top]!);
-  }, [height, stops, top]);
+    if (stop === "closed") return full + CLOSED_GAP;
+    // A detent is a fraction of the viewport, so a sheet shorter than it is already fully shown.
+    return Math.max(0, full - stops[stop]! * window.innerHeight);
+  }, [height, stops]);
 
   // The backdrop is a function of where the sheet is, so it darkens and clears with a drag instead of on a timer.
   const backdrop = useTransform([y, height, presence], ([offsetY = 0, full = 0, shown = 0]: number[]) => {
     if (!full) return 0;
-    const low = full * (1 - stops[0]! / stops[top]!), closed = full + CLOSED_GAP;
-    const dim = offsetY <= low ? 1 - (1 - LOW_DIM) * (low ? offsetY / low : 0) : LOW_DIM * (1 - (offsetY - low) / (closed - low));
+    const low = Math.max(0, full - stops[0]! * window.innerHeight), closed = full + CLOSED_GAP;
+    const dim = low === 0
+      ? 1 - offsetY / closed
+      : offsetY <= low ? 1 - (1 - LOW_DIM) * offsetY / low : LOW_DIM * (1 - (offsetY - low) / (closed - low));
     return clamp(dim, 0, 1) * shown;
   });
 

@@ -5,14 +5,14 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "generate-routes": "tsr generate",
-    "build": "tsr generate && tsc -b && vite build",
+    "generate-routes": "NODE_ENV=production tsr generate",
+    "build": "NODE_ENV=production tsr generate && tsc -b && vite build",
     "lint": "eslint .",
     "e2e": "playwright test",
     "e2e:stack": "bun e2e/support/stack.ts",
     "e2e:lightpanda": "bun e2e/lightpanda/smoke.mjs",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
-    "typecheck": "tsr generate && tsc --noEmit",
+    "typecheck": "NODE_ENV=production tsr generate && tsc --noEmit",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -21,6 +21,7 @@
     "@hugeicons/core-free-icons": "^4.3.5",
     "@hugeicons/react": "^1.1.10",
     "@radix-ui/react-dialog": "^1.3.1",
+    "@radix-ui/react-dropdown-menu": "^2.2.1",
     "@radix-ui/react-switch": "^1.4.1",
     "@radix-ui/react-tabs": "^1.2.1",
     "@radix-ui/react-tooltip": "^1.3.0",

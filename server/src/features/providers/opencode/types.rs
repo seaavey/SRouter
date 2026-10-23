@@ -4,9 +4,11 @@
 //! - `https://opencode.ai/docs/zen/` identifies OpenCode Zen, documents its API
 //!   endpoints, and lists the model names and ids offered through Zen.
 //! - `https://opencode.ai/inference/v1/models` is the provider's live public model
-//!   catalog. The nine ids in `OPENCODE_ZEN_MODELS` were checked against this
-//!   endpoint and the docs table on 2026-10-17; the seed is an intentional
-//!   subset, not a snapshot of every model returned by the endpoint.
+//!   catalog. `OPENCODE_ZEN_MODELS` is the curated seed: it keeps the gateway
+//!   useful before the first fetch lands and offline, while
+//!   [`super::catalog`] merges whatever the live endpoint currently returns on
+//!   top of it. Both lists hold only what the OpenAI-protocol executor can
+//!   serve — a free-tier chat model.
 //!   Deliberately excluded from the seed: `jev-1.13-free` (served on
 //!   `/v1/systemone`, not chat completions), the `muse-spark-*-contributor-free`
 //!   pair (served on `/v1/responses`), and the paid tiers — none of them are
@@ -17,7 +19,9 @@
 //!   which the same endpoint now returns. Three more ids left the seed after the
 //!   2026-10-15 live smoke test: `exo-free` now answers `410 ModelDeprecated`,
 //!   and `ling-3.0-flash-fin-free` and `ling-3.1-flash-free` answer
-//!   `400 Model is unavailable`.
+//!   `400 Model is unavailable`. `space-bunny-free` answered
+//!   `400 Model is unavailable` on 2026-10-23 and left the seed; `flint-40b-free`
+//!   took its place in the same refresh.
 //! - Free-tier chat moved off `/zen/v1/chat/completions` on 2026-10-14: that
 //!   path now answers `403 FreeTierError` to every caller, including the
 //!   official CLI, while the same bodies replayed against
@@ -38,8 +42,8 @@ pub const OPENCODE_ZEN_KEYS: &[&str] = &["opencode_zen", "opencode", "zen"];
 
 pub const OPENCODE_ZEN_MODELS: &[ModelDefinition] = &[
     ModelDefinition {
-        id: "space-bunny-free",
-        name: "Space Bunny Free",
+        id: "flint-40b-free",
+        name: "Flint 40B Free",
     },
     ModelDefinition {
         id: "beam-free",

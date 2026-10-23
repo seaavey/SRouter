@@ -16,6 +16,7 @@ use crate::features::providers::codebuddy::Flavor;
 use crate::features::providers::codex;
 use crate::features::providers::codex::CodexExecutor;
 use crate::features::providers::codex::types::CodexEndpoints;
+use crate::features::providers::commandcode;
 use crate::features::providers::grok_web;
 use crate::features::providers::grok_web::GrokWebExecutor;
 use crate::features::providers::grok_web::types::GrokWebEndpoints;
@@ -107,6 +108,7 @@ impl ProviderRegistry {
         registry.register(codebuddy::adapter(Flavor::China, database.clone())?);
         registry.register(antigravity::adapter(database.clone())?);
         registry.register(claude::adapter(database.clone())?);
+        registry.register(commandcode::adapter(database.clone())?);
         registry.register(codex::adapter(database)?);
 
         Ok(registry)
@@ -433,9 +435,9 @@ mod tests {
     #[test]
     fn resolves_a_bare_advertised_model_id() {
         let registry = registry_with_opencode();
-        let resolved = registry.resolve("space-bunny-free").expect("bare model");
+        let resolved = registry.resolve("beam-free").expect("bare model");
 
-        assert_eq!(resolved.model, "space-bunny-free");
+        assert_eq!(resolved.model, "beam-free");
     }
 
     #[test]
@@ -522,11 +524,7 @@ mod tests {
                 .iter()
                 .all(|entry| entry.object == "model" && entry.owned_by == "zen")
         );
-        assert!(
-            models
-                .iter()
-                .any(|entry| entry.id == "zen/space-bunny-free")
-        );
+        assert!(models.iter().any(|entry| entry.id == "zen/beam-free"));
     }
 
     #[test]

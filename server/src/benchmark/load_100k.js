@@ -17,7 +17,7 @@ import { Counter, Rate, Trend } from "k6/metrics";
 
 const BASE_URL = __ENV.BASE_URL || "http://127.0.0.1:3999";
 const API_KEY = __ENV.API_KEY || "sr-live-loadtest-00000000-0000-0000-0000-000000000000";
-const MODEL = __ENV.MODEL || "space-bunny-free";
+const MODEL = __ENV.MODEL || "beam-free";
 
 const chatErrors = new Rate("chat_errors");
 const chatDuration = new Trend("chat_duration", true);

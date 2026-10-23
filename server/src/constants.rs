@@ -611,6 +611,34 @@ pub mod providers {
         pub const STORE_CONNECTION: &str = "store the CodeBuddy connection";
     }
 
+    /// Messages of the `commandcode` provider: the credential load and the
+    /// relay's line-delimited stream. Every string a client can see lives here.
+    pub mod commandcode {
+        pub const NOT_CONNECTED: &str = "No active Command Code connection found. Connect the Command Code account in the Providers tab.";
+        pub const DATABASE_REQUIRED: &str =
+            "no database is configured; the Command Code connection cannot be read";
+        /// A 200 whose stream ended before any text, tool call, or finish: an
+        /// empty turn is worse than an error.
+        pub const EMPTY_STREAM: &str = "Command Code returned an empty or incomplete stream";
+        pub const STORE_CONNECTION: &str = "store the Command Code connection";
+
+        pub const OAUTH_SUCCESS: &str = "Command Code account connected";
+        pub const TOKEN_IMPORT_SUCCESS: &str =
+            "Command Code API key registered and saved directly to SQLite database!";
+        pub const KEY_CHECK_FAILED: &str =
+            "could not verify the Command Code key with the provider";
+
+        /// An in-stream `error` event, carrying the status the relay stated.
+        pub fn stream_error(message: &str) -> String {
+            format!("Command Code stream error: {message}")
+        }
+
+        /// `/alpha/whoami` answered without accepting the key.
+        pub fn key_rejected(status: u16) -> String {
+            format!("Command Code rejected the key ({status})")
+        }
+    }
+
     /// Messages of the `cline` provider: the WorkOS device flow, the credential
     /// load, and the lazy refresh. Every string a client can see lives here.
     pub mod cline {

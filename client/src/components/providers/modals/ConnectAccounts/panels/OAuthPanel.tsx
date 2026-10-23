@@ -77,69 +77,64 @@ export default function OAuthPanel({ flow, providerName }: OAuthPanelProps) {
       }}
       className="space-y-3.5 rounded-xl border border-border/80 bg-surface-muted/30 p-4"
     >
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <div className="flex h-5 w-5 items-center justify-center rounded-full bg-success/15 text-xs font-medium text-success">
-            ✓
-          </div>
-          <span className="text-sm font-medium text-foreground">
-            Paste callback URL or code
-          </span>
-        </div>
-
-        <div className="inline-flex items-center rounded-full border border-border/80 bg-surface/90 px-1.5 py-0.5 shadow-xs backdrop-blur-xs">
-          <CopyButton
-            value={oauthData.authorize_url}
-            label="Copy link"
-            variant="plain"
-          />
-
-          <div className="mx-0.5 h-3 w-px bg-border/80" aria-hidden="true" />
-
-          <a
-            href={oauthData.authorize_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex cursor-pointer items-center gap-1.5 px-2 py-1 text-xs font-medium whitespace-nowrap text-muted-foreground transition-colors hover:text-foreground"
-            title="Reopen authorization window in browser"
-          >
-            <ExternalLink size={12} />
-            <span>Re-open</span>
-          </a>
-        </div>
-      </div>
-
-      {flow.isPolling && (
-        <div className="flex items-center gap-2.5 rounded-lg border border-primary/30 bg-primary/5 p-3 text-xs text-foreground">
+      {flow.isPolling ? (
+        <div className="flex items-start gap-2.5" role="status">
           <LoaderCircle
             size={14}
-            className="shrink-0 animate-spin text-primary motion-reduce:animate-none"
+            className="mt-0.5 shrink-0 animate-spin text-primary motion-reduce:animate-none"
             aria-hidden="true"
           />
-          <div className="flex-1 leading-relaxed">
-            <span className="font-medium text-foreground">
-              Waiting for approval in browser...
+          <div className="min-w-0 text-xs leading-relaxed">
+            <span className="block font-medium text-foreground">
+              Waiting for approval in browser…
             </span>
-            <span className="block text-muted-foreground">
-              Once you sign in or click Approve on {providerName ?? "vendor"},
-              this dialog will automatically complete and save.
+            <span className="mt-0.5 block text-muted-foreground">
+              Approve the request on {providerName ?? "the provider"}; this
+              dialog saves the account and closes as soon as it lands.
             </span>
           </div>
+        </div>
+      ) : (
+        <div className="text-xs leading-relaxed">
+          <span className="block font-medium text-foreground">
+            Paste the callback URL or code
+          </span>
+          <span className="mt-0.5 block text-muted-foreground">
+            Finish the sign-in on {providerName ?? "the provider"}, then paste
+            what came back.
+          </span>
         </div>
       )}
 
-      <div className="flex items-start gap-2 rounded-lg border border-border/60 bg-surface/60 p-2.5 text-xs leading-relaxed text-muted-foreground">
+      <div className="flex flex-wrap items-center gap-2">
+        <CopyButton
+          value={oauthData.authorize_url}
+          label="Copy link"
+          variant="outline"
+        />
+        <a
+          href={oauthData.authorize_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Reopen the authorization page"
+          className="inline-flex min-h-[var(--control-height-sm)] items-center gap-1.5 rounded-[var(--radius-control)] border border-border bg-surface px-3 text-xs font-medium text-foreground transition-colors hover:bg-surface-muted"
+        >
+          <ExternalLink size={13} aria-hidden="true" />
+          <span>Re-open sign-in</span>
+        </a>
+      </div>
+
+      <p className="flex items-start gap-2 rounded-lg border border-border/60 bg-surface/60 p-2.5 text-xs leading-relaxed text-muted-foreground">
         <Info
           size={14}
           className="mt-0.5 shrink-0 text-primary"
           aria-hidden="true"
         />
         <span>
-          After approving in OpenAI, your browser redirects to port 1455. If the
-          resulting tab shows <em>&quot;Unable to connect&quot;</em>, simply
-          copy the URL from your browser address bar and paste it below:
+          If the browser tab ends on <em>&quot;Unable to connect&quot;</em>,
+          copy the whole URL from the address bar and paste it below.
         </span>
-      </div>
+      </p>
 
       <FloatingField
         label="Callback URL or authorization code"
