@@ -5,7 +5,7 @@
    Radix sets pointer-events: auto inline on the overlay, so only !important lets a click reach the trigger and reverse the exit. */
 .overlay[data-state="closed"], .sheet[data-state="closed"] { pointer-events: none !important; }
 
-/* The sheet is as tall as its largest detent plus a hidden extension below the fold; detents are translateY offsets from there. */
+/* The sheet is as tall as its content, capped at its largest detent, plus a hidden extension below the fold; detents are translateY offsets from there. */
 .sheet {
   position: fixed;
   z-index: 51;
@@ -15,8 +15,9 @@
   display: flex;
   flex-direction: column;
   width: min(100%, 36rem);
-  height: calc(var(--sheet-max) * 100vh + var(--sheet-extension));
-  height: calc(var(--sheet-max) * 100dvh + var(--sheet-extension));
+  height: auto;
+  max-height: calc(var(--sheet-max) * 100vh + var(--sheet-extension));
+  max-height: calc(var(--sheet-max) * 100dvh + var(--sheet-extension));
   margin-inline: auto;
   overflow: hidden;
   padding-bottom: calc(var(--sheet-extension) + env(safe-area-inset-bottom, 0px));

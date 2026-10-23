@@ -253,6 +253,9 @@ function ProvidersListPage() {
       key: "actions",
       label: "Actions",
       width: 210,
+      // `numeric` is the table's only alignment lever; the header has to sit
+      // over the right-aligned button, not at the column's start edge.
+      numeric: true,
       sortable: false,
       render: (_value, row) => (
         <span className="flex justify-end">

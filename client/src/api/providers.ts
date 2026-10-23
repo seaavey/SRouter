@@ -104,6 +104,31 @@ export function initiateOAuthLogin(providerID: string) {
   })
 }
 
+/**
+ * The auth family whose driver exposes `POST /v1/auth/{family}/token`, or null
+ * when the provider has no import route. Only openai (Codex), claude,
+ * antigravity and commandcode mount one; the device-flow drivers (qoder,
+ * cline, codebuddy, grok) do not, so a token posted for them would land on the
+ * Codex route and store a credential that never authenticates.
+ */
+function tokenImportFamily(providerID: string): string | null {
+  const normalized = providerID.toLowerCase()
+  if (normalized.includes("claude") || normalized.includes("anthropic")) {
+    return "claude"
+  }
+  if (normalized.includes("antigravity")) return "antigravity"
+  if (normalized.includes("commandcode")) return "commandcode"
+  if (normalized.includes("codex") || normalized.includes("openai")) {
+    return "openai"
+  }
+  return null
+}
+
+/** Whether this provider can take a pasted OAuth token at all. */
+export function supportsTokenImport(providerID: string) {
+  return tokenImportFamily(providerID) !== null
+}
+
 /** `POST /v1/auth/{provider}/token`. Imports an OAuth access token directly into SQLite. */
 export function importOAuthToken(
   providerID: string,
@@ -115,20 +140,15 @@ export function importOAuthToken(
     name?: string
   }
 ) {
-  const normalized = providerID.toLowerCase()
-  let tokenPath = "/v1/auth/openai/token"
-  if (normalized.includes("claude") || normalized.includes("anthropic")) {
-    tokenPath = "/v1/auth/claude/token"
-  } else if (normalized.includes("antigravity")) {
-    tokenPath = "/v1/auth/antigravity/token"
-  } else if (normalized.includes("commandcode")) {
-    tokenPath = "/v1/auth/commandcode/token"
+  const family = tokenImportFamily(providerID)
+  if (!family) {
+    throw new Error(`Token import is not available for ${providerID}.`)
   }
 
   return request<{
     success: boolean
     message: string
-  }>(tokenPath, {
+  }>(`/v1/auth/${family}/token`, {
     method: "POST",
     body,
   })

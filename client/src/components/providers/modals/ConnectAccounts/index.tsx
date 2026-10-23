@@ -1,6 +1,7 @@
 import { KeyRound, ShieldCheck } from "lucide-react"
 import { useState } from "react"
 
+import { supportsTokenImport } from "@/api/providers"
 import type { ProviderEntry } from "@/api/types"
 import { BottomSheet } from "@/components/arc/bottom-sheet/bottom-sheet"
 import { Button } from "@/components/arc/button/button"
@@ -47,6 +48,10 @@ export function ConnectAccountModal({
   const [authMode, setAuthMode] = useState<AuthMode>("oauth")
   const [connectionName, setConnectionName] = useState("")
   const isMobile = useIsMobile()
+  // Only the codex, claude, antigravity and commandcode drivers mount a token
+  // route; the rest authenticate through their own device flow, so offering a
+  // paste box there would only produce a credential that never works.
+  const canImportToken = supportsTokenImport(provider.id)
 
   const oauth = useOAuthFlow({
     providerID: provider.id,
@@ -84,44 +89,51 @@ export function ConnectAccountModal({
 
   const content = (
     <div className="flex flex-col gap-4">
-      {provider.requires_oauth && (
-        <Tabs
-          value={authMode}
-          onValueChange={(value) => {
-            if (value === "oauth" || value === "token") setAuthMode(value)
-          }}
-          className="w-full"
-        >
-          <div className="flex w-full justify-center">
-            <TabsList className="w-full">
-              <TabsTrigger value="oauth" className="flex-1">
-                <ShieldCheck size={14} className="shrink-0" />
-                <span className="whitespace-nowrap">Browser OAuth</span>
-              </TabsTrigger>
-              <TabsTrigger value="token" className="flex-1">
-                <KeyRound size={14} className="shrink-0" />
-                <span className="whitespace-nowrap">
-                  <span className="hidden sm:inline">Direct token import</span>
-                  <span className="sm:hidden">Import token</span>
-                </span>
-              </TabsTrigger>
-            </TabsList>
-          </div>
+      {provider.requires_oauth &&
+        (canImportToken ? (
+          <Tabs
+            value={authMode}
+            onValueChange={(value) => {
+              if (value === "oauth" || value === "token") setAuthMode(value)
+            }}
+            className="w-full"
+          >
+            <div className="flex w-full justify-center">
+              <TabsList className="w-full">
+                <TabsTrigger value="oauth" className="flex-1">
+                  <ShieldCheck size={14} className="shrink-0" />
+                  <span className="whitespace-nowrap">Browser OAuth</span>
+                </TabsTrigger>
+                <TabsTrigger value="token" className="flex-1">
+                  <KeyRound size={14} className="shrink-0" />
+                  <span className="whitespace-nowrap">
+                    <span className="hidden sm:inline">
+                      Direct token import
+                    </span>
+                    <span className="sm:hidden">Import token</span>
+                  </span>
+                </TabsTrigger>
+              </TabsList>
+            </div>
 
-          <TabsContent value="oauth" className="space-y-4">
-            <OAuthPanel flow={oauth} providerName={provider.name} />
-          </TabsContent>
+            <TabsContent value="oauth" className="space-y-4">
+              <OAuthPanel flow={oauth} providerName={provider.name} />
+            </TabsContent>
 
-          <TabsContent value="token" className="space-y-4">
-            <TokenImportPanel
-              providerID={provider.id}
-              flow={token}
-              connectionName={connectionName}
-              onConnectionNameChange={setConnectionName}
-            />
-          </TabsContent>
-        </Tabs>
-      )}
+            <TabsContent value="token" className="space-y-4">
+              <TokenImportPanel
+                providerID={provider.id}
+                flow={token}
+                connectionName={connectionName}
+                onConnectionNameChange={setConnectionName}
+              />
+            </TabsContent>
+          </Tabs>
+        ) : (
+          // One path only, so no strip to switch between: the driver's own
+          // device flow is the whole story here.
+          <OAuthPanel flow={oauth} providerName={provider.name} />
+        ))}
 
       {provider.requires_api_key && (
         <APIKeyPanel

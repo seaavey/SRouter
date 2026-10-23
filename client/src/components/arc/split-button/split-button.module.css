@@ -25,6 +25,13 @@
 .secondary .primary { min-width: 142px; border-radius: var(--radius-pill) 0 0 var(--radius-pill); padding-inline: var(--space-3); font-size: var(--text-xs); }
 .secondary .trigger { width: 32px; border-left-color: var(--border-subtle); border-radius: 0 var(--radius-pill) var(--radius-pill) 0; }
 .secondary .primary:active:not(:disabled), .secondary .trigger:active:not(:disabled), .secondary .trigger[data-state="open"] { background: color-mix(in oklab, var(--surface-muted), var(--border) 55%); }
+/* Local addition: below the tablet tier the label would take the row's width, so the icon stands in for it and the label lives on in the accessible name. Buttons with no icon keep their label, since collapsing would leave an empty pill. */
+@media (max-width: 639px) {
+  .group[data-collapse="true"] .primaryContent .glyphs { display: none; }
+  /* Square, and sized from the control token so a coarse pointer grows the tap target with the height. */
+  .group[data-collapse="true"] .primary { min-width: var(--control-height-md); padding-inline: 0; }
+  .group[data-collapse="true"].secondary .primary { min-width: var(--control-height-sm); }
+}
 .icon { display: inline-flex; }
 .srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 /* The menu grows from the trigger edge: offset toward the trigger, scale from the Radix origin, fade quickly; it leaves faster than it arrives.

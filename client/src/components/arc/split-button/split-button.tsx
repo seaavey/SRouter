@@ -90,7 +90,7 @@ export function SplitButton({ label, actions, onClick, disabled, icon, variant =
   const glyph = iconKey(icon);
   const width = useMorphWidth(contentRef, `${glyph}|${label}`, reduced);
   return <DropdownPrimitive.Root>
-    <div className={[styles.group, variant === "secondary" ? styles.secondary : ""].filter(Boolean).join(" ")}>
+    <div className={[styles.group, variant === "secondary" ? styles.secondary : ""].filter(Boolean).join(" ")} data-collapse={icon ? "true" : undefined}>
       <button className={styles.primary} type="button" onClick={onClick} disabled={disabled} aria-label={ariaLabel}>
         <motion.span className={styles.primarySlot} style={{ width }} aria-hidden="true">
           <span ref={contentRef} className={styles.primaryContent}>
