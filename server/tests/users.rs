@@ -620,6 +620,34 @@ async fn portal_logs_count_only_the_callers_rows() {
     assert_eq!(all["data"].as_array().unwrap().len(), 5);
 }
 
+/// Deleting a key must not take its history out of the customer's console: the
+/// row carries its owner, so the tenant read never rejoins `api_keys`.
+#[tokio::test]
+async fn portal_logs_keep_rows_after_their_key_is_deleted() {
+    let database = TestDatabase::new().unwrap();
+    let app = admin_app(&database).await;
+    let (_, acme) = create_user(&app, "Acme").await;
+    let user_id = acme["id"].as_str().unwrap();
+    let database = database.connect().await.expect("temporary database");
+    seed_key(&database, "key_acme", user_id).await;
+    seed_log(&database, &log_id(1), user_id, "key_acme", 200).await;
+
+    sqlx::query("DELETE FROM api_keys WHERE id = 'key_acme'")
+        .execute(&database.sqlite_pool().unwrap())
+        .await
+        .expect("delete the key");
+
+    let (_, acme_cookie, _) = login(&app, acme["token"].as_str().unwrap()).await;
+    let (status, page) = send(
+        &app,
+        portal_request(&acme_cookie, "GET", PORTAL_LOGS, json!({})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(page["pagination"]["total"], 1);
+    assert_eq!(page["data"][0]["user_id"], user_id);
+}
+
 /// The `error` predicate is a disjunction, so without its parentheses the
 /// appended `AND EXISTS` binds to the second arm only and `< 200` rows from
 /// every tenant leak into the page.
