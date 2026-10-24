@@ -33,6 +33,18 @@ export function createAPIKey(input: CreateAPIKeyInput) {
   })
 }
 
+/**
+ * `POST /v1/keys/{id}/regenerate`. Mints a new secret for an existing key,
+ * replacing the stored hash and display prefix; the new secret is returned once,
+ * exactly like creation.
+ */
+export function regenerateAPIKey(keyID: string) {
+  return request<CreatedAPIKeyResponse>(
+    `/v1/keys/${encodeURIComponent(keyID)}/regenerate`,
+    { method: "POST" }
+  )
+}
+
 /** `PATCH /v1/keys/{id}`. Absent fields are left untouched. */
 export function updateAPIKey(keyID: string, input: UpdateAPIKeyInput) {
   return request<APIKeyResponse>(`/v1/keys/${encodeURIComponent(keyID)}`, {
@@ -43,21 +55,7 @@ export function updateAPIKey(keyID: string, input: UpdateAPIKeyInput) {
 
 /** `DELETE /v1/keys/{id}`. Revocation is immediate: the key stops authenticating. */
 export function deleteAPIKey(keyID: string) {
-  return request<{ message: string }>(
-    `/v1/keys/${encodeURIComponent(keyID)}`,
-    { method: "DELETE" }
-  )
-}
-
-/**
- * `POST /v1/keys/{id}/credit`. The server adds `amount` to the key's current
- * cap and rejects anything at or below zero, so a top-up is its own action
- * rather than a field of the update: "set the cap to 20" and "add 20" are
- * different requests.
- */
-export function addAPIKeyCredit(keyID: string, amount: number) {
-  return request<APIKeyResponse>(
-    `/v1/keys/${encodeURIComponent(keyID)}/credit`,
-    { method: "POST", body: { amount } }
-  )
+  return request<{ message: string }>(`/v1/keys/${encodeURIComponent(keyID)}`, {
+    method: "DELETE",
+  })
 }

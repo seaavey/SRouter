@@ -9,12 +9,11 @@ import ActionButton from "@/components/arc/action-button/action-button"
 import { Alert } from "@/components/arc/alert/alert"
 import { Button } from "@/components/arc/button/button"
 import { EmptyState } from "@/components/arc/empty-state/empty-state"
-import { Skeleton } from "@/components/arc/skeleton/skeleton"
 import { SectionHeader } from "@/components/layout/section-header"
 
-import { AddCreditDialog } from "./AddCreditDialog"
 import { CreateKeyDialog } from "./CreateKeyDialog"
 import { EditKeyDialog } from "./EditKeyDialog"
+import { KeysPlaceholders } from "./KeysPlaceholders"
 import { KeysTable } from "./KeysTable"
 
 export function KeysView() {
@@ -22,7 +21,6 @@ export function KeysView() {
   const { data: userList } = useQuery(usersQuery)
   const [createOpen, setCreateOpen] = useState(false)
   const [editingKey, setEditingKey] = useState<APIKeyResponse | null>(null)
-  const [creditKey, setCreditKey] = useState<APIKeyResponse | null>(null)
 
   const keys = data?.data ?? []
   const users = userList?.data ?? []
@@ -33,7 +31,11 @@ export function KeysView() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    // The two type steps this screen uses are fluid: 12/11px on a phone, the
+    // house 14/12 from the laptop tier up. Both the Tailwind utilities and the
+    // Arc modules read `--text-sm`/`--text-xs`, so overriding the pair here
+    // scales the table, the cards and the controls together.
+    <div className="flex flex-col gap-6 [--text-sm--line-height:1.4] [--text-sm:clamp(0.75rem,0.7083rem_+_0.2083vw,0.875rem)] [--text-xs--line-height:1.45] [--text-xs:clamp(0.6875rem,0.6667rem_+_0.1042vw,0.75rem)]">
       <SectionHeader
         title="API keys"
         description="Issue, rotate, and restrict client authentication keys with rate, token, and spend limits."
@@ -50,7 +52,14 @@ export function KeysView() {
         }
       />
 
-      {isPending && <Skeleton label="Loading keys" lines={5} />}
+      {isPending && (
+        <>
+          <span role="status" className="sr-only">
+            Loading keys
+          </span>
+          <KeysPlaceholders />
+        </>
+      )}
 
       {isError && (
         <Alert tone="danger" title="Could not load keys">
@@ -94,7 +103,6 @@ export function KeysView() {
           keys={keys}
           users={users}
           onEditKey={(key) => setEditingKey(key)}
-          onAddCredit={(key) => setCreditKey(key)}
         />
       )}
 
@@ -103,11 +111,6 @@ export function KeysView() {
         open={editingKey !== null}
         onOpenChange={(open) => !open && setEditingKey(null)}
         keyRecord={editingKey}
-      />
-      <AddCreditDialog
-        open={creditKey !== null}
-        onOpenChange={(open) => !open && setCreditKey(null)}
-        keyRecord={creditKey}
       />
     </div>
   )
