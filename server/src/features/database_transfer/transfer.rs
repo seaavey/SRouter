@@ -8,6 +8,7 @@
 //! copied from the Node implementation (the plan's D7).
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -27,6 +28,10 @@ use super::multipart::set_private_file_mode;
 /// The upload cap, shared by the route guard and the streaming writer.
 /// `MAX_DATABASE_UPLOAD_BYTES` in `database.controller.ts:24`.
 pub const MAX_UPLOAD_BYTES: usize = 25 * 1024 * 1024;
+
+/// How far a compressed upload may expand. A 25 MiB `.db.gz` can decode to
+/// gigabytes, so decompression is bounded rather than trusting the archive.
+pub const MAX_RESTORED_BYTES: u64 = 2 * 1024 * 1024 * 1024;
 
 /// A transfer failure that maps to a frozen status and error code
 /// (`docs/api-database-contract.md` §"Transfer error mapping").
@@ -125,6 +130,110 @@ pub async fn export_snapshot(
     result?;
 
     set_private_file_mode(output_path)
+}
+
+/// Compresses a finished snapshot. A gateway that has served for a while keeps
+/// tens of megabytes of request-log text, which gzip takes to a fraction of it.
+pub fn compress_snapshot(source: &Path, target: &Path) -> Result<(), APIError> {
+    let input = std::fs::File::open(source).map_err(|error| {
+        APIError::new(
+            500,
+            format!("could not read the database snapshot: {error}"),
+        )
+    })?;
+    let output = std::fs::File::create(target).map_err(|error| {
+        APIError::new(
+            500,
+            format!("could not create the compressed snapshot: {error}"),
+        )
+    })?;
+    set_private_file_mode(target)?;
+
+    let mut encoder = flate2::write::GzEncoder::new(output, flate2::Compression::best());
+    std::io::copy(&mut std::io::BufReader::new(input), &mut encoder).map_err(|error| {
+        APIError::new(
+            500,
+            format!("could not compress the database snapshot: {error}"),
+        )
+    })?;
+    encoder.finish().map_err(|error| {
+        APIError::new(
+            500,
+            format!("could not finish the compressed snapshot: {error}"),
+        )
+    })?;
+
+    Ok(())
+}
+
+/// Decompresses an upload that arrived gzipped, in place. The magic bytes decide,
+/// not the filename: a `.db` that is really a `.db.gz` still imports, and an
+/// export made before compression keeps working.
+pub fn decompress_if_gzip(path: &Path) -> Result<(), APIError> {
+    let mut magic = [0u8; 2];
+    let mut probe = std::fs::File::open(path).map_err(|error| {
+        APIError::new(
+            500,
+            format!("could not read the uploaded database: {error}"),
+        )
+    })?;
+    if probe.read(&mut magic).unwrap_or(0) < 2 || magic != [0x1f, 0x8b] {
+        return Ok(());
+    }
+    drop(probe);
+
+    let temporary = temp_sibling(path, "gunzip");
+    let input = std::fs::File::open(path).map_err(|error| {
+        APIError::new(
+            500,
+            format!("could not read the uploaded database: {error}"),
+        )
+    })?;
+    let output = std::fs::File::create(&temporary).map_err(|error| {
+        APIError::new(
+            500,
+            format!("could not unpack the uploaded database: {error}"),
+        )
+    })?;
+    set_private_file_mode(&temporary)?;
+    let copied = (|| -> std::io::Result<u64> {
+        let mut decoder = flate2::read::GzDecoder::new(input).take(MAX_RESTORED_BYTES + 1);
+        let mut writer = std::io::BufWriter::new(output);
+        let copied = std::io::copy(&mut decoder, &mut writer)?;
+        writer.flush()?;
+        Ok(copied)
+    })();
+
+    let copied = match copied {
+        Ok(copied) => copied,
+        Err(error) => {
+            let _ = std::fs::remove_file(&temporary);
+            return Err(APIError::new(
+                400,
+                format!("could not decompress the uploaded database: {error}"),
+            ));
+        }
+    };
+    // A 25 MiB upload can decode to gigabytes; the cap is the guard.
+    if copied > MAX_RESTORED_BYTES {
+        let _ = std::fs::remove_file(&temporary);
+        return Err(APIError::new(
+            400,
+            format!(
+                "the uploaded backup expands beyond the {} MB limit",
+                MAX_RESTORED_BYTES / (1024 * 1024)
+            ),
+        ));
+    }
+    std::fs::rename(&temporary, path).map_err(|error| {
+        let _ = std::fs::remove_file(&temporary);
+        APIError::new(
+            500,
+            format!("could not unpack the uploaded database: {error}"),
+        )
+    })?;
+
+    Ok(())
 }
 
 /// Validates and imports `candidate_path`, replacing the active database.
@@ -330,9 +439,9 @@ pub fn utc_stamp_14(now_ms: i64) -> String {
     format!("{year:04}{month:02}{day:02}{hour:02}{minute:02}{second:02}")
 }
 
-/// The export filename, `srouter-backup-<14 digits>.db`.
+/// The export filename, `srouter-backup-<14 digits>.db.gz`.
 pub fn export_filename(now_ms: i64) -> String {
-    format!("srouter-backup-{}.db", utc_stamp_14(now_ms))
+    format!("srouter-backup-{}.db.gz", utc_stamp_14(now_ms))
 }
 
 /// Renders a backup path the way the dashboard expects: relative to

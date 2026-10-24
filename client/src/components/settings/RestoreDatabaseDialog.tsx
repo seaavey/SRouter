@@ -86,11 +86,11 @@ export function RestoreDatabaseDialog({
       </Alert>
 
       <FileUpload
-        accept=".db"
+        accept=".db,.gz,application/gzip"
         multiple={false}
         maxSize={MAX_UPLOAD_BYTES}
         label="Database file"
-        description="A .db file exported from this gateway, up to 25 MB."
+        description="A .db or .db.gz file exported from this gateway, up to 25 MB."
         value={picked}
         onChange={setPicked}
       />

@@ -11,6 +11,7 @@ path = "src/lib.rs"
 axum = { version = "0.8.9", features = ["multipart"] }
 base64 = "0.23.1"
 dotenvy = "0.15.7"
+flate2 = "1.1"
 futures-util = "0.3.34"
 getrandom = "0.4.3"
 hex = "0.4.3"

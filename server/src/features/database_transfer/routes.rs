@@ -19,7 +19,8 @@ use crate::state::AppState;
 
 use super::multipart::stream_database_field;
 use super::transfer::{
-    MAX_UPLOAD_BYTES, TransferError, export_filename, export_snapshot, import_database,
+    MAX_UPLOAD_BYTES, TransferError, compress_snapshot, decompress_if_gzip, export_filename,
+    export_snapshot, import_database,
 };
 
 /// Mounts the database transfer routes.
@@ -74,9 +75,12 @@ async fn export_handler(State(state): State<AppState>) -> Result<Response, APIEr
         )
     })?;
     let output_path = directory.join("database.db");
+    let archive_path = directory.join("database.db.gz");
 
-    let result = export_snapshot(database, &state.config.srouter_dir, &output_path).await;
-    let response = result.and_then(|()| export_response(&output_path));
+    let result = export_snapshot(database, &state.config.srouter_dir, &output_path)
+        .await
+        .and_then(|()| compress_snapshot(&output_path, &archive_path));
+    let response = result.and_then(|()| export_response(&archive_path));
 
     let _ = std::fs::remove_dir_all(&directory);
     response
@@ -94,7 +98,7 @@ fn export_response(output_path: &std::path::Path) -> Result<Response, APIError> 
     let mut response = Response::new(Body::from(bytes));
     response.headers_mut().insert(
         header::CONTENT_TYPE,
-        HeaderValue::from_static("application/octet-stream"),
+        HeaderValue::from_static("application/gzip"),
     );
     response.headers_mut().insert(
         header::CONTENT_LENGTH,
@@ -151,7 +155,12 @@ async fn import_handler(
 
     let result = stream_database_field(request, &state, &candidate_path).await;
     let result = match result {
-        Ok(()) => import_database(database, &state.config, &candidate_path).await,
+        // The export is gzipped now; an older plain `.db` upload still passes
+        // through untouched because the check reads the magic bytes.
+        Ok(()) => match decompress_if_gzip(&candidate_path) {
+            Ok(()) => import_database(database, &state.config, &candidate_path).await,
+            Err(error) => Err(error),
+        },
         Err(error) => Err(error),
     };
 

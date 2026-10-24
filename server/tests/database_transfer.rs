@@ -7,12 +7,14 @@
 
 mod support;
 
+use std::io::{Read, Write};
 use std::path::Path;
 
 use axum::Router;
 use axum::body::{Body, to_bytes};
 use axum::http::{Request, StatusCode, header};
 use axum::response::Response;
+use flate2::read::GzDecoder;
 use srouter_server::app::create_router;
 use srouter_server::features::admin_auth::hash_session_token;
 use srouter_server::features::providers::ProviderRegistry;
@@ -201,7 +203,7 @@ async fn export_requires_an_admin_session_and_rejects_api_keys_and_loopback() {
             .headers()
             .get(header::CONTENT_TYPE)
             .and_then(|value| value.to_str().ok()),
-        Some("application/octet-stream")
+        Some("application/gzip")
     );
     let disposition = authorized
         .headers()
@@ -210,12 +212,16 @@ async fn export_requires_an_admin_session_and_rejects_api_keys_and_loopback() {
         .unwrap_or_default()
         .to_owned();
     assert!(disposition.starts_with("attachment; filename=\"srouter-backup-"));
-    assert!(disposition.ends_with(".db\""));
+    assert!(disposition.ends_with(".db.gz\""));
     assert!(authorized.headers().contains_key(header::CONTENT_LENGTH));
 
-    // The body is a readable SQLite file.
+    // The body is a gzip stream that decodes to a readable SQLite file.
     let bytes = to_bytes(authorized.into_body(), 64 << 20).await.unwrap();
-    assert!(bytes.starts_with(b"SQLite format 3\0"));
+    assert_eq!(&bytes[..2], &[0x1f, 0x8b]);
+    let mut decoder = GzDecoder::new(bytes.as_ref());
+    let mut snapshot = Vec::new();
+    decoder.read_to_end(&mut snapshot).unwrap();
+    assert!(snapshot.starts_with(b"SQLite format 3\0"));
 }
 
 // ---------------------------------------------------------------------------
@@ -320,6 +326,42 @@ async fn import_replaces_the_database_and_is_visible_through_an_existing_router(
 // ---------------------------------------------------------------------------
 // Import: multipart shape
 // ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn import_accepts_a_gzipped_export() {
+    let database = TestDatabase::new().unwrap();
+    seed_session(&database).await;
+    let (app, app_database) = app(&database).await;
+
+    let candidate = database.path().with_extension("gzip-candidate.db");
+    write_valid_candidate(&candidate).await;
+    let contents = std::fs::read(&candidate).unwrap();
+    let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::best());
+    encoder.write_all(&contents).unwrap();
+    let archive = encoder.finish().unwrap();
+
+    let boundary = "database-gzip-upload";
+    let body = multipart_file_body(
+        boundary,
+        "Content-Disposition: form-data; name=\"database\"; filename=\"source.db.gz\"",
+        &archive,
+    );
+
+    let response = app
+        .clone()
+        .oneshot(multipart_request(&body, boundary))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let pool = app_database.sqlite_pool().expect("SQLite pool");
+    let marker: Option<String> =
+        sqlx::query_scalar("SELECT value FROM settings WHERE key = 'imported_marker'")
+            .fetch_optional(&pool)
+            .await
+            .unwrap();
+    assert_eq!(marker.as_deref(), Some("yes"));
+}
 
 #[tokio::test]
 async fn import_rejects_duplicate_parts_and_a_missing_filename() {
@@ -848,7 +890,7 @@ fn export_filename_is_the_fourteen_digit_utc_stamp() {
     let now_ms = 1_791_211_923_123;
     assert_eq!(
         srouter_server::features::database_transfer::export_filename(now_ms),
-        "srouter-backup-20261005145203.db"
+        "srouter-backup-20261005145203.db.gz"
     );
 }
 

@@ -19,7 +19,7 @@ export async function exportDatabase(): Promise<void> {
   // document for the one click and leaves right after.
   const anchor = document.createElement("a")
   anchor.href = url
-  anchor.download = filename ?? "srouter-backup.db"
+  anchor.download = filename ?? "srouter-backup.db.gz"
   document.body.append(anchor)
   anchor.click()
   anchor.remove()
