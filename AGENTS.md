@@ -59,6 +59,53 @@ Read this before touching a file. Nothing here is enforced by tooling; it is enf
 
 For server work, [`skills/srouter-server/SKILL.md`](skills/srouter-server/SKILL.md) is the detailed companion to the rules above; for client work, the companion is [`skills/srouter-frontend/SKILL.md`](skills/srouter-frontend/SKILL.md).
 
+## Workflow: Superpowers Skills (Mandatory)
+
+All code work in this repo runs through the **superpowers** set installed at `~/.agents/skills` (15 skills, symlinked into the Hermes skills root as `~/.hermes/skills/<name>`). Load the skill with `skill_view(name=...)` when its trigger fires. Do not paraphrase the process from memory, and do not skip a phase because the diff "looks small".
+
+The Hermes-side router for this file is the skill `seaavey-project-workflow`: it maps phase → skill and project → repo skill. This section is the in-repo copy of the same mandate, so a non-Hermes agent reads the same rules.
+
+| Trigger | Skill |
+| --- | --- |
+| Starting a task, or unsure which process applies | `using-superpowers` |
+| Any work that produces or changes something — feature, behaviour, doc, config | `brainstorming` (load it first, every time; it decides whether a conversation is needed) |
+| Any `*.tsx` file, created, edited, reviewed, or refactored | `vercel-react-best-practices` (filename trigger, before the first edit, no exception) |
+| `client/src/api/**`, `queryOptions`, `useQuery`, `useMutation`, `QueryClient` | `tanstack-query` |
+| `client/src/routes/**`, `routeTree.gen.ts`, `createFileRoute`, `validateSearch`, `useSearch` | `tanstack-router` |
+| Data grid, form, long-list virtualization, debounce, devtools panel | `tanstack-table` / `tanstack-form` / `tanstack-virtual` / `tanstack-pacer` / `tanstack-devtools` (only the one in play) |
+| Multi-step work, before implementing | `writing-plans` |
+| Executing a written plan | `executing-plans` |
+| Plan has independent tasks worth parallelising | `dispatching-parallel-agents` |
+| Plan tasks handed to fresh subagents | `subagent-driven-development` |
+| Any implementation or bugfix, before product code | `test-driven-development` |
+| Any bug, test failure, or unexpected behaviour, before proposing a fix | `systematic-debugging` |
+| A superpowers run itself went wrong | `diagnosing-superpowers` |
+| Work complete, before merge | `requesting-code-review` |
+| Review feedback arrived | `receiving-code-review` |
+| About to claim "done", "fixed", or "passing" | `verification-before-completion` |
+| Branch ready to merge or open a PR | `finishing-a-development-branch` |
+| Long or risky work that needs isolation from `main` | `using-git-worktrees` |
+| Authoring or editing a skill | `writing-skills` |
+
+Hard gates, in order:
+
+1. **`brainstorming` is loaded before any work that produces or changes something.** Loading is unconditional and comes before the first edit or the first reply that commits to an approach; the skill itself decides whether the request is complete enough to just build (`make the icon cornflower blue`) or needs a conversation. The only exits are the ones it defines: the human opts out of the questions, or asks for a spike. "It's a small change" is not an exit.
+2. **No production code before a failing test** from `test-driven-development`. Where this repo genuinely has no runner for the surface (the client has none), say so explicitly and substitute `bun run typecheck && bun run lint && bun run build` plus a browser pass — never a silent skip.
+3. **No fix before `systematic-debugging` Phase 1 has a root cause.** Three failed fixes mean the architecture is questioned (Phase 4.5), not a fourth attempt.
+4. **No "done" claim before `verification-before-completion`.** Rule 12 (verify by running) is the evidence; the skill is the checklist.
+5. **No merge without `requesting-code-review`** on the exact SHA range, with Critical and Important findings resolved.
+6. Passing a superpowers phase is not passing this repo's gates: `cargo fmt --check`, `clippy -D warnings`, the full suite, and the client checks still apply.
+
+The bundled Hermes copies of `requesting-code-review`, `systematic-debugging`, and `test-driven-development` are parked in `/root/.hermes/skills-disabled/bundled-superpowers-duplicates/`. Leave them disabled: a second skill with the same name makes `skill_view` refuse to resolve the name at all.
+
+<!-- antislop:start -->
+### antislop (UI, copy, comments, mobile)
+
+Interface, copy, accessibility, mobile-layout, or code-comment work also loads the antislop filter. On Hermes Agent the skills are `antislop` (core, always loaded with one of the below) plus `antislop-ui`, `antislop-copywriting`, `antislop-human`, `antislop-layoutmobile`, `antislop-code`. `ui-ux-pro-max` adds design intelligence and never replaces the filter.
+
+Resolve the mode before the first edit: an explicit choice in the conversation, else `~/.config/antislop/settings.json`, else ask DURING or AFTER and stop. Announce `antislop active: <mode> (<source>).` once. Run the Delivery Gate before handing anything over: a PASS/FAIL line per rule, each PASS backed by evidence, and a report containing a FAIL is never shipped.
+<!-- antislop:end -->
+
 ## Key Directories
 
 | Path                         | Contents                                                                                                                                                                                                                                                                                            |

@@ -17,6 +17,8 @@ Work inside `server/`. One Rust crate (`srouter-server`) that is the whole produ
 
 **The contract is the Rust types and the route tests.** Comments citing `docs/api-v1-contract.md` or `docs/schemas-database.md` point at files that no longer exist — those contracts now live in the types, `constants.rs`, and `server/tests/`.
 
+**Process is not optional.** Every change runs through the superpowers workflow (`AGENTS.md` → `## Workflow: Superpowers Skills (Mandatory)`): `brainstorming` before design, `writing-plans` before multi-step work, `test-driven-development` before product code, `systematic-debugging` before any fix, `verification-before-completion` before claiming done, `requesting-code-review` before merge.
+
 ## When to Use
 
 - Anything under `server/src`, `server/tests`, or `server/migrations`.
@@ -85,6 +87,7 @@ cargo test --manifest-path server/Cargo.toml --locked                  # everyth
 cargo fmt --manifest-path server/Cargo.toml -- --check
 cargo clippy --manifest-path server/Cargo.toml --all-targets --all-features --locked -- -D warnings
 cargo run --manifest-path server/Cargo.toml                            # run it, cwd server/ for .env
+cargo run --manifest-path server/Cargo.toml --bin srouter-server       # the daemon target is NOT named `srouter`
 cargo run --manifest-path server/Cargo.toml --bin export_ts            # after any wire-type change
 ```
 
