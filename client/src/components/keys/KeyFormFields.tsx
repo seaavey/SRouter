@@ -46,6 +46,37 @@ type KeyFormFieldsProps = {
 /** A stored limit renders as its own text, with `0` shown as the empty box that produced it. */
 const limitText = (value: number | null) => (value ? String(value) : "")
 
+/**
+ * Limits are typed as digits and shown grouped: `1000000` reads `1,000,000`.
+ * The form state stays unformatted, so every consumer of it keeps parsing plain
+ * digits exactly as before.
+ */
+function groupedInteger(text: string) {
+  const digits = text.replace(/\D/g, "")
+  return digits === "" ? "" : Number(digits).toLocaleString("en-US")
+}
+
+function groupedDecimal(text: string) {
+  if (text === "") return ""
+  const [whole, ...rest] = text.split(".")
+  const digits = whole.replace(/\D/g, "")
+  const head = digits === "" ? "" : Number(digits).toLocaleString("en-US")
+  return rest.length === 0
+    ? head
+    : `${head}.${rest.join("").replace(/\D/g, "")}`
+}
+
+const integerText = (raw: string) => raw.replace(/\D/g, "")
+
+/** Two decimals is a USD cap; anything past them is dropped as it is typed. */
+function decimalText(raw: string) {
+  const [whole, ...rest] = raw
+    .replace(/,/g, "")
+    .replace(/[^\d.]/g, "")
+    .split(".")
+  return rest.length === 0 ? whole : `${whole}.${rest.join("").slice(0, 2)}`
+}
+
 /** `0` and out-of-range input both mean "no limit", which is how the server reads `0`. */
 function limitValue(text: string, fractional = false) {
   const value = Number(text)
@@ -183,26 +214,20 @@ export function KeyFormFields({
         <FloatingField
           id="key-rate-limit"
           label="Rate limit (req/min)"
-          type="number"
-          min={0}
-          step={1}
           inputMode="numeric"
-          value={values.rate_limit}
+          value={groupedInteger(values.rate_limit)}
           onChange={(event) =>
-            onChange({ rate_limit: event.currentTarget.value })
+            onChange({ rate_limit: integerText(event.currentTarget.value) })
           }
           placeholder="Unlimited"
         />
         <FloatingField
           id="key-quota-limit"
           label="Token quota"
-          type="number"
-          min={0}
-          step={1}
           inputMode="numeric"
-          value={values.quota_limit}
+          value={groupedInteger(values.quota_limit)}
           onChange={(event) =>
-            onChange({ quota_limit: event.currentTarget.value })
+            onChange({ quota_limit: integerText(event.currentTarget.value) })
           }
           placeholder="No budget"
         />
@@ -211,13 +236,10 @@ export function KeyFormFields({
       <FloatingField
         id="key-credit-limit"
         label="Credit cap (USD)"
-        type="number"
-        min={0}
-        step="any"
         inputMode="decimal"
-        value={values.credit_limit}
+        value={groupedDecimal(values.credit_limit)}
         onChange={(event) =>
-          onChange({ credit_limit: event.currentTarget.value })
+          onChange({ credit_limit: decimalText(event.currentTarget.value) })
         }
         placeholder="No cap"
         description="Spend the key may accumulate before the gateway refuses it. Empty means no cap."

@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
-import { useMemo } from "react"
+import { useEffect, useMemo } from "react"
 
 import { modelListQuery } from "@/api/models"
 import ActionButton from "@/components/arc/action-button/action-button"
@@ -36,26 +36,25 @@ export function ModelAllowlistField({
 }: ModelAllowlistFieldProps) {
   const { data, isPending, isError, refetch } = useQuery(modelListQuery)
 
-  const options = useMemo<MultiSelectOption[]>(() => {
-    const models = data?.data ?? []
-    const listedIds = new Set(models.map((m) => m.id))
+  const options = useMemo<MultiSelectOption[]>(
+    () =>
+      (data?.data ?? []).map((model) => ({
+        value: model.id,
+        label: model.id,
+        category: resolveCategory(model.owned_by, model.id),
+      })),
+    [data]
+  )
 
-    const catalogOptions: MultiSelectOption[] = models.map((model) => ({
-      value: model.id,
-      label: model.id,
-      category: resolveCategory(model.owned_by, model.id),
-    }))
-
-    const storedOptions: MultiSelectOption[] = value
-      .filter((id) => !listedIds.has(id))
-      .map((id) => ({
-        value: id,
-        label: id,
-        category: "Custom / Stored",
-      }))
-
-    return [...catalogOptions, ...storedOptions]
-  }, [data, value])
+  // A stored allowlist can name a model the catalog no longer serves. Offering
+  // it would let the operator keep an id the gateway cannot route, so anything
+  // missing from the catalog leaves both the picker and the form.
+  useEffect(() => {
+    if (!data) return
+    const listed = new Set(data.data.map((model) => model.id))
+    const kept = value.filter((id) => listed.has(id))
+    if (kept.length !== value.length) onValueChange(kept)
+  }, [data, value, onValueChange])
 
   async function retry() {
     const result = await refetch()
