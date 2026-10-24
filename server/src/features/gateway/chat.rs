@@ -130,6 +130,13 @@ async fn run_streaming_interception_loop(
 ) {
     let mut current_depth = 0;
     let mut stream_usage = UsageBreakdown::default();
+    let mut heartbeat = tokio::time::interval(sse::HEARTBEAT_INTERVAL);
+    heartbeat.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+    // The response already opens with one heartbeat; skip the interval's
+    // immediate first tick so the next one lands one period later.
+    heartbeat.tick().await;
+    let mut outbound = sse::SseLineBoundary::new();
+    let mut terminal_seen = false;
 
     while current_depth <= MAX_INTERCEPT_DEPTH {
         let resolved = match state.providers.resolve(&chat_request.model) {
@@ -211,6 +218,26 @@ async fn run_streaming_interception_loop(
                     .await;
                     return;
                 }
+                _ = heartbeat.tick() => {
+                    if !terminal_seen
+                        && outbound.is_at_boundary()
+                        && tx.send(Ok(sse::heartbeat_bytes())).await.is_err()
+                    {
+                        log_request(
+                            &state,
+                            &context,
+                            resolved.adapter.id(),
+                            &chat_request.model,
+                            Some(&resolved.model),
+                            200,
+                            &stream_usage,
+                            None,
+                        )
+                        .await;
+                        return;
+                    }
+                    continue;
+                }
                 next = stream.next() => match next {
                     Some(bytes) => bytes,
                     None => break 'read,
@@ -224,6 +251,8 @@ async fn run_streaming_interception_loop(
                         stream_failure = Some(failure);
                     }
                 }
+                terminal_seen |= decoder.saw_done();
+                outbound.observe(&bytes);
                 if tx.send(Ok(bytes)).await.is_err() {
                     log_request(
                         &state,
@@ -260,6 +289,7 @@ async fn run_streaming_interception_loop(
                 if turn.observe_delta(&json) {
                     streamed_directly = true;
                     for buffered in buffered_bytes.drain(..) {
+                        outbound.observe(&buffered);
                         if tx.send(Ok(buffered)).await.is_err() {
                             log_request(
                                 &state,
@@ -277,6 +307,7 @@ async fn run_streaming_interception_loop(
                     }
                 }
             }
+            terminal_seen |= decoder.saw_done();
         }
 
         // A stream that fails after partial output bills nothing (Node's
@@ -332,6 +363,7 @@ async fn run_streaming_interception_loop(
         }
 
         for buffered in buffered_bytes {
+            outbound.observe(&buffered);
             if tx.send(Ok(buffered)).await.is_err() {
                 log_request(
                     &state,

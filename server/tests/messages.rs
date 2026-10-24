@@ -5,6 +5,7 @@ use axum::{
     body::{Body, to_bytes},
     http::{Request, StatusCode, Version, header},
 };
+use futures_util::StreamExt;
 use srouter_server::app::create_router;
 use srouter_server::features::gateway::token_saver::TERSE_DIRECTIVE;
 use support::{
@@ -111,6 +112,11 @@ async fn post_v1_messages_streaming_emits_anthropic_sse_events() {
     );
 
     let text = text_body(response).await;
+    assert!(
+        text.starts_with(": keep-alive\n\n"),
+        "the response body must open with a gateway heartbeat: {text:?}"
+    );
+    assert_eq!(text.matches(": keep-alive").count(), 1);
     assert!(text.contains("event: message_start"));
     assert!(text.contains("event: content_block_start"));
     assert!(text.contains("event: content_block_delta"));
@@ -118,6 +124,51 @@ async fn post_v1_messages_streaming_emits_anthropic_sse_events() {
     assert!(text.contains("event: message_delta"));
     assert!(text.contains("event: message_stop"));
     assert!(text.contains("fake stream"));
+    let stop = text.rfind("event: message_stop").expect("message_stop");
+    assert!(
+        !text[stop..].contains(": keep-alive"),
+        "no heartbeat may follow message_stop: {text:?}"
+    );
+}
+
+#[tokio::test]
+async fn pre_content_buffer_still_emits_gateway_heartbeats() {
+    let (_upstream, app) = test_app().await;
+    let body = serde_json::json!({
+        "model": "opencode_zen/space-bunny-idle",
+        "messages": [ { "role": "user", "content": "wait for content" } ],
+        "max_tokens": 1024,
+        "stream": true
+    });
+
+    let response = app
+        .oneshot(message_request("/v1/messages", body))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let mut frames = response.into_body().into_data_stream();
+    let mut received = String::new();
+    tokio::time::timeout(std::time::Duration::from_secs(18), async {
+        while let Some(frame) = frames.next().await {
+            let frame = frame.expect("body frame");
+            received.push_str(std::str::from_utf8(&frame).expect("utf-8 frame"));
+            if received.matches(": keep-alive").count() >= 2 {
+                break;
+            }
+        }
+    })
+    .await
+    .expect("two gateway heartbeats within eighteen seconds");
+
+    assert!(
+        received.matches(": keep-alive").count() >= 2,
+        "the translator must not swallow gateway heartbeats: {received:?}"
+    );
+    assert!(
+        !received.contains("event:"),
+        "buffered translation must not emit an event before content: {received:?}"
+    );
 }
 
 #[tokio::test]

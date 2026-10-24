@@ -225,6 +225,11 @@ async fn run_anthropic_streaming_interception_loop(
 ) {
     let mut current_depth = 0;
     let mut stream_usage = UsageBreakdown::default();
+    let mut heartbeat = tokio::time::interval(sse::HEARTBEAT_INTERVAL);
+    heartbeat.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+    // The response already opens with one heartbeat; the next one lands a full
+    // period later.
+    heartbeat.tick().await;
 
     while current_depth <= MAX_INTERCEPT_DEPTH {
         let resolved = match state.providers.resolve(&chat_request.model) {
@@ -309,6 +314,20 @@ async fn run_anthropic_streaming_interception_loop(
                     )
                     .await;
                     return;
+                }
+                _ = heartbeat.tick() => {
+                    if tx.send(Ok(sse::heartbeat_bytes())).await.is_err() {
+                        log_stream_success(
+                            &state,
+                            &context,
+                            &resolved,
+                            &chat_request.model,
+                            &stream_usage,
+                        )
+                        .await;
+                        return;
+                    }
+                    continue;
                 }
                 next = stream.next() => match next {
                     Some(bytes) => bytes,

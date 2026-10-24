@@ -1,10 +1,11 @@
 use std::convert::Infallible;
+use std::time::Duration;
 
 use axum::body::{Body, Bytes};
 use axum::http::{StatusCode, Version, header};
 use axum::response::Response;
 use axum::response::sse::Event;
-use futures_util::Stream;
+use futures_util::{Stream, StreamExt};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -98,6 +99,48 @@ pub fn error_event_bytes(error: &APIError) -> Bytes {
     Bytes::from(format!("data: {payload}\n\n"))
 }
 
+/// Cadence for the gateway's own SSE comment frames. It stays well below the
+/// 125 s idle cutoff of a proxied response and leaves room for a missed tick.
+pub const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(15);
+
+/// A comment frame the gateway itself emits while an upstream is quiet. Clients
+/// ignore it; the edge sees a byte. It must never enter the SSE data decoder.
+pub fn heartbeat_bytes() -> Bytes {
+    Bytes::from_static(b": keep-alive\n\n")
+}
+
+/// Tracks whether the bytes already written to a client ended on an SSE line
+/// boundary. A gateway heartbeat is only safe there: forwarding a chunk may
+/// stop mid-line, and a comment inserted into that line would corrupt the
+/// `data:` payload on the client.
+#[derive(Debug)]
+pub struct SseLineBoundary {
+    at_boundary: bool,
+}
+
+impl Default for SseLineBoundary {
+    fn default() -> Self {
+        Self { at_boundary: true }
+    }
+}
+
+impl SseLineBoundary {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Records one outbound chunk. An empty chunk cannot move the boundary.
+    pub fn observe(&mut self, bytes: &[u8]) {
+        if let Some(last) = bytes.last() {
+            self.at_boundary = *last == b'\n';
+        }
+    }
+
+    pub fn is_at_boundary(&self) -> bool {
+        self.at_boundary
+    }
+}
+
 /// Splits upstream SSE bytes into the JSON `data:` payloads they carry,
 /// buffering partial lines across reads. Non-`data:` lines, the empty payload,
 /// and the `[DONE]` sentinel are skipped; a payload that is not JSON is
@@ -106,6 +149,7 @@ pub fn error_event_bytes(error: &APIError) -> Bytes {
 #[derive(Default)]
 pub struct SseDataDecoder {
     line_buffer: String,
+    done_seen: bool,
 }
 
 impl SseDataDecoder {
@@ -129,7 +173,11 @@ impl SseDataDecoder {
                 continue;
             };
             let data = data.trim();
-            if data.is_empty() || data == "[DONE]" {
+            if data.is_empty() {
+                continue;
+            }
+            if data == "[DONE]" {
+                self.done_seen = true;
                 continue;
             }
             if let Ok(json) = serde_json::from_str::<Value>(data) {
@@ -138,16 +186,24 @@ impl SseDataDecoder {
         }
         payloads
     }
+
+    /// Whether a `data: [DONE]` sentinel has crossed the decoder, including one
+    /// split across reads.
+    pub fn saw_done(&self) -> bool {
+        self.done_seen
+    }
 }
 
 /// Builds the frozen SSE response: event-stream content type, no-cache, and the
 /// proxy-buffering opt-out, plus `Connection: keep-alive` on HTTP/1.x only
-/// (HTTP/2 forbids the hop-by-hop header). Shared by the chat and messages
-/// streaming routes.
+/// (HTTP/2 forbids the hop-by-hop header). The first body item is a gateway
+/// heartbeat, so the edge sees a byte before the first upstream event.
 pub fn sse_response<S>(events: S, version: Version) -> Result<Response, axum::http::Error>
 where
     S: Stream<Item = Result<Bytes, Infallible>> + Send + 'static,
 {
+    let events = futures_util::stream::once(async { Ok::<Bytes, Infallible>(heartbeat_bytes()) })
+        .chain(events);
     let mut builder = Response::builder()
         .status(StatusCode::OK)
         .header(
@@ -168,4 +224,78 @@ where
     }
 
     builder.body(Body::from_stream(events))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::SseLineBoundary;
+
+    #[test]
+    fn a_heartbeat_is_a_comment_record() {
+        assert_eq!(&super::heartbeat_bytes()[..], b": keep-alive\n\n");
+    }
+
+    #[test]
+    fn a_fresh_stream_is_at_a_line_boundary() {
+        assert!(SseLineBoundary::new().is_at_boundary());
+    }
+
+    #[test]
+    fn a_partial_line_is_not_a_line_boundary() {
+        let mut boundary = SseLineBoundary::new();
+
+        boundary.observe(b"data: {\"choices\"");
+
+        assert!(!boundary.is_at_boundary());
+    }
+
+    #[test]
+    fn a_complete_line_feed_restores_the_boundary() {
+        let mut boundary = SseLineBoundary::new();
+
+        boundary.observe(b"data: {\"choices\":[]}\n");
+
+        assert!(boundary.is_at_boundary());
+    }
+
+    #[test]
+    fn a_crlf_split_stays_closed_until_the_line_feed_arrives() {
+        let mut boundary = SseLineBoundary::new();
+
+        boundary.observe(b"data: {}\r");
+        assert!(!boundary.is_at_boundary());
+
+        boundary.observe(b"\n");
+        assert!(boundary.is_at_boundary());
+    }
+
+    #[test]
+    fn a_multi_line_event_ending_in_a_blank_line_is_a_boundary() {
+        let mut boundary = SseLineBoundary::new();
+
+        boundary.observe(b"event: message_delta\ndata: {\"delta\":{}}\n\n");
+
+        assert!(boundary.is_at_boundary());
+    }
+
+    #[test]
+    fn an_empty_chunk_does_not_change_the_boundary() {
+        let mut boundary = SseLineBoundary::new();
+
+        boundary.observe(b"data: {}\r");
+        boundary.observe(b"");
+
+        assert!(!boundary.is_at_boundary());
+    }
+
+    #[test]
+    fn the_done_sentinel_is_detected_across_chunks() {
+        let mut decoder = super::SseDataDecoder::new();
+
+        decoder.push(b"data: [DO");
+        assert!(!decoder.saw_done());
+
+        decoder.push(b"NE]\n\n");
+        assert!(decoder.saw_done());
+    }
 }

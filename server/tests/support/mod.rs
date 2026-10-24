@@ -2889,6 +2889,68 @@ async fn fake_chat_completion(
                 .expect("fragmented fake SSE response");
         }
 
+        // Emits a role-only chunk and then stalls for ten minutes: the gateway
+        // buffers it until a content delta arrives, so only gateway-generated
+        // heartbeats can put bytes on the wire.
+        if model == "space-bunny-idle" {
+            let stream_state = state.clone();
+            let stream = futures_util::stream::unfold(0u8, move |step| {
+                let stream_state = stream_state.clone();
+                async move {
+                    match step {
+                        0 => {
+                            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+                            stream_state
+                                .lock()
+                                .expect("fake upstream state")
+                                .stream_chunks_sent += 1;
+                            let chunk = concat!(
+                                "data: {\"id\":\"chatcmpl-idle\",\"object\":\"chat.completion.chunk\",",
+                                "\"created\":1,\"model\":\"space-bunny-idle\",\"choices\":",
+                                "[{\"index\":0,\"delta\":{\"role\":\"assistant\"},",
+                                "\"finish_reason\":null}]}\n\n"
+                            );
+                            Some((
+                                Ok::<_, std::convert::Infallible>(chunk.as_bytes().to_vec()),
+                                1u8,
+                            ))
+                        }
+                        1 => {
+                            tokio::time::sleep(std::time::Duration::from_secs(600)).await;
+                            stream_state
+                                .lock()
+                                .expect("fake upstream state")
+                                .stream_chunks_sent += 1;
+                            let chunk = concat!(
+                                "data: {\"id\":\"chatcmpl-idle\",\"object\":\"chat.completion.chunk\",",
+                                "\"created\":1,\"model\":\"space-bunny-idle\",\"choices\":",
+                                "[{\"index\":0,\"delta\":{\"content\":\"late\"},",
+                                "\"finish_reason\":null}]}\n\n",
+                                "data: [DONE]\n\n"
+                            );
+                            Some((Ok(chunk.as_bytes().to_vec()), 2u8))
+                        }
+                        _ => {
+                            stream_state
+                                .lock()
+                                .expect("fake upstream state")
+                                .stream_finished = true;
+                            None
+                        }
+                    }
+                }
+            });
+
+            return Response::builder()
+                .status(StatusCode::OK)
+                .header(header::CONTENT_TYPE, "text/event-stream")
+                .body(Body::from_stream(GuardedStream {
+                    inner: Box::pin(stream),
+                    state: state.clone(),
+                }))
+                .expect("idle fake SSE response");
+        }
+
         // Emits one chunk (carrying usage) and then stalls for ten minutes:
         // the gateway must forward that chunk to the client immediately (no
         // full-response buffering) and, on client disconnect, drop this body

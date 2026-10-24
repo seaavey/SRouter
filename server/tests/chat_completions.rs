@@ -150,8 +150,83 @@ async fn post_v1_chat_completions_streams_the_upstream_body() {
 
     let text = text_body(response).await;
 
+    assert!(
+        text.starts_with(": keep-alive\n\n"),
+        "the response body must open with a gateway heartbeat: {text:?}"
+    );
+    assert_eq!(text.matches(": keep-alive").count(), 1);
     assert!(text.contains("fake stream"));
     assert!(text.contains("[DONE]"));
+    let done = text.rfind("data: [DONE]").expect("[DONE] marker");
+    assert!(
+        !text[done..].contains(": keep-alive"),
+        "no heartbeat may follow the terminal marker: {text:?}"
+    );
+}
+
+#[tokio::test]
+async fn pre_content_buffer_still_emits_gateway_heartbeats() {
+    let (_upstream, app) = test_app().await;
+    let body = serde_json::json!({
+        "model": "opencode_zen/space-bunny-idle",
+        "messages": [ { "role": "user", "content": "wait for content" } ],
+        "stream": true
+    });
+
+    let response = app
+        .oneshot(chat_request("/v1/chat/completions", body))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let mut frames = response.into_body().into_data_stream();
+    let mut received = String::new();
+    tokio::time::timeout(std::time::Duration::from_secs(18), async {
+        while let Some(frame) = frames.next().await {
+            let frame = frame.expect("body frame");
+            received.push_str(std::str::from_utf8(&frame).expect("utf-8 frame"));
+            if received.matches(": keep-alive").count() >= 2 {
+                break;
+            }
+        }
+    })
+    .await
+    .expect("two gateway heartbeats within eighteen seconds");
+
+    assert!(
+        received.matches(": keep-alive").count() >= 2,
+        "the second heartbeat must leave the gateway while the content is still buffered: {received:?}"
+    );
+    assert!(
+        !received.contains("data:"),
+        "buffered upstream bytes must not leak before content arrives: {received:?}"
+    );
+}
+
+#[tokio::test]
+async fn a_streamed_error_is_not_followed_by_a_heartbeat() {
+    let (_upstream, app) = test_app().await;
+    let body = serde_json::json!({
+        "model": "missing/model",
+        "messages": [ { "role": "user", "content": "hello" } ],
+        "stream": true
+    });
+
+    let response = app
+        .oneshot(chat_request("/v1/chat/completions", body))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let text = text_body(response).await;
+    assert!(text.starts_with(": keep-alive\n\n"), "body: {text:?}");
+    assert!(text.contains("\"error\""), "body: {text:?}");
+    assert_eq!(text.matches(": keep-alive").count(), 1);
+    let error = text.find("\"error\"").expect("error payload");
+    assert!(
+        !text[error..].contains(": keep-alive"),
+        "no heartbeat may follow the terminal error: {text:?}"
+    );
 }
 
 #[tokio::test]
@@ -1580,15 +1655,21 @@ async fn a_client_disconnect_bills_only_the_observed_usage() {
     let response = app.oneshot(keyed_chat_request(body)).await.unwrap();
     assert_eq!(response.status(), StatusCode::OK);
 
-    // The first chunk carries usage {11 prompt, 3 completion}; read it, then
-    // disconnect by dropping the response body mid-stall.
+    // The first chunk carries usage {11 prompt, 3 completion}; read past the
+    // gateway heartbeat, then disconnect by dropping the response body mid-stall.
     let mut frames = response.into_body().into_data_stream();
-    let first = frames
-        .next()
-        .await
-        .expect("first body frame")
-        .expect("first body frame ok");
-    let first = String::from_utf8(first.to_vec()).expect("utf-8 frame");
+    let mut first = String::new();
+    tokio::time::timeout(std::time::Duration::from_secs(10), async {
+        while let Some(frame) = frames.next().await {
+            let frame = frame.expect("body frame");
+            first.push_str(std::str::from_utf8(&frame).expect("utf-8 frame"));
+            if first.contains("first chunk") {
+                break;
+            }
+        }
+    })
+    .await
+    .expect("upstream chunk after the heartbeat");
     assert!(first.contains("first chunk"), "frame: {first}");
     drop(frames);
 
