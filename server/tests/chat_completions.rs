@@ -1227,11 +1227,7 @@ impl APIKeyRepository for RecordingAPIKeyRepository {
         Box::pin(async { Err(not_recorded()) })
     }
 
-    fn add_credit(
-        &self,
-        _id: &str,
-        _amount: f64,
-    ) -> BoxFuture<'_, Result<Option<APIKey>, APIError>> {
+    fn regenerate(&self, _id: &str) -> BoxFuture<'_, Result<Option<CreatedAPIKey>, APIError>> {
         Box::pin(async { Err(not_recorded()) })
     }
 

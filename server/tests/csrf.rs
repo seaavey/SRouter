@@ -303,11 +303,7 @@ const COOKIE_MUTATION_ROUTES: &[(&str, &str, Option<&str>)] = &[
     ("POST", "/v1/keys", Some(r#"{"name":"test key"}"#)),
     ("PUT", "/v1/keys/key_test123", Some(r#"{"name":"renamed"}"#)),
     ("DELETE", "/v1/keys/key_test123", None),
-    (
-        "POST",
-        "/v1/keys/key_test123/credit",
-        Some(r#"{"amount":100}"#),
-    ),
+    ("POST", "/v1/keys/key_test123/regenerate", None),
     // Settings routes
     ("POST", "/v1/settings", Some(r#"{"require_api_key":true}"#)),
     ("PATCH", "/v1/settings", Some(r#"{"require_api_key":true}"#)),
@@ -422,7 +418,7 @@ const BODY_LIMIT_ROUTES: &[(&str, &str)] = &[
     ("POST", "/v1/auth/cline/poll"),
     ("POST", "/v1/keys"),
     ("PUT", "/v1/keys/key_test123"),
-    ("POST", "/v1/keys/key_test123/credit"),
+    ("POST", "/v1/keys/key_test123/regenerate"),
     ("POST", "/v1/chat/completions"),
     ("POST", "/v1/v1/chat/completions"),
 ];

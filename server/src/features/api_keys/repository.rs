@@ -31,8 +31,10 @@ pub trait APIKeyRepository: Send + Sync {
         patch: UpdateAPIKeyInput,
     ) -> BoxFuture<'_, Result<Option<APIKey>, APIError>>;
 
-    /// Increases `credit_limit` by `amount`; `None` means the id does not exist.
-    fn add_credit(&self, id: &str, amount: f64) -> BoxFuture<'_, Result<Option<APIKey>, APIError>>;
+    /// Replaces the key's secret and display prefix, keeping the record (id,
+    /// name, limits, usage) in place. Returns the new secret once; it is not
+    /// recoverable afterwards. `None` means the id does not exist.
+    fn regenerate(&self, id: &str) -> BoxFuture<'_, Result<Option<CreatedAPIKey>, APIError>>;
 
     /// Deletes a key; `false` means the id does not exist.
     fn delete(&self, id: &str) -> BoxFuture<'_, Result<bool, APIError>>;
@@ -94,11 +96,7 @@ impl APIKeyRepository for EmptyAPIKeyRepository {
         Box::pin(async { Err(unconfigured()) })
     }
 
-    fn add_credit(
-        &self,
-        _id: &str,
-        _amount: f64,
-    ) -> BoxFuture<'_, Result<Option<APIKey>, APIError>> {
+    fn regenerate(&self, _id: &str) -> BoxFuture<'_, Result<Option<CreatedAPIKey>, APIError>> {
         Box::pin(async { Err(unconfigured()) })
     }
 

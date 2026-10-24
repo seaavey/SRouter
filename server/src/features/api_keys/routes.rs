@@ -1,7 +1,7 @@
 //! `/v1/keys` management routes. Every route requires an admin session (the
 //! layer is applied by the composition root). Responses mirror the Node
-//! controller; the full secret is returned only on creation because schema v2
-//! stores just its hash and a display prefix.
+//! controller; the full secret is returned on creation and on regeneration
+//! because schema v2 stores just its hash and a display prefix.
 
 use axum::body::Bytes;
 use axum::extract::{Path, State};
@@ -25,7 +25,7 @@ pub fn create_api_keys_router() -> Router<AppState> {
     Router::new()
         .route("/keys", get(list_keys).post(create_key))
         .route("/keys/{id}", patch(update_key).delete(delete_key))
-        .route("/keys/{id}/credit", post(add_credit))
+        .route("/keys/{id}/regenerate", post(regenerate_key))
 }
 
 async fn list_keys(State(state): State<AppState>) -> Result<Json<KeyListResponse>, APIError> {
@@ -61,20 +61,12 @@ async fn update_key(
     }
 }
 
-async fn add_credit(
+async fn regenerate_key(
     State(state): State<AppState>,
     Path(id): Path<String>,
-    body: Bytes,
 ) -> Result<Response, APIError> {
-    let amount = parse_credit_amount(&body)?;
-
-    match state
-        .security
-        .key_repository
-        .add_credit(&id, amount)
-        .await?
-    {
-        Some(key) => Ok(Json(APIKeyResponse::from(&key)).into_response()),
+    match state.security.key_repository.regenerate(&id).await? {
+        Some(created) => Ok(Json(CreatedAPIKeyResponse::from(&created)).into_response()),
         None => Err(not_found(&id)),
     }
 }
@@ -211,20 +203,6 @@ fn parse_update_input(body: &[u8]) -> Result<UpdateAPIKeyInput, APIError> {
     })
 }
 
-fn parse_credit_amount(body: &[u8]) -> Result<f64, APIError> {
-    let value: Value = parse_json(body, constants::keys::INVALID_CREDIT_PAYLOAD)?;
-    let amount = value
-        .get("amount")
-        .and_then(Value::as_f64)
-        .ok_or_else(|| APIError::new(400, constants::keys::AMOUNT_REQUIRED))?;
-
-    if amount <= 0.0 {
-        return Err(APIError::new(400, constants::keys::AMOUNT_POSITIVE));
-    }
-
-    Ok(amount)
-}
-
 fn parse_json(body: &[u8], message: &str) -> Result<Value, APIError> {
     serde_json::from_slice(body).map_err(|_| APIError::new(400, message))
 }
@@ -310,7 +288,7 @@ fn parse_allowlist(raw: Option<&Value>) -> Result<Option<Option<Vec<String>>>, A
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_create_input, parse_credit_amount, parse_update_input};
+    use super::{parse_create_input, parse_update_input};
 
     #[test]
     fn create_applies_defaults_and_ignores_unknown_fields() {
@@ -371,13 +349,5 @@ mod tests {
         let owned = parse_update_input(br#"{"user_id":"usr_1"}"#).unwrap();
         assert_eq!(owned.user_id, Some(Some("usr_1".to_owned())));
         assert!(parse_update_input(br#"{"user_id":""}"#).is_err());
-    }
-
-    #[test]
-    fn credit_requires_a_positive_amount() {
-        assert_eq!(parse_credit_amount(br#"{"amount":15}"#).unwrap(), 15.0);
-        assert!(parse_credit_amount(br#"{"amount":0}"#).is_err());
-        assert!(parse_credit_amount(br#"{"amount":-5}"#).is_err());
-        assert!(parse_credit_amount(br#"{}"#).is_err());
     }
 }

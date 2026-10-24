@@ -106,12 +106,16 @@ pub fn generate_key_secret() -> Result<String, APIError> {
     Ok(format!("{KEY_SECRET_PREFIX}{}", hex::encode(bytes)))
 }
 
-/// Mints a new key id with the `key_` prefix the Node API used.
+/// Mints a new key id as a version 4 UUID, so a key id is opaque and has the
+/// same shape as every other row id in the schema.
 pub fn generate_key_id() -> Result<String, APIError> {
-    let mut bytes = [0u8; 12];
+    let mut bytes = [0u8; 16];
     fill_random(&mut bytes)?;
+    // RFC 4122: version 4 in the high nibble of byte 6, variant 10 in byte 8.
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
 
-    Ok(format!("key_{}", hex::encode(bytes)))
+    Ok(uuid::Uuid::from_bytes(bytes).to_string())
 }
 
 /// The first eight characters of a secret, matching the v1 migration's
@@ -192,11 +196,13 @@ mod tests {
     }
 
     #[test]
-    fn generated_key_ids_carry_the_key_prefix_and_are_unique() {
+    fn generated_key_ids_are_unique_uuid_v4s() {
         let first = generate_key_id().unwrap();
         let second = generate_key_id().unwrap();
 
-        assert!(first.starts_with("key_"));
+        assert_eq!(first.len(), 36);
+        assert_eq!(first.matches('-').count(), 4);
+        assert_eq!(&first[14..15], "4");
         assert_ne!(first, second);
     }
 

@@ -289,36 +289,40 @@ impl APIKeyRepository for SQLxAPIKeyStore {
         })
     }
 
-    fn add_credit(&self, id: &str, amount: f64) -> BoxFuture<'_, Result<Option<APIKey>, APIError>> {
+    fn regenerate(&self, id: &str) -> BoxFuture<'_, Result<Option<CreatedAPIKey>, APIError>> {
         let id = id.to_owned();
 
         Box::pin(async move {
             let pool = self.pool()?;
-            let mut transaction = pool
-                .begin()
-                .await
-                .map_err(sql_error(constants::database::context::START_CREDIT_UPDATE))?;
+            let mut transaction = pool.begin().await.map_err(sql_error(
+                constants::database::context::START_KEY_REGENERATE,
+            ))?;
 
             let Some(mut key) = read_key(&mut transaction, &id).await? else {
                 return Ok(None);
             };
 
-            key.credit_limit += amount;
+            let secret = generate_key_secret()?;
+            let key_prefix = key_prefix_of(&secret);
 
-            sqlx::query("UPDATE api_keys SET credit_limit = ? WHERE id = ?")
-                .bind(key.credit_limit)
+            sqlx::query("UPDATE api_keys SET key_hash = ?, key_prefix = ? WHERE id = ?")
+                .bind(hash_api_key(&secret))
+                .bind(key_prefix.as_str())
                 .bind(key.id.as_str())
                 .execute(&mut *transaction)
                 .await
-                .map_err(sql_error(constants::database::context::ADD_CREDIT))?;
+                .map_err(sql_error(constants::database::context::REGENERATE_API_KEY))?;
 
             transaction.commit().await.map_err(sql_error(
-                constants::database::context::COMMIT_CREDIT_UPDATE,
+                constants::database::context::COMMIT_KEY_REGENERATE,
             ))?;
 
+            // The old secret may still be cached under its hash; clearing here is
+            // what makes it stop authenticating on the next request.
             self.clear_cache();
+            key.key_prefix = key_prefix;
 
-            Ok(Some(key))
+            Ok(Some(CreatedAPIKey { key, secret }))
         })
     }
 

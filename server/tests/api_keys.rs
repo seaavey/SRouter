@@ -94,7 +94,9 @@ async fn create_returns_the_full_secret_once_with_defaults() {
     let (status, body) = create_key(&app, serde_json::json!({ "name": "Client Key" })).await;
 
     assert_eq!(status, StatusCode::CREATED);
-    assert!(body["id"].as_str().unwrap().starts_with("key_"));
+    let id = body["id"].as_str().unwrap();
+    assert_eq!(id.len(), 36);
+    assert_eq!(id.matches('-').count(), 4);
     assert!(body["key"].as_str().unwrap().starts_with("sr-live-"));
     assert_eq!(body["key_prefix"], "sr-live-");
     assert_eq!(body["name"], "Client Key");
@@ -167,46 +169,61 @@ async fn patch_updates_fields_and_reports_a_missing_key() {
 }
 
 #[tokio::test]
-async fn credit_adds_to_an_existing_key_and_rejects_bad_amounts() {
+async fn regenerate_returns_a_new_secret_and_the_old_one_stops_working() {
     let database = TestDatabase::new().unwrap();
-    let app = admin_app(&database).await;
+    let security = sqlx_security_state(&database, vec![hash_session_token(SESSION_TOKEN)]).await;
+    let app = create_router(empty_registry_state(security.clone()));
     let (_, created) = create_key(
         &app,
-        serde_json::json!({ "name": "Credit Key", "credit_limit": 10.0 }),
+        serde_json::json!({ "name": "Rotating Key", "quota_limit": 5000 }),
     )
     .await;
     let id = created["id"].as_str().unwrap().to_owned();
+    let first_secret = created["key"].as_str().unwrap().to_owned();
 
     let response = app
         .clone()
         .oneshot(admin_request(
             "POST",
-            &format!("{KEYS}/{id}/credit"),
-            serde_json::json!({ "amount": 15.0 }),
+            &format!("{KEYS}/{id}/regenerate"),
+            serde_json::json!(null),
         ))
         .await
         .unwrap();
 
     assert_eq!(response.status(), StatusCode::OK);
     let body = json_body(response).await;
-    assert_eq!(body["credit_limit"], 25.0);
+    let next_secret = body["key"].as_str().unwrap().to_owned();
+    assert_ne!(next_secret, first_secret);
+    assert_eq!(body["id"], id);
+    assert_eq!(body["name"], "Rotating Key");
+    assert_eq!(body["quota_limit"], 5000);
+    assert_eq!(body["key_prefix"], "sr-live-");
 
-    let rejected = app
-        .clone()
-        .oneshot(admin_request(
-            "POST",
-            &format!("{KEYS}/{id}/credit"),
-            serde_json::json!({ "amount": -5.0 }),
-        ))
-        .await
-        .unwrap();
-    assert_eq!(rejected.status(), StatusCode::BAD_REQUEST);
+    // The rotation is the point: the old secret must stop authenticating and the
+    // new one must resolve to the same record.
+    assert!(
+        security
+            .api_keys
+            .find_by_key(&first_secret)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    assert!(
+        security
+            .api_keys
+            .find_by_key(&next_secret)
+            .await
+            .unwrap()
+            .is_some()
+    );
 
     let missing = app
         .oneshot(admin_request(
             "POST",
-            &format!("{KEYS}/key_missing/credit"),
-            serde_json::json!({ "amount": 1.0 }),
+            &format!("{KEYS}/key_missing/regenerate"),
+            serde_json::json!(null),
         ))
         .await
         .unwrap();

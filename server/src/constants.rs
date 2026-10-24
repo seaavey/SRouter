@@ -227,12 +227,9 @@ pub mod api_key {
 /// Key management (`/v1/keys`).
 pub mod keys {
     pub const INVALID_PAYLOAD: &str = "Invalid API key payload";
-    pub const INVALID_CREDIT_PAYLOAD: &str = "Invalid credit payload";
     pub const DELETED: &str = "API Key revoked and deleted successfully";
     pub const NAME_REQUIRED: &str = "Field 'name' is required";
     pub const NAME_EMPTY: &str = "Field 'name' cannot be empty";
-    pub const AMOUNT_REQUIRED: &str = "Field 'amount' is required";
-    pub const AMOUNT_POSITIVE: &str = "Amount must be greater than 0";
     pub const PERSISTENCE_NOT_CONFIGURED: &str = "API-key persistence is not configured";
 
     pub fn not_found(id: impl std::fmt::Display) -> String {
@@ -971,9 +968,8 @@ pub mod database {
         pub const UPDATE_ADMIN_PASSWORD_HASH: &str = "update the admin password hash";
 
         // API-key store.
-        pub const ADD_CREDIT: &str = "add credit to an API key";
         pub const CHECK_API_KEY_OWNER: &str = "check an API key owner";
-        pub const COMMIT_CREDIT_UPDATE: &str = "commit a credit update";
+        pub const COMMIT_KEY_REGENERATE: &str = "commit a key regeneration";
         pub const COMMIT_KEY_UPDATE: &str = "commit a key update";
         pub const CREATE_API_KEY: &str = "create an API key";
         pub const DELETE_API_KEY: &str = "delete an API key";
@@ -984,9 +980,10 @@ pub mod database {
         pub const READ_API_KEY: &str = "read an API key";
         pub const READ_REQUIRE_API_KEY: &str = "read the require_api_key setting";
         pub const RECONCILE_API_KEY_USAGE: &str = "reconcile API-key usage from the request log";
+        pub const REGENERATE_API_KEY: &str = "regenerate an API key secret";
         pub const RESERVE_API_KEY_QUOTA: &str = "reserve API-key quota";
         pub const SETTLE_API_KEY_QUOTA: &str = "settle API-key quota";
-        pub const START_CREDIT_UPDATE: &str = "start a credit update";
+        pub const START_KEY_REGENERATE: &str = "start a key regeneration";
         pub const START_KEY_UPDATE: &str = "start a key update";
         pub const UPDATE_API_KEY: &str = "update an API key";
 
