@@ -54,6 +54,15 @@ export type SortableDataTableProps<T extends Record<string, unknown>> = {
   itemName?: { one: string; other: string }
 }
 
+/**
+ * A row's own click must not fire for a control pressed inside it. A portalled
+ * menu still bubbles through the React tree, so the menu roles are listed too:
+ * without them, choosing "Hide from /v1/models" in a row's split-button menu
+ * also toggled that row's selection.
+ */
+const INTERACTIVE =
+  "a, button, input, label, select, textarea, [role='button'], [role='menuitem'], [role='menu'], [role='option'], [role='dialog'], [contenteditable='true']"
+
 const collator = new Intl.Collator("en", { numeric: true, sensitivity: "base" })
 const isEmpty = (value: unknown) => value == null || value === ""
 const comparable = (value: unknown) =>
@@ -487,9 +496,7 @@ export function SortableDataTable<T extends Record<string, unknown>>({
   ) {
     if (
       !selectable ||
-      (event.target as HTMLElement).closest(
-        "a, button, input, label, select, textarea, [role='button'], [contenteditable='true']"
-      ) ||
+      (event.target as HTMLElement).closest(INTERACTIVE) ||
       window.getSelection()?.toString()
     )
       return
@@ -507,9 +514,7 @@ export function SortableDataTable<T extends Record<string, unknown>>({
   ) {
     if (
       !onRowActivate ||
-      (event.target as HTMLElement).closest(
-        "a, button, input, label, select, textarea, [role='button'], [contenteditable='true']"
-      ) ||
+      (event.target as HTMLElement).closest(INTERACTIVE) ||
       window.getSelection()?.toString()
     )
       return
