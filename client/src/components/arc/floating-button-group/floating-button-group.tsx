@@ -39,6 +39,15 @@ export interface FloatingButtonGroupSeparator {
 
 export type FloatingButtonGroupItem = FloatingButtonGroupAction | FloatingButtonGroupSeparator;
 
+/** `:focus-visible` is unsupported in older engines, where `matches` throws instead of answering false. */
+function isFocusVisible(element: Element): boolean {
+  try {
+    return element.matches(":focus-visible");
+  } catch {
+    return false;
+  }
+}
+
 export interface FloatingButtonGroupProps {
   items: readonly FloatingButtonGroupItem[];
   /** Accessible name of the toolbar, such as "Board actions". */
@@ -277,9 +286,7 @@ export function FloatingButtonGroup({ items, label, variant = "muted", size = "m
         onKeyUp={event => { if (event.key === "Enter" || event.key === " ") setPressing(false); }}
         onFocus={event => {
           setTabStop(id);
-          let keyboard = false;
-          try { keyboard = event.currentTarget.matches(":focus-visible"); } catch { keyboard = false; }
-          setFocusId(keyboard ? id : null);
+          setFocusId(isFocusVisible(event.currentTarget) ? id : null);
         }}
         onClick={() => {
           if (disabled) return;
