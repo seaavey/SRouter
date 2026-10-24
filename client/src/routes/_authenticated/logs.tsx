@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router"
 
 import { SectionHeader } from "@/components/layout/section-header"
 import useLogsData from "@/components/logs/hooks/useLogsData"
+import { LogToolbar } from "@/components/logs/LogToolbar"
 import { LogViewerSection } from "@/components/logs/LogViewerSection"
 
 export const Route = createFileRoute("/_authenticated/logs")({
@@ -13,21 +14,29 @@ function LogsPage() {
   const {
     page,
     setPage,
+    limit,
+    handleLimitChange,
     statusFilter,
-    handleFilterChange,
+    handleStatusChange,
+    customRange,
+    handleCustomRange,
+    apiKeyID,
+    handleKeyChange,
+    keyOptions,
     selectedLog,
     setSelectedLog,
-    liveLogIDs,
     query,
     logs,
     pagination,
+    summary,
+    hasFilters,
     isConnected,
     streamStatus,
     refresh,
   } = useLogsData()
 
   return (
-    <div className="flex max-w-full min-w-0 flex-col gap-5 overflow-hidden sm:gap-6">
+    <div className="flex max-w-full min-w-0 flex-col gap-5 sm:gap-6">
       <SectionHeader
         title="Request logs"
         description="Audit trail of every proxied inference call recorded in SQLite, streamed live via SSE."
@@ -40,14 +49,25 @@ function LogsPage() {
         }
       />
 
+      <LogToolbar
+        statusFilter={statusFilter}
+        onStatusChange={handleStatusChange}
+        customRange={customRange}
+        onCustomRangeChange={handleCustomRange}
+        apiKeyID={apiKeyID}
+        keyOptions={keyOptions}
+        onKeyChange={handleKeyChange}
+      />
+
       <LogViewerSection
         logs={logs}
-        liveLogIDs={liveLogIDs}
         pagination={pagination}
         page={page}
         onPageChange={setPage}
-        statusFilter={statusFilter}
-        onStatusFilterChange={handleFilterChange}
+        limit={limit}
+        onLimitChange={handleLimitChange}
+        summary={summary}
+        hasFilters={hasFilters}
         isPending={query.isPending}
         isError={query.isError}
         error={query.error instanceof Error ? query.error : null}

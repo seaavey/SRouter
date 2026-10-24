@@ -1,18 +1,25 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { useCallback, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 
+import { keyListQuery } from "@/api/keys"
 import { logsQuery, useLogEvents } from "@/api/logs"
 import type { RequestLog } from "@/api/types"
+import type { DateRange } from "@/components/arc/date-range-picker/date-range-picker"
 import { isSuccessStatus, type LogStatusFilter } from "../types"
+
+const startOfDay = (date: Date) =>
+  new Date(date.getFullYear(), date.getMonth(), date.getDate())
 
 export default function useLogsData() {
   const [page, setPage] = useState(1)
-  const limit = 50
+  const [limit, setLimit] = useState(10)
   const [statusFilter, setStatusFilter] = useState<LogStatusFilter>("all")
+  const [customRange, setCustomRange] = useState<DateRange | null>(null)
+  const [apiKeyID, setApiKeyID] = useState("all")
   const [selectedLog, setSelectedLog] = useState<RequestLog | null>(null)
-  const [liveLogIDs, setLiveLogIDs] = useState<Set<string>>(() => new Set())
 
   const queryClient = useQueryClient()
+  const keys = useQuery(keyListQuery)
 
   // Map UI filter "failed" to server-accepted "error"
   const apiStatus =
@@ -22,39 +29,57 @@ export default function useLogsData() {
         ? "error"
         : "success"
 
+  // A custom range is inclusive whole days, so the upper bound is the next
+  // midnight: the server treats `to` as exclusive.
+  const from = customRange ? startOfDay(customRange.start).getTime() : undefined
+  const to = customRange
+    ? new Date(
+        customRange.end.getFullYear(),
+        customRange.end.getMonth(),
+        customRange.end.getDate() + 1
+      ).getTime()
+    : undefined
+
   const query = useQuery(
     logsQuery({
       page,
       limit,
       status: apiStatus,
+      apiKeyID: apiKeyID === "all" ? undefined : apiKeyID,
+      from,
+      to,
     })
   )
 
   const handleNewLog = useCallback(
     (newLog: RequestLog) => {
-      // Mark as fresh live-streamed log ID, keep only latest 20 IDs to avoid unbounded memory growth
-      setLiveLogIDs((prev) => {
-        const next = new Set(prev)
-        next.add(newLog.id)
-        if (next.size > 20) {
-          const firstKey = next.values().next().value
-          if (firstKey) next.delete(firstKey)
-        }
-        return next
-      })
-
-      // If we are on the first page and filter permits, prepend immediately
+      // If we are on the first page and every filter permits, prepend at once.
+      // The live row has to pass the same filters the query sent, or it appears
+      // in a list it does not belong to.
       if (page === 1) {
         queryClient.setQueryData(
-          logsQuery({ page: 1, limit, status: apiStatus }).queryKey,
+          logsQuery({
+            page: 1,
+            limit,
+            status: apiStatus,
+            apiKeyID: apiKeyID === "all" ? undefined : apiKeyID,
+            from,
+            to,
+          }).queryKey,
           (prev) => {
             if (!prev) return prev
             // Server classifies a row as success only when it is 2xx.
             const isSuccess = isSuccessStatus(newLog.status_code)
+            const inTime =
+              from !== undefined && to !== undefined
+                ? newLog.created_at >= from && newLog.created_at < to
+                : true
             const isMatch =
-              statusFilter === "all" ||
-              (statusFilter === "success" && isSuccess) ||
-              (statusFilter === "failed" && !isSuccess)
+              (statusFilter === "all" ||
+                (statusFilter === "success" && isSuccess) ||
+                (statusFilter === "failed" && !isSuccess)) &&
+              (apiKeyID === "all" || newLog.api_key_id === apiKeyID) &&
+              inTime
 
             if (!isMatch) return prev
 
@@ -76,20 +101,46 @@ export default function useLogsData() {
         )
       }
     },
-    [page, limit, statusFilter, apiStatus, queryClient]
+    [page, limit, statusFilter, apiStatus, apiKeyID, from, to, queryClient]
   )
 
   const { isConnected, status: streamStatus } = useLogEvents({
     onRequestLogged: handleNewLog,
   })
 
+  const keyOptions = useMemo(
+    () => [
+      { value: "all", label: "All keys" },
+      ...(keys.data?.data ?? []).map((key) => ({
+        value: key.id,
+        label: key.name,
+      })),
+    ],
+    [keys.data]
+  )
+
   async function refresh() {
     const result = await query.refetch()
     if (result.isError) throw new Error("logs refresh failed")
   }
 
-  function handleFilterChange(newFilter: LogStatusFilter) {
+  function handleStatusChange(newFilter: LogStatusFilter) {
     setStatusFilter(newFilter)
+    setPage(1)
+  }
+
+  function handleCustomRange(next: DateRange | null) {
+    setCustomRange(next)
+    setPage(1)
+  }
+
+  function handleKeyChange(next: string) {
+    setApiKeyID(next)
+    setPage(1)
+  }
+
+  function handleLimitChange(next: number) {
+    setLimit(next)
     setPage(1)
   }
 
@@ -97,14 +148,22 @@ export default function useLogsData() {
     page,
     setPage,
     limit,
+    handleLimitChange,
     statusFilter,
-    handleFilterChange,
+    handleStatusChange,
+    customRange,
+    handleCustomRange,
+    apiKeyID,
+    handleKeyChange,
+    keyOptions,
     selectedLog,
     setSelectedLog,
-    liveLogIDs,
     query,
     logs: query.data?.data ?? [],
     pagination: query.data?.pagination ?? null,
+    summary: query.data?.summary ?? null,
+    hasFilters:
+      statusFilter !== "all" || customRange !== null || apiKeyID !== "all",
     isConnected,
     streamStatus,
     refresh,

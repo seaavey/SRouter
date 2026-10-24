@@ -15,6 +15,8 @@
 .table tbody tr:last-child td { border-bottom: 0; }
 .table [data-numeric] { text-align: right; font-variant-numeric: tabular-nums; }
 .table[data-selectable] tbody tr { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+/* Local addition: a row that opens its own surface reads as clickable. */
+.table tbody tr[data-activate] { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .table[data-selectable] tbody tr[data-selected] td { --cell-fill: color-mix(in oklab, var(--accent) 8%, var(--cell-base)); }
 .table[data-selectable] [data-primary]:not([data-sortable]), .table[data-selectable] th[data-primary] .sortButton { padding-left: var(--space-2); }
 

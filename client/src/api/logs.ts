@@ -16,22 +16,41 @@ export interface LogsQueryParams {
   page?: number
   limit?: number
   status?: "error" | "success"
+  /** One key's rows; absent means every key. */
+  apiKeyID?: string
+  /** Inclusive lower bound, epoch milliseconds. */
+  from?: number
+  /** Exclusive upper bound, epoch milliseconds. */
+  to?: number
 }
 
 /**
  * `GET /v1/logs`. Paginated request log audit trail recorded in SQLite.
  */
 export function logsQuery(params: LogsQueryParams = {}) {
-  const { page = 1, limit = 50, status } = params
+  const { page = 1, limit = 50, status, apiKeyID, from, to } = params
   const search = new URLSearchParams()
   search.set("page", String(page))
   search.set("limit", String(limit))
   if (status) {
     search.set("status", status)
   }
+  if (apiKeyID) {
+    search.set("api_key_id", apiKeyID)
+  }
+  if (from !== undefined) {
+    search.set("from", String(from))
+  }
+  if (to !== undefined) {
+    search.set("to", String(to))
+  }
 
   return queryOptions({
-    queryKey: ["logs", "list", { page, limit, status }] as const,
+    queryKey: [
+      "logs",
+      "list",
+      { page, limit, status, apiKeyID, from, to },
+    ] as const,
     queryFn: ({ signal }) =>
       request<LogsResponse>(`/v1/logs?${search.toString()}`, { signal }),
     staleTime: 10_000,

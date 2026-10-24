@@ -43,6 +43,8 @@ export type SortableDataTableProps<T extends Record<string, unknown>> = {
   /** Sort applied on the first render. */
   defaultSort?: SortState
   onSortChange?: (sort: SortState) => void
+  /** Local addition to the vendored table: opens the row's own detail surface when the row itself is clicked; a click on a link or control inside it keeps its own behaviour. */
+  onRowActivate?: (row: T) => void
   /** Adds a checkbox column, row click selection, and a count line with a clear action. */
   selectable?: boolean
   selectedKeys?: string[]
@@ -291,6 +293,7 @@ export function SortableDataTable<T extends Record<string, unknown>>({
   emptyMessage = "No rows to show",
   defaultSort,
   onSortChange,
+  onRowActivate,
   selectable = false,
   selectedKeys,
   defaultSelectedKeys,
@@ -497,6 +500,22 @@ export function SortableDataTable<T extends Record<string, unknown>>({
       ?.focus({ preventScroll: true })
   }
 
+  /** Rows that open their own surface ignore clicks meant for the links and controls inside them. */
+  function activateRow(
+    event: ReactMouseEvent<HTMLTableRowElement>,
+    row: T
+  ) {
+    if (
+      !onRowActivate ||
+      (event.target as HTMLElement).closest(
+        "a, button, input, label, select, textarea, [role='button'], [contenteditable='true']"
+      ) ||
+      window.getSelection()?.toString()
+    )
+      return
+    onRowActivate(row)
+  }
+
   /** Arrows walk the header controls and the row checkboxes; Escape clears the selection. */
   function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     const target = event.target as HTMLElement
@@ -675,7 +694,11 @@ export function SortableDataTable<T extends Record<string, unknown>>({
                     layoutDependency={order}
                     transition={motionTokens.spring.smooth}
                     data-selected={selected || undefined}
-                    onClick={(event) => onRowClick(event, key)}
+                    data-activate={onRowActivate ? "" : undefined}
+                    onClick={(event) => {
+                      onRowClick(event, key)
+                      activateRow(event, row)
+                    }}
                     onMouseDown={(event) => {
                       if (selectable && event.shiftKey) event.preventDefault()
                     }}

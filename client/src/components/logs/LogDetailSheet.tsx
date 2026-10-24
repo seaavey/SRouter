@@ -5,7 +5,14 @@ import type { RequestLog } from "@/api/types"
 import { Badge } from "@/components/arc/badge/badge"
 import { BottomSheet } from "@/components/arc/bottom-sheet/bottom-sheet"
 import { CopyButton } from "@/components/arc/copy-button/copy-button"
-import { formatTime, isSuccessStatus, LATENCY, NUMBER, statusTone } from "./types"
+import {
+  formatTime,
+  isSuccessStatus,
+  LATENCY,
+  NUMBER,
+  statusTone,
+} from "./types"
+import useProviderNames from "./hooks/useProviderNames"
 
 export interface LogDetailSheetProps {
   log: RequestLog | null
@@ -15,6 +22,7 @@ export interface LogDetailSheetProps {
 export function LogDetailSheet({ log, onClose }: LogDetailSheetProps) {
   const isSuccess = log ? isSuccessStatus(log.status_code) : true
   const tone = log ? statusTone(log.status_code) : "neutral"
+  const providerNames = useProviderNames()
 
   return (
     <BottomSheet
@@ -92,14 +100,15 @@ export function LogDetailSheet({ log, onClose }: LogDetailSheetProps) {
                     <Badge
                       tone="neutral"
                       size="sm"
-                      className="cursor-pointer transition-colors group-hover/badge:border-foreground/30 group-hover/badge:bg-surface-muted"
+                      className="cursor-pointer truncate transition-colors group-hover/badge:border-foreground/30 group-hover/badge:bg-surface-muted"
+                      title={log.provider}
                     >
-                      {log.provider}
+                      {providerNames.get(log.provider) ?? log.provider}
                     </Badge>
                   </Link>
                 ) : (
                   <span className="font-medium text-foreground">
-                    {log.provider ?? "—"}
+                    {log.provider ?? "n/a"}
                   </span>
                 )}
               </dd>
@@ -108,14 +117,14 @@ export function LogDetailSheet({ log, onClose }: LogDetailSheetProps) {
             <div>
               <dt className="text-muted-foreground">Model Route</dt>
               <dd className="mt-1 truncate font-mono font-medium text-foreground">
-                {log.resolved_model ?? log.model ?? "—"}
+                {log.resolved_model ?? log.model ?? "n/a"}
               </dd>
             </div>
 
             <div>
               <dt className="text-muted-foreground">API Key ID</dt>
               <dd className="mt-1 truncate font-mono text-foreground">
-                {log.api_key_id ? log.api_key_id : "—"}
+                {log.api_key_id ? log.api_key_id : "n/a"}
               </dd>
             </div>
 
@@ -131,7 +140,7 @@ export function LogDetailSheet({ log, onClose }: LogDetailSheetProps) {
             <div>
               <dt className="text-muted-foreground">Client IP</dt>
               <dd className="mt-1 font-mono text-foreground">
-                {log.ip_address ?? "—"}
+                {log.ip_address ?? "n/a"}
               </dd>
             </div>
           </dl>

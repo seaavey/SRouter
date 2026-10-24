@@ -1,24 +1,35 @@
 import { Skeleton } from "@/components/arc/skeleton/skeleton"
 
+/**
+ * The log table's own frame: a header band, then one band per row. Bars sit
+ * where the real columns do, so the table does not jump when the first page
+ * arrives. Hidden from assistive tech: the page announces its loading state
+ * once, and repeating it per row would only chatter.
+ */
 export function LogRowPlaceholders({ rows = 8 }: { rows?: number }) {
   return (
-    <ul className="divide-y divide-border/60" aria-hidden="true">
-      {Array.from({ length: rows }, (_, idx) => (
-        <li key={idx} className="flex flex-col gap-2 px-3 py-3">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5">
-              <Skeleton className="h-5 w-14 rounded" lines={1} />
-              <Skeleton className="h-4 w-28" lines={1} />
-              <Skeleton className="h-4 w-20" lines={1} />
-            </div>
-            <Skeleton className="h-4 w-16" lines={1} />
-          </div>
-          <div className="flex items-center justify-between gap-3">
-            <Skeleton className="h-3 w-40" lines={1} />
-            <Skeleton className="h-3 w-24" lines={1} />
-          </div>
-        </li>
+    <div
+      className="min-w-0 rounded-[var(--radius-surface)] border border-border bg-card shadow-[var(--shadow-resting)]"
+      aria-hidden="true"
+    >
+      <div className="flex h-11 items-center gap-6 border-b border-border px-3">
+        <Skeleton className="max-w-[4rem]" lines={1} />
+        <Skeleton className="max-w-[4rem]" lines={1} />
+        <Skeleton className="max-w-[12rem]" lines={1} />
+        <Skeleton className="ml-auto max-w-[4rem]" lines={1} />
+      </div>
+      {Array.from({ length: rows }, (_, index) => (
+        <div
+          key={index}
+          className="flex h-[52px] items-center gap-6 border-b border-border/60 px-3 last:border-b-0"
+        >
+          <Skeleton className="max-w-[5.5rem]" lines={1} />
+          <Skeleton className="max-w-[2.5rem]" lines={1} />
+          <Skeleton className="max-w-[16rem]" lines={1} />
+          <Skeleton className="max-w-[9rem]" lines={1} />
+          <Skeleton className="ml-auto max-w-[4rem]" lines={1} />
+        </div>
       ))}
-    </ul>
+    </div>
   )
 }
