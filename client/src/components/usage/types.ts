@@ -36,12 +36,24 @@ export const MONEY = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 4,
 })
 
+// A running total is read in whole cents; the sub-cent tail of a rate is noise
+// on a number this size.
+export const SPEND = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+})
+
 export const percent = (value: number) => `${value.toFixed(1)}%`
 
 export interface ModelRow {
   id: string
   model: string
+  /** The routing id, kept for the link target. */
   provider: string
+  /** The provider's display name; a custom provider's id is a UUID. */
+  providerName: string
   requests: number
   tokens: number
   promptTokens: number

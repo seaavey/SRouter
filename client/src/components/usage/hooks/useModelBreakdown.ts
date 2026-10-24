@@ -1,5 +1,7 @@
+import { useQuery } from "@tanstack/react-query"
 import { useMemo, useState } from "react"
 
+import { providersListQuery } from "@/api/providers"
 import type {
   AnalyticsReport,
   UsageByModel,
@@ -16,6 +18,19 @@ export default function useModelBreakdown({
 }) {
   const [metric, setMetric] = useState<ModelMetric>("cost")
   const [expandedModel, setExpandedModel] = useState<string | null>(null)
+  // The analytics payload carries the routing id only; a custom provider's id is
+  // a UUID, so the badge needs this lookup to name the driver.
+  const providers = useQuery(providersListQuery)
+  const providerNames = useMemo(
+    () =>
+      new Map(
+        (providers.data?.data ?? []).map((provider) => [
+          provider.id,
+          provider.name,
+        ])
+      ),
+    [providers.data]
+  )
 
   const modelRows = useMemo<ModelRow[]>(() => {
     const models = analyticsData?.top_models ?? []
@@ -32,6 +47,7 @@ export default function useModelBreakdown({
         id: `${index}-${model.provider_id}-${model.model ?? "unknown"}`,
         model: model.model ?? "Unknown model",
         provider: model.provider_id,
+        providerName: providerNames.get(model.provider_id) ?? model.provider_id,
         requests: model.total_requests,
         tokens: model.total_tokens,
         promptTokens: model.prompt_tokens,
@@ -41,7 +57,7 @@ export default function useModelBreakdown({
         share: total > 0 ? (valueOf(model) / total) * 100 : 0,
       }))
       .sort((left, right) => right.value - left.value)
-  }, [analyticsData, metric])
+  }, [analyticsData, metric, providerNames])
 
   const lifetimeModels = useMemo(() => {
     const byModel = new Map<string, UsageByModel>()

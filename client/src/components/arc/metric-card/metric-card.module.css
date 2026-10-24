@@ -5,11 +5,29 @@
 .card p { margin: var(--space-4) 0 0; color: var(--text-muted); font-size: var(--text-sm); line-height: var(--leading-body); }
 /* A narrow card is one that has a small column to itself, not one on a small
    screen: the same register applies to a phone in a 2-up grid and to a desk
-   column that happens to be tight. Four registers, so the card never collapses
-   into a single tall block on a phone. */
-@container (max-width: 15rem) { .card { padding: var(--space-4); } .top { align-items: flex-start; flex-wrap: wrap; margin-bottom: var(--space-6); } }
-@container (max-width: 11rem) { .card { padding: var(--space-3) var(--space-4); } .top { margin-bottom: var(--space-4); } }
-@container (max-width: 9rem) { .card { padding: var(--space-3); } .top { gap: var(--space-2); margin-bottom: var(--space-3); } .top span, .card p { font-size: var(--text-xs); } }
+   column that happens to be tight. Three registers keep the copy readable; the
+   card's own box cannot be resized by them (a container cannot style itself),
+   so its padding is a phone-tier rule below. */
+@container (max-width: 15rem) { .top { align-items: flex-start; flex-wrap: wrap; margin-bottom: var(--space-6); } }
+@container (max-width: 11rem) { .top { margin-bottom: var(--space-4); } }
+@container (max-width: 9rem) { .top { gap: var(--space-2); margin-bottom: var(--space-3); } .top span, .card p { font-size: var(--text-xs); } }
+/* A 2-up phone card is 168px wide at 390, and the desktop box spent 48px of it
+   on padding and 32px between label and value. The phone tier is a viewport fact
+   here (the grid turns 2-up below sm), not a container one. */
+@media (max-width: 639px) {
+  .card { padding: var(--space-3); }
+  .top { margin-bottom: var(--space-3); }
+  .top span, .card p { font-size: var(--text-xs); }
+  .card p { margin-top: var(--space-2); }
+  .card > span { --text-xl: var(--text-lg); }
+}
+/* Container queries measure the card's content box, not its border box, so these
+   thresholds are content widths: the counter's clamp floor (--text-xl, 22px) draws
+   an eleven-digit value 131px wide, and a floor wider than the content paints it
+   past the card's edge. A container cannot style itself, so the narrow registers
+   lower the inherited token on the counter child (the card's only bare span). */
+@container (max-width: 8rem) { .card > span { --text-xl: var(--text-base); } }
+@container (max-width: 6rem) { .card > span { --text-xl: var(--text-xs); } }
 /* Text swaps: the outgoing copy is popped out of flow so the wrapper never holds both widths. */
 .swap, .swapBlock { position: relative; max-width: 100%; }
 .swap { display: inline-flex; overflow-x: clip; white-space: nowrap; vertical-align: top; }

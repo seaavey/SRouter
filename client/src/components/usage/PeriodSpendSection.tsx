@@ -1,3 +1,4 @@
+import { ArrowDownToLine, ArrowUpFromLine } from "lucide-react"
 import type { AnalyticsWindow } from "@/api/logs"
 import type { AnalyticsReport } from "@/api/types"
 import { ActionButton } from "@/components/arc/action-button/action-button"
@@ -69,19 +70,17 @@ export function PeriodSpendSection({
       aria-label={`Usage metrics past ${range}`}
       className="flex flex-col gap-3"
     >
-      {/* Responsive MetricCard Grid:
-          Mobile (<640px): 1 col
-          Tablet (sm: 640px+): 2 cols
-          Laptop (lg: 1024px+): 4 cols
-          Desktop (2xl: 1536px+): 4 cols
-      */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-3.5 lg:grid-cols-4">
+      {/* Two up on a phone: MetricCard's container queries drop the padding and
+          type as the column narrows, so the narrow register is the card's own.
+          Tablet (sm: 640px+): 2 cols. Laptop (lg: 1024px+): 4 cols. */}
+      <div className="grid grid-cols-2 gap-3 sm:gap-3.5 lg:grid-cols-4">
         {isPending ? (
           <>
             {[0, 1, 2, 3].map((idx) => (
               <div
                 key={idx}
-                className="rounded-[var(--radius-surface)] border border-border bg-surface p-5 shadow-[var(--shadow-resting)]"
+                aria-hidden="true"
+                className="rounded-[var(--radius-surface)] border border-border bg-surface p-3 shadow-[var(--shadow-resting)] sm:p-5"
               >
                 <Skeleton className="max-w-[7rem]" lines={1} />
                 <Skeleton className="mt-3 max-w-[10rem] text-xl" lines={1} />
@@ -109,7 +108,21 @@ export function PeriodSpendSection({
               label="Total tokens"
               value={windowTotals.total}
               decimals={0}
-              context={`${COMPACT.format(windowTotals.prompt)} input · ${COMPACT.format(windowTotals.completion)} output`}
+              context={
+                <>
+                  <span className="inline-flex items-center gap-1 align-middle">
+                    <ArrowDownToLine size={12} aria-hidden="true" />
+                    {COMPACT.format(windowTotals.prompt)}
+                    <span className="sr-only">input</span>
+                  </span>
+                  {" · "}
+                  <span className="inline-flex items-center gap-1 align-middle">
+                    <ArrowUpFromLine size={12} aria-hidden="true" />
+                    {COMPACT.format(windowTotals.completion)}
+                    <span className="sr-only">output</span>
+                  </span>
+                </>
+              }
             />
 
             <MetricCard
@@ -130,17 +143,20 @@ export function PeriodSpendSection({
         )}
       </div>
 
-      {/* Sub-strip detailing share bar and token distribution */}
+      {/* The share row and the token counts stack until the laptop tier: side by
+          side they leave the bar a few pixels at 768px. */}
       {!isPending && (
-        <div className="flex flex-col gap-3 rounded-[var(--radius-surface)] border border-border bg-card p-3.5 shadow-[var(--shadow-resting)] sm:flex-row sm:items-center sm:justify-between sm:px-4 sm:py-3">
-          <div className="flex min-w-0 flex-1 flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">
+        <div className="flex flex-col gap-3 rounded-[var(--radius-surface)] border border-border bg-card p-3.5 shadow-[var(--shadow-resting)] sm:px-4 sm:py-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5 lg:flex-row lg:items-center lg:gap-3">
             <span className="shrink-0 text-xs font-medium text-foreground">
               Period share
             </span>
             {spendShare !== null ? (
               <div className="flex min-w-0 flex-1 items-center gap-2.5">
-                <ShareBar value={spendShare} className="max-w-xs flex-1" />
-                <span className="text-xs text-muted-foreground tabular-nums">
+                {/* No width cap: a capped bar strands the percentage mid-row at
+                    tablet, where the token row below already spans the panel. */}
+                <ShareBar value={spendShare} className="flex-1" />
+                <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
                   {percent(spendShare)}
                 </span>
               </div>
@@ -151,7 +167,10 @@ export function PeriodSpendSection({
             )}
           </div>
 
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+          {/* Three columns rather than a wrapping flex row: with `justify-between`
+              the second line strands one pair at the left edge, and the numbers
+              stop lining up. `lg` returns to the content-sized row beside the bar. */}
+          <div className="grid shrink-0 grid-cols-3 items-center gap-x-4 gap-y-1 text-xs text-muted-foreground lg:flex lg:flex-wrap">
             <span>
               Input{" "}
               <strong className="font-medium text-foreground tabular-nums">

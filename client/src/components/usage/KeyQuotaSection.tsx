@@ -1,13 +1,10 @@
-import { KeyRound, ShieldAlert } from "lucide-react"
-import { useMemo } from "react"
+import { KeyRound } from "lucide-react"
 
 import { ActionButton } from "@/components/arc/action-button/action-button"
 import { Badge } from "@/components/arc/badge/badge"
 import { EmptyState } from "@/components/arc/empty-state/empty-state"
-import { SearchField } from "@/components/arc/search-field/search-field"
 import SegmentedControl from "@/components/arc/segmented-control/segmented-control"
 import { toast } from "@/components/arc/toast-stack/toast-stack"
-import { useSearch } from "@/hooks/useSearch"
 import {
   KEY_FILTER_OPTIONS,
   type KeyFilter,
@@ -37,28 +34,15 @@ export function KeyQuotaSection({
   keyRows,
   onRetry,
 }: KeyQuotaSectionProps) {
-  const {
-    query: search,
-    filteredItems: filteredKeys,
-    fieldProps: searchFieldProps,
-  } = useSearch(keyRows, {
-    debounceMs: 150,
-    keys: ["name", "prefix"],
-  })
-
-  const nearCount = useMemo(
-    () => keyRows.filter((r) => r.percent !== null && r.percent >= 80).length,
-    [keyRows]
-  )
-
   return (
     <section
       className="min-w-0 rounded-[var(--radius-surface)] border border-border bg-card p-4 shadow-[var(--shadow-resting)] sm:p-5"
       aria-label="Token quota per API key"
     >
-      {/* Responsive toolbar header: stack on mobile, inline on tablet/laptop/desktop */}
-      <div className="flex flex-col gap-3 border-b border-border pb-3.5 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap items-center gap-2">
+      {/* Wraps rather than overflows: at 768px the title row and the filter no
+          longer fit on one line. */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3.5">
+        <div className="flex items-center gap-2">
           <KeyRound
             size={16}
             className="shrink-0 text-foreground"
@@ -68,39 +52,17 @@ export function KeyQuotaSection({
             Token quota by key
           </h2>
           <span className="text-xs text-muted-foreground">
-            ({filteredKeys.length})
+            ({keyRows.length})
           </span>
-          {nearCount > 0 && keyFilter !== "near" && (
-            <Badge
-              tone="warning"
-              size="sm"
-              className="inline-flex items-center gap-1"
-            >
-              <ShieldAlert size={12} aria-hidden="true" />
-              {nearCount} near limit
-            </Badge>
-          )}
         </div>
 
-        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
-          {keyRows.length > 3 && (
-            <div className="w-full sm:w-44">
-              <SearchField
-                label="Search keys"
-                placeholder="Filter name/prefix..."
-                {...searchFieldProps}
-              />
-            </div>
-          )}
-          <div className="self-start sm:self-auto">
-            <SegmentedControl
-              options={KEY_FILTER_OPTIONS}
-              value={keyFilter}
-              onValueChange={(value) => onKeyFilterChange(value as KeyFilter)}
-              label="Key filter"
-            />
-          </div>
-        </div>
+        <SegmentedControl
+          options={KEY_FILTER_OPTIONS}
+          value={keyFilter}
+          onValueChange={(value) => onKeyFilterChange(value as KeyFilter)}
+          label="Key filter"
+          className="w-full sm:w-auto"
+        />
       </div>
 
       {isPending ? (
@@ -125,34 +87,31 @@ export function KeyQuotaSection({
             }
           />
         </div>
-      ) : filteredKeys.length === 0 ? (
+      ) : keyRows.length === 0 ? (
         <div className="pt-4">
           <EmptyState
             title={
-              search
-                ? "No matching keys found"
-                : keyFilter === "near"
-                  ? "No key is near its quota"
-                  : "No API keys yet"
+              keyFilter === "near"
+                ? "No key is near its quota"
+                : "No API keys yet"
             }
             description={
-              search
-                ? `No API key matched "${search}". Clear the query to see all keys.`
-                : keyFilter === "near"
-                  ? "Every metered key is below 80 percent of its token budget. Switch the filter to all keys to see them."
-                  : "Create a key on the keys screen and its token consumption appears here after the gateway serves a request with it."
+              keyFilter === "near"
+                ? "Every metered key is below 80 percent of its token budget. Switch the filter to all keys to see them."
+                : "Create a key on the keys screen and its token consumption appears here after the gateway serves a request with it."
             }
           />
         </div>
       ) : (
-        <ul className="animate-in divide-y divide-border duration-300 fade-in-0 motion-reduce:animate-none">
-          {filteredKeys.map((row) => {
+        <ul className="divide-y divide-border">
+          {keyRows.map((row) => {
             const nearQuota = row.percent !== null && row.percent >= 80
+            const overQuota = row.percent !== null && row.percent >= 100
             return (
               <li key={row.id} className="px-1 py-3">
-                <div className="flex flex-col gap-1.5 sm:flex-row sm:items-baseline sm:justify-between">
+                <div className="flex items-baseline justify-between gap-3">
                   <div className="flex min-w-0 flex-wrap items-center gap-2">
-                    <span className="truncate text-xs font-medium text-foreground">
+                    <span className="truncate text-sm font-medium text-foreground">
                       {row.name}
                     </span>
                     <span className="font-mono text-xs text-muted-foreground">
@@ -163,19 +122,25 @@ export function KeyQuotaSection({
                         Disabled
                       </Badge>
                     )}
-                    {nearQuota && (
-                      <Badge tone="warning" size="sm">
-                        Near quota
-                      </Badge>
-                    )}
-                    {row.percent === null && (
-                      <Badge tone="neutral" size="sm">
-                        Unlimited
-                      </Badge>
-                    )}
                   </div>
-                  <span className="self-end text-xs font-medium text-foreground tabular-nums sm:self-auto">
-                    {row.percent === null ? "No budget" : percent(row.percent)}
+                  {/* The figure carries the state on its own: the tone only
+                      reinforces a number that already reads as near or over. */}
+                  <span
+                    className={`shrink-0 text-sm font-medium tabular-nums ${
+                      overQuota
+                        ? "text-danger"
+                        : nearQuota
+                          ? "text-warning"
+                          : "text-foreground"
+                    }`}
+                  >
+                    {row.percent === null ? (
+                      <span className="text-xs font-normal text-muted-foreground">
+                        Unlimited
+                      </span>
+                    ) : (
+                      percent(row.percent)
+                    )}
                   </span>
                 </div>
 
@@ -184,23 +149,18 @@ export function KeyQuotaSection({
                     <ShareBar
                       value={row.percent}
                       tone={
-                        row.percent >= 100
-                          ? "danger"
-                          : nearQuota
-                            ? "warning"
-                            : "neutral"
+                        overQuota ? "danger" : nearQuota ? "warning" : "neutral"
                       }
                     />
                   </div>
                 )}
 
-                <div className="mt-1.5 flex flex-col gap-y-1 text-xs text-muted-foreground tabular-nums sm:flex-row sm:items-center sm:gap-x-4">
+                <div className="mt-1.5 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-xs text-muted-foreground tabular-nums">
                   <span>
                     {row.percent === null
                       ? `${NUMBER.format(row.used)} tokens used, no budget set`
                       : `${NUMBER.format(row.used)} of ${NUMBER.format(row.quota)} tokens`}
                   </span>
-                  <span className="hidden sm:inline">·</span>
                   <span>
                     {row.rateLimit === 0
                       ? "No rate limit"

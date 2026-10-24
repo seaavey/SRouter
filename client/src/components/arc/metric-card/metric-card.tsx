@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, type ReactNode } from "react"
 import {
   AnimatePresence,
   animate,
@@ -18,7 +18,7 @@ export interface MetricCardProps {
   prefix?: string
   suffix?: string
   decimals?: number
-  context: string
+  context: ReactNode
   change?: string
 }
 
@@ -191,7 +191,9 @@ export function MetricCard({
         animateOnView
       />
       <p>
-        <Swap text={context} block />
+        {/* Swap animates copy as it changes, which needs a string; a node (an
+            icon pair, say) renders as given. */}
+        {typeof context === "string" ? <Swap text={context} block /> : context}
       </p>
     </article>
   )

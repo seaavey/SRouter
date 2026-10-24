@@ -13,6 +13,7 @@ import {
   MONEY,
   NUMBER,
   percent,
+  SPEND,
 } from "./types"
 import { ShareBar } from "./ShareBar"
 import { ModelRowPlaceholders } from "./UsagePlaceholders"
@@ -64,6 +65,7 @@ export function ModelUsageSection({
           value={metric}
           onValueChange={(value) => onMetricChange(value as ModelMetric)}
           label="Breakdown metric"
+          className="w-full sm:w-auto"
         />
       </div>
 
@@ -79,7 +81,7 @@ export function ModelUsageSection({
           />
         </div>
       ) : (
-        <ul className="animate-in divide-y divide-border duration-300 fade-in-0 motion-reduce:animate-none">
+        <ul className="divide-y divide-border">
           {modelRows.map((row, index) => {
             const expanded = expandedModel === row.id
             const detailID = `model-detail-${index}`
@@ -107,7 +109,7 @@ export function ModelUsageSection({
                           }`}
                           aria-hidden="true"
                         />
-                        <div className="flex items-center gap-2">
+                        <div className="flex min-w-0 items-center gap-2">
                           <span className="truncate font-mono text-xs font-medium text-foreground">
                             {row.model}
                           </span>
@@ -120,9 +122,9 @@ export function ModelUsageSection({
                               <Badge
                                 tone="neutral"
                                 size="sm"
-                                className="cursor-pointer transition-colors group-hover/badge:border-foreground/30 group-hover/badge:bg-surface-muted"
+                                className="max-w-[9rem] cursor-pointer truncate transition-colors group-hover/badge:border-foreground/30 group-hover/badge:bg-surface-muted"
                               >
-                                {row.provider}
+                                {row.providerName}
                               </Badge>
                             </Link>
                           ) : (
@@ -131,7 +133,7 @@ export function ModelUsageSection({
                               size="sm"
                               className="shrink-0"
                             >
-                              {row.provider}
+                              {row.providerName}
                             </Badge>
                           )}
                         </div>
@@ -164,84 +166,106 @@ export function ModelUsageSection({
                 </div>
 
                 {expanded && (
+                  // One table instead of two side panels: the period and the
+                  // lifetime answer the same four questions, so they belong in
+                  // the same row rather than in two boxes.
                   <div
                     id={detailID}
-                    className="my-1 grid grid-cols-1 gap-4 rounded-lg bg-surface-muted/30 p-3.5 text-xs sm:grid-cols-2"
+                    className="my-1 rounded-lg bg-surface-muted/30 p-3.5"
                   >
-                    <div>
-                      <h3 className="font-medium text-foreground">
-                        This period ({range})
-                      </h3>
-                      <dl className="mt-2.5 grid grid-cols-2 gap-x-4 gap-y-2">
-                        <div>
-                          <dt className="text-muted-foreground">Requests</dt>
-                          <dd className="mt-0.5 font-medium text-foreground tabular-nums">
-                            {NUMBER.format(row.requests)}
-                          </dd>
-                        </div>
-                        <div>
-                          <dt className="text-muted-foreground">Tokens</dt>
-                          <dd className="mt-0.5 font-medium text-foreground tabular-nums">
-                            {NUMBER.format(row.tokens)}
-                          </dd>
-                        </div>
-                        <div>
-                          <dt className="text-muted-foreground">Cache hit</dt>
-                          <dd className="mt-0.5 font-medium text-foreground tabular-nums">
-                            {row.promptTokens > 0
+                    <table className="w-full text-xs">
+                      <caption className="sr-only">
+                        Usage for {row.model}, this period against its lifetime
+                      </caption>
+                      <thead>
+                        <tr className="border-b border-border/60 text-muted-foreground">
+                          <th
+                            scope="col"
+                            className="pb-2 text-left font-normal"
+                          >
+                            Metric
+                          </th>
+                          <th
+                            scope="col"
+                            className="pb-2 text-right font-normal"
+                          >
+                            This period
+                          </th>
+                          {lifetime && (
+                            <th
+                              scope="col"
+                              className="pb-2 text-right font-normal"
+                            >
+                              Lifetime
+                            </th>
+                          )}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border/60">
+                        <DetailRow
+                          label="Requests"
+                          period={NUMBER.format(row.requests)}
+                          lifetime={
+                            lifetime
+                              ? NUMBER.format(lifetime.total_requests)
+                              : undefined
+                          }
+                        />
+                        <DetailRow
+                          label="Tokens"
+                          period={COMPACT.format(row.tokens)}
+                          lifetime={
+                            lifetime
+                              ? COMPACT.format(
+                                  lifetime.total_input_tokens +
+                                    lifetime.total_output_tokens
+                                )
+                              : undefined
+                          }
+                        />
+                        <DetailRow
+                          label="Cache hit"
+                          period={
+                            row.promptTokens > 0
                               ? percent(
                                   (row.cachedTokens / row.promptTokens) * 100
                                 )
-                              : "—"}
-                          </dd>
-                        </div>
-                        <div>
-                          <dt className="text-muted-foreground">Spend</dt>
-                          <dd className="mt-0.5 font-medium text-foreground tabular-nums">
-                            {row.cost === null
+                              : "n/a"
+                          }
+                          lifetime={
+                            lifetime
+                              ? lifetime.total_input_tokens > 0
+                                ? percent(
+                                    (lifetime.total_cached_tokens /
+                                      lifetime.total_input_tokens) *
+                                      100
+                                  )
+                                : "n/a"
+                              : undefined
+                          }
+                        />
+                        <DetailRow
+                          label="Spend"
+                          period={
+                            row.cost === null
                               ? "Unpriced"
-                              : MONEY.format(row.cost)}
-                          </dd>
-                        </div>
-                      </dl>
-                    </div>
-
-                    <div className="border-t border-border pt-3 sm:border-t-0 sm:border-l sm:pt-0 sm:pl-4">
-                      <h3 className="font-medium text-foreground">
-                        Lifetime for this id
-                      </h3>
-                      {lifetime ? (
-                        <dl className="mt-2.5 grid grid-cols-2 gap-x-4 gap-y-2">
-                          <div>
-                            <dt className="text-muted-foreground">Requests</dt>
-                            <dd className="mt-0.5 font-medium text-foreground tabular-nums">
-                              {NUMBER.format(lifetime.total_requests)}
-                            </dd>
-                          </div>
-                          <div>
-                            <dt className="text-muted-foreground">Tokens</dt>
-                            <dd className="mt-0.5 font-medium text-foreground tabular-nums">
-                              {NUMBER.format(
-                                lifetime.total_input_tokens +
-                                  lifetime.total_output_tokens
-                              )}
-                            </dd>
-                          </div>
-                          <div>
-                            <dt className="text-muted-foreground">Spend</dt>
-                            <dd className="mt-0.5 font-medium text-foreground tabular-nums">
-                              {lifetime.est_cost === null
+                              : MONEY.format(row.cost)
+                          }
+                          lifetime={
+                            lifetime
+                              ? lifetime.est_cost === null
                                 ? "Unpriced"
-                                : MONEY.format(lifetime.est_cost)}
-                            </dd>
-                          </div>
-                        </dl>
-                      ) : (
-                        <p className="mt-2 text-muted-foreground">
-                          The lifetime ledger has no record for this id.
-                        </p>
-                      )}
-                    </div>
+                                : SPEND.format(lifetime.est_cost)
+                              : undefined
+                          }
+                        />
+                      </tbody>
+                    </table>
+                    {!lifetime && (
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        The lifetime ledger has no record for this id.
+                      </p>
+                    )}
                   </div>
                 )}
               </li>
@@ -258,5 +282,34 @@ export function ModelUsageSection({
         </p>
       )}
     </section>
+  )
+}
+
+function DetailRow({
+  label,
+  period,
+  lifetime,
+}: {
+  label: string
+  period: string
+  lifetime: string | undefined
+}) {
+  return (
+    <tr>
+      <th
+        scope="row"
+        className="py-1.5 text-left font-normal text-muted-foreground"
+      >
+        {label}
+      </th>
+      <td className="py-1.5 text-right font-medium text-foreground tabular-nums">
+        {period}
+      </td>
+      {lifetime !== undefined && (
+        <td className="py-1.5 text-right font-medium text-foreground tabular-nums">
+          {lifetime}
+        </td>
+      )}
+    </tr>
   )
 }
