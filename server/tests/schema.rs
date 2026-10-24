@@ -37,7 +37,7 @@ async fn fresh_database_gets_the_complete_v3_schema() {
     let database = test_database.connect().await.expect("connect to SQLite");
     let pool = database.sqlite_pool().expect("SQLite pool").clone();
 
-    assert_eq!(user_version(&pool).await, 5, "user_version must be 5");
+    assert_eq!(user_version(&pool).await, 7, "user_version must be 7");
 
     let tables = table_names(&pool).await;
     for expected in V3_TABLES {
@@ -73,7 +73,7 @@ async fn legacy_v1_database_is_transformed_to_v3() {
     let database = test_database.connect().await.expect("migrate legacy file");
     let pool = database.sqlite_pool().expect("SQLite pool").clone();
 
-    assert_eq!(user_version(&pool).await, 5);
+    assert_eq!(user_version(&pool).await, 7);
 
     // Renamed and merged tables.
     let tables = table_names(&pool).await;
@@ -345,7 +345,7 @@ async fn legacy_database_with_missing_optional_columns_still_migrates() {
     let database = test_database.connect().await.expect("migrate drift file");
     let migrated = database.sqlite_pool().expect("SQLite pool").clone();
 
-    assert_eq!(user_version(&migrated).await, 5);
+    assert_eq!(user_version(&migrated).await, 7);
 
     // request_logs gained the columns Node's ALTERs used to add.
     let columns = table_columns(&migrated, "request_logs").await;
@@ -354,6 +354,7 @@ async fn legacy_database_with_missing_optional_columns_still_migrates() {
         "cached_tokens",
         "estimated_cost",
         "resolved_model",
+        "upstream_status",
     ] {
         assert!(
             columns.contains(expected),
@@ -440,7 +441,7 @@ async fn v2_request_logs_keep_legacy_ids_when_upgraded_to_v3() {
 
     let database = test_database.connect().await.expect("upgrade v2 database");
     let pool = database.sqlite_pool().expect("SQLite pool");
-    assert_eq!(user_version(&pool).await, 5);
+    assert_eq!(user_version(&pool).await, 7);
     let row = sqlx::query(
         "SELECT id, request_id, api_key_id, legacy_id, legacy_api_key_id, method, path \
          FROM request_logs WHERE legacy_id = 'log_existing'",
@@ -453,7 +454,9 @@ async fn v2_request_logs_keep_legacy_ids_when_upgraded_to_v3() {
     assert_eq!(row.try_get::<String, _>("request_id").unwrap(), id);
     assert_eq!(
         row.try_get::<Option<String>, _>("api_key_id").unwrap(),
-        None
+        // v6 backfilled the key id out of `legacy_api_key_id`, so the repaired
+        // row names its key in the column every query reads.
+        Some(String::from("key_existing"))
     );
     assert_eq!(
         row.try_get::<String, _>("legacy_id").unwrap(),
@@ -574,7 +577,151 @@ async fn tunnel_settings_rows_are_deleted_when_a_v3_file_reaches_v5() {
 
     let database = test_database.connect().await.expect("migrate to v5");
     let pool = database.sqlite_pool().expect("SQLite pool");
-    assert_tunnel_settings_removed(&pool, 5).await;
+    assert_tunnel_settings_removed(&pool, 7).await;
+}
+
+#[tokio::test]
+async fn v5_database_migrates_to_the_current_version() {
+    let test_database = TestDatabase::new().expect("temporary database");
+    let options = SqliteConnectOptions::new()
+        .filename(test_database.path())
+        .create_if_missing(true);
+    let pool = SqlitePoolOptions::new()
+        .connect_with(options)
+        .await
+        .expect("seed pool");
+    sqlx::raw_sql(sqlx::AssertSqlSafe(
+        include_str!("../migrations/0002_v2_schema.sql").to_owned(),
+    ))
+    .execute(&pool)
+    .await
+    .expect("v2 schema");
+    sqlx::raw_sql(sqlx::AssertSqlSafe(
+        include_str!("../migrations/0003_request_logs.sql").to_owned(),
+    ))
+    .execute(&pool)
+    .await
+    .expect("v3 request logs");
+    sqlx::raw_sql(sqlx::AssertSqlSafe(
+        include_str!("../migrations/0004_remove_tunnel_settings.sql").to_owned(),
+    ))
+    .execute(&pool)
+    .await
+    .expect("v4 cleanup");
+    sqlx::raw_sql(sqlx::AssertSqlSafe(
+        include_str!("../migrations/0005_users.sql").to_owned(),
+    ))
+    .execute(&pool)
+    .await
+    .expect("v5 users");
+    sqlx::query("PRAGMA user_version = 5")
+        .execute(&pool)
+        .await
+        .expect("record v5");
+    pool.close().await;
+
+    let database = test_database
+        .connect()
+        .await
+        .expect("migrate to the current version");
+    let pool = database.sqlite_pool().expect("SQLite pool");
+    assert_eq!(user_version(&pool).await, 7);
+    let tables = table_names(&pool).await;
+    assert_eq!(
+        tables.len(),
+        V3_TABLES.len(),
+        "unexpected extra tables: {tables:?}"
+    );
+    for expected in V3_TABLES {
+        assert!(tables.contains(expected), "missing table {expected}");
+    }
+}
+
+/// v6 shipped two request-log indexes that were never measured, and a `user_id`
+/// column nothing could fill. A file already at v6 must lose the indexes and
+/// gain the owner, because v6 is already recorded on deployed databases and the
+/// runner never replays it.
+#[tokio::test]
+async fn v6_database_drops_the_unmeasured_indexes_and_backfills_the_owner() {
+    let test_database = TestDatabase::new().expect("temporary database");
+    let options = SqliteConnectOptions::new()
+        .filename(test_database.path())
+        .create_if_missing(true);
+    let pool = SqlitePoolOptions::new()
+        .connect_with(options)
+        .await
+        .expect("seed pool");
+    for migration in [
+        include_str!("../migrations/0002_v2_schema.sql"),
+        include_str!("../migrations/0003_request_logs.sql"),
+        include_str!("../migrations/0004_remove_tunnel_settings.sql"),
+        include_str!("../migrations/0005_users.sql"),
+        include_str!("../migrations/0006_request_log_integrity.sql"),
+    ] {
+        sqlx::raw_sql(sqlx::AssertSqlSafe(migration.to_owned()))
+            .execute(&pool)
+            .await
+            .expect("seed migration");
+    }
+    // The exact shape v6 wrote: the upstream-status column plus both indexes.
+    sqlx::raw_sql(sqlx::AssertSqlSafe(
+        "ALTER TABLE request_logs ADD COLUMN upstream_status INTEGER;
+         CREATE INDEX idx_request_logs_status ON request_logs (status_code, created_at);
+         CREATE INDEX idx_request_logs_key ON request_logs (api_key_id, created_at);"
+            .to_owned(),
+    ))
+    .execute(&pool)
+    .await
+    .expect("v6 shape");
+    sqlx::query(
+        "INSERT INTO users (id, name, token_hash, token_prefix, enabled, created_at) \
+         VALUES ('usr_owner', 'Acme', 'token-hash', 'sr-user-', 1, 0)",
+    )
+    .execute(&pool)
+    .await
+    .expect("seed user");
+    sqlx::query(
+        "INSERT INTO api_keys (id, key_hash, key_prefix, name, enabled, rate_limit, quota_limit, \
+         usage_tokens, credit_limit, usage_cost, created_at, user_id) \
+         VALUES ('key_1', 'key-hash', 'sr-live-', 'key', 1, 0, 0, 0, 0, 0, 0, 'usr_owner')",
+    )
+    .execute(&pool)
+    .await
+    .expect("seed key");
+    sqlx::query(
+        "INSERT INTO request_logs (id, request_id, method, path, api_key_id, provider_id, model, \
+         status_code, latency_ms, created_at) \
+         VALUES ('id_1', 'rid_1', 'POST', '/v1/chat/completions', 'key_1', 'openai', 'gpt', 200, 1, 1)",
+    )
+    .execute(&pool)
+    .await
+    .expect("seed log");
+    sqlx::query("PRAGMA user_version = 6")
+        .execute(&pool)
+        .await
+        .expect("record v6");
+    pool.close().await;
+
+    let database = test_database.connect().await.expect("migrate to v7");
+    let pool = database.sqlite_pool().expect("SQLite pool");
+    assert_eq!(user_version(&pool).await, 7);
+
+    let indexes = index_names(&pool).await;
+    assert!(
+        !indexes.contains("idx_request_logs_status"),
+        "the status index sorted the whole match set; it must not survive, found {indexes:?}"
+    );
+    assert!(
+        !indexes.contains("idx_request_logs_key"),
+        "no query filters on request_logs.api_key_id; found {indexes:?}"
+    );
+
+    let owner: Option<String> =
+        sqlx::query_scalar("SELECT user_id FROM request_logs WHERE id = 'id_1'")
+            .fetch_one(&pool)
+            .await
+            .expect("read the backfilled owner");
+    assert_eq!(owner.as_deref(), Some("usr_owner"));
 }
 
 #[tokio::test]
@@ -603,7 +750,7 @@ async fn tunnel_settings_rows_are_deleted_across_the_v1_transform() {
 
     let database = test_database.connect().await.expect("migrate legacy file");
     let pool = database.sqlite_pool().expect("SQLite pool");
-    assert_tunnel_settings_removed(&pool, 5).await;
+    assert_tunnel_settings_removed(&pool, 7).await;
 }
 
 /// The exact v1 layout observed from a Node-created database (probe dump).

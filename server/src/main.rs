@@ -32,7 +32,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Wildcard bind matches the Node listener and keeps Docker/VPS traffic reachable.
     let address = SocketAddr::from(([0, 0, 0, 0], config.port));
 
-    // Opening the database brings SQLite to schema v4 before the listeners start.
+    // Opening the database brings SQLite to schema v7 before the listeners start.
     let database = AppDatabase::connect(&config).await?;
     // A key whose route billed nothing kept `usage_tokens` at zero while the
     // request log already held its tokens, so the counters are repaired from the

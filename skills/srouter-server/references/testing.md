@@ -44,7 +44,7 @@ Two suites bind a real socket (`127.0.0.1:0` + `reqwest`) because they exercise 
 
 | Suite                                       | Pinned contract                                                                                                                                    |
 | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `schema.rs`                                 | `user_version == 4`, the exact table and index sets, the v1→v2 legacy transform, the v4 tunnel-key cleanup, refusal of a newer file                |
+| `schema.rs`                                 | `user_version == 7`, the exact table and index sets, the v1→v2 legacy transform, the v4 tunnel-key cleanup, the v6→v7 index drop and owner backfill, refusal of a newer file |
 | `database.rs`                               | SQLite opens and data survives a reconnect; `DATABASE_URL` is refused (500) before any file exists                                                 |
 | `bindings.rs`                               | both committed TypeScript copies match a fresh render                                                                                              |
 | `http_runtime.rs`                           | the six frozen response headers, including `X-Version`, and the root body                                                                          |

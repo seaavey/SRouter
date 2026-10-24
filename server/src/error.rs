@@ -13,6 +13,10 @@ pub struct APIError {
     error_type: String,
     code: Option<ErrorCode>,
     param: Option<String>,
+    /// The status the upstream answered with, when this error wraps one. It never
+    /// reaches the wire: a buffered failure answers the client with the gateway's
+    /// own status, so the request log is the only place the upstream one survives.
+    upstream_status: Option<u16>,
 }
 
 impl APIError {
@@ -31,6 +35,7 @@ impl APIError {
             error_type: error_type.to_owned(),
             code: None,
             param: None,
+            upstream_status: None,
         }
     }
 
@@ -49,8 +54,17 @@ impl APIError {
         self
     }
 
+    pub fn with_upstream_status(mut self, status: u16) -> Self {
+        self.upstream_status = Some(status);
+        self
+    }
+
     pub fn status(&self) -> u16 {
         self.status
+    }
+
+    pub fn upstream_status(&self) -> Option<u16> {
+        self.upstream_status
     }
 
     pub fn message(&self) -> &str {
@@ -200,6 +214,21 @@ mod tests {
                     "param": "provider"
                 }
             })
+        );
+    }
+
+    #[test]
+    fn the_upstream_status_travels_on_the_error_but_not_on_the_envelope() {
+        let api_error =
+            APIError::new(500, "upstream rejected the request").with_upstream_status(429);
+
+        assert_eq!(api_error.upstream_status(), Some(429));
+        // The client still sees the gateway's own status; only the request log
+        // records the upstream one.
+        assert_eq!(api_error.status(), 500);
+        assert_eq!(
+            serde_json::to_value(api_error.to_envelope()).unwrap()["error"]["type"],
+            "api_error"
         );
     }
 

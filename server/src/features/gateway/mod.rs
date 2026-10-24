@@ -33,6 +33,10 @@ pub(crate) struct RequestLogContext {
     pub client_ip: Option<String>,
     pub user_agent: Option<String>,
     pub api_key_id: Option<String>,
+    /// The key owner at request time. Logged so a per-customer rollup does not
+    /// rejoin `api_keys`, and so the row keeps naming its owner after the key
+    /// is deleted.
+    pub user_id: Option<String>,
     pub start_time: i64,
     /// Token budget reserved on the API key at admission. `Some` only for the
     /// chat-shaped routes served with an API key, so their completion is the
@@ -67,6 +71,8 @@ impl RequestLogContext {
             .and_then(|value| value.to_str().ok())
             .map(|value| value.to_owned());
         let api_key_id = principal.and_then(|ext| ext.0.api_key.as_ref().map(|key| key.id.clone()));
+        let user_id =
+            principal.and_then(|ext| ext.0.api_key.as_ref().and_then(|key| key.user_id.clone()));
 
         Ok(Self {
             request_id,
@@ -75,6 +81,7 @@ impl RequestLogContext {
             client_ip,
             user_agent,
             api_key_id,
+            user_id,
             start_time,
             reserved_tokens: None,
         })

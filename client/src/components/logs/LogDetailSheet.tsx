@@ -119,6 +119,15 @@ export function LogDetailSheet({ log, onClose }: LogDetailSheetProps) {
               </dd>
             </div>
 
+            {typeof log.upstream_status === "number" && (
+              <div>
+                <dt className="text-muted-foreground">Upstream Status</dt>
+                <dd className="mt-1 font-mono font-medium text-foreground tabular-nums">
+                  {log.upstream_status}
+                </dd>
+              </div>
+            )}
+
             <div>
               <dt className="text-muted-foreground">Client IP</dt>
               <dd className="mt-1 font-mono text-foreground">

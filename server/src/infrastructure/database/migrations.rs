@@ -19,11 +19,15 @@ use crate::error::APIError;
 
 /// The schema version this build writes. A database reporting a higher
 /// version is refused instead of downgraded.
-pub const SCHEMA_VERSION: i64 = 5;
+pub const SCHEMA_VERSION: i64 = 7;
 
 /// The version whose migration step added the request-log columns and the
 /// legacy id upgrade; files already at or above it must not replay that step.
 pub const SCHEMA_VERSION_V3: i64 = 3;
+/// The version whose migration step added customer tables (`users`) and renamed
+/// `admin_sessions` to `auth_sessions`. Files already at or above it must not
+/// replay that step.
+pub const SCHEMA_VERSION_V5: i64 = 5;
 
 /// The v2 base DDL (`server/migrations/0002_v2_schema.sql`), every
 /// statement written as `IF NOT EXISTS`.
@@ -36,6 +40,15 @@ const TUNNEL_SETTINGS_V4_SQL: &str =
 /// The v5 customer tables (`server/migrations/0005_users.sql`), which also
 /// rename `admin_sessions` to `auth_sessions`.
 const USERS_V5_SQL: &str = include_str!("../../../migrations/0005_users.sql");
+/// The v6 request-log columns and indexes
+/// (`server/migrations/0006_request_log_integrity.sql`), plus the key-id
+/// backfill that repairs rows written before the column split was fixed.
+const REQUEST_LOG_INTEGRITY_V6_SQL: &str =
+    include_str!("../../../migrations/0006_request_log_integrity.sql");
+/// The v7 request-log owner (`server/migrations/0007_request_log_owner.sql`):
+/// drops the two indexes v6 added and backfills the customer on old rows.
+const REQUEST_LOG_OWNER_V7_SQL: &str =
+    include_str!("../../../migrations/0007_request_log_owner.sql");
 
 /// Brings the SQLite file to [`SCHEMA_VERSION`].
 pub async fn run(pool: &SqlitePool) -> Result<(), APIError> {
@@ -77,6 +90,17 @@ pub async fn run(pool: &SqlitePool) -> Result<(), APIError> {
 
     legacy.restore(&mut transaction).await?;
 
+    // A database already carrying `auth_sessions` had its `admin_sessions`
+    // table renamed in v5. The v2 DDL recreates `admin_sessions` via
+    // IF NOT EXISTS because it was absent; drop that empty shadow so the
+    // shape stays at the single auth table. A populated shadow is left alone:
+    // this runner never deletes rows.
+    if tables.contains("auth_sessions")
+        && table_row_count(&mut transaction, "admin_sessions").await? == 0
+    {
+        drop_table(&mut transaction, "admin_sessions").await?;
+    }
+
     // The request-log v3 additions and the legacy id upgrade belong to the
     // pre-v3 shapes. A file already at version 3 ran them once: replaying the
     // ALTERs fails on a duplicate column, and re-running the id upgrade would
@@ -98,12 +122,38 @@ pub async fn run(pool: &SqlitePool) -> Result<(), APIError> {
             constants::database::context::APPLY_TUNNEL_SETTINGS_CLEANUP,
         ))?;
 
-    // Unconditional: the early return above leaves only files below v5, and
-    // every earlier shape still carried `admin_sessions` for the rename.
-    sqlx::raw_sql(USERS_V5_SQL)
+    // The customer tables and the admin_sessions -> auth_sessions rename belong
+    // to pre-v5 shapes. A file already at version 5 ran them once: replaying the
+    // ALTERs fails on duplicate column user_id and existing table auth_sessions.
+    if version < SCHEMA_VERSION_V5 {
+        sqlx::raw_sql(USERS_V5_SQL)
+            .execute(&mut *transaction)
+            .await
+            .map_err(sql_error(constants::database::context::APPLY_USERS_V5))?;
+    }
+
+    // v6: the request log learns the upstream status, and both the fresh DDL
+    // and every older shape get the columns here rather than in the v2 base
+    // (a base-DDL column would need a duplicate ALTER guard for kept tables).
+    ensure_columns(
+        &mut transaction,
+        "request_logs",
+        &[("upstream_status", "INTEGER")],
+    )
+    .await?;
+    sqlx::raw_sql(REQUEST_LOG_INTEGRITY_V6_SQL)
         .execute(&mut *transaction)
         .await
-        .map_err(sql_error(constants::database::context::APPLY_USERS_V5))?;
+        .map_err(sql_error(
+            constants::database::context::APPLY_REQUEST_LOG_INTEGRITY,
+        ))?;
+
+    sqlx::raw_sql(REQUEST_LOG_OWNER_V7_SQL)
+        .execute(&mut *transaction)
+        .await
+        .map_err(sql_error(
+            constants::database::context::APPLY_REQUEST_LOG_OWNER,
+        ))?;
 
     let record_version = format!("PRAGMA user_version = {SCHEMA_VERSION}");
     sqlx::raw_sql(sqlx::AssertSqlSafe(record_version))
@@ -147,6 +197,18 @@ async fn table_columns(
         ))?;
 
     Ok(table_name_set(rows))
+}
+
+async fn table_row_count(
+    transaction: &mut Transaction<'_, sqlx::Sqlite>,
+    table: &str,
+) -> Result<i64, APIError> {
+    // `table` is always a literal from this module, never external input.
+    let statement = format!("SELECT COUNT(*) FROM {table}");
+    sqlx::query_scalar(sqlx::AssertSqlSafe(statement))
+        .fetch_one(&mut **transaction)
+        .await
+        .map_err(sql_error(constants::database::context::COUNT_TABLE_ROWS))
 }
 
 fn table_name_set(rows: Vec<SqliteRow>) -> HashSet<String> {

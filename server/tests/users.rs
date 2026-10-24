@@ -408,18 +408,18 @@ async fn seed_key(database: &AppDatabase, id: &str, user_id: &str) {
     .unwrap();
 }
 
-/// Inserts one request-log row attributed to a key, the way the gateway stores
-/// it: current key ids live in `legacy_api_key_id`, which is what the tenant
-/// subquery reads.
-async fn seed_log(database: &AppDatabase, id: &str, key_id: &str, status: i64) {
+/// Inserts one request-log row the way the gateway stores it: the key id
+/// verbatim and the owner copied alongside, which is what the tenant scope reads.
+async fn seed_log(database: &AppDatabase, id: &str, user_id: &str, key_id: &str, status: i64) {
     sqlx::query(
-        "INSERT INTO request_logs (id, request_id, method, path, legacy_api_key_id, \
+        "INSERT INTO request_logs (id, request_id, method, path, api_key_id, user_id, \
          provider_id, model, status_code, latency_ms, created_at) \
-         VALUES (?, ?, 'POST', '/v1/chat/completions', ?, 'opencode_zen', 'test-model', ?, 12, 100)",
+         VALUES (?, ?, 'POST', '/v1/chat/completions', ?, ?, 'opencode_zen', 'test-model', ?, 12, 100)",
     )
     .bind(id)
     .bind(id)
     .bind(key_id)
+    .bind(user_id)
     .bind(status)
     .execute(&database.sqlite_pool().unwrap())
     .await
@@ -547,11 +547,46 @@ async fn portal_logs_count_only_the_callers_rows() {
     ] {
         seed_key(&database, key_id, user["id"].as_str().unwrap()).await;
     }
-    seed_log(&database, &log_id(1), "key_acme_1", 200).await;
-    seed_log(&database, &log_id(2), "key_acme_1", 500).await;
-    seed_log(&database, &log_id(3), "key_acme_2", 200).await;
-    seed_log(&database, &log_id(4), "key_globex_1", 200).await;
-    seed_log(&database, &log_id(5), "key_globex_2", 200).await;
+    seed_log(
+        &database,
+        &log_id(1),
+        acme["id"].as_str().unwrap(),
+        "key_acme_1",
+        200,
+    )
+    .await;
+    seed_log(
+        &database,
+        &log_id(2),
+        acme["id"].as_str().unwrap(),
+        "key_acme_1",
+        500,
+    )
+    .await;
+    seed_log(
+        &database,
+        &log_id(3),
+        acme["id"].as_str().unwrap(),
+        "key_acme_2",
+        200,
+    )
+    .await;
+    seed_log(
+        &database,
+        &log_id(4),
+        globex["id"].as_str().unwrap(),
+        "key_globex_1",
+        200,
+    )
+    .await;
+    seed_log(
+        &database,
+        &log_id(5),
+        globex["id"].as_str().unwrap(),
+        "key_globex_2",
+        200,
+    )
+    .await;
 
     let (_, acme_cookie, _) = login(&app, acme["token"].as_str().unwrap()).await;
     let (status, page) = send(
@@ -597,8 +632,22 @@ async fn portal_logs_keep_the_tenant_scope_on_the_error_branch() {
     let database = database.connect().await.expect("temporary database");
     seed_key(&database, "key_acme", acme["id"].as_str().unwrap()).await;
     seed_key(&database, "key_globex", globex["id"].as_str().unwrap()).await;
-    seed_log(&database, &log_id(1), "key_acme", 199).await;
-    seed_log(&database, &log_id(2), "key_globex", 199).await;
+    seed_log(
+        &database,
+        &log_id(1),
+        acme["id"].as_str().unwrap(),
+        "key_acme",
+        199,
+    )
+    .await;
+    seed_log(
+        &database,
+        &log_id(2),
+        globex["id"].as_str().unwrap(),
+        "key_globex",
+        199,
+    )
+    .await;
 
     let (_, acme_cookie, _) = login(&app, acme["token"].as_str().unwrap()).await;
     let (status, page) = send(

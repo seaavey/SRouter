@@ -315,6 +315,13 @@ export type LogCost = {
 export type LogError = {
 	error_code?: string | null,
 	error_message?: string | null,
+	/**
+	 *  The status the upstream answered with, kept apart from [`RequestLog`]'s
+	 *  `status_code` because the gateway answers a failed upstream call with
+	 *  its own envelope (`500` for a `400` from some drivers). Without this the
+	 *  operator can only recover the upstream status by parsing the message.
+	 */
+	upstream_status?: number | null,
 };
 
 /**  Token usage breakdown for a logged request. */
@@ -539,6 +546,10 @@ export type QuotaResponse = {
 export type RequestLog = {
 	id: string,
 	request_id: string,
+	/**
+	 *  The owning customer's id (`usr_...`), not a UUID: the operator surface
+	 *  treats it as an opaque string, the same as `api_key_id`.
+	 */
 	user_id: string | null,
 	api_key_id: string | null,
 	method: HTTPMethod,

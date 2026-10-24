@@ -1,6 +1,7 @@
 //! Request-log rows and API-key quota accounting shared by the gateway routes.
 
 use crate::clock;
+use crate::constants;
 use crate::error::APIError;
 use crate::features::gateway::RequestLogContext;
 use crate::features::providers::ResolvedModel;
@@ -42,6 +43,23 @@ pub(crate) async fn log_request(
         }
         None => (None, None),
     };
+    // A buffered upstream failure answers the client with the gateway's own
+    // status, so the upstream one rides on the `APIError` instead.
+    let upstream_status = match error {
+        Some(LogError::Gateway(error)) => error.upstream_status(),
+        // A mid-stream failure has no `APIError`: the status survives only in the
+        // event text the driver built from it.
+        Some(LogError::Stream { message, .. }) => upstream_status_from_message(message),
+        None => None,
+    };
+    // Every failed row carries a groupable code: the `APIError`'s own, else the
+    // upstream status, else the local status. Without the fallback most failures
+    // logged a null code and grouping meant parsing messages.
+    let error_code = error_code.or_else(|| {
+        upstream_status
+            .map(constants::logs::upstream_error_code)
+            .or_else(|| (status_code >= 400).then(|| constants::logs::http_error_code(status_code)))
+    });
 
     if let Some(db) = &state.database {
         let _ = insert_request_log(
@@ -51,6 +69,7 @@ pub(crate) async fn log_request(
                 method: &context.method,
                 path: &context.path,
                 api_key_id: context.api_key_id.as_deref(),
+                user_id: context.user_id.as_deref(),
                 ip_address: context.client_ip.as_deref(),
                 user_agent: context.user_agent.as_deref(),
                 provider_id,
@@ -62,6 +81,7 @@ pub(crate) async fn log_request(
                 resolved_model,
                 error_code: error_code.as_deref(),
                 error_message: error_message.as_deref(),
+                upstream_status,
                 created_at: clock::now_ms(),
             },
         )
@@ -161,11 +181,16 @@ pub(crate) fn unresolved_provider_id(model: &str) -> &str {
 /// Recovers the HTTP status from an upstream error message
 /// (`... Error (503) ...`) so a streamed failure logs its real status.
 pub(crate) fn stream_log_status(message: &str, fallback: u16) -> u16 {
+    upstream_status_from_message(message).unwrap_or(fallback)
+}
+
+/// The status an upstream answered with, when the only record of it is the
+/// message a streamed failure carried.
+fn upstream_status_from_message(message: &str) -> Option<u16> {
     message
         .split_once(" Error (")
         .and_then(|(_, status)| status.split_once(')'))
         .and_then(|(status, _)| status.parse().ok())
-        .unwrap_or(fallback)
 }
 
 #[cfg(test)]
@@ -183,6 +208,15 @@ mod tests {
             429
         );
         assert_eq!(stream_log_status("connection reset by peer", 200), 200);
+    }
+
+    #[test]
+    fn upstream_status_is_absent_when_the_message_names_none() {
+        assert_eq!(super::upstream_status_from_message("upstream down"), None);
+        assert_eq!(
+            super::upstream_status_from_message("OpenAI Provider Error (403): free tier"),
+            Some(403)
+        );
     }
 
     #[test]

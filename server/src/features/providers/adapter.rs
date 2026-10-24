@@ -373,6 +373,7 @@ pub(crate) fn upstream_status_error(status: StatusCode, detail: &str) -> APIErro
         500,
         constants::providers::upstream_error(status.as_u16(), detail),
     )
+    .with_upstream_status(status.as_u16())
 }
 
 pub(crate) fn upstream_stream_status_error(status: StatusCode, detail: &str) -> APIError {
@@ -380,4 +381,5 @@ pub(crate) fn upstream_stream_status_error(status: StatusCode, detail: &str) -> 
         500,
         constants::providers::upstream_stream_error(status.as_u16(), detail),
     )
+    .with_upstream_status(status.as_u16())
 }

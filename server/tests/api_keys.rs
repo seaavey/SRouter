@@ -802,6 +802,7 @@ async fn reconcile_raises_usage_to_the_request_log_and_never_lowers_it() {
                 method: "POST",
                 path: "/v1/messages",
                 api_key_id: Some(key_id),
+                user_id: None,
                 ip_address: None,
                 user_agent: None,
                 provider_id: "openai",
@@ -813,6 +814,7 @@ async fn reconcile_raises_usage_to_the_request_log_and_never_lowers_it() {
                 resolved_model: None,
                 error_code: None,
                 error_message: None,
+                upstream_status: None,
                 created_at: 1_700_000_000_000,
             },
         )

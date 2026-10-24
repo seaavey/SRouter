@@ -2602,6 +2602,7 @@ pub async fn sqlx_admin_security_state(database: &TestDatabase) -> SecurityState
 pub fn api_key_record(id: &str) -> APIKeyRecord {
     APIKeyRecord {
         id: id.to_owned(),
+        user_id: None,
         enabled: true,
         owner_enabled: true,
         rate_limit: 0,

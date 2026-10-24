@@ -765,6 +765,19 @@ pub mod logs {
     pub fn not_found(raw_id: impl std::fmt::Display) -> String {
         format!("Log '{raw_id}' not found")
     }
+
+    /// The `error_code` of a failure the upstream reported. The numeric status
+    /// is what the dashboard groups on, because the upstream's own code is
+    /// vendor-specific and already lives in the message.
+    pub fn upstream_error_code(status: u16) -> String {
+        format!("upstream_{status}")
+    }
+
+    /// The `error_code` of a local rejection that carries no code of its own,
+    /// so every failed row has a groupable code instead of a null.
+    pub fn http_error_code(status: u16) -> String {
+        format!("http_{status}")
+    }
 }
 
 /// Persistence failures. Every one of these surfaces as a `500` envelope, so
@@ -991,8 +1004,11 @@ pub mod database {
         // Schema migration.
         pub const ADD_MISSING_COLUMN: &str = "add a column older databases are missing";
         pub const APPLY_REQUEST_LOG_V3: &str = "apply request-log v3 migration";
+        pub const APPLY_REQUEST_LOG_INTEGRITY: &str = "apply the request-log v6 migration";
+        pub const APPLY_REQUEST_LOG_OWNER: &str = "apply the request-log v7 migration";
         pub const APPLY_CURRENT_SCHEMA: &str = "apply the current schema";
         pub const APPLY_USERS_V5: &str = "apply the users v5 migration";
+        pub const COUNT_TABLE_ROWS: &str = "count rows in a legacy table";
         pub const APPLY_TUNNEL_SETTINGS_CLEANUP: &str = "apply the tunnel settings cleanup";
         pub const COMMIT_SCHEMA_MIGRATION: &str = "commit the schema migration";
         pub const DROP_LEGACY_TABLE: &str = "drop a legacy table";

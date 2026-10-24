@@ -76,7 +76,7 @@ impl APIKeyStore for SQLxAPIKeyStore {
 
             let pool = self.pool()?;
             let row = sqlx::query(
-                "SELECT k.id, k.enabled, k.rate_limit, k.quota_limit, k.usage_tokens, \
+                "SELECT k.id, k.user_id, k.enabled, k.rate_limit, k.quota_limit, k.usage_tokens, \
                  k.credit_limit, k.usage_cost, k.allowed_models, \
                  COALESCE(u.enabled, 1) AS owner_enabled \
                  FROM api_keys k LEFT JOIN users u ON u.id = k.user_id WHERE k.key_hash = ?",
@@ -505,6 +505,7 @@ fn api_key_from_row(row: &SqliteRow) -> Result<APIKey, APIError> {
 fn auth_record_from_row(row: &SqliteRow) -> APIKeyRecord {
     APIKeyRecord {
         id: row.try_get::<String, _>("id").unwrap_or_default(),
+        user_id: row.try_get::<Option<String>, _>("user_id").unwrap_or(None),
         enabled: row.try_get::<i64, _>("enabled").unwrap_or(0) != 0,
         owner_enabled: row.try_get::<i64, _>("owner_enabled").unwrap_or(0) != 0,
         rate_limit: u32_from(row, "rate_limit"),

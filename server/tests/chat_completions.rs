@@ -1657,6 +1657,10 @@ async fn a_failed_request_is_logged_with_its_message() {
         "the row must carry the rejection the client saw, got {:?}",
         row.error.error_message
     );
+    // The client got the gateway's 500; the upstream's own status survives on
+    // the error, and the row's code is groupable without parsing the message.
+    assert_eq!(row.error.upstream_status, Some(401));
+    assert_eq!(row.error.error_code.as_deref(), Some("upstream_401"));
 }
 
 /// The reported bug: a vendor's dated build is not a catalog row of its own, so

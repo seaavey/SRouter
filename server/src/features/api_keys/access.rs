@@ -81,6 +81,7 @@ mod tests {
     fn record(models: &[&str]) -> APIKeyRecord {
         APIKeyRecord {
             id: String::from("key_1"),
+            user_id: None,
             enabled: true,
             owner_enabled: true,
             rate_limit: 0,

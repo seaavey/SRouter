@@ -755,7 +755,7 @@ async fn import_accepts_a_v1_candidate_by_migrating_it() {
         .fetch_one(&pool)
         .await
         .unwrap();
-    assert_eq!(version, 5);
+    assert_eq!(version, 7);
 }
 
 // ---------------------------------------------------------------------------

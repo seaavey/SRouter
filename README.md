@@ -214,7 +214,7 @@ Two halves in one repository, sharing only generated TypeScript.
 | `client/`              | The operator dashboard                                                                                               |
 | `server/src/app.rs`    | The only router assembly; guards are applied per mount                                                               |
 | `server/src/features/` | One directory per feature: gateway, providers, catalog, logs, api_keys, admin_auth, provider_auth, database_transfer |
-| `server/migrations/`   | Schema history, currently version 4                                                                                  |
+| `server/migrations/`   | Schema history, currently version 7                                                                                  |
 | `server/tests/`        | Integration suites, each with its own temporary database and fake upstreams                                          |
 | `skills/`              | Deep-dive notes for server and client work                                                                           |
 

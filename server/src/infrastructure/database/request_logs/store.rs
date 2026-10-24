@@ -144,6 +144,13 @@ pub struct LogError {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[specta(optional)]
     pub error_message: Option<String>,
+    /// The status the upstream answered with, kept apart from [`RequestLog`]'s
+    /// `status_code` because the gateway answers a failed upstream call with
+    /// its own envelope (`500` for a `400` from some drivers). Without this the
+    /// operator can only recover the upstream status by parsing the message.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
+    pub upstream_status: Option<i16>,
 }
 
 /// A single request-log record. Categorized into cohesive domain structs
@@ -152,7 +159,9 @@ pub struct LogError {
 pub struct RequestLog {
     pub id: Uuid,
     pub request_id: Uuid,
-    pub user_id: Option<Uuid>,
+    /// The owning customer's id (`usr_...`), not a UUID: the operator surface
+    /// treats it as an opaque string, the same as `api_key_id`.
+    pub user_id: Option<String>,
     pub api_key_id: Option<String>,
     pub method: HTTPMethod,
     pub path: String,
@@ -205,9 +214,8 @@ fn publish_request_log(id: Uuid) {
     let _ = log_events().send(id);
 }
 
-/// Restricts the read to rows made with a key owned by one customer.
-const TENANT_SCOPE: &str = " AND EXISTS (SELECT 1 FROM api_keys k WHERE k.user_id = ? \
-     AND (k.id = request_logs.api_key_id OR k.id = request_logs.legacy_api_key_id))";
+/// Restricts the read to rows one customer's keys made.
+const TENANT_SCOPE: &str = " AND request_logs.user_id = ?";
 
 /// Lists logs newest-first; PostgreSQL is unsupported until its repository exists.
 /// `tenant_user_id` restricts the read to one customer's keys.
@@ -322,11 +330,9 @@ fn map_request_log(row: &sqlx::sqlite::SqliteRow) -> Result<RequestLog, APIError
         .map_err(log_row_error)?;
     let reasoning_tokens: Option<i64> = row.try_get("reasoning_tokens").map_err(log_row_error)?;
     let estimated_cost: Option<f64> = row.try_get("estimated_cost").map_err(log_row_error)?;
-    // A key id is `key_...` and never parses as a UUID, so current rows carry it in
-    // `legacy_api_key_id`; either column names the key that made this request.
+    // A key id is `key_...` and is stored verbatim; v7 backfilled the rows the
+    // pre-v6 writer cast to a UUID, so this column alone names the key.
     let api_key_id: Option<String> = row.try_get("api_key_id").map_err(log_row_error)?;
-    let legacy_api_key_id: Option<String> =
-        row.try_get("legacy_api_key_id").map_err(log_row_error)?;
 
     let model_for_cost = resolved_model.as_deref().or(model.as_deref());
     let costs = model_for_cost
@@ -358,8 +364,8 @@ fn map_request_log(row: &sqlx::sqlite::SqliteRow) -> Result<RequestLog, APIError
     Ok(RequestLog {
         id: Uuid::parse_str(&id).map_err(log_row_error)?,
         request_id: Uuid::parse_str(&request_id).map_err(log_row_error)?,
-        user_id: optional_uuid(row, "user_id")?,
-        api_key_id: api_key_id.or(legacy_api_key_id),
+        user_id: row.try_get("user_id").map_err(log_row_error)?,
+        api_key_id,
         method,
         path: row.try_get("path").map_err(log_row_error)?,
         status_code: i16::try_from(status_code).map_err(|error| {
@@ -392,15 +398,9 @@ fn map_request_log(row: &sqlx::sqlite::SqliteRow) -> Result<RequestLog, APIError
         error: LogError {
             error_code: row.try_get("error_code").map_err(log_row_error)?,
             error_message: row.try_get("error_message").map_err(log_row_error)?,
+            upstream_status: row.try_get("upstream_status").map_err(log_row_error)?,
         },
     })
-}
-
-fn optional_uuid(row: &sqlx::sqlite::SqliteRow, field: &str) -> Result<Option<Uuid>, APIError> {
-    row.try_get::<Option<String>, _>(field)
-        .map_err(log_row_error)?
-        .map(|value| Uuid::parse_str(&value).map_err(log_row_error))
-        .transpose()
 }
 
 pub(super) fn log_row_error(error: impl std::fmt::Display) -> APIError {
@@ -412,6 +412,7 @@ pub struct RequestLogInput<'a> {
     pub method: &'a str,
     pub path: &'a str,
     pub api_key_id: Option<&'a str>,
+    pub user_id: Option<&'a str>,
     pub ip_address: Option<&'a str>,
     pub user_agent: Option<&'a str>,
     pub provider_id: &'a str,
@@ -423,6 +424,7 @@ pub struct RequestLogInput<'a> {
     pub resolved_model: Option<&'a str>,
     pub error_code: Option<&'a str>,
     pub error_message: Option<&'a str>,
+    pub upstream_status: Option<u16>,
     pub created_at: i64,
 }
 
@@ -454,23 +456,22 @@ pub async fn insert_request_log(
         .to_string();
     sqlx::query(
         "INSERT INTO request_logs (
-            id, request_id, method, path, api_key_id, ip_address, user_agent,
+            id, request_id, method, path, api_key_id, user_id, ip_address, user_agent,
             provider_id, model, prompt_tokens, completion_tokens, total_tokens,
             status_code, latency_ms, cached_tokens, cache_creation_tokens, reasoning_tokens,
             estimated_cost, fallback_occurred, fallback_path, fallback_reason, resolved_model,
-            error_code, error_message, legacy_api_key_id, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            error_code, error_message, upstream_status, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     )
     .bind(&log_id)
     .bind(request_id)
     .bind(input.method)
     .bind(input.path)
-    .bind(
-        input
-            .api_key_id
-            .and_then(|id| Uuid::parse_str(id).ok())
-            .map(|id| id.to_string()),
-    )
+    // Key ids are `key_<hex>`: stored verbatim, because the column keeps the id
+    // the operator surface shows and the pre-v6 UUID cast turned every one of
+    // them into NULL.
+    .bind(input.api_key_id)
+    .bind(input.user_id)
     .bind(input.ip_address)
     .bind(input.user_agent)
     .bind(input.provider_id)
@@ -490,7 +491,7 @@ pub async fn insert_request_log(
     .bind(input.resolved_model)
     .bind(input.error_code)
     .bind(input.error_message)
-    .bind(input.api_key_id.filter(|id| Uuid::parse_str(id).is_err()))
+    .bind(input.upstream_status.map(i64::from))
     .bind(input.created_at)
     .execute(&pool)
     .await

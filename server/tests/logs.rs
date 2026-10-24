@@ -229,37 +229,41 @@ async fn log_detail_returns_snake_case_uuid_record_and_404_for_missing_id() {
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 }
 
+/// The writer stores the key id verbatim and v7 backfilled the rows it used to
+/// split across two columns, so the detail read answers from `api_key_id` alone.
 #[tokio::test]
-async fn log_detail_reports_the_key_id_from_whichever_column_holds_it() {
+async fn log_detail_reports_the_stored_key_id_and_ignores_the_legacy_column() {
     let test_database = TestDatabase::new().unwrap();
     let state = logs_state(&test_database).await;
     let database = state.database.as_ref().unwrap();
-    let current_key_log = "00000000-0000-4000-8000-000000000004";
-    let node_era_log = "00000000-0000-4000-8000-000000000005";
-    seed_log_with_key_ids(database, current_key_log, None, Some("key_current")).await;
+    let stored_key_log = "00000000-0000-4000-8000-000000000004";
+    let legacy_only_log = "00000000-0000-4000-8000-000000000005";
     seed_log_with_key_ids(
         database,
-        node_era_log,
+        stored_key_log,
         Some("11111111-1111-4111-8111-111111111111"),
         Some("key_older"),
     )
     .await;
+    seed_log_with_key_ids(database, legacy_only_log, None, Some("key_current")).await;
     let app = app(state);
 
     let response = app
         .clone()
-        .oneshot(get(&format!("/v1/logs/{current_key_log}")))
-        .await
-        .unwrap();
-    let body = json(response).await;
-    assert_eq!(body["api_key_id"], "key_current");
-
-    let response = app
-        .oneshot(get(&format!("/v1/logs/{node_era_log}")))
+        .oneshot(get(&format!("/v1/logs/{stored_key_log}")))
         .await
         .unwrap();
     let body = json(response).await;
     assert_eq!(body["api_key_id"], "11111111-1111-4111-8111-111111111111");
+
+    // A shape the migrated schema no longer produces: the legacy column alone is
+    // history, not a source the API reads.
+    let response = app
+        .oneshot(get(&format!("/v1/logs/{legacy_only_log}")))
+        .await
+        .unwrap();
+    let body = json(response).await;
+    assert!(body["api_key_id"].is_null(), "got {body}");
 }
 
 #[tokio::test]
@@ -633,6 +637,7 @@ async fn request_log_records_real_user_request_with_cost_breakdown() {
             method: "POST",
             path: "/v1/chat/completions",
             api_key_id: None,
+            user_id: None,
             ip_address: Some("198.51.100.1"),
             user_agent: Some("curl/8.0"),
             provider_id: "openai",
@@ -644,6 +649,7 @@ async fn request_log_records_real_user_request_with_cost_breakdown() {
             resolved_model: Some("openai/gpt-4o"),
             error_code: None,
             error_message: None,
+            upstream_status: None,
             created_at: 1_000,
         },
     )
@@ -716,6 +722,7 @@ async fn live_real_curl_request_test() {
             method: "POST",
             path: "/v1/chat/completions",
             api_key_id: None,
+            user_id: None,
             ip_address: Some("127.0.0.1"),
             user_agent: Some("curl/8.5.0"),
             provider_id: "openai",
@@ -727,6 +734,7 @@ async fn live_real_curl_request_test() {
             resolved_model: Some("openai/gpt-4o"),
             error_code: None,
             error_message: None,
+            upstream_status: None,
             created_at: 1_700_000_000_000,
         },
     )
@@ -787,4 +795,103 @@ async fn live_real_curl_request_test() {
     assert!(parsed["costs"]["total"].as_str().unwrap().starts_with('$'));
 
     server_handle.abort();
+}
+
+#[tokio::test]
+async fn log_detail_carries_the_key_owner_and_the_upstream_status() {
+    let test_database = TestDatabase::new().unwrap();
+    let state = logs_state(&test_database).await;
+    let database = state.database.as_ref().unwrap();
+    let usage = srouter_server::protocol::usage::UsageBreakdown::default();
+
+    let log_id = srouter_server::infrastructure::database::request_logs::insert_request_log(
+        database,
+        srouter_server::infrastructure::database::request_logs::RequestLogInput {
+            request_id: "00000000-0000-4000-8000-0000000000c1",
+            method: "POST",
+            path: "/v1/chat/completions",
+            api_key_id: Some("key_1"),
+            user_id: Some("usr_owner"),
+            ip_address: Some("198.51.100.7"),
+            user_agent: Some("curl/8.5.0"),
+            provider_id: "codebuddy",
+            model: "codebuddy/deepseek-v4.1-flash",
+            status_code: 500,
+            latency_ms: 1_200,
+            usage: &usage,
+            estimated_cost: 0.0,
+            resolved_model: Some("codebuddy/deepseek-v4.1-flash"),
+            error_code: Some("upstream_400"),
+            error_message: Some("OpenAI Provider Error (400): bad request"),
+            upstream_status: Some(400),
+            created_at: 1_700_000_000_000,
+        },
+    )
+    .await
+    .expect("insert log");
+
+    let app = app(state);
+    let response = app
+        .oneshot(get(&format!("/v1/logs/{log_id}")))
+        .await
+        .unwrap();
+    let body = json(response).await;
+    assert_eq!(body["request_id"], "00000000-0000-4000-8000-0000000000c1");
+    assert_eq!(body["api_key_id"], "key_1");
+    assert_eq!(body["user_id"], "usr_owner");
+    assert_eq!(body["status_code"], 500);
+    assert_eq!(body["error_code"], "upstream_400");
+    assert_eq!(body["upstream_status"], 400);
+}
+
+#[tokio::test]
+async fn gateway_request_logs_the_key_and_the_owner_it_belongs_to() {
+    let test_database = TestDatabase::new().unwrap();
+    let mut record = api_key_record("key_1");
+    record.user_id = Some("usr_owner".to_owned());
+    let security = security_state(
+        true,
+        vec![("logs-test-key".to_owned(), record)],
+        vec![hash_session_token(SESSION_TOKEN)],
+    );
+    let (_upstream, mut state) = app_state_with_fake_upstream().await;
+    state.security = security;
+    let database = test_database.connect().await.unwrap();
+    state.database = Some(database.clone());
+    let app = app(state);
+
+    let request = with_loopback_client(
+        Request::builder()
+            .method("POST")
+            .uri("/v1/chat/completions")
+            .header(header::CONTENT_TYPE, "application/json")
+            .header(header::AUTHORIZATION, "Bearer logs-test-key")
+            .body(Body::from(
+                serde_json::json!({
+                    "model": "opencode_zen/space-bunny-free",
+                    "messages": [{"role": "user", "content": "hi"}]
+                })
+                .to_string(),
+            ))
+            .unwrap(),
+    );
+    let response = app.oneshot(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let _ = to_bytes(response.into_body(), 1_048_576)
+        .await
+        .expect("chat response body");
+
+    let page = srouter_server::infrastructure::database::request_logs::list_request_logs(
+        &database,
+        None,
+        Some(1),
+        10,
+        None,
+    )
+    .await
+    .expect("read request logs");
+    let log = page.data.first().expect("a logged request");
+    assert_eq!(log.api_key_id.as_deref(), Some("key_1"));
+    assert_eq!(log.user_id.as_deref(), Some("usr_owner"));
+    assert!(log.error.error_code.is_none());
 }

@@ -36,24 +36,30 @@ Files: `server/migrations/NNNN_snake_case.sql`. Version carrier is `PRAGMA user_
 
 `run()` reads the current version, no-ops when equal, **refuses to open a database whose version is newer than `SCHEMA_VERSION`**, and applies everything in one transaction so a failure leaves the previous version intact.
 
-The three files:
+The migration files:
 
-| File                              | Content                                                        | Idempotent?                                 |
-| --------------------------------- | -------------------------------------------------------------- | ------------------------------------------- |
-| `0002_v2_schema.sql`              | base DDL, every statement `IF NOT EXISTS`                      | yes — and it runs on **every** upgrade path |
-| `0003_request_logs.sql`           | 8 `ALTER TABLE request_logs ADD COLUMN`                        | no — gated on `version < 3`                 |
-| `0004_remove_tunnel_settings.sql` | the only data statement: `DELETE` of four tunnel settings keys | yes, so it is ungated                       |
+| File                              | Content                                                          | Idempotent?                                 |
+| --------------------------------- | ---------------------------------------------------------------- | ------------------------------------------- |
+| `0002_v2_schema.sql`              | base DDL, every statement `IF NOT EXISTS`                        | yes — and it runs on **every** upgrade path |
+| `0003_request_logs.sql`           | 8 `ALTER TABLE request_logs ADD COLUMN`                          | no — gated on `version < 3`                 |
+| `0004_remove_tunnel_settings.sql` | `DELETE` of four tunnel settings keys                            | yes, so it is ungated                       |
+| `0005_users.sql`                  | `users`, `api_keys.user_id`, `admin_sessions` → `auth_sessions`   | no — gated on `version < 5`                 |
+| `0006_request_log_integrity.sql`  | the `api_key_id` backfill out of `legacy_api_key_id`             | yes — `WHERE` matches only unrepaired rows   |
+| `0007_request_log_owner.sql`      | drops the two indexes v6 added, backfills `request_logs.user_id` | yes — `DROP INDEX IF EXISTS`, no-op twice    |
 
-**Adding v5:**
+A version already recorded on a deployed file is never replayed, so a correction to a shipped migration ships as the next version. `0007` exists only to undo what `0006` shipped before it was measured: the status index made the dashboard's `success` filter 300x slower.
 
-1. Write `server/migrations/0005_<name>.sql`. DDL only, `IF NOT EXISTS` where possible.
+**Adding a migration:**
+
+1. Write `server/migrations/NNNN_<name>.sql`. DDL only, `IF NOT EXISTS` where possible.
 2. Add the `include_str!` constant next to the existing ones in `migrations.rs`.
 3. Raise `SCHEMA_VERSION` and fix the comments that spell the version out (some are already stale — trust the constant, not the prose).
-4. Run it inside the same transaction; gate on `version < 4` if any statement is not idempotent.
-5. Update the pins in `server/tests/schema.rs`: the `user_version` assertion, the table/index sets, and any key list you touched.
-6. The database import compares a candidate file's schema against a freshly built one at `SCHEMA_VERSION` — a new migration must satisfy that check.
+4. New columns on a **kept** table go through `ensure_columns(...)`, not the `0002` base DDL: a base-DDL column would need a duplicate-`ALTER` guard, and `0002` replays on every upgrade path. `0006` adds `request_logs.upstream_status` that way.
+5. Run it inside the same transaction; gate on `version < N` if any statement is not idempotent.
+6. Update the pins in `server/tests/schema.rs` (the `user_version` assertion, the table/index sets) **and** `server/tests/database_transfer.rs` (the imported candidate's version assertion) — both spell the current version.
+7. The database import compares a candidate file's schema against a freshly built one at `SCHEMA_VERSION` — a new migration must satisfy that check.
 
-Never put a data statement in `0002`; it executes on every upgrade. If a data statement is unavoidable, copy the `0004` style: delete exactly the named rows and nothing else.
+Never put a data statement in `0002`; it executes on every upgrade. If a data statement is unavoidable, copy the `0004` style for a delete (name exactly the rows and nothing else) or the `0006`/`0007` style for an update (`WHERE` matches only the rows that still need it).
 
 ## Upstream client and SSRF
 

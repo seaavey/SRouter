@@ -10,7 +10,7 @@ Gateway API keys cannot be recovered from the database. `api_keys` stores a lowe
 
 The admin password is a salted scrypt hash in the `scrypt$N$r$p$salt$hash` format. Admin sessions are a seven-day `HttpOnly`, `SameSite=Lax` cookie, and the `Secure` flag follows `SROUTER_SECURE_COOKIES` or an `https://` `SROUTER_PUBLIC_URL`.
 
-Request logs record metadata: provider, model, token counts, status code, latency, estimated cost, client address, user agent, and an error message when a request fails. Prompt and completion text are not stored.
+Request logs record metadata: provider, model, token counts, the gateway status code and the upstream status when there was one, latency, estimated cost, client address, user agent, the API key id and the customer it belongs to, and an error code plus message when a request fails. Prompt and completion text are not stored.
 
 Traffic leaves the process only for the providers you configure. Logging goes to stdout, or to `logs/srouter-server.log` when `SROUTER_FILE_LOG=true`. There is no telemetry endpoint and no third-party analytics.
 

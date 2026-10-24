@@ -21,7 +21,7 @@ Branch note: this file describes the tree on `feat/api-rust-migration` (PR #155)
 - [server/src/constants.rs](https://github.com/seaavey/SRouter/blob/main/server/src/constants.rs): every client-facing message, error code, error type, and header name.
 - [server/src/http/](https://github.com/seaavey/SRouter/tree/main/server/src/http): middleware (api key, admin session, rate limit, csrf, cors, body limit, access log, security headers), listeners, static files.
 - [server/src/infrastructure/](https://github.com/seaavey/SRouter/tree/main/server/src/infrastructure): SQLite handle, migrations, stores, upstream client, telemetry.
-- [server/migrations/](https://github.com/seaavey/SRouter/tree/main/server/migrations): schema history, currently version 4.
+- [server/migrations/](https://github.com/seaavey/SRouter/tree/main/server/migrations): schema history, currently version 7.
 - [server/tests/](https://github.com/seaavey/SRouter/tree/main/server/tests): integration suites; each builds its own temporary database and fake upstreams.
 - [server/bindings.ts](https://github.com/seaavey/SRouter/blob/main/server/bindings.ts): generated TypeScript view of the wire types; a byte-identical copy lives at `client/src/generated/typed.ts`.
 - [client/src/routes/](https://github.com/seaavey/SRouter/tree/main/client/src/routes): TanStack file routes: `/login`, `/` overview, `/providers`, `/providers/$providerId`, `/logs`, `/usage`, `/keys`, `/settings`.

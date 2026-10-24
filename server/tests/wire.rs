@@ -80,6 +80,7 @@ async fn the_optional_field_is_present_when_the_response_carries_it() {
             method: "GET",
             path: "/v1/models",
             api_key_id: None,
+            user_id: None,
             ip_address: None,
             user_agent: None,
             provider_id: "openai",
@@ -91,6 +92,7 @@ async fn the_optional_field_is_present_when_the_response_carries_it() {
             resolved_model: None,
             error_code: None,
             error_message: None,
+            upstream_status: None,
             created_at: 1_700_000_000_000,
         },
     )
@@ -133,6 +135,7 @@ async fn the_nested_optional_field_follows_the_rendered_shape() {
             method: "POST",
             path: "/v1/chat/completions",
             api_key_id: None,
+            user_id: None,
             ip_address: Some("127.0.0.1"),
             user_agent: Some("curl/8.5.0"),
             provider_id: "openai",
@@ -144,6 +147,7 @@ async fn the_nested_optional_field_follows_the_rendered_shape() {
             resolved_model: Some("openai/gpt-4o"),
             error_code: None,
             error_message: None,
+            upstream_status: None,
             created_at: 1_700_000_000_000,
         },
     )
@@ -187,6 +191,7 @@ async fn the_required_fields_are_always_present() {
             method: "GET",
             path: "/v1/models",
             api_key_id: None,
+            user_id: None,
             ip_address: None,
             user_agent: None,
             provider_id: "openai",
@@ -198,6 +203,7 @@ async fn the_required_fields_are_always_present() {
             resolved_model: None,
             error_code: None,
             error_message: None,
+            upstream_status: None,
             created_at: 1_700_000_000_000,
         },
     )

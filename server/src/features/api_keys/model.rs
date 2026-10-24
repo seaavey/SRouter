@@ -13,6 +13,9 @@ const KEY_SECRET_PREFIX: &str = "sr-live-";
 #[derive(Clone, Debug, PartialEq)]
 pub struct APIKeyRecord {
     pub id: String,
+    /// The owning customer account, read only so the request log can name it
+    /// without a second query at logging time.
+    pub user_id: Option<String>,
     pub enabled: bool,
     /// Whether the owning customer account is enabled; `true` for a key with no
     /// owner. The middleware refuses a key whose owner is suspended.
