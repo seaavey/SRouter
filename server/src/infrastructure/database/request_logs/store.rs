@@ -217,24 +217,28 @@ fn publish_request_log(id: Uuid) {
 /// Restricts the read to rows one customer's keys made.
 const TENANT_SCOPE: &str = " AND request_logs.user_id = ?";
 
-/// Lists logs newest-first; PostgreSQL is unsupported until its repository exists.
-/// `tenant_user_id` restricts the read to one customer's keys.
-pub async fn list_request_logs(
-    database: &AppDatabase,
-    tenant_user_id: Option<&str>,
-    page: Option<i64>,
-    limit: i64,
-    status: Option<&str>,
-) -> Result<LogsPage, APIError> {
-    let pool = database.sqlite_required(constants::database::REQUEST_LOGS_UNSUPPORTED)?;
-    let limit = limit.clamp(1, 500);
-    let page = page.map(|page| page.max(1));
-    // `1 = 1` keeps the three branches on one two-part shape: a status predicate,
-    // then an optional tenant predicate that always brings its own `AND`.
-    let status = match status {
+/// The filters one log read applies. An absent field drops its predicate.
+#[derive(Default)]
+pub struct LogFilters<'a> {
+    pub status: Option<&'a str>,
+    pub api_key_id: Option<&'a str>,
+    pub from: Option<i64>,
+    pub to: Option<i64>,
+}
+
+/// The `WHERE` body for one log read plus the text binds it expects, in order.
+/// The page and its summary both build from this, so the two cannot disagree
+/// about which rows they describe.
+pub(crate) fn log_filter_clause<'a>(
+    tenant_user_id: Option<&'a str>,
+    filters: &'a LogFilters<'a>,
+) -> Result<(String, Vec<&'a str>), APIError> {
+    // `1 = 1` keeps every branch one predicate: the optional filters each append
+    // their own `AND`, so the first one must not carry a leading conjunction.
+    let status = match filters.status {
         Some("success") => "status_code >= 200 AND status_code < 300",
-        // Parenthesised: the tenant scope appends `AND`, which would otherwise
-        // bind to the second arm only and let `< 200` rows bypass it.
+        // Parenthesised: a following `AND` would otherwise bind to the second
+        // arm only and let `< 200` rows past the tenant scope.
         Some("error") => "(status_code < 200 OR status_code >= 300)",
         Some("all") | None => "1 = 1",
         Some(_) => {
@@ -244,17 +248,52 @@ pub async fn list_request_logs(
             ));
         }
     };
-    let scope = if tenant_user_id.is_some() {
-        TENANT_SCOPE
-    } else {
-        ""
-    };
+    let mut clause = status.to_owned();
+    let mut text_binds = Vec::new();
+    if let Some(user_id) = tenant_user_id {
+        clause.push_str(TENANT_SCOPE);
+        text_binds.push(user_id);
+    }
+    if let Some(api_key_id) = filters.api_key_id {
+        clause.push_str(" AND request_logs.api_key_id = ?");
+        text_binds.push(api_key_id);
+    }
+    // Numbers bind after every text value, matching where they sit in the
+    // clause; a reorder here shifts every later placeholder onto the wrong bind.
+    if filters.from.is_some() {
+        clause.push_str(" AND request_logs.created_at >= ?");
+    }
+    if filters.to.is_some() {
+        clause.push_str(" AND request_logs.created_at < ?");
+    }
+    Ok((clause, text_binds))
+}
+
+/// Lists logs newest-first; PostgreSQL is unsupported until its repository exists.
+/// `tenant_user_id` restricts the read to one customer's keys.
+pub async fn list_request_logs(
+    database: &AppDatabase,
+    tenant_user_id: Option<&str>,
+    page: Option<i64>,
+    limit: i64,
+    filters: &LogFilters<'_>,
+) -> Result<LogsPage, APIError> {
+    let pool = database.sqlite_required(constants::database::REQUEST_LOGS_UNSUPPORTED)?;
+    let limit = limit.clamp(1, 500);
+    let page = page.map(|page| page.max(1));
+    let (clause, text_binds) = log_filter_clause(tenant_user_id, filters)?;
 
     let mut count = sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
-        "SELECT COUNT(*) FROM request_logs WHERE {status}{scope}"
+        "SELECT COUNT(*) FROM request_logs WHERE {clause}"
     )));
-    if let Some(user_id) = tenant_user_id {
-        count = count.bind(user_id);
+    for bind in &text_binds {
+        count = count.bind(*bind);
+    }
+    if let Some(from) = filters.from {
+        count = count.bind(from);
+    }
+    if let Some(to) = filters.to {
+        count = count.bind(to);
     }
     let total: i64 = count.fetch_one(&pool).await.map_err(|error| {
         APIError::new(
@@ -265,14 +304,20 @@ pub async fn list_request_logs(
 
     let page_number = page.unwrap_or(1);
     let offset = page.map_or(0, |page| (page - 1).saturating_mul(limit));
-    // The tenant placeholder lives inside the WHERE clause, so it binds before the
-    // LIMIT/OFFSET pair. Bound after them, every page is silently one page off.
+    // The filter placeholders live inside the WHERE clause, so they bind before
+    // the LIMIT/OFFSET pair. Bound after them, every page is silently one page off.
     let mut rows = sqlx::query(sqlx::AssertSqlSafe(format!(
-        "SELECT * FROM request_logs WHERE {status}{scope} \
+        "SELECT * FROM request_logs WHERE {clause} \
          ORDER BY created_at DESC LIMIT ? OFFSET ?"
     )));
-    if let Some(user_id) = tenant_user_id {
-        rows = rows.bind(user_id);
+    for bind in &text_binds {
+        rows = rows.bind(*bind);
+    }
+    if let Some(from) = filters.from {
+        rows = rows.bind(from);
+    }
+    if let Some(to) = filters.to {
+        rows = rows.bind(to);
     }
     let rows = rows
         .bind(limit)

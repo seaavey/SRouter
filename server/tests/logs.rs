@@ -12,6 +12,7 @@ use serde_json::Value;
 use sqlx::postgres::PgPoolOptions;
 use srouter_server::app::create_router;
 use srouter_server::features::admin_auth::hash_session_token;
+use srouter_server::infrastructure::database::request_logs::LogFilters;
 use support::{
     TestDatabase, api_key_record, app_state_with_fake_upstream, json_request_with_headers,
     security_state, with_loopback_client,
@@ -99,6 +100,34 @@ async fn seed_complete_log(
     )
     .bind(id)
     .bind(id)
+    .bind(status)
+    .bind(created_at)
+    .execute(&database.sqlite_pool().unwrap())
+    .await
+    .unwrap();
+}
+
+async fn seed_filtered_log(
+    database: &srouter_server::AppDatabase,
+    id: &str,
+    api_key_id: Option<&str>,
+    created_at: i64,
+    status: i64,
+    tokens: i64,
+    cost: f64,
+) {
+    sqlx::query(
+        "INSERT INTO request_logs (
+            id, request_id, method, path, api_key_id, provider_id, model,
+            total_tokens, estimated_cost, status_code, latency_ms, created_at
+        ) VALUES (?, ?, 'POST', '/v1/chat/completions', ?, 'opencode_zen', 'test-model',
+            ?, ?, ?, 12, ?)",
+    )
+    .bind(id)
+    .bind(id)
+    .bind(api_key_id)
+    .bind(tokens)
+    .bind(cost)
     .bind(status)
     .bind(created_at)
     .execute(&database.sqlite_pool().unwrap())
@@ -198,6 +227,200 @@ async fn logs_list_supports_latest_order_pagination_and_status_filter() {
     assert_eq!(body["data"][0]["costs"]["total"], "$0.1234");
     assert_eq!(body["data"][0]["resolved_model"], "resolved-test-model");
     assert_eq!(body["data"][0]["created_at"], 200);
+}
+
+#[tokio::test]
+async fn logs_list_filters_by_key_and_time_and_summarises_the_whole_match() {
+    let test_database = TestDatabase::new().unwrap();
+    let state = logs_state(&test_database).await;
+    let database = state.database.as_ref().unwrap();
+    let first_key = "11111111-1111-4111-8111-111111111111";
+    let other_key = "22222222-2222-4222-8222-222222222222";
+    seed_filtered_log(
+        database,
+        "00000000-0000-4000-8000-000000000011",
+        Some(first_key),
+        1_000,
+        200,
+        10,
+        0.25,
+    )
+    .await;
+    seed_filtered_log(
+        database,
+        "00000000-0000-4000-8000-000000000012",
+        Some(first_key),
+        2_000,
+        500,
+        20,
+        0.5,
+    )
+    .await;
+    seed_filtered_log(
+        database,
+        "00000000-0000-4000-8000-000000000013",
+        Some(other_key),
+        3_000,
+        200,
+        40,
+        1.0,
+    )
+    .await;
+    seed_filtered_log(
+        database,
+        "00000000-0000-4000-8000-000000000014",
+        Some(first_key),
+        9_000,
+        200,
+        80,
+        2.0,
+    )
+    .await;
+    let app = app(state);
+
+    // `to` is exclusive: the row created exactly at 2000 stays out.
+    let body = json(
+        app.clone()
+            .oneshot(get(&format!(
+                "/v1/logs?page=1&limit=1&api_key_id={first_key}&from=0&to=2000"
+            )))
+            .await
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(body["pagination"]["total"], 1);
+    assert_eq!(body["summary"]["requests"]["total"], 1);
+    assert_eq!(body["summary"]["tokens"]["total"], 10);
+
+    let body = json(
+        app.clone()
+            .oneshot(get(&format!(
+                "/v1/logs?page=1&limit=1&api_key_id={first_key}&from=0&to=5000"
+            )))
+            .await
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(body["data"].as_array().unwrap().len(), 1);
+    assert_eq!(
+        body["data"][0]["id"],
+        "00000000-0000-4000-8000-000000000012"
+    );
+    assert_eq!(
+        body["pagination"],
+        serde_json::json!({ "page": 1, "limit": 1, "total": 2, "total_pages": 2 })
+    );
+    // The summary describes every matched row, not the one the page returned.
+    assert_eq!(
+        body["summary"],
+        serde_json::json!({
+            "requests": { "total": 2, "success": 1, "failed": 1 },
+            "tokens": {
+                "input": 0,
+                "output": 0,
+                "cache_read": 0,
+                "cache_write": 0,
+                "total": 30,
+            },
+            "cost": 0.75,
+        })
+    );
+
+    let body = json(
+        app.clone()
+            .oneshot(get(&format!(
+                "/v1/logs?page=1&status=error&api_key_id={first_key}"
+            )))
+            .await
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(body["summary"]["requests"]["failed"], 1);
+    assert_eq!(body["pagination"]["total"], 1);
+}
+
+#[tokio::test]
+async fn logs_window_filter_is_relative_and_rejects_an_unknown_value() {
+    let test_database = TestDatabase::new().unwrap();
+    let state = logs_state(&test_database).await;
+    let database = state.database.as_ref().unwrap();
+    let key = "11111111-1111-4111-8111-111111111111";
+    let now = srouter_server::clock::now_ms();
+    seed_filtered_log(
+        database,
+        "00000000-0000-4000-8000-000000000015",
+        Some(key),
+        now - 60_000,
+        200,
+        10,
+        0.25,
+    )
+    .await;
+    seed_filtered_log(
+        database,
+        "00000000-0000-4000-8000-000000000016",
+        Some(key),
+        now - 7_200_000,
+        200,
+        10,
+        0.25,
+    )
+    .await;
+    let app = app(state);
+
+    let body = json(
+        app.clone()
+            .oneshot(get("/v1/logs?page=1&limit=10&window=1h"))
+            .await
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(body["pagination"]["total"], 1);
+    assert_eq!(
+        body["data"][0]["id"],
+        "00000000-0000-4000-8000-000000000015"
+    );
+
+    let response = app
+        .oneshot(get("/v1/logs?page=1&window=fortnight"))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn logs_summary_splits_tokens_by_direction_and_counts_successes() {
+    let test_database = TestDatabase::new().unwrap();
+    let state = logs_state(&test_database).await;
+    let database = state.database.as_ref().unwrap();
+    // Each seeded row stores input 2, output 3, cache read 7, cache write 8.
+    seed_complete_log(database, "00000000-0000-4000-8000-000000000021", 1_000, 200).await;
+    seed_complete_log(database, "00000000-0000-4000-8000-000000000022", 2_000, 500).await;
+    let app = app(state);
+
+    let body = json(
+        app.clone()
+            .oneshot(get("/v1/logs?page=1&limit=1"))
+            .await
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(
+        body["summary"]["requests"],
+        serde_json::json!({ "total": 2, "success": 1, "failed": 1 })
+    );
+    assert_eq!(
+        body["summary"]["tokens"],
+        serde_json::json!({
+            "input": 4,
+            "output": 6,
+            "cache_read": 14,
+            "cache_write": 16,
+            "total": 10,
+        })
+    );
+    let cost = body["summary"]["cost"].as_f64().unwrap();
+    assert!((cost - 0.2468).abs() < 1e-9, "cost was {cost}");
 }
 
 #[tokio::test]
@@ -480,7 +703,11 @@ async fn postgres_request_log_repository_fails_explicitly() {
         .unwrap();
     let database = srouter_server::AppDatabase::Postgres(pool);
     let error = srouter_server::infrastructure::database::request_logs::list_request_logs(
-        &database, None, None, 50, None,
+        &database,
+        None,
+        None,
+        50,
+        &LogFilters::default(),
     )
     .await
     .unwrap_err();
@@ -886,7 +1113,7 @@ async fn gateway_request_logs_the_key_and_the_owner_it_belongs_to() {
         None,
         Some(1),
         10,
-        None,
+        &LogFilters::default(),
     )
     .await
     .expect("read request logs");

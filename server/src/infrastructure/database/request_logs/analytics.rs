@@ -11,7 +11,7 @@ use crate::constants;
 use crate::error::APIError;
 use crate::infrastructure::database::AppDatabase;
 
-use super::store::{ObjectKind, log_row_error};
+use super::store::{LogFilters, ObjectKind, log_filter_clause, log_row_error};
 
 /// The all-time usage totals served by `GET /v1/logs/stats` and carried by the
 /// `usage.updated` event. The wire keys are snake_case, as documented in
@@ -552,5 +552,80 @@ pub async fn analytics_report(
         top_models,
         top_agents,
         providers,
+    })
+}
+
+/// Token totals for one filtered log read, split the way the log stores them.
+#[derive(Debug, Serialize, specta::Type)]
+pub struct LogsTokenTotals {
+    #[specta(type = specta_typescript::Number)]
+    pub input: i64,
+    #[specta(type = specta_typescript::Number)]
+    pub output: i64,
+    #[specta(type = specta_typescript::Number)]
+    pub cache_read: i64,
+    #[specta(type = specta_typescript::Number)]
+    pub cache_write: i64,
+    #[specta(type = specta_typescript::Number)]
+    pub total: i64,
+}
+
+/// Totals for one filtered log read. The page answers with fifty rows; this
+/// summary describes every row the same filter matched.
+#[derive(Debug, Serialize, specta::Type)]
+pub struct LogsSummary {
+    pub requests: UsageRequestTotals,
+    pub tokens: LogsTokenTotals,
+    pub cost: f64,
+}
+
+pub async fn logs_summary(
+    database: &AppDatabase,
+    tenant_user_id: Option<&str>,
+    filters: &LogFilters<'_>,
+) -> Result<LogsSummary, APIError> {
+    let (clause, text_binds) = log_filter_clause(tenant_user_id, filters)?;
+    let pool = database.sqlite_required(constants::database::REQUEST_LOGS_UNSUPPORTED)?;
+    let mut query = sqlx::query(sqlx::AssertSqlSafe(format!(
+        "SELECT COUNT(*) AS total, \
+         COALESCE(SUM(CASE WHEN status_code >= 200 AND status_code < 300 THEN 1 ELSE 0 END), 0) AS successes, \
+         COALESCE(SUM(CASE WHEN status_code < 200 OR status_code >= 300 THEN 1 ELSE 0 END), 0) AS failures, \
+         COALESCE(SUM(prompt_tokens), 0) AS input_tokens, \
+         COALESCE(SUM(completion_tokens), 0) AS output_tokens, \
+         COALESCE(SUM(cached_tokens), 0) AS cache_read_tokens, \
+         COALESCE(SUM(cache_creation_tokens), 0) AS cache_write_tokens, \
+         COALESCE(SUM(total_tokens), 0) AS total_tokens, \
+         CAST(COALESCE(SUM(estimated_cost), 0) AS REAL) AS estimated_cost \
+         FROM request_logs WHERE {clause}"
+    )));
+    for bind in &text_binds {
+        query = query.bind(*bind);
+    }
+    if let Some(from) = filters.from {
+        query = query.bind(from);
+    }
+    if let Some(to) = filters.to {
+        query = query.bind(to);
+    }
+    let row = query.fetch_one(&pool).await.map_err(|error| {
+        APIError::new(
+            500,
+            constants::database::could_not_aggregate_request_logs(&error),
+        )
+    })?;
+    Ok(LogsSummary {
+        requests: UsageRequestTotals {
+            total: row.try_get("total").map_err(log_row_error)?,
+            success: row.try_get("successes").map_err(log_row_error)?,
+            failed: row.try_get("failures").map_err(log_row_error)?,
+        },
+        tokens: LogsTokenTotals {
+            input: row.try_get("input_tokens").map_err(log_row_error)?,
+            output: row.try_get("output_tokens").map_err(log_row_error)?,
+            cache_read: row.try_get("cache_read_tokens").map_err(log_row_error)?,
+            cache_write: row.try_get("cache_write_tokens").map_err(log_row_error)?,
+            total: row.try_get("total_tokens").map_err(log_row_error)?,
+        },
+        cost: row.try_get("estimated_cost").map_err(log_row_error)?,
     })
 }

@@ -15,11 +15,13 @@ use serde::Deserialize;
 use serde::Serialize;
 use uuid::Uuid;
 
+use crate::clock::now_ms;
 use crate::constants;
 use crate::error::APIError;
 use crate::infrastructure::database::request_logs::{
-    AnalyticsReport, ObjectKind, RequestLog, UsageStatsReport, analytics_report, get_request_log,
-    list_request_logs, parse_analytics_window, subscribe_request_logs, usage_stats,
+    AnalyticsReport, LogFilters, LogsSummary, ObjectKind, RequestLog, UsageStatsReport,
+    analytics_report, get_request_log, list_request_logs, logs_summary, parse_analytics_window,
+    subscribe_request_logs, usage_stats,
 };
 use crate::state::AppState;
 
@@ -40,12 +42,17 @@ pub(crate) struct LogsQuery {
     pub(crate) page: Option<String>,
     pub(crate) limit: Option<String>,
     pub(crate) status: Option<String>,
+    pub(crate) api_key_id: Option<String>,
+    pub(crate) window: Option<String>,
+    pub(crate) from: Option<String>,
+    pub(crate) to: Option<String>,
 }
 
 #[derive(Serialize, specta::Type)]
 pub(crate) struct LogsResponse {
     object: ObjectKind,
     data: Vec<RequestLog>,
+    summary: LogsSummary,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[specta(optional)]
     pagination: Option<Pagination>,
@@ -95,14 +102,45 @@ pub(crate) async fn logs_page(
         .filter(|limit| *limit != 0)
         .unwrap_or(50);
     let paginated = query.page.is_some();
+    // An explicit `from` wins over `window`; an unknown window is the same 400
+    // the analytics route answers with. `to` is exclusive, so a whole day is
+    // `from` at 00:00 and `to` at the next midnight.
+    let from = match query
+        .from
+        .as_deref()
+        .and_then(|value| value.parse::<i64>().ok())
+    {
+        Some(from) => Some(from),
+        None => match query.window.as_deref() {
+            Some(raw) => {
+                let window = parse_analytics_window(raw).ok_or_else(|| {
+                    APIError::new(400, constants::logs::INVALID_WINDOW)
+                        .with_code(constants::ErrorCode::InvalidRequest)
+                })?;
+                Some(now_ms() - window.bucket_size_ms * window.bucket_count)
+            }
+            None => None,
+        },
+    };
+    let to = query
+        .to
+        .as_deref()
+        .and_then(|value| value.parse::<i64>().ok());
+    let filters = LogFilters {
+        status: query.status.as_deref(),
+        api_key_id: query.api_key_id.as_deref(),
+        from,
+        to,
+    };
     let page = list_request_logs(
         database,
         tenant_user_id,
         paginated.then_some(page),
         limit,
-        paginated.then_some(query.status.as_deref()).flatten(),
+        &filters,
     )
     .await?;
+    let summary = logs_summary(database, tenant_user_id, &filters).await?;
     let pagination = paginated.then(|| Pagination {
         page: page.page,
         limit: page.limit,
@@ -116,6 +154,7 @@ pub(crate) async fn logs_page(
     Ok(LogsResponse {
         object: ObjectKind::List,
         data: page.data,
+        summary,
         pagination,
     })
 }
@@ -272,7 +311,7 @@ async fn live_events(
         let stats = usage_stats(database).await?;
         let log = match log_id {
             Some(id) => get_request_log(database, id).await?,
-            None => list_request_logs(database, None, None, 1, None)
+            None => list_request_logs(database, None, None, 1, &LogFilters::default())
                 .await?
                 .data
                 .into_iter()

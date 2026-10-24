@@ -9,12 +9,12 @@ mod store;
 
 pub use analytics::{
     AnalyticsBucket, AnalyticsProviderSlice, AnalyticsReport, AnalyticsTopAgent, AnalyticsTopModel,
-    AnalyticsWindow, UsageByModel, UsageCacheTokens, UsageCostTotals, UsageData,
-    UsageRequestTotals, UsageStatsReport, UsageTokenTotals, UsageTotals, analytics_report,
-    parse_analytics_window, usage_stats,
+    AnalyticsWindow, LogsSummary, LogsTokenTotals, UsageByModel, UsageCacheTokens, UsageCostTotals,
+    UsageData, UsageRequestTotals, UsageStatsReport, UsageTokenTotals, UsageTotals,
+    analytics_report, logs_summary, parse_analytics_window, usage_stats,
 };
 pub use store::{
-    HTTPMethod, LogClient, LogCost, LogError, LogTokenUsage, LogsPage, ObjectKind, RequestLog,
-    RequestLogInput, generate_log_id, get_request_log, insert_request_log, list_request_logs,
-    subscribe_request_logs,
+    HTTPMethod, LogClient, LogCost, LogError, LogFilters, LogTokenUsage, LogsPage, ObjectKind,
+    RequestLog, RequestLogInput, generate_log_id, get_request_log, insert_request_log,
+    list_request_logs, subscribe_request_logs,
 };

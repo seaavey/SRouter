@@ -338,7 +338,27 @@ export type LogTokenUsage = {
 export type LogsResponse = {
 	object: ObjectKind,
 	data: RequestLog[],
+	summary: LogsSummary,
 	pagination?: Pagination | null,
+};
+
+/**
+ *  Totals for one filtered log read. The page answers with fifty rows; this
+ *  summary describes every row the same filter matched.
+ */
+export type LogsSummary = {
+	requests: UsageRequestTotals,
+	tokens: LogsTokenTotals,
+	cost: number | null,
+};
+
+/**  Token totals for one filtered log read, split the way the log stores them. */
+export type LogsTokenTotals = {
+	input: number,
+	output: number,
+	cache_read: number,
+	cache_write: number,
+	total: number,
 };
 
 export type ModelListResponse = {

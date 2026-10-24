@@ -1642,7 +1642,11 @@ async fn a_failed_request_is_logged_with_its_message() {
 
     let database = database.connect().await.unwrap();
     let logs = srouter_server::infrastructure::database::request_logs::list_request_logs(
-        &database, None, None, 10, None,
+        &database,
+        None,
+        None,
+        10,
+        &srouter_server::infrastructure::database::request_logs::LogFilters::default(),
     )
     .await
     .unwrap();
