@@ -12,9 +12,11 @@ bun run format      # prettier --write "**/*.{ts,tsx}" — sorts Tailwind classe
 bun run build       # tsr generate && tsc -b && vite build — run for routing/shell changes
 bun run dev         # Vite dev server, proxies /v1 to the API
 bun run generate-routes   # tsr generate, when routeTree.gen.ts must refresh without a full build
+bun run e2e         # Playwright suite; its webServer runs e2e/support/stack.ts (temp SQLite + mock upstream)
+bun run e2e:lightpanda   # functional smoke over CDP
 ```
 
-There is **no test runner** in the client: no vitest, jest, or testing-library, and no `test` script. Your verification is typecheck + lint + a real browser.
+The client has no unit-test runner: no vitest, jest, or testing-library, and no `test` script. End-to-end coverage lives in `client/e2e` (Playwright, `bun run e2e`), which builds the server and the SPA, boots them on a throwaway gateway, and runs the specs at four viewports (phone, tablet, laptop, desktop). For anything below that level, verification is typecheck + lint + a real browser.
 
 `bun run typecheck` regenerates the route tree first, so it also catches a route file whose `createFileRoute` id does not match its path.
 

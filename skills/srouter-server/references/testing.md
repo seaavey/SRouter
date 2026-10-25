@@ -1,8 +1,8 @@
 # Testing
 
-42 integration suites in `server/tests/*.rs`, one cargo test binary each, plus ~67 in-crate `#[cfg(test)]` modules for provider translation, middleware, protocol, and store units. `tower` (`util`, for `oneshot`) is the only dev-dependency.
+46 integration suites in `server/tests/*.rs`, one cargo test binary each, plus 78 in-crate `#[cfg(test)]` modules for provider translation, middleware, protocol, and store units. `tower` (`util`, for `oneshot`) is the only dev-dependency.
 
-## Harness (`server/tests/support/mod.rs`, ~3.1k lines)
+## Harness (`server/tests/support/mod.rs`, ~3.5k lines)
 
 | Helper                                                                                                                                        | Purpose                                                                                                                                                                                                                                               |
 | --------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
