@@ -122,6 +122,9 @@ pub mod headers {
         pub const VARY_ORIGIN: &str = "Origin";
         pub const ALLOW_CREDENTIALS: &str = "true";
 
+        /// The relay script the sign-in page hands to the operator's terminal.
+        pub const JAVASCRIPT: &str = "text/javascript; charset=utf-8";
+
         /// Server-sent event streams.
         pub const EVENT_STREAM: &str = "text/event-stream";
         pub const SSE_CACHE_CONTROL: &str = "no-cache, no-transform";
@@ -624,6 +627,10 @@ pub mod providers {
             "Command Code API key registered and saved directly to SQLite database!";
         pub const KEY_CHECK_FAILED: &str =
             "could not verify the Command Code key with the provider";
+        /// The studio signs in only through a loopback callback, so a public
+        /// one is refused here instead of on the vendor's error page.
+        pub const INVALID_CALLBACK: &str =
+            "the callback must be a loopback URL on this sign-in's callback path";
 
         /// An in-stream `error` event, carrying the status the relay stated.
         pub fn stream_error(message: &str) -> String {

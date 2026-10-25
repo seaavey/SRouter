@@ -15,6 +15,15 @@ type UseOAuthFlowOptions = {
   onOpenChange: (open: boolean) => void
 }
 
+const COMMANDCODE_CALLBACK_PATH = "/v1/auth/commandcode/callback"
+const COMMANDCODE_RELAY_PORT = 5959
+
+function isLoopbackHostname(hostname: string) {
+  return (
+    hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]"
+  )
+}
+
 export default function useOAuthFlow({
   providerID,
   onSuccess,
@@ -31,6 +40,21 @@ export default function useOAuthFlow({
     normalized.includes("cline") ||
     normalized.includes("codebuddy") ||
     normalized.includes("commandcode")
+
+  // The Command Code studio posts its key to a loopback callback only, so a
+  // hosted dashboard needs the relay on the operator's machine; a dashboard
+  // already on loopback is its own callback.
+  const commandCode = normalized.includes("commandcode")
+  const loopbackDashboard = isLoopbackHostname(window.location.hostname)
+  const commandCodeCallback = commandCode
+    ? loopbackDashboard
+      ? `${window.location.origin}${COMMANDCODE_CALLBACK_PATH}`
+      : `http://127.0.0.1:${COMMANDCODE_RELAY_PORT}${COMMANDCODE_CALLBACK_PATH}`
+    : undefined
+  const relayCommand =
+    commandCode && !loopbackDashboard
+      ? `curl -fsSL ${window.location.origin}/v1/auth/commandcode/relay.mjs | node --input-type=module - ${window.location.origin}`
+      : null
 
   useEffect(() => {
     if (!oauthData?.state || !isDeviceFlow) {
@@ -77,7 +101,9 @@ export default function useOAuthFlow({
   async function start() {
     setPending(true)
     try {
-      const result = await initiateOAuthLogin(providerID)
+      const result = await initiateOAuthLogin(providerID, {
+        callback: commandCodeCallback,
+      })
       setOauthData(result)
       if (result.authorize_url) {
         window.open(result.authorize_url, "_blank", "noopener,noreferrer")
@@ -145,6 +171,8 @@ export default function useOAuthFlow({
     pending,
     isPolling: Boolean(oauthData?.state && isDeviceFlow),
     isDeviceFlow,
+    commandCode,
+    relayCommand,
     start,
     pasteCallback,
     complete,

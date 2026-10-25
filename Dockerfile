@@ -12,6 +12,9 @@ WORKDIR /src
 COPY server/Cargo.toml server/Cargo.lock ./
 COPY server/src ./src
 COPY server/migrations ./migrations
+# scripts/ is compile-time input too: provider_auth embeds the relay it serves
+# with include_str!.
+COPY server/scripts ./scripts
 # target/ lives in a cache mount, and a cache mount is not a layer, so the binary
 # is copied into the image inside this same RUN. --config strips the release
 # binary without adding binutils here or a profile to Cargo.toml.

@@ -22,6 +22,9 @@ pub const COMMANDCODE_STUDIO_AUTH_URL: &str = "https://commandcode.ai/studio/aut
 /// The public callback the studio page posts the key to. CORS reads the same
 /// string, because that one route reflects the studio origin by itself.
 pub const COMMANDCODE_CALLBACK_PATH: &str = "/auth/commandcode/callback";
+/// The relay script the operator runs on their own machine, served publicly:
+/// the browser fetches it, and it carries nothing secret.
+pub const COMMANDCODE_RELAY_PATH: &str = "/auth/commandcode/relay.mjs";
 /// The CLI wire version the relay reads for capability gating. It is a vendor
 /// version, not ours: it may need bumping without any change on this side.
 pub const COMMANDCODE_CLI_VERSION: &str = "0.52.1";

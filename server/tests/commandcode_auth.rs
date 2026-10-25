@@ -344,3 +344,127 @@ async fn starting_a_sign_in_or_importing_a_key_needs_the_admin_session() {
     );
     assert_eq!(connection_count(&database).await, 0);
 }
+
+#[tokio::test]
+async fn login_honours_a_loopback_callback_override() {
+    let database = TestDatabase::new().expect("temporary database");
+    let fake = FakeCommandCodeUpstream::start().await;
+    let app = app(&database, &fake).await;
+
+    let response = app
+        .clone()
+        .oneshot(admin_get(&format!(
+            "/v1/auth/commandcode/login?callback={}",
+            encode("http://127.0.0.1:5959/v1/auth/commandcode/callback")
+        )))
+        .await
+        .expect("login response");
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = json_body(response).await;
+    let callback = "http://127.0.0.1:5959/v1/auth/commandcode/callback";
+    assert_eq!(body["redirect_uri"], callback);
+    assert!(
+        body["authorize_url"].as_str().unwrap_or_default().contains(
+            "callback=http%3A%2F%2F127.0.0.1%3A5959%2Fv1%2Fauth%2Fcommandcode%2Fcallback"
+        ),
+        "the studio is handed the relay: {body}"
+    );
+
+    // The IPv6 loopback is the other branch of the predicate.
+    let ipv6 = app
+        .oneshot(admin_get(&format!(
+            "/v1/auth/commandcode/login?callback={}",
+            encode("http://[::1]:5959/v1/auth/commandcode/callback")
+        )))
+        .await
+        .expect("login response");
+    assert_eq!(ipv6.status(), StatusCode::OK);
+    assert_eq!(
+        json_body(ipv6).await["redirect_uri"],
+        "http://[::1]:5959/v1/auth/commandcode/callback"
+    );
+}
+
+/// Percent-encodes a callback for the query, so the table below reads as the
+/// URLs it sends.
+fn encode(value: &str) -> String {
+    value
+        .bytes()
+        .map(|byte| match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                (byte as char).to_string()
+            }
+            other => format!("%{other:02X}"),
+        })
+        .collect()
+}
+
+#[tokio::test]
+async fn login_refuses_every_callback_the_studio_would_reject() {
+    let database = TestDatabase::new().expect("temporary database");
+    let fake = FakeCommandCodeUpstream::start().await;
+    let app = app(&database, &fake).await;
+
+    // Each row is one condition of the check: the studio accepts none of them,
+    // and neither may we before the URL reaches the vendor.
+    for callback in [
+        "https://seavx.ai.id/v1/auth/commandcode/callback",
+        "http://127.0.0.1.evil.example/v1/auth/commandcode/callback",
+        "http://127.0.0.1:5959/admin",
+        "http://127.0.0.1:5959/v1/auth/commandcode/callback/",
+        "http://127.0.0.1:5959/v1/auth/commandcode/callback?x=1",
+        "http://127.0.0.1:5959/v1/auth/commandcode/callback#done",
+        "http://user:secret@127.0.0.1:5959/v1/auth/commandcode/callback",
+    ] {
+        let response = app
+            .clone()
+            .oneshot(admin_get(&format!(
+                "/v1/auth/commandcode/login?callback={}",
+                encode(callback)
+            )))
+            .await
+            .expect("login response");
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST, "{callback}");
+    }
+
+    // A named key with no value is malformed, not a request for the default.
+    let bare = app
+        .oneshot(admin_get("/v1/auth/commandcode/login?callback"))
+        .await
+        .expect("login response");
+    assert_eq!(bare.status(), StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn the_relay_script_is_public() {
+    let database = TestDatabase::new().expect("temporary database");
+    let fake = FakeCommandCodeUpstream::start().await;
+    let app = app(&database, &fake).await;
+
+    let response = with_loopback_client(
+        Request::builder()
+            .method("GET")
+            .uri("/v1/auth/commandcode/relay.mjs")
+            .body(Body::empty())
+            .expect("request"),
+    );
+    let response = app.oneshot(response).await.expect("relay response");
+
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response
+            .headers()
+            .get("content-type")
+            .and_then(|value| value.to_str().ok()),
+        Some("text/javascript; charset=utf-8")
+    );
+    let script = axum::body::to_bytes(response.into_body(), 65_536)
+        .await
+        .expect("relay body");
+    let script = String::from_utf8(script.to_vec()).expect("utf8");
+    assert!(
+        script.contains("127.0.0.1") && script.contains("/v1/auth/commandcode/callback"),
+        "the script targets the callback route"
+    );
+}

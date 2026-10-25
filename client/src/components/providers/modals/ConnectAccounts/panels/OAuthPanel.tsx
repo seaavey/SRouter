@@ -20,12 +20,32 @@ type OAuthPanelProps = {
   providerName?: string
 }
 
+/** The one sign-in that needs a hand on the operator's machine. */
+function RelayHint({ command }: { command: string }) {
+  return (
+    <div className="space-y-2 rounded-lg border border-border/60 bg-surface/60 p-2.5">
+      <p className="text-xs leading-relaxed text-muted-foreground">
+        Command Code only hands the key to your own machine. Run this first,
+        leave it open, then open the login window:
+      </p>
+      <div className="flex items-center gap-2">
+        <code className="min-w-0 flex-1 rounded border border-border/70 bg-surface-muted/90 px-2 py-1 font-mono text-xs break-all text-foreground">
+          {command}
+        </code>
+        <CopyButton value={command} label="Copy" variant="outline" />
+      </div>
+    </div>
+  )
+}
+
 export default function OAuthPanel({ flow, providerName }: OAuthPanelProps) {
   const {
     oauthData,
     callbackInput,
     setCallbackInput,
     pending,
+    commandCode,
+    relayCommand,
     start,
     pasteCallback,
     complete,
@@ -54,6 +74,8 @@ export default function OAuthPanel({ flow, providerName }: OAuthPanelProps) {
             </span>
           </div>
         </div>
+
+        {relayCommand ? <RelayHint command={relayCommand} /> : null}
 
         <ActionButton
           label="Open login window"
@@ -106,6 +128,8 @@ export default function OAuthPanel({ flow, providerName }: OAuthPanelProps) {
         </div>
       )}
 
+      {relayCommand ? <RelayHint command={relayCommand} /> : null}
+
       <div className="flex flex-wrap items-center gap-2">
         <CopyButton
           value={oauthData.authorize_url}
@@ -124,58 +148,64 @@ export default function OAuthPanel({ flow, providerName }: OAuthPanelProps) {
         </a>
       </div>
 
-      <p className="flex items-start gap-2 rounded-lg border border-border/60 bg-surface/60 p-2.5 text-xs leading-relaxed text-muted-foreground">
-        <Info
-          size={14}
-          className="mt-0.5 shrink-0 text-primary"
-          aria-hidden="true"
-        />
-        <span>
-          If the browser tab ends on <em>&quot;Unable to connect&quot;</em>,
-          copy the whole URL from the address bar and paste it below.
-        </span>
-      </p>
+      {commandCode ? null : (
+        <p className="flex items-start gap-2 rounded-lg border border-border/60 bg-surface/60 p-2.5 text-xs leading-relaxed text-muted-foreground">
+          <Info
+            size={14}
+            className="mt-0.5 shrink-0 text-primary"
+            aria-hidden="true"
+          />
+          <span>
+            If the browser tab ends on <em>&quot;Unable to connect&quot;</em>,
+            copy the whole URL from the address bar and paste it below.
+          </span>
+        </p>
+      )}
 
-      <FloatingField
-        label="Callback URL or authorization code"
-        value={callbackInput}
-        onChange={(event) => setCallbackInput(event.target.value)}
-        monospace
-        endAction={
-          callbackInput ? (
-            <button
-              type="button"
-              onClick={() => setCallbackInput("")}
-              className="inline-flex cursor-pointer items-center p-1 text-muted-foreground hover:text-foreground"
-              title="Clear input"
-            >
-              <X size={14} />
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={pasteCallback}
-              className="inline-flex cursor-pointer items-center gap-1 rounded border border-border/70 bg-surface-muted/90 px-2 py-0.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
-              title="Paste from clipboard"
-            >
-              <Clipboard size={11} />
-              <span>Paste</span>
-            </button>
-          )
-        }
-      />
+      {commandCode ? null : (
+        <FloatingField
+          label="Callback URL or authorization code"
+          value={callbackInput}
+          onChange={(event) => setCallbackInput(event.target.value)}
+          monospace
+          endAction={
+            callbackInput ? (
+              <button
+                type="button"
+                onClick={() => setCallbackInput("")}
+                className="inline-flex cursor-pointer items-center p-1 text-muted-foreground hover:text-foreground"
+                title="Clear input"
+              >
+                <X size={14} />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={pasteCallback}
+                className="inline-flex cursor-pointer items-center gap-1 rounded border border-border/70 bg-surface-muted/90 px-2 py-0.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+                title="Paste from clipboard"
+              >
+                <Clipboard size={11} />
+                <span>Paste</span>
+              </button>
+            )
+          }
+        />
+      )}
 
       <div className="flex items-center gap-2 pt-1">
-        <ActionButton
-          ref={submitButtonRef}
-          type="submit"
-          label="Confirm & connect"
-          pendingLabel="Verifying…"
-          successLabel="Connected"
-          onAction={complete}
-          disabled={pending || !callbackInput.trim()}
-          className="h-9 flex-1 font-medium"
-        />
+        {commandCode ? null : (
+          <ActionButton
+            ref={submitButtonRef}
+            type="submit"
+            label="Confirm & connect"
+            pendingLabel="Verifying…"
+            successLabel="Connected"
+            onAction={complete}
+            disabled={pending || !callbackInput.trim()}
+            className="h-9 flex-1 font-medium"
+          />
+        )}
         <Button
           type="button"
           variant="ghost"

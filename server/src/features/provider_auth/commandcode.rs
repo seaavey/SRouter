@@ -12,6 +12,8 @@ use std::time::Duration;
 
 use axum::body::Bytes;
 use axum::extract::{RawQuery, State};
+use axum::http::header;
+use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use axum::{Extension, Json, Router};
 use serde_json::{Value, json};
@@ -26,8 +28,9 @@ use crate::constants;
 use crate::error::APIError;
 use crate::features::providers::commandcode::types::{
     COMMANDCODE_CALLBACK_PATH, COMMANDCODE_GENERATE_URL, COMMANDCODE_PROVIDER,
-    COMMANDCODE_STUDIO_AUTH_URL, CommandCodeEndpoints,
+    COMMANDCODE_RELAY_PATH, COMMANDCODE_STUDIO_AUTH_URL, CommandCodeEndpoints,
 };
+use crate::http::middleware::cors::is_loopback_origin;
 use crate::infrastructure::database::oauth_sessions::{
     claim_session, delete_session, record_session_key, release_session, save_session,
 };
@@ -39,6 +42,10 @@ use crate::state::AppState;
 
 /// Upper bound for the key probe; it is a round trip the operator is waiting on.
 const WHOAMI_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// The relay source, kept next to the other server scripts instead of a string
+/// literal so it stays runnable and reviewable on its own.
+const COMMANDCODE_RELAY_SCRIPT: &str = include_str!("../../../scripts/commandcode-relay.mjs");
 
 /// Routes the admin session guards: starting a sign-in and importing a key.
 pub fn create_commandcode_login_router() -> Router<AppState> {
@@ -67,15 +74,27 @@ pub fn create_commandcode_callback_router_with_endpoints(
 ) -> Router<AppState> {
     Router::new()
         .route(COMMANDCODE_CALLBACK_PATH, post(callback))
+        .route(COMMANDCODE_RELAY_PATH, get(relay))
         .layer(Extension(endpoints))
 }
 
 /// Starts a sign-in: a state row plus the studio URL that carries our callback.
-async fn login(State(state): State<AppState>) -> Result<Json<LoginResponse>, APIError> {
+///
+/// The studio only accepts a loopback callback, so the client names one when
+/// the gateway is not itself on the operator's machine; `callback` carries the
+/// relay it started.
+async fn login(
+    State(state): State<AppState>,
+    RawQuery(query): RawQuery,
+) -> Result<Json<LoginResponse>, APIError> {
     let database = require_database(&state, constants::providers::oauth::DATABASE_REQUIRED)?;
     sweep_expired_sessions(database).await?;
 
-    let redirect_uri = default_callback_uri(&state.config, COMMANDCODE_CALLBACK_PATH);
+    let requested = callback_override(query.as_deref())?;
+    let redirect_uri = match requested {
+        Some(callback) => callback,
+        None => default_callback_uri(&state.config, COMMANDCODE_CALLBACK_PATH),
+    };
     let state_token = uuid::Uuid::new_v4().to_string();
     save_session(database, &state_token, "", "commandcode", &redirect_uri).await?;
 
@@ -91,6 +110,49 @@ async fn login(State(state): State<AppState>) -> Result<Json<LoginResponse>, API
         code_verifier: String::new(),
         redirect_uri,
     }))
+}
+
+/// The `callback` the client named, if it named one at all. A key with no value
+/// is a malformed request, not a request to fall back to the public default.
+fn callback_override(query: Option<&str>) -> Result<Option<String>, APIError> {
+    let Some(query) = query else {
+        return Ok(None);
+    };
+
+    url::form_urlencoded::parse(query.as_bytes())
+        .find(|(key, _)| key == "callback")
+        .map(|(_, value)| loopback_callback(&value))
+        .transpose()
+}
+
+/// The only callback the studio will post a key to, checked before it is stored
+/// as the session's redirect: loopback host, this router's callback path, and
+/// nothing appended. The path check keeps the route from being pointed at any
+/// other local service.
+fn loopback_callback(raw: &str) -> Result<String, APIError> {
+    let invalid = || APIError::new(400, constants::providers::commandcode::INVALID_CALLBACK);
+    let parsed = reqwest::Url::parse(raw.trim()).map_err(|_| invalid())?;
+    let expected_path = format!("/v1{COMMANDCODE_CALLBACK_PATH}");
+    let bare = parsed.path() == expected_path
+        && parsed.query().is_none()
+        && parsed.fragment().is_none()
+        && parsed.username().is_empty()
+        && parsed.password().is_none();
+
+    if !bare || !is_loopback_origin(&parsed) {
+        return Err(invalid());
+    }
+
+    Ok(parsed.to_string())
+}
+
+/// The relay the operator runs on their own machine. Served from here because
+/// the dashboard hands out the `curl … | node` line that starts it.
+async fn relay() -> impl IntoResponse {
+    (
+        [(header::CONTENT_TYPE, constants::headers::value::JAVASCRIPT)],
+        COMMANDCODE_RELAY_SCRIPT,
+    )
 }
 
 /// Takes the key the studio posted and parks it on the session row. The key is

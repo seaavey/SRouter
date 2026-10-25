@@ -77,7 +77,10 @@ export interface OAuthLoginResult {
 }
 
 /** Initiates provider OAuth authorization flow for supported drivers. */
-export function initiateOAuthLogin(providerID: string) {
+export function initiateOAuthLogin(
+  providerID: string,
+  options?: { callback?: string }
+) {
   const normalized = providerID.toLowerCase()
   // OpenAI Codex client ID app_EMoamEEZ73f0CkXaXp7hrann strictly enforces port 1455 redirect URI.
   let authPath =
@@ -94,7 +97,11 @@ export function initiateOAuthLogin(providerID: string) {
   } else if (normalized.includes("codebuddy")) {
     authPath = "/v1/auth/codebuddy/device"
   } else if (normalized.includes("commandcode")) {
-    authPath = "/v1/auth/commandcode/login"
+    // The studio refuses any callback that is not on loopback, so the caller
+    // passes the relay it started on the operator's machine.
+    authPath = options?.callback
+      ? `/v1/auth/commandcode/login?callback=${encodeURIComponent(options.callback)}`
+      : "/v1/auth/commandcode/login"
   } else if (normalized.includes("grok")) {
     authPath = "/v1/auth/grok/login?format=json"
   }
