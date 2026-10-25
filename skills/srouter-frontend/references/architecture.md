@@ -46,8 +46,7 @@ client/src/
 │   │   ├── action-button/   ActionButton — mandatory component for any button running an action
 │   │   ├── copy-button/     CopyButton — standalone copy control
 │   │   └── ...
-│   ├── ui/                  shadcn primitives (Base UI): alert, button, field, input, label, separator, textarea, …
-│   ├── gauge/               self-contained SVG gauge kit
+│   ├── ui/                  shadcn primitives (Base UI): button, dialog, textarea
 │   ├── layout/              app-shell, sidebar, topbar, section-header
 │   ├── auth/                sign-in screen: LoginPage + shell, admin/ (operator), user/ (customer)
 │   ├── admin-auth-provider.tsx  admin session context: status query + auth mutations

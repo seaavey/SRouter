@@ -23,7 +23,7 @@ The Tailwind plugin sorts class strings, including those inside `cn(...)` and `c
 - `erasableSyntaxOnly` bans TS syntax that needs emit — no `enum`, no parameter properties, no namespaces.
 - Type aliases (`type X = { ... }`) for props and local shapes; `interface` only for declaration merging at the top level. No `any`; prefer inference from the generated wire types.
 - Target `es2023`, `moduleResolution: bundler`, `jsx: react-jsx` — no `import React from "react"` needed.
-- Path alias `@/*` → `client/src/*`. Use it for cross-area imports; keep relative imports inside a folder (as `components/gauge/` does with `./math`).
+- Path alias `@/*` → `client/src/*`. Use it for cross-area imports; keep relative imports inside a folder (as `components/arc/bottom-sheet/` does with `./bottom-sheet.module.css`).
 
 ### Type discipline
 
@@ -81,9 +81,9 @@ Reach for the built-in utility before writing an object type by hand:
 | Utility                           | Use it when                                                                                       |
 | --------------------------------- | ------------------------------------------------------------------------------------------------- |
 | `Pick<T, K>`                      | a screen shows part of a wire type                                                                |
-| `Omit<T, K>`                      | a wire type with one field overridden (`Omit<SVGProps<SVGSVGElement>, "viewBox">` in `gauge.tsx`) |
+| `Omit<T, K>`                      | a wire type with one field overridden (`Omit<ComponentPropsWithoutRef<typeof SelectPrimitive.Root>, "children">` in `arc/select/select.tsx`) |
 | `Partial<T>`                      | every field optional on this path, but the names must stay the server's                           |
-| `Exclude<U, X>` / `Extract<U, X>` | narrowing a union (`Record<Exclude<GaugeTooltipSide, "auto">, Point>` in `tooltip.tsx`)           |
+| `Exclude<U, X>` / `Extract<U, X>` | narrowing a union (`Extract<HTTPMethod, "GET" \| "POST" \| "PATCH" \| "DELETE">` in `api/client.ts`) |
 | `Record<K, V>`                    | an exhaustive lookup table **keyed by a union** — see below                                       |
 | `keyof typeof x`                  | the key union of a const object, instead of restating it                                          |
 | `ReturnType<F>`, `Parameters<F>`  | typing against another function's signature without repeating it                                  |
@@ -178,7 +178,6 @@ export function describe(error: unknown): string { … }
 - Density is deliberately tiny: `text-xs` for body copy, `h-7`/`size-7` for controls, `gap-1..3`. Match the surrounding screen rather than importing a looser default.
 - shadcn components are generated over **Base UI**, so composition uses Base UI's `render` prop — not Radix's `asChild`.
 - `src/components/arc/` (UIARC) is the primary visual vocabulary. Arc components use **CSS modules + CSS variables, not Tailwind classes**, and their tokens live in `components/arc/foundation.css` (`--surface`, `--surface-muted`, `--text-secondary`, `--radius-*`, `--space-*`; theme via `data-theme="light|dark"` on `<html>`, not the `.dark` class the Tailwind tokens use). Screens compose the two idioms — Arc for chrome and controls, Tailwind utilities for page layout — and each stays inside its own rules. Docs: <https://uiarc.dev/llms.txt>.
-- `src/components/gauge/` is a self-contained SVG kit (arcs, ticks, needle, tooltip, spring animation) with a barrel export at `components/gauge/index.ts`. It has zero imports today — reuse it for dials and meters instead of adding a chart library.
 - **A button that runs an action MUST use `ActionButton`** from `@/components/arc/action-button/action-button` (default export) — never a `ui/Button` plus a hand-rolled `useState` pending flag. Hand it `label` + `onAction` (sync or `async`) and it owns the idle → pending → success → error state machine, the press spring, and the `aria-busy` / `role="status"` announcements; tune it with `successLabel`, `pendingLabel`, `resetAfterMs`, `onActionError`, `shortcut`. Reserve `ui/Button` strictly for controls with no action to report (navigation, toggles, dialog triggers).
 - **Copy operations MUST use `useClipboard` (`hooks/useClipboard.ts`), never `navigator.clipboard` directly.** When you need clipboard or copy logic inside a flow, hook, or component, it is mandatory to take `useClipboard` from `@/hooks/useClipboard` (it wraps Arc's `useCopyFeedback` and adds paste — see `useOAuthFlow`); for a standalone copy control, `CopyButton` (`@/components/arc/copy-button/copy-button`) is the ready component. Either way `navigator.clipboard` is reached only inside `use-copy-feedback`, so the "Copied"/error window and permission handling stay single-owner.
 
@@ -212,14 +211,14 @@ No external form library (like TanStack Form or React Hook Form) is installed. T
 | Components      | PascalCase; a one-component file is `export default`, vendor keeps its named exports | `ResponsiveDialog`                                |
 | Hooks           | `useX.ts`, `useX` export                                                             | `useOAuthFlow.ts` → `useOAuthFlow`                |
 | Query factories | `xQuery`                                                                             | `adminStatusQuery`                                |
-| Types           | PascalCase                                                                           | `LoginSearch`, `GaugeFit`                         |
+| Types           | PascalCase                                                                           | `LoginSearch`, `ProviderLogoProps`                |
 | Route IDs       | the file path                                                                        | `createFileRoute("/_authenticated/keys")`         |
 | Local helpers   | verb phrase, lowercase                                                               | `describe`, `afterAuth`, `isEditableTarget`       |
 | Acronyms / ID   | uppercase, never mixed case                                                          | `useAPIKey`, `providerID`, `keyID`                |
 
-`*.tsx` filenames are PascalCase with no hyphens throughout `client/src`. This is a forward-looking rule: do not rename existing files, and keep TanStack route filenames unchanged unless a separate task explicitly requests a route rename. The only filename exception is the frozen vendor code under `components/ui/`, `components/arc/`, and `components/gauge/`; never rename files in those folders. Directories remain kebab-case except feature directories that intentionally use PascalCase, such as `modals/ConnectAccounts/`.
+`*.tsx` filenames are PascalCase with no hyphens throughout `client/src`. This is a forward-looking rule: do not rename existing files, and keep TanStack route filenames unchanged unless a separate task explicitly requests a route rename. The only filename exception is the frozen vendor code under `components/ui/` and `components/arc/`; never rename files in those folders. Directories remain kebab-case except feature directories that intentionally use PascalCase, such as `modals/ConnectAccounts/`.
 
-**`{arc, ui, gauge}` under `components/` are off-limits.** Never edit, rename, or move anything inside `components/arc/`, `components/ui/`, or `components/gauge/`. All three are library code (`ui/` is shadcn, `arc/` is UIARC, `gauge/` is the sanctioned SVG kit), so their file names, directory names, and exported identifiers are frozen. Touch them only when the task is explicitly about that component, and keep every existing name even then.
+**`{arc, ui}` under `components/` are off-limits.** Never edit, rename, or move anything inside `components/arc/` or `components/ui/`. Both are library code (`ui/` is shadcn, `arc/` is UIARC), so their file names, directory names, and exported identifiers are frozen. Touch them only when the task is explicitly about that component, and keep every existing name even then.
 
 **Everywhere else under `components/`, exported identifiers are PascalCase.** In `components/layout/`, `components/providers/`, and the root files (`theme-provider.tsx`, `admin-auth-provider.tsx`), a component, hook, context, or type is PascalCase: `AppShell`, `SectionHeader`, `Sidebar`, `Topbar`, `ProviderLogo`, `APIKeyPanel`, `OAuthPanel`, `TokenFormPanel`, `ConnectAccountModal`, `useAdminAuth`. Apply it to new code; do not rename an existing identifier just to comply unless the task asks for that rename.
 
