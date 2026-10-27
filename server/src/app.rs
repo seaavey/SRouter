@@ -18,6 +18,7 @@ use crate::features::provider_auth::{
     create_antigravity_callback_pages_router, create_antigravity_callback_router,
     create_antigravity_login_router, create_claude_callback_pages_router,
     create_claude_callback_router, create_claude_login_router, create_cline_login_router,
+    create_opencode_login_router,
     create_codebuddy_login_router, create_commandcode_callback_router,
     create_commandcode_login_router, create_grok_web_login_router,
     create_openai_callback_pages_router, create_openai_callback_router, create_openai_login_router,
@@ -130,6 +131,8 @@ pub fn create_router(state: AppState) -> Router {
         create_qoder_login_router().layer(from_fn_with_state(state.clone(), require_admin_session));
     let cline_login_routes =
         create_cline_login_router().layer(from_fn_with_state(state.clone(), require_admin_session));
+    let opencode_login_routes =
+        create_opencode_login_router().layer(from_fn_with_state(state.clone(), require_admin_session));
     let codebuddy_login_routes = create_codebuddy_login_router()
         .layer(from_fn_with_state(state.clone(), require_admin_session));
     let grok_web_login_routes = create_grok_web_login_router()
@@ -190,6 +193,7 @@ pub fn create_router(state: AppState) -> Router {
         .merge(create_admin_router())
         .merge(qoder_login_routes)
         .merge(cline_login_routes)
+        .merge(opencode_login_routes)
         .merge(codebuddy_login_routes)
         .merge(grok_web_login_routes)
         .merge(openai_login_routes)
