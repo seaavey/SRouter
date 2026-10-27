@@ -8,6 +8,7 @@ mod codebuddy;
 mod commandcode;
 mod grok_web;
 mod openai;
+mod opencode;
 mod qoder;
 
 use std::collections::HashMap;
@@ -53,6 +54,7 @@ pub use grok_web::create_grok_web_login_router;
 pub use openai::{
     create_openai_callback_pages_router, create_openai_callback_router, create_openai_login_router,
 };
+pub use opencode::create_opencode_login_router;
 pub use qoder::{
     create_qoder_callback_pages_router, create_qoder_callback_router, create_qoder_login_router,
 };

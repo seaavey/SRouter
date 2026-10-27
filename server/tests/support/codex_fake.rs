@@ -377,7 +377,7 @@ pub async fn connect_codex(database: &TestDatabase, expires_at: Option<i64>) {
 /// A registry whose Codex adapter points at the fake upstream.
 pub fn codex_registry(database: Option<AppDatabase>, fake: &FakeCodexUpstream) -> ProviderRegistry {
     let mut providers = ProviderRegistry::new();
-    providers.register(opencode::adapter().expect("opencode_zen adapter"));
+    providers.register(opencode::adapter(None).expect("opencode_zen adapter"));
     providers.register(
         codex::adapter_with_endpoints(fake.endpoints(), database).expect("codex adapter"),
     );

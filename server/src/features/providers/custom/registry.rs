@@ -40,6 +40,7 @@ pub async fn refresh_custom_provider(
 
     if let Some(row) = find_custom_provider(database, id).await? {
         let adapter = adapter_from_row(row, Some(database.clone()))?;
+        adapter.maybe_refresh(true).await;
         registry.register_runtime(adapter);
     }
 

@@ -58,18 +58,18 @@ fn opencode_zen_registry_keys_cover_the_base_id_and_aliases() {
 
 #[test]
 fn opencode_zen_adapter_builds_with_default_and_custom_base_url() {
-    let default_adapter = adapter().expect("default opencode adapter must build");
+    let default_adapter = adapter(None).expect("default opencode adapter must build");
     assert_eq!(default_adapter.id(), "opencode_zen");
     assert_eq!(default_adapter.keys(), OPENCODE_ZEN_KEYS);
     assert_eq!(
         default_adapter.models(),
         OPENCODE_ZEN_MODELS
             .iter()
-            .map(|model| model.id.to_owned())
+            .map(|model| model.id)
             .collect::<Vec<_>>()
     );
 
-    let custom_adapter = adapter_with_base_url("https://custom.opencode.local/v1")
+    let custom_adapter = adapter_with_base_url("https://custom.opencode.local/v1", None)
         .expect("custom opencode adapter must build");
     assert_eq!(custom_adapter.id(), "opencode_zen");
     assert_eq!(custom_adapter.keys(), OPENCODE_ZEN_KEYS);

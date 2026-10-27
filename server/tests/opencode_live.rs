@@ -26,7 +26,7 @@ use tower::ServiceExt;
 #[tokio::test]
 #[ignore = "reaches the real OpenCode Zen upstream over the network"]
 async fn opencode_zen_catalog_merges_the_live_free_tier_list() {
-    let adapter = opencode::adapter().expect("opencode_zen adapter");
+    let adapter = opencode::adapter(None).expect("opencode_zen adapter");
     let executor = adapter
         .downcast_ref::<OpenCodeExecutor>()
         .expect("the adapter is the opencode executor");

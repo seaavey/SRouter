@@ -10,6 +10,7 @@ mod codex;
 mod commandcode;
 mod custom;
 mod grok_web;
+mod opencode;
 mod qoder;
 
 use serde_json::Value;
@@ -48,6 +49,10 @@ pub use custom::{CustomCredentials, load_custom_credentials};
 pub use grok_web::{
     GrokWebConnectionWrite, GrokWebCredentials, load_grok_web_credentials,
     upsert_grok_web_connection,
+};
+pub use opencode::{
+    OpenCodeConnectionWrite, OpenCodeCredentials, load_opencode_credentials,
+    update_opencode_tokens, upsert_opencode_connection,
 };
 pub use qoder::{
     QoderConnectionWrite, QoderCredentials, load_qoder_credentials, upsert_qoder_connection,

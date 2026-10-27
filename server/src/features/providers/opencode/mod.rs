@@ -1,5 +1,6 @@
 //! OpenCode Zen provider module.
 
+pub mod auth;
 pub mod catalog;
 pub mod executor;
 pub mod refresh;
