@@ -24,6 +24,7 @@ import {
   deleteProviderConnection,
   patchProvider,
   providerDetailQuery,
+  refreshProviderModels,
   toggleRoundRobin,
 } from "@/api/providers"
 import type { ProviderConnectionView, ProviderModel } from "@/api/types"
@@ -249,6 +250,7 @@ function ProviderDetailPage() {
   const connections = provider?.connections ?? []
 
   async function refreshProvider() {
+    await refreshProviderModels(providerId)
     const result = await refetch()
     if (result.error) throw result.error
   }

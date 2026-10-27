@@ -33,6 +33,13 @@ export function providerDetailQuery(providerID: string) {
   })
 }
 
+/** Triggers a forced catalog refresh for the provider. */
+export function refreshProviderModels(providerID: string) {
+  return request<ProviderEntry>(
+    `/v1/providers/${encodeURIComponent(providerID)}?refresh=true`
+  )
+}
+
 /** `PATCH /v1/providers/{provider_id}`. Update driver flags or connection settings. */
 export function patchProvider(
   providerID: string,

@@ -11,7 +11,7 @@
 use std::collections::HashSet;
 
 use axum::body::Bytes;
-use axum::extract::{Path, State};
+use axum::extract::{Path, Query, State};
 use axum::routing::{delete, get, patch};
 use axum::{Json, Router};
 use serde::Serialize;
@@ -131,10 +131,23 @@ async fn get_catalog(State(state): State<AppState>) -> Result<Json<CatalogRespon
     Ok(Json(CatalogResponse { total, categories }))
 }
 
+#[derive(Default, serde::Deserialize)]
+struct DetailQuery {
+    refresh: Option<String>,
+    force: Option<String>,
+}
+
 async fn get_provider(
     State(state): State<AppState>,
     Path(provider_id): Path<String>,
+    Query(query): Query<DetailQuery>,
 ) -> Result<Json<ProviderEntry>, APIError> {
+    let force = [query.refresh.as_deref(), query.force.as_deref()]
+        .into_iter()
+        .flatten()
+        .any(|value| value == "true" || value == "1");
+
+    state.providers.maybe_refresh_catalogs(force).await;
     // The whole detail payload, hidden models included: the `hidden` flag per
     // model is the only place the admin view learns what it can restore.
     Ok(Json(detail_entry(&state, &provider_id).await?))
