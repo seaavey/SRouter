@@ -52,7 +52,7 @@ pub use grok_web::{
 };
 pub use opencode::{
     OpenCodeConnectionWrite, OpenCodeCredentials, load_opencode_credentials,
-    parse_opencode_credentials, update_opencode_tokens, upsert_opencode_connection,
+    update_opencode_tokens, upsert_opencode_connection,
 };
 pub use qoder::{
     QoderConnectionWrite, QoderCredentials, load_qoder_credentials, upsert_qoder_connection,

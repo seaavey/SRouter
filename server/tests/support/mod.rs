@@ -234,7 +234,7 @@ pub async fn app_state_with_fake_upstream_and_security(
     let upstream = FakeUpstream::start().await;
     let mut providers = ProviderRegistry::new();
     providers.register(
-        opencode::adapter_with_base_url(upstream.base_url()).expect("opencode_zen adapter"),
+        opencode::adapter_with_base_url(upstream.base_url(), None).expect("opencode_zen adapter"),
     );
 
     (
@@ -253,7 +253,7 @@ pub const OFFLINE_BASE_URL: &str = "http://127.0.0.1:1/v1";
 pub fn default_providers() -> ProviderRegistry {
     let mut providers = ProviderRegistry::with_defaults().expect("default providers");
     providers
-        .register(opencode::adapter_with_base_url(OFFLINE_BASE_URL).expect("opencode_zen adapter"));
+        .register(opencode::adapter_with_base_url(OFFLINE_BASE_URL, None).expect("opencode_zen adapter"));
 
     providers
 }
@@ -1502,7 +1502,7 @@ pub fn qoder_registry(database: Option<AppDatabase>, fake: &FakeQoderUpstream) -
     // Both built-in drivers, exactly like `ProviderRegistry::with_database`.
     let mut providers = ProviderRegistry::new();
     providers
-        .register(opencode::adapter_with_base_url(OFFLINE_BASE_URL).expect("opencode_zen adapter"));
+        .register(opencode::adapter_with_base_url(OFFLINE_BASE_URL, None).expect("opencode_zen adapter"));
     providers.register(
         qoder::adapter_with_endpoints(fake.endpoints(), database).expect("qoder adapter"),
     );
@@ -1566,7 +1566,7 @@ pub async fn connect_second_cline(database: &TestDatabase) {
 pub fn cline_registry(database: Option<AppDatabase>, fake: &FakeClineUpstream) -> ProviderRegistry {
     let mut providers = ProviderRegistry::new();
     providers
-        .register(opencode::adapter_with_base_url(OFFLINE_BASE_URL).expect("opencode_zen adapter"));
+        .register(opencode::adapter_with_base_url(OFFLINE_BASE_URL, None).expect("opencode_zen adapter"));
     providers.register(
         cline::adapter_with_endpoints(fake.endpoints(), database).expect("cline adapter"),
     );
@@ -1619,7 +1619,7 @@ pub fn codebuddy_registry(
 ) -> ProviderRegistry {
     let mut providers = ProviderRegistry::new();
     providers
-        .register(opencode::adapter_with_base_url(OFFLINE_BASE_URL).expect("opencode_zen adapter"));
+        .register(opencode::adapter_with_base_url(OFFLINE_BASE_URL, None).expect("opencode_zen adapter"));
     providers.register(
         codebuddy::adapter_with_endpoints(
             Flavor::Global,
@@ -1642,7 +1642,7 @@ pub fn commandcode_registry(
 ) -> ProviderRegistry {
     let mut providers = ProviderRegistry::new();
     providers
-        .register(opencode::adapter_with_base_url(OFFLINE_BASE_URL).expect("opencode_zen adapter"));
+        .register(opencode::adapter_with_base_url(OFFLINE_BASE_URL, None).expect("opencode_zen adapter"));
     providers.register(
         commandcode::adapter_with_endpoints(fake.endpoints(), database)
             .expect("commandcode adapter"),
@@ -2194,7 +2194,7 @@ pub fn grok_web_registry(
 ) -> ProviderRegistry {
     let mut providers = ProviderRegistry::new();
     providers
-        .register(opencode::adapter_with_base_url(OFFLINE_BASE_URL).expect("opencode_zen adapter"));
+        .register(opencode::adapter_with_base_url(OFFLINE_BASE_URL, None).expect("opencode_zen adapter"));
     providers.register(
         grok_web::adapter_with_endpoints(fake.endpoints(), database).expect("grok-web adapter"),
     );
@@ -2483,7 +2483,7 @@ pub fn antigravity_registry(
 ) -> ProviderRegistry {
     let mut providers = ProviderRegistry::new();
     providers
-        .register(opencode::adapter_with_base_url(OFFLINE_BASE_URL).expect("opencode_zen adapter"));
+        .register(opencode::adapter_with_base_url(OFFLINE_BASE_URL, None).expect("opencode_zen adapter"));
     providers.register(
         antigravity::adapter_with_endpoints(fake.endpoints(), database)
             .expect("antigravity adapter"),
@@ -3458,7 +3458,7 @@ pub fn claude_registry(
 ) -> ProviderRegistry {
     let mut providers = ProviderRegistry::new();
     providers
-        .register(opencode::adapter_with_base_url(OFFLINE_BASE_URL).expect("opencode_zen adapter"));
+        .register(opencode::adapter_with_base_url(OFFLINE_BASE_URL, None).expect("opencode_zen adapter"));
     providers.register(
         claude::adapter_with_endpoints(fake.endpoints(), database).expect("claude adapter"),
     );

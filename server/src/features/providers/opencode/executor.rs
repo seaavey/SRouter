@@ -2,10 +2,13 @@
 
 use futures_util::StreamExt;
 use serde_json::Value;
+use std::collections::HashMap;
 use std::sync::Arc;
+use std::sync::Mutex as StdMutex;
 
 use crate::constants;
 use crate::error::APIError;
+use crate::infrastructure::database::AppDatabase;
 use crate::features::providers::adapter::{
     ProviderAdapter, ProviderStream, encode_stream, forward_image_generation, upstream_error,
     upstream_status_error, upstream_stream_status_error,
@@ -51,6 +54,8 @@ pub struct OpenCodeExecutor {
     /// The live list merged onto the seed; empty until the first fetch lands.
     pub(super) catalog: SharedCatalog,
     pub(super) catalog_refresh_lock: Arc<tokio::sync::Mutex<()>>,
+    pub(super) database: Option<AppDatabase>,
+    pub(super) token_refreshes: Arc<StdMutex<HashMap<String, Arc<tokio::sync::Mutex<()>>>>>,
 }
 
 impl OpenCodeExecutor {
@@ -60,6 +65,7 @@ impl OpenCodeExecutor {
         base_url: impl Into<String>,
         models: &'static [ModelDefinition],
         client: UpstreamClient,
+        database: Option<AppDatabase>,
     ) -> Self {
         Self {
             id,
@@ -69,6 +75,8 @@ impl OpenCodeExecutor {
             client,
             catalog: OpenCodeCatalog::shared_empty(),
             catalog_refresh_lock: Arc::new(tokio::sync::Mutex::new(())),
+            database,
+            token_refreshes: Arc::new(StdMutex::new(HashMap::new())),
         }
     }
 
@@ -116,13 +124,14 @@ impl OpenCodeExecutor {
         // 403 FreeTierError, so the call is always made with stream=true and the
         // deltas are aggregated into a standard non-streaming response below.
         let session_id = generate_opencode_session_id();
-        let response = self
+        let (auth_header, org_id) = self.auth_headers().await?;
+        let mut request_builder = self
             .client
             .raw()
             .post(self.chat_completions_url())
             .timeout(self.client.request_timeout())
             .header("User-Agent", "opencode/latest/2.0.15/cli")
-            .header("Authorization", "Bearer public")
+            .header("Authorization", &auth_header)
             .header("x-opencode-client", "cli")
             .header(
                 "x-opencode-project",
@@ -131,7 +140,15 @@ impl OpenCodeExecutor {
             .header("x-opencode-session", &session_id)
             .header("x-session-affinity", &session_id)
             .header("x-session-id", &session_id)
-            .header("X-Session-Id", &session_id)
+            .header("X-Session-Id", &session_id);
+
+        if let Some(org) = org_id.as_deref() {
+            request_builder = request_builder
+                .header("x-org-id", org)
+                .header("x-opencode-org-id", org);
+        }
+
+        let response = request_builder
             .json(&self.upstream_body(model, request, true)?)
             .send()
             .await
@@ -183,12 +200,13 @@ impl OpenCodeExecutor {
         self.maybe_refresh(false).await;
 
         let session_id = generate_opencode_session_id();
-        let response = self
+        let (auth_header, org_id) = self.auth_headers().await?;
+        let mut request_builder = self
             .client
             .raw()
             .post(self.chat_completions_url())
             .header("User-Agent", "opencode/latest/2.0.15/cli")
-            .header("Authorization", "Bearer public")
+            .header("Authorization", &auth_header)
             .header("x-opencode-client", "cli")
             .header(
                 "x-opencode-project",
@@ -197,7 +215,15 @@ impl OpenCodeExecutor {
             .header("x-opencode-session", &session_id)
             .header("x-session-affinity", &session_id)
             .header("x-session-id", &session_id)
-            .header("X-Session-Id", &session_id)
+            .header("X-Session-Id", &session_id);
+
+        if let Some(org) = org_id.as_deref() {
+            request_builder = request_builder
+                .header("x-org-id", org)
+                .header("x-opencode-org-id", org);
+        }
+
+        let response = request_builder
             .json(&self.upstream_body(model, request, true)?)
             .send()
             .await
@@ -572,12 +598,15 @@ impl ProviderExecutor for OpenCodeExecutor {
 }
 
 /// Builds the adapter / executor against the production base URL.
-pub fn adapter() -> Result<ProviderAdapter, APIError> {
-    adapter_with_base_url(OPENCODE_ZEN_BASE_URL)
+pub fn adapter(database: Option<AppDatabase>) -> Result<ProviderAdapter, APIError> {
+    adapter_with_base_url(OPENCODE_ZEN_BASE_URL, database)
 }
 
 /// Builds the adapter / executor against an explicit base URL.
-pub fn adapter_with_base_url(base_url: impl Into<String>) -> Result<ProviderAdapter, APIError> {
+pub fn adapter_with_base_url(
+    base_url: impl Into<String>,
+    database: Option<AppDatabase>,
+) -> Result<ProviderAdapter, APIError> {
     let client = UpstreamClient::new()?;
 
     Ok(ProviderAdapter::new(OpenCodeExecutor::new(
@@ -586,5 +615,6 @@ pub fn adapter_with_base_url(base_url: impl Into<String>) -> Result<ProviderAdap
         base_url,
         OPENCODE_ZEN_MODELS,
         client,
+        database,
     )))
 }

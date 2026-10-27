@@ -182,7 +182,7 @@ async fn main() -> Result<(), APIError> {
     let upstream_url = start_fake_upstream().await?;
     let mut providers = ProviderRegistry::new();
     providers.register(
-        srouter_server::features::providers::opencode::adapter_with_base_url(&upstream_url)?,
+        srouter_server::features::providers::opencode::adapter_with_base_url(&upstream_url, None)?,
     );
 
     let state = AppState::with_security(config, providers, security).with_database(database);

@@ -100,7 +100,7 @@ impl ProviderRegistry {
     /// Cline, and Codex adapters keep the database to read their own credentials.
     pub fn with_database(database: Option<AppDatabase>) -> Result<Self, APIError> {
         let mut registry = Self::new();
-        registry.register(opencode::adapter()?);
+        registry.register(opencode::adapter(database.clone())?);
         registry.register(qoder::adapter(database.clone())?);
         registry.register(cline::adapter(database.clone())?);
         registry.register(grok_web::adapter(database.clone())?);
@@ -413,7 +413,7 @@ mod tests {
 
     fn registry_with_opencode() -> ProviderRegistry {
         let mut registry = ProviderRegistry::new();
-        registry.register(opencode::adapter_with_base_url("http://127.0.0.1:1/v1").unwrap());
+        registry.register(opencode::adapter_with_base_url("http://127.0.0.1:1/v1", None).unwrap());
 
         registry
     }
