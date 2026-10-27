@@ -11,9 +11,7 @@ use srouter_server::features::admin_auth::hash_session_token;
 use srouter_server::features::providers::ProviderRegistry;
 
 mod support;
-use support::{
-    TestDatabase, sqlx_security_state, test_config, with_loopback_client,
-};
+use support::{TestDatabase, sqlx_security_state, test_config, with_loopback_client};
 
 const SESSION_TOKEN: &str = "test-session-token";
 
@@ -25,12 +23,8 @@ async fn test_app(database: &TestDatabase, with_session: bool) -> Router {
     };
     let security = sqlx_security_state(database, sessions).await;
     let app_database = database.connect().await.expect("temporary database");
-    let state = AppState::with_security(
-        test_config(),
-        ProviderRegistry::new(),
-        security,
-    )
-    .with_database(app_database);
+    let state = AppState::with_security(test_config(), ProviderRegistry::new(), security)
+        .with_database(app_database);
 
     create_router(state)
 }

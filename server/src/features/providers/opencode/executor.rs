@@ -8,7 +8,6 @@ use std::sync::Mutex as StdMutex;
 
 use crate::constants;
 use crate::error::APIError;
-use crate::infrastructure::database::AppDatabase;
 use crate::features::providers::adapter::{
     ProviderAdapter, ProviderStream, encode_stream, forward_image_generation, upstream_error,
     upstream_status_error, upstream_stream_status_error,
@@ -20,6 +19,7 @@ use crate::features::providers::opencode::types::{
     OPENCODE_ZEN_BASE_URL, OPENCODE_ZEN_KEYS, OPENCODE_ZEN_MODELS, OPENCODE_ZEN_PROVIDER,
 };
 use crate::features::providers::wire::{random_hex, stream_error_message};
+use crate::infrastructure::database::AppDatabase;
 use crate::infrastructure::upstream::UpstreamClient;
 use crate::protocol::image::ImageGenerationRequest;
 use crate::protocol::model::{ChatCompletionRequest, ChatContent, ChatMessage};

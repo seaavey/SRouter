@@ -646,9 +646,9 @@ pub mod providers {
     pub mod opencode {
         pub const EMPTY_TOKEN: &str = "OpenCode token registration returned an empty access token";
         pub const INVALID_TOKEN_RESPONSE: &str = "Invalid OpenCode token response";
-        pub const NOT_CONNECTED: &str =
-            "No active OpenCode connection found. Connect the OpenCode account in the Providers tab.";
-        pub const TOKEN_EXPIRED: &str = "The OpenCode token has expired; reconnect the OpenCode account.";
+        pub const NOT_CONNECTED: &str = "No active OpenCode connection found. Connect the OpenCode account in the Providers tab.";
+        pub const TOKEN_EXPIRED: &str =
+            "The OpenCode token has expired; reconnect the OpenCode account.";
         pub const DATABASE_REQUIRED: &str =
             "no database is configured; the OpenCode connection cannot be read";
 

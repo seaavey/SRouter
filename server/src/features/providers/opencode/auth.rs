@@ -85,9 +85,10 @@ impl OpenCodeExecutor {
             .find(|c| c.id == credentials.id)
             .unwrap_or_else(|| credentials.clone());
 
-        if !current.is_expired(now_ms()) && current
-            .token_expires_at
-            .is_some_and(|exp| exp - now_ms() > REFRESH_WINDOW_MS)
+        if !current.is_expired(now_ms())
+            && current
+                .token_expires_at
+                .is_some_and(|exp| exp - now_ms() > REFRESH_WINDOW_MS)
         {
             return Ok(current);
         }
@@ -134,7 +135,9 @@ impl OpenCodeExecutor {
         let new_access = payload
             .get("access_token")
             .and_then(Value::as_str)
-            .ok_or_else(|| APIError::new(400, constants::providers::opencode::INVALID_TOKEN_RESPONSE))?;
+            .ok_or_else(|| {
+                APIError::new(400, constants::providers::opencode::INVALID_TOKEN_RESPONSE)
+            })?;
         let new_refresh = payload.get("refresh_token").and_then(Value::as_str);
         let expires_in = payload.get("expires_in").and_then(Value::as_i64);
         let new_expires_at = expires_in.map(|secs| now_ms() + secs * 1000);

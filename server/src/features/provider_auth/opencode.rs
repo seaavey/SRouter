@@ -104,10 +104,7 @@ async fn device(State(state): State<AppState>) -> Result<Json<OpenCodeDeviceResp
         .get("expires_in")
         .and_then(Value::as_i64)
         .unwrap_or(600);
-    let interval = payload
-        .get("interval")
-        .and_then(Value::as_i64)
-        .unwrap_or(5);
+    let interval = payload.get("interval").and_then(Value::as_i64).unwrap_or(5);
 
     let state_token = format!("opencode_{}", uuid::Uuid::new_v4().simple());
     save_device_session(database, &state_token, &device_code, OPENCODE_CLIENT_ID).await?;
@@ -197,10 +194,10 @@ async fn connect(
     let payload = response.json::<Value>().await.unwrap_or(Value::Null);
 
     if !status.is_success() {
-        if let Some(err) = text_field(&payload, "error") {
-            if err == "authorization_pending" {
-                return Ok(None);
-            }
+        if let Some(err) = text_field(&payload, "error")
+            && err == "authorization_pending"
+        {
+            return Ok(None);
         }
         return Err(APIError::new(
             400,
@@ -208,8 +205,9 @@ async fn connect(
         ));
     }
 
-    let access_token = text_field(&payload, "access_token")
-        .ok_or_else(|| APIError::new(400, constants::providers::opencode::INVALID_TOKEN_RESPONSE))?;
+    let access_token = text_field(&payload, "access_token").ok_or_else(|| {
+        APIError::new(400, constants::providers::opencode::INVALID_TOKEN_RESPONSE)
+    })?;
     let refresh_token = text_field(&payload, "refresh_token");
     let expires_in = payload.get("expires_in").and_then(Value::as_i64);
     let token_expires_at = expires_in.map(|secs| now_ms() + secs * 1000);
@@ -217,9 +215,11 @@ async fn connect(
     let (email, org_id, org_name) = fetch_identity_and_org(&client, &access_token).await;
 
     let id = format!("opencode_{}", account_suffix(now_ms()));
-    let name = org_name
-        .clone()
-        .unwrap_or_else(|| email.clone().unwrap_or_else(|| "OpenCode Account".to_string()));
+    let name = org_name.clone().unwrap_or_else(|| {
+        email
+            .clone()
+            .unwrap_or_else(|| "OpenCode Account".to_string())
+    });
 
     let write = OpenCodeConnectionWrite {
         id: id.clone(),
