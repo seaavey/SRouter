@@ -643,6 +643,41 @@ pub mod providers {
         }
     }
 
+    pub mod opencode {
+        pub const EMPTY_TOKEN: &str = "OpenCode token registration returned an empty access token";
+        pub const INVALID_TOKEN_RESPONSE: &str = "Invalid OpenCode token response";
+        pub const NOT_CONNECTED: &str =
+            "No active OpenCode connection found. Connect the OpenCode account in the Providers tab.";
+        pub const TOKEN_EXPIRED: &str = "The OpenCode token has expired; reconnect the OpenCode account.";
+        pub const DATABASE_REQUIRED: &str =
+            "no database is configured; the OpenCode connection cannot be read";
+
+        pub fn device_auth_failed(status: u16) -> String {
+            format!("OpenCode device authorization failed ({status})")
+        }
+
+        pub fn device_auth_transport_failed(error: impl std::fmt::Display) -> String {
+            format!("OpenCode device authorization failed: {error}")
+        }
+
+        pub fn poll_failed(status: u16) -> String {
+            format!("OpenCode device token poll failed ({status})")
+        }
+
+        pub fn poll_transport_failed(error: impl std::fmt::Display) -> String {
+            format!("OpenCode device token poll failed: {error}")
+        }
+
+        pub fn refresh_failed(status: u16) -> String {
+            format!("OpenCode token refresh failed ({status})")
+        }
+
+        pub fn refresh_transport_failed(error: impl std::fmt::Display) -> String {
+            format!("OpenCode token refresh failed: {error}")
+        }
+        pub const STORE_CONNECTION: &str = "store the OpenCode connection";
+    }
+
     /// Messages of the `cline` provider: the WorkOS device flow, the credential
     /// load, and the lazy refresh. Every string a client can see lives here.
     pub mod cline {

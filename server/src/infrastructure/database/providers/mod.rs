@@ -26,11 +26,13 @@ pub use credentials::{
     QoderConnectionWrite, QoderCredentials, load_antigravity_credentials, load_claude_credentials,
     load_cline_credentials, load_codebuddy_credentials, load_codex_credentials,
     load_commandcode_credentials, load_connection_accounts, load_custom_credentials,
-    load_grok_web_credentials, load_qoder_credentials, update_antigravity_project_id,
-    update_antigravity_tokens, update_claude_tokens, update_cline_tokens, update_codex_tokens,
+    load_grok_web_credentials, load_opencode_credentials, load_qoder_credentials,
+    update_antigravity_project_id, update_antigravity_tokens, update_claude_tokens,
+    update_cline_tokens, update_codex_tokens, update_opencode_tokens,
     upsert_antigravity_connection, upsert_claude_connection, upsert_cline_connection,
     upsert_codebuddy_connection, upsert_codex_connection, upsert_commandcode_connection,
-    upsert_grok_web_connection, upsert_qoder_connection,
+    upsert_grok_web_connection, upsert_opencode_connection, upsert_qoder_connection,
+    OpenCodeConnectionWrite, OpenCodeCredentials,
 };
 pub use custom::{
     CustomProviderRow, NewCustomProvider, create_custom_provider, delete_custom_provider,
