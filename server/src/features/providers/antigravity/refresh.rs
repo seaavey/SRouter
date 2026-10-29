@@ -57,24 +57,21 @@ impl AntigravityExecutor {
             return;
         };
 
-        match load_antigravity_connections(database).await {
-            Ok(connections) => {
-                let Some(credentials) = connections.into_iter().next() else {
-                    write_catalog(&self.catalog).models.clear();
-                    return;
-                };
+        let Ok(connections) = load_antigravity_connections(database).await else {
+            return;
+        };
+        let Some(credentials) = connections.into_iter().next() else {
+            write_catalog(&self.catalog).models.clear();
+            return;
+        };
 
-                write_catalog(&self.catalog).models = ANTIGRAVITY_MODEL_IDS
-                    .iter()
-                    .map(|id| (*id).to_owned())
-                    .collect();
+        write_catalog(&self.catalog).models = ANTIGRAVITY_MODEL_IDS
+            .iter()
+            .map(|id| (*id).to_owned())
+            .collect();
 
-                if credentials.project_id.is_none() && credentials.access_token.starts_with("ya29.")
-                {
-                    let _ = self.ensure_project_id(&credentials).await;
-                }
-            }
-            Err(_) => {}
+        if credentials.project_id.is_none() && credentials.access_token.starts_with("ya29.") {
+            let _ = self.ensure_project_id(&credentials).await;
         }
     }
 }
