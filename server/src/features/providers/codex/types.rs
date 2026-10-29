@@ -37,6 +37,12 @@ pub const CODEX_OAUTH_SCOPE: &str =
 /// Public OAuth client id shipped by the official client (binary literal).
 pub const CODEX_OAUTH_CLIENT_ID: &str = "app_EMoamEEZ73f0CkXaXp7hrann";
 
+/// The only redirect this client accepts. Probed live on 2026-10-29: every
+/// other value (`https://seavx.ai.id/...`, `localhost:3000`) returned
+/// `invalid_authorize_request`, while `localhost:1455`, `localhost:1457` and
+/// `127.0.0.1:1455` rendered the sign-in page.
+pub const CODEX_REDIRECT_URI: &str = "http://localhost:1455/auth/callback";
+
 /// The official client's default `originator` value (binary literal next to
 /// `login/src/auth/default_client.rs`). Upstream keys telemetry on it.
 pub const CODEX_ORIGINATOR: &str = "codex_cli_rs";

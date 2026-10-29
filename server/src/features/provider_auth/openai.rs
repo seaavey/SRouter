@@ -4,12 +4,15 @@
 //! callback with `code` and `state`. The session row carries the PKCE verifier
 //! and the redirect URI the login used, which the exchange sends back verbatim.
 //!
-//! Single-port deviation (owner ruling, `TODO.md` section 1.4): Node finishes
-//! the flow on a secondary `:1455` listener where the default redirect is
-//! `http://localhost:1455/auth/callback`. Rust has no OAuth listener, so the
-//! default redirect is the main listener's `/v1/auth/openai/callback`, and
-//! `SROUTER_PUBLIC_URL` rewrites it onto the public origin exactly like
-//! `apps/api/src/utils/callbackUrl.ts`.
+//! Single-port deviation (owner ruling, `TODO.md` section 1.4): the Node
+//! gateway finished the flow on a secondary `:1455` listener where the default
+//! redirect is `http://localhost:1455/auth/callback`. Rust has no OAuth
+//! listener, so the redirect stays that registered loopback URI and
+//! `SROUTER_PUBLIC_URL` deliberately does not rewrite it: the client
+//! allow-lists loopback only, and a public origin is refused before the sign-in
+//! page loads. The browser therefore ends on the operator's own loopback, and
+//! the code is finished by pasting that URL into the dashboard, which posts it
+//! to `/v1/auth/openai/callback`.
 //!
 //! Oracle: `apps/api/src/controllers/auth.controller.ts` (`AuthController.OpenAI`),
 //! `apps/api/src/logic/auth.logic.ts` (`InitiatePKCEFor`,
@@ -18,16 +21,15 @@
 
 use super::{
     CallbackResponse, ConnectedProvider, LoginResponse, Protocol, TokenImportResponse,
-    account_suffix, default_callback_uri, email_from_token, error_page, jwt_claims, parse_callback,
-    parse_import_body, pkce_challenge, query_params, require_database, resolve_callback_url,
-    start_login_session, success_page, text_field,
+    account_suffix, email_from_token, error_page, jwt_claims, parse_callback, parse_import_body,
+    pkce_challenge, query_params, require_database, start_login_session, success_page, text_field,
 };
 use crate::clock::now_ms;
 use crate::constants;
 use crate::error::APIError;
 use crate::features::providers::codex::types::{
     CODEX_AUTHORIZE_URL, CODEX_OAUTH_CLIENT_ID, CODEX_OAUTH_SCOPE, CODEX_ORIGINATOR,
-    CODEX_PROVIDER, CodexEndpoints,
+    CODEX_PROVIDER, CODEX_REDIRECT_URI, CodexEndpoints,
 };
 use crate::infrastructure::database::AppDatabase;
 use crate::infrastructure::database::oauth_sessions::{
@@ -84,10 +86,14 @@ async fn login(
         .get("client_id")
         .cloned()
         .unwrap_or_else(|| CODEX_OAUTH_CLIENT_ID.to_owned());
+    // Loopback-pinned: the client rejects anything else before the sign-in page,
+    // so `SROUTER_PUBLIC_URL` never rewrites this.
     let redirect_uri = params
         .get("redirect_uri")
-        .map(|uri| resolve_callback_url(uri, &state.config))
-        .unwrap_or_else(|| default_callback_uri(&state.config, "/auth/openai/callback"));
+        .map(|uri| uri.trim())
+        .filter(|uri| !uri.is_empty())
+        .map(str::to_owned)
+        .unwrap_or_else(|| CODEX_REDIRECT_URI.to_owned());
     let prompt = params.get("prompt").cloned();
 
     let session = start_login_session(database, &client_id, &redirect_uri).await?;

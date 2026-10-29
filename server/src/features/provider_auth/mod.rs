@@ -489,8 +489,8 @@ mod tests {
         let configured = config(&[("SROUTER_PUBLIC_URL", "https://srouter.example.com/")]);
 
         assert_eq!(
-            resolve_callback_url("http://localhost:1455/auth/openai/callback", &configured),
-            "https://srouter.example.com/v1/auth/openai/callback"
+            resolve_callback_url("http://localhost:1455/auth/claude/callback", &configured),
+            "https://srouter.example.com/v1/auth/claude/callback"
         );
         assert_eq!(
             resolve_callback_url("http://127.0.0.1:1455/auth/callback", &configured),
@@ -520,14 +520,14 @@ mod tests {
     fn the_default_callback_lives_on_the_main_listener() {
         let loopback = config(&[]);
         assert_eq!(
-            default_callback_uri(&loopback, "/auth/openai/callback"),
-            "http://localhost:3000/v1/auth/openai/callback"
+            default_callback_uri(&loopback, "/auth/claude/callback"),
+            "http://localhost:3000/v1/auth/claude/callback"
         );
 
         let public = config(&[("SROUTER_PUBLIC_URL", "https://srouter.example.com")]);
         assert_eq!(
-            default_callback_uri(&public, "/auth/openai/callback"),
-            "https://srouter.example.com/v1/auth/openai/callback"
+            default_callback_uri(&public, "/auth/claude/callback"),
+            "https://srouter.example.com/v1/auth/claude/callback"
         );
     }
 }

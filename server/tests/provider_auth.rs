@@ -23,7 +23,8 @@ use srouter_server::infrastructure::database::providers::{
 use support::codex_fake::{FakeCodexUpstream, codex_registry};
 use support::{
     FakeClineUpstream, FakeQoderUpstream, TestDatabase, cline_state, json_request_with_headers,
-    qoder_catalog_body, qoder_state, sqlx_security_state, test_config, with_loopback_client,
+    qoder_catalog_body, qoder_state, sqlx_security_state, test_config, test_config_with_public_url,
+    with_loopback_client,
 };
 use tower::ServiceExt;
 
@@ -44,10 +45,18 @@ async fn app(database: &TestDatabase, fake: &FakeQoderUpstream) -> Router {
 
 /// The app wired to the fake Codex token endpoint, with fixture admin sessions.
 async fn openai_app(database: &TestDatabase, fake: &FakeCodexUpstream) -> Router {
+    openai_app_with_config(database, fake, test_config()).await
+}
+
+async fn openai_app_with_config(
+    database: &TestDatabase,
+    fake: &FakeCodexUpstream,
+    config: srouter_server::APIConfig,
+) -> Router {
     let security = sqlx_security_state(database, vec![hash_session_token(SESSION_TOKEN)]).await;
     let app_database = database.connect().await.expect("temporary database");
     let state = AppState::with_security(
-        test_config(),
+        config,
         codex_registry(Some(app_database.clone()), fake),
         security,
     )
@@ -758,11 +767,13 @@ async fn update_cline_tokens_persists_rotated_credentials() {
 
 /// Starts a Codex login and returns its JSON body.
 async fn start_openai_login(app: &Router) -> serde_json::Value {
-    let response = app
-        .clone()
-        .oneshot(admin_get("/v1/auth/openai/login?format=json"))
-        .await
-        .unwrap();
+    start_openai_login_at(app, "/v1/auth/openai/login?format=json").await
+}
+
+/// Starts a Codex login against an explicit URI, so a test can pass the
+/// `redirect_uri` the dashboard sends.
+async fn start_openai_login_at(app: &Router, uri: &str) -> serde_json::Value {
+    let response = app.clone().oneshot(admin_get(uri)).await.unwrap();
 
     assert_eq!(response.status(), StatusCode::OK);
 
@@ -791,9 +802,37 @@ async fn openai_login_opens_the_authorize_url_with_a_pkce_challenge() {
         "RFC 7636 wants a 43 character verifier"
     );
     assert_eq!(body["state"].as_str().expect("state").len(), 36);
-    assert_eq!(
-        body["redirect_uri"],
-        "http://localhost:3000/v1/auth/openai/callback"
+    // The vendor allow-lists loopback redirects only, so the default is the
+    // registered 1455 callback rather than this listener's own origin.
+    assert_eq!(body["redirect_uri"], "http://localhost:1455/auth/callback");
+}
+
+#[tokio::test]
+async fn openai_login_keeps_the_loopback_redirect_behind_a_public_origin() {
+    let database = TestDatabase::new().unwrap();
+    let fake = FakeCodexUpstream::start().await;
+    let app = openai_app_with_config(
+        &database,
+        &fake,
+        test_config_with_public_url("https://seavx.ai.id"),
+    )
+    .await;
+
+    let body = start_openai_login_at(
+        &app,
+        "/v1/auth/openai/login?format=json&redirect_uri=http%3A%2F%2Flocalhost%3A1455%2Fauth%2Fcallback",
+    )
+    .await;
+
+    assert_eq!(body["redirect_uri"], "http://localhost:1455/auth/callback");
+    let authorize_url = body["authorize_url"].as_str().expect("authorize url");
+    assert!(
+        authorize_url.contains("redirect_uri=http%3A%2F%2Flocalhost%3A1455%2Fauth%2Fcallback"),
+        "{authorize_url}"
+    );
+    assert!(
+        !authorize_url.contains("seavx.ai.id"),
+        "the public origin must never replace a loopback redirect: {authorize_url}"
     );
 }
 

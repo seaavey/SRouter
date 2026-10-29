@@ -2552,6 +2552,17 @@ pub fn test_secure_config() -> APIConfig {
     APIConfig::from_env_map(&environment).expect("test configuration")
 }
 
+/// `test_config` with `SROUTER_PUBLIC_URL` set, so tests observe the callback
+/// rewrite a hosted deployment performs.
+pub fn test_config_with_public_url(public_url: &str) -> APIConfig {
+    let environment = HashMap::from([
+        ("HOME".to_owned(), "/tmp/srouter-test-home".to_owned()),
+        ("SROUTER_PUBLIC_URL".to_owned(), public_url.to_owned()),
+        ("WEB_DIST_PATH".to_owned(), NO_DASHBOARD_WEB_DIST.to_owned()),
+    ]);
+    APIConfig::from_env_map(&environment).expect("test configuration")
+}
+
 /// State with an empty provider registry: every gateway request stops at model
 /// resolution with `404`, so tests observe auth outcomes without any network.
 pub fn empty_registry_state(security: SecurityState) -> AppState {

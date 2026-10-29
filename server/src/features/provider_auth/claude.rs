@@ -7,9 +7,11 @@
 //! no client secret).
 //!
 //! The redirect is the main listener's `/v1/auth/claude/callback`, rewritten
-//! onto `SROUTER_PUBLIC_URL` when set, exactly like the OpenAI route and
-//! `apps/api/src/utils/callbackUrl.ts`. The Node `:1455` listener is not ported
-//! (single-port ruling, `TODO.md` section 1.4).
+//! onto `SROUTER_PUBLIC_URL` when set like `apps/api/src/utils/callbackUrl.ts`.
+//! The OpenAI Codex route does not share that rewrite: its client allow-lists
+//! loopback only, so it keeps `http://localhost:1455/auth/callback` verbatim.
+//! The Node `:1455` listener is not ported (single-port ruling, `TODO.md`
+//! section 1.4).
 //!
 //! The token endpoint is injectable through [`ClaudeEndpoints`], attached to the
 //! callback routers with `Extension`, so tests point the exchange at a fake
