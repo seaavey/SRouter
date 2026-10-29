@@ -16,7 +16,7 @@ use srouter_server::features::provider_auth::{
     create_antigravity_callback_router_with_endpoints, create_antigravity_login_router,
 };
 use srouter_server::http::middleware::session_guard::require_admin_session;
-use srouter_server::infrastructure::database::providers::load_antigravity_credentials;
+use srouter_server::infrastructure::database::providers::load_antigravity_connections;
 use support::{
     FakeAntigravityUpstream, TestDatabase, json_request_with_headers, sqlx_security_state,
     test_config, with_loopback_client,
@@ -174,9 +174,11 @@ async fn callback_exchanges_the_code_and_stores_the_connection() {
     );
 
     let app_database = database.connect().await.expect("temporary database");
-    let credentials = load_antigravity_credentials(&app_database)
+    let credentials = load_antigravity_connections(&app_database)
         .await
         .expect("credentials read")
+        .into_iter()
+        .next()
         .expect("a connection was stored");
     assert!(is_antigravity_id(&credentials.id));
     assert_eq!(credentials.access_token, "ya29.exchanged");
@@ -329,9 +331,11 @@ async fn token_import_stores_a_connection() {
     assert!(is_antigravity_id(body["provider"]["id"].as_str().unwrap()));
 
     let app_database = database.connect().await.expect("temporary database");
-    let credentials = load_antigravity_credentials(&app_database)
+    let credentials = load_antigravity_connections(&app_database)
         .await
         .expect("credentials read")
+        .into_iter()
+        .next()
         .expect("a connection was stored");
     assert_eq!(credentials.access_token, "ya29.imported");
     assert_eq!(credentials.refresh_token.as_deref(), Some("1//imported"));

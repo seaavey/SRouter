@@ -1585,11 +1585,11 @@ async fn the_catalog_reports_which_drivers_can_rotate_accounts() {
         }
     }
 
-    assert_eq!(supported["qoder"], true);
-    assert_eq!(supported["cline"], true);
-    assert_eq!(supported["grok-web"], true);
-    assert_eq!(supported["antigravity"], true);
-    assert_eq!(supported["opencode_zen"], false);
-    assert_eq!(supported["openai_codex"], false);
-    assert_eq!(supported["claude"], false);
+    assert!(supported["qoder"]);
+    assert!(supported["cline"]);
+    assert!(supported["grok-web"]);
+    assert!(supported["antigravity"]);
+    assert!(!supported["opencode_zen"]);
+    assert!(!supported["openai_codex"]);
+    assert!(!supported["claude"]);
 }
