@@ -55,6 +55,7 @@ export function ConnectAccountModal({
 
   const oauth = useOAuthFlow({
     providerID: provider.id,
+    connectionCount: provider.connections?.length ?? 0,
     onSuccess,
     onOpenChange,
   })

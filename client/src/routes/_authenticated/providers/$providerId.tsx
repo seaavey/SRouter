@@ -144,7 +144,12 @@ function ProviderDetailPage() {
     isError,
     error,
     refetch,
-  } = useQuery(providerDetailQuery(providerId))
+  } = useQuery({
+    ...providerDetailQuery(providerId),
+    // A browser sign-in finishes on the server, so the open connect dialog can
+    // only notice the new connection through a refreshed detail.
+    refetchInterval: connectModalOpen ? 3_000 : false,
+  })
 
   const toggleEnabledMutation = useMutation({
     mutationFn: (newEnabled: boolean) =>

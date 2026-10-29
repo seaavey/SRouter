@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 
 import {
   completeOAuthCallback,
@@ -11,6 +11,7 @@ import useClipboard from "@/hooks/useClipboard"
 
 type UseOAuthFlowOptions = {
   providerID: string
+  connectionCount: number
   onSuccess: () => void
   onOpenChange: (open: boolean) => void
 }
@@ -26,12 +27,16 @@ function isLoopbackHostname(hostname: string) {
 
 export default function useOAuthFlow({
   providerID,
+  connectionCount,
   onSuccess,
   onOpenChange,
 }: UseOAuthFlowOptions) {
   const [oauthData, setOauthData] = useState<OAuthLoginResult | null>(null)
   const [callbackInput, setCallbackInput] = useState("")
   const [pending, setPending] = useState(false)
+  // Connection count when the login window opened, so a later increase is the
+  // one this flow produced.
+  const connectionBaseline = useRef<number | null>(null)
   const { paste } = useClipboard()
 
   const normalized = providerID.toLowerCase()
@@ -98,12 +103,33 @@ export default function useOAuthFlow({
     }
   }, [oauthData?.state, isDeviceFlow, providerID, onSuccess, onOpenChange])
 
+  // An authorization-code provider is finished by the server callback, so the
+  // dialog waits for the refreshed detail to report one more connection.
+  useEffect(() => {
+    if (!oauthData?.state || isDeviceFlow) {
+      return
+    }
+
+    const baseline = connectionBaseline.current
+    if (baseline === null || connectionCount <= baseline) {
+      return
+    }
+
+    connectionBaseline.current = null
+    setOauthData(null)
+    setCallbackInput("")
+    toast.success("Account connected successfully!")
+    onSuccess()
+    onOpenChange(false)
+  }, [connectionCount, oauthData?.state, isDeviceFlow, onSuccess, onOpenChange])
+
   async function start() {
     setPending(true)
     try {
       const result = await initiateOAuthLogin(providerID, {
         callback: commandCodeCallback,
       })
+      connectionBaseline.current = connectionCount
       setOauthData(result)
       if (result.authorize_url) {
         window.open(result.authorize_url, "_blank", "noopener,noreferrer")
@@ -160,6 +186,7 @@ export default function useOAuthFlow({
   }
 
   function reset() {
+    connectionBaseline.current = null
     setOauthData(null)
     setCallbackInput("")
   }
