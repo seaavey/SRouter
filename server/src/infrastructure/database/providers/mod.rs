@@ -24,7 +24,7 @@ pub use credentials::{
     CodexConnectionWrite, CodexCredentials, CommandCodeConnectionWrite, CommandCodeCredentials,
     ConnectionAccount, CustomCredentials, GrokWebConnectionWrite, GrokWebCredentials,
     OpenCodeConnectionWrite, OpenCodeCredentials, QoderConnectionWrite, QoderCredentials,
-    load_antigravity_credentials, load_claude_credentials, load_cline_credentials,
+    load_antigravity_connections, load_claude_credentials, load_cline_credentials,
     load_codebuddy_credentials, load_codex_credentials, load_commandcode_credentials,
     load_connection_accounts, load_custom_credentials, load_grok_web_credentials,
     load_opencode_credentials, load_qoder_credentials, update_antigravity_project_id,

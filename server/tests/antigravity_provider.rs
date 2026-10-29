@@ -15,7 +15,7 @@ use srouter_server::app::create_router;
 use srouter_server::features::admin_auth::hash_session_token;
 use srouter_server::features::providers::antigravity::translate::is_valid_ide_request_id;
 use srouter_server::infrastructure::database::providers::{
-    AntigravityConnectionWrite, load_antigravity_credentials, upsert_antigravity_connection,
+    AntigravityConnectionWrite, load_antigravity_connections, upsert_antigravity_connection,
 };
 use support::{
     FakeAntigravityUpstream, TestDatabase, antigravity_state, connect_antigravity,
@@ -231,9 +231,11 @@ async fn the_request_carries_the_envelope_headers_and_generation_config() {
         "Bearer ya29.fixture-access"
     );
     let app_database = database.connect().await.expect("temporary database");
-    let credentials = load_antigravity_credentials(&app_database)
+    let credentials = load_antigravity_connections(&app_database)
         .await
         .expect("credentials read")
+        .into_iter()
+        .next()
         .expect("a connection was stored");
     assert_eq!(
         credentials.project_id.as_deref(),
@@ -501,9 +503,11 @@ async fn expired_credentials_refresh_against_the_fake_and_persist() {
         "the request is signed with the rotated token"
     );
 
-    let credentials = load_antigravity_credentials(&app_database)
+    let credentials = load_antigravity_connections(&app_database)
         .await
         .expect("credentials read")
+        .into_iter()
+        .next()
         .expect("the connection is still stored");
     assert_eq!(credentials.access_token, "ya29.refreshed");
     assert_eq!(
@@ -543,9 +547,11 @@ async fn a_transient_project_lookup_uses_a_generated_fallback_without_persisting
     assert_eq!(parts[2].len(), 5, "{project}");
 
     let app_database = database.connect().await.expect("temporary database");
-    let credentials = load_antigravity_credentials(&app_database)
+    let credentials = load_antigravity_connections(&app_database)
         .await
         .expect("credentials read")
+        .into_iter()
+        .next()
         .expect("the connection is still stored");
     assert_eq!(
         credentials.project_id, None,

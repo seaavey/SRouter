@@ -22,7 +22,7 @@ use crate::infrastructure::database::AppDatabase;
 use crate::infrastructure::database::row::text;
 
 pub use antigravity::{
-    AntigravityConnectionWrite, AntigravityCredentials, load_antigravity_credentials,
+    AntigravityConnectionWrite, AntigravityCredentials, load_antigravity_connections,
     update_antigravity_project_id, update_antigravity_tokens, upsert_antigravity_connection,
 };
 pub use claude::{

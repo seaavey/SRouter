@@ -10,7 +10,7 @@ use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use super::executor::AntigravityExecutor;
 use super::types::ANTIGRAVITY_MODEL_IDS;
-use crate::infrastructure::database::providers::load_antigravity_credentials;
+use crate::infrastructure::database::providers::load_antigravity_connections;
 
 /// The advertised model ids of the last connection check.
 #[derive(Debug, Default)]
@@ -57,8 +57,13 @@ impl AntigravityExecutor {
             return;
         };
 
-        match load_antigravity_credentials(database).await {
-            Ok(Some(credentials)) => {
+        match load_antigravity_connections(database).await {
+            Ok(connections) => {
+                let Some(credentials) = connections.into_iter().next() else {
+                    write_catalog(&self.catalog).models.clear();
+                    return;
+                };
+
                 write_catalog(&self.catalog).models = ANTIGRAVITY_MODEL_IDS
                     .iter()
                     .map(|id| (*id).to_owned())
@@ -68,9 +73,6 @@ impl AntigravityExecutor {
                 {
                     let _ = self.ensure_project_id(&credentials).await;
                 }
-            }
-            Ok(None) => {
-                write_catalog(&self.catalog).models.clear();
             }
             Err(_) => {}
         }

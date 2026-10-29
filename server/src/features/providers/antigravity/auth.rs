@@ -25,7 +25,7 @@ use crate::features::providers::antigravity::types::{
 use crate::features::providers::refresh::{NoExpiry, refresh_due};
 use crate::features::providers::wire::{apply_headers, payload_reports_invalid_grant};
 use crate::infrastructure::database::providers::{
-    AntigravityCredentials, load_antigravity_credentials, update_antigravity_project_id,
+    AntigravityCredentials, load_antigravity_connections, update_antigravity_project_id,
     update_antigravity_tokens,
 };
 
@@ -36,8 +36,10 @@ impl AntigravityExecutor {
             APIError::new(500, constants::providers::antigravity::DATABASE_REQUIRED)
         })?;
 
-        load_antigravity_credentials(database)
+        load_antigravity_connections(database)
             .await?
+            .into_iter()
+            .next()
             .ok_or_else(|| APIError::new(401, constants::providers::antigravity::NOT_CONNECTED))
     }
 
