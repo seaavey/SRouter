@@ -114,12 +114,61 @@ pub fn is_rate_limited(error: &APIError) -> bool {
     error.message().contains("(429)")
 }
 
+/// Whether the upstream refused the account itself: an expired credential or an
+/// unverified account. Another connection can answer where this one cannot, so a
+/// failover loop treats these like a rate limit. A `400` or a `5xx` stays out:
+/// the request or the upstream is at fault, and trying another account only
+/// repeats the failure.
+pub fn is_account_rejected(error: &APIError) -> bool {
+    let message = error.message();
+
+    message.contains("(401)") || message.contains("(403)")
+}
+
+/// Whether another account is worth trying after `error`.
+pub fn is_account_unusable(error: &APIError) -> bool {
+    is_rate_limited(error) || is_account_rejected(error)
+}
+
 #[cfg(test)]
 mod tests {
-    use super::AccountRotator;
+    use super::{AccountRotator, is_account_rejected, is_account_unusable, is_rate_limited};
+    use crate::error::APIError;
 
     fn ids(count: usize) -> Vec<String> {
         (0..count).map(|index| format!("account-{index}")).collect()
+    }
+
+    /// The adapters flatten an upstream status into the message, so that marker
+    /// is the only signal a failover loop has.
+    #[test]
+    fn a_rejected_account_counts_as_unusable() {
+        let forbidden = APIError::new(
+            500,
+            "Antigravity Provider Error (403): Verify your account to continue.",
+        );
+        let expired = APIError::new(401, "Antigravity Provider Error (401): invalid grant");
+
+        assert!(is_account_rejected(&forbidden));
+        assert!(is_account_unusable(&forbidden));
+        assert!(!is_rate_limited(&forbidden));
+        assert!(is_account_unusable(&expired));
+    }
+
+    #[test]
+    fn a_rate_limited_account_stays_unusable() {
+        let limited = APIError::new(500, "Upstream Error (429): too many requests");
+
+        assert!(is_account_unusable(&limited));
+        assert!(!is_account_rejected(&limited));
+    }
+
+    /// A 400 or a 500 says the request or the upstream is at fault, which another
+    /// account will not fix.
+    #[test]
+    fn a_request_or_upstream_failure_is_not_an_account_failure() {
+        assert!(!is_account_unusable(&APIError::new(500, "Error (400): bad request")));
+        assert!(!is_account_unusable(&APIError::new(500, "Error (500): upstream broke")));
     }
 
     #[test]
