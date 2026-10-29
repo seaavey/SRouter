@@ -216,6 +216,15 @@ impl ProviderRegistry {
             .map(|adapter| adapter.alias().to_owned())
     }
 
+    /// Whether this provider's driver rotates across its connections. An
+    /// unregistered id answers `false`.
+    pub fn supports_rotation(&self, base_id: &str) -> bool {
+        self.read_adapters()
+            .values()
+            .find(|adapter| adapter.id().eq_ignore_ascii_case(base_id))
+            .is_some_and(|adapter| adapter.supports_rotation())
+    }
+
     /// The base id a model-id prefix (a provider id or alias) names.
     pub fn base_id_of_prefix(&self, prefix: &str) -> Option<String> {
         self.read_adapters()

@@ -57,6 +57,13 @@ pub trait ProviderExecutor: Send + Sync {
         vec![model.trim().to_lowercase()]
     }
 
+    /// Whether a request can land on any of this driver's connections. The
+    /// operator API reports it so the dashboard only offers a rotation toggle
+    /// where rotation exists.
+    fn supports_rotation(&self) -> bool {
+        false
+    }
+
     /// Refreshes a time-varying catalog when stale, or unconditionally when
     /// `force` is set. A driver with a fixed list does nothing.
     fn maybe_refresh(&self, _force: bool) -> BoxFuture<'_, ()> {
