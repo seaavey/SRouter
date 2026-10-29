@@ -28,8 +28,10 @@ use crate::clock::now_ms;
 use crate::error::APIError;
 use crate::features::providers::adapter::{ProviderAdapter, ProviderStream};
 use crate::features::providers::executor::{BoxFuture, ProviderExecutor};
+use crate::features::providers::rotation::{AccountRotator, is_account_unusable};
 use crate::features::providers::wire::stream_error_message;
 use crate::infrastructure::database::AppDatabase;
+use crate::infrastructure::database::providers::AntigravityCredentials;
 use crate::infrastructure::upstream::UpstreamClient;
 use crate::protocol::model::ChatCompletionRequest;
 use crate::protocol::sse::SseDataDecoder;
@@ -46,6 +48,9 @@ pub struct AntigravityExecutor {
     pub(super) client: UpstreamClient,
     pub(super) catalog: SharedCatalog,
     pub(super) refresh_locks: Arc<Mutex<HashMap<String, Arc<tokio::sync::Mutex<()>>>>>,
+    /// Shared by every clone of the adapter, so all clones rotate over one index
+    /// and one cooldown map.
+    pub(super) rotator: Arc<AccountRotator>,
 }
 
 impl AntigravityExecutor {
@@ -60,6 +65,7 @@ impl AntigravityExecutor {
             client,
             catalog: AntigravityCatalog::shared_empty(),
             refresh_locks: Arc::new(Mutex::new(HashMap::new())),
+            rotator: AccountRotator::shared(),
         }
     }
 
@@ -109,14 +115,45 @@ impl AntigravityExecutor {
         ))
     }
 
-    /// Opens the SSE response, walking the pro-family cascade on HTTP 400.
+    /// Opens the SSE response, rotating over the enabled connections and walking
+    /// the pro-family cascade per account on HTTP 400.
     pub async fn chat_completion_stream(
         &self,
         model: &str,
         request: &ChatCompletionRequest,
     ) -> Result<ProviderStream, APIError> {
         self.maybe_refresh(false).await;
-        let credentials = self.ensure_fresh_token(false).await?;
+        let connections = self.candidates().await?;
+        let mut last_error = None;
+
+        for _ in 0..connections.len() {
+            let credentials = self.pick_account(&connections).await?;
+
+            match self.open_stream(model, request, &credentials).await {
+                Ok(stream) => return Ok(stream),
+                // A refused or rate-limited account is worth one more pick; the
+                // cooldown keeps the next request off it. Anything else is the
+                // caller's answer.
+                Err(error) if is_account_unusable(&error) => {
+                    self.rotator.cool(&credentials.id);
+                    last_error = Some(error);
+                }
+                Err(error) => return Err(error),
+            }
+        }
+
+        Err(last_error.expect("a bounded loop over non-empty candidates ran at least once"))
+    }
+
+    /// Refreshes one account's token, resolves its project, then sends the
+    /// request down the model cascade against that account.
+    async fn open_stream(
+        &self,
+        model: &str,
+        request: &ChatCompletionRequest,
+        credentials: &AntigravityCredentials,
+    ) -> Result<ProviderStream, APIError> {
+        let credentials = self.ensure_fresh_token_for(credentials, false).await?;
         let project_id = self.ensure_project_id(&credentials).await?;
 
         let candidates = super::translate::model_fallbacks(model);

@@ -122,7 +122,9 @@ pub fn is_rate_limited(error: &APIError) -> bool {
 pub fn is_account_rejected(error: &APIError) -> bool {
     let message = error.message();
 
-    message.contains("(401)") || message.contains("(403)")
+    // The refresh leg answers with its own typed error, which never went through
+    // the upstream envelope, so the status is checked as well as the marker.
+    matches!(error.status(), 401 | 403) || message.contains("(401)") || message.contains("(403)")
 }
 
 /// Whether another account is worth trying after `error`.
@@ -163,12 +165,28 @@ mod tests {
         assert!(!is_account_rejected(&limited));
     }
 
+    /// A credential failure raised by the refresh leg never reaches the wire, so
+    /// it carries no upstream marker — its status is the only signal.
+    #[test]
+    fn a_refresh_failure_carries_its_status_not_a_marker() {
+        let rejected = APIError::new(401, "Antigravity token expired");
+
+        assert!(is_account_rejected(&rejected));
+        assert!(is_account_unusable(&rejected));
+    }
+
     /// A 400 or a 500 says the request or the upstream is at fault, which another
     /// account will not fix.
     #[test]
     fn a_request_or_upstream_failure_is_not_an_account_failure() {
-        assert!(!is_account_unusable(&APIError::new(500, "Error (400): bad request")));
-        assert!(!is_account_unusable(&APIError::new(500, "Error (500): upstream broke")));
+        assert!(!is_account_unusable(&APIError::new(
+            500,
+            "Error (400): bad request"
+        )));
+        assert!(!is_account_unusable(&APIError::new(
+            500,
+            "Error (500): upstream broke"
+        )));
     }
 
     #[test]
