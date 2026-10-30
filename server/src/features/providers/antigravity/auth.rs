@@ -11,6 +11,7 @@
 //! later requests read it from the row instead of calling Google again. When
 //! the lookup fails the executor falls back to a generated id.
 
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use serde_json::Value;
@@ -55,14 +56,20 @@ impl AntigravityExecutor {
     pub(super) async fn credentials(&self) -> Result<AntigravityCredentials, APIError> {
         let candidates = self.candidates().await?;
 
-        self.pick_account(&candidates).await
+        self.pick_account(&candidates, &HashSet::new())
+            .await?
+            .ok_or_else(|| APIError::new(401, constants::providers::antigravity::NOT_CONNECTED))
     }
 
-    /// Picks one of `candidates`, newest first.
+    /// Picks one of `candidates`, newest first, skipping ids this request has
+    /// already tried. `choose` hands back the newest row while every connection
+    /// is cooling, so without that record a failover loop would pay for the same
+    /// rejection again instead of reaching the rest of the accounts.
     pub(super) async fn pick_account(
         &self,
         candidates: &[AntigravityCredentials],
-    ) -> Result<AntigravityCredentials, APIError> {
+        attempted: &HashSet<String>,
+    ) -> Result<Option<AntigravityCredentials>, APIError> {
         let database = self.database.as_ref().ok_or_else(|| {
             APIError::new(500, constants::providers::antigravity::DATABASE_REQUIRED)
         })?;
@@ -71,8 +78,16 @@ impl AntigravityExecutor {
             .iter()
             .map(|credentials| credentials.id.clone())
             .collect();
+        let chosen = &candidates[self.rotator.choose(enabled, &ids)];
 
-        Ok(candidates[self.rotator.choose(enabled, &ids)].clone())
+        if !attempted.contains(&chosen.id) {
+            return Ok(Some(chosen.clone()));
+        }
+
+        Ok(candidates
+            .iter()
+            .find(|credentials| !attempted.contains(&credentials.id))
+            .cloned())
     }
 
     /// Credentials whose access token is fresh, refreshing under a

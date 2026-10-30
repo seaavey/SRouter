@@ -16,7 +16,7 @@
 //! pro-family cascade, a quota answer gets one `GOOGLE_ONE_AI` retry, and any
 //! other failure surfaces as the typed `Antigravity Provider Error`.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
 use futures_util::StreamExt;
@@ -125,9 +125,13 @@ impl AntigravityExecutor {
         self.maybe_refresh(false).await;
         let connections = self.candidates().await?;
         let mut last_error = None;
+        let mut attempted = HashSet::new();
 
         for _ in 0..connections.len() {
-            let credentials = self.pick_account(&connections).await?;
+            let Some(credentials) = self.pick_account(&connections, &attempted).await? else {
+                break;
+            };
+            attempted.insert(credentials.id.clone());
 
             match self.open_stream(model, request, &credentials).await {
                 Ok(stream) => return Ok(stream),

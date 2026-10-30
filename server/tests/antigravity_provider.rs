@@ -713,6 +713,51 @@ async fn a_cooled_account_is_skipped_on_the_next_request() {
     assert_eq!(broken, 1, "the cooled account is not tried twice");
 }
 
+/// With every account cooling, `choose` hands back the newest row, so the loop
+/// has to remember what it already tried or it pays for the same rejection N
+/// times and never reaches the rest of the accounts.
+#[tokio::test]
+async fn a_fully_cooled_provider_tries_each_account_once() {
+    let database = TestDatabase::new().expect("temporary database");
+    let fake = FakeAntigravityUpstream::start().await;
+    let app = app(&database, &fake).await;
+
+    connect_antigravity_account(&database, "antigravity_healthy", "ya29.healthy", 1, false).await;
+    connect_antigravity_account(&database, "antigravity_broken", "ya29.broken", 2, false).await;
+    fake.with(|state| {
+        state.forbidden_tokens.push("ya29.broken".to_owned());
+        state.forbidden_tokens.push("ya29.healthy".to_owned());
+    });
+
+    // The first request cools both accounts; the second one runs entirely on
+    // cooled connections, which is the storm this rotation exists to survive.
+    for _ in 0..2 {
+        let response = app
+            .clone()
+            .oneshot(post(
+                "/v1/chat/completions",
+                chat_body("antigravity/gemini-3.7-flash-high", false),
+            ))
+            .await
+            .expect("gateway response");
+        assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    }
+
+    let mut authorizations = fake.with(|state| state.chat_authorizations.clone());
+    authorizations.sort();
+    assert_eq!(
+        authorizations,
+        vec![
+            "Bearer ya29.broken".to_owned(),
+            "Bearer ya29.broken".to_owned(),
+            "Bearer ya29.healthy".to_owned(),
+            "Bearer ya29.healthy".to_owned(),
+        ],
+        "each request reaches both accounts, cooling or not"
+    );
+    assert_eq!(fake.chat_requests(), 4);
+}
+
 /// A `400` belongs to the request, so it walks the model cascade on the account
 /// that received it and never cools the account.
 #[tokio::test]
