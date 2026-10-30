@@ -1551,3 +1551,45 @@ async fn removing_a_connection_deletes_the_row_and_refuses_another_driver() {
     );
     assert_eq!(detail["status"]["connected_count"], 1);
 }
+
+/// Rotation support is a driver capability, not a guess: the dashboard hides the
+/// toggle for a provider whose driver cannot rotate accounts.
+#[tokio::test]
+async fn the_catalog_reports_which_drivers_can_rotate_accounts() {
+    let state = AppState::with_security(
+        support::test_config(),
+        support::default_providers(),
+        support::security_state(false, vec![], vec![hash_session_token(SESSION_TOKEN)]),
+    );
+
+    let catalog = json_body(
+        create_router(state)
+            .oneshot(get_request("/v1/providers/catalog"))
+            .await
+            .unwrap(),
+    )
+    .await;
+
+    let mut supported: std::collections::HashMap<String, bool> = std::collections::HashMap::new();
+    for group in ["oauth", "free_tier", "api_key", "custom_provider"] {
+        for entry in catalog["categories"][group]
+            .as_array()
+            .expect("catalog group")
+        {
+            supported.insert(
+                entry["id"].as_str().expect("provider id").to_owned(),
+                entry["round_robin_supported"]
+                    .as_bool()
+                    .expect("rotation capability"),
+            );
+        }
+    }
+
+    assert!(supported["qoder"]);
+    assert!(supported["cline"]);
+    assert!(supported["grok-web"]);
+    assert!(supported["antigravity"]);
+    assert!(!supported["opencode_zen"]);
+    assert!(!supported["openai_codex"]);
+    assert!(!supported["claude"]);
+}

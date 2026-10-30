@@ -10,7 +10,7 @@ use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use super::executor::AntigravityExecutor;
 use super::types::ANTIGRAVITY_MODEL_IDS;
-use crate::infrastructure::database::providers::load_antigravity_credentials;
+use crate::infrastructure::database::providers::load_antigravity_connections;
 
 /// The advertised model ids of the last connection check.
 #[derive(Debug, Default)]
@@ -57,22 +57,21 @@ impl AntigravityExecutor {
             return;
         };
 
-        match load_antigravity_credentials(database).await {
-            Ok(Some(credentials)) => {
-                write_catalog(&self.catalog).models = ANTIGRAVITY_MODEL_IDS
-                    .iter()
-                    .map(|id| (*id).to_owned())
-                    .collect();
+        let Ok(connections) = load_antigravity_connections(database).await else {
+            return;
+        };
+        let Some(credentials) = connections.into_iter().next() else {
+            write_catalog(&self.catalog).models.clear();
+            return;
+        };
 
-                if credentials.project_id.is_none() && credentials.access_token.starts_with("ya29.")
-                {
-                    let _ = self.ensure_project_id(&credentials).await;
-                }
-            }
-            Ok(None) => {
-                write_catalog(&self.catalog).models.clear();
-            }
-            Err(_) => {}
+        write_catalog(&self.catalog).models = ANTIGRAVITY_MODEL_IDS
+            .iter()
+            .map(|id| (*id).to_owned())
+            .collect();
+
+        if credentials.project_id.is_none() && credentials.access_token.starts_with("ya29.") {
+            let _ = self.ensure_project_id(&credentials).await;
         }
     }
 }

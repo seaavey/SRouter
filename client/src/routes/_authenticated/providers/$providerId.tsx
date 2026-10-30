@@ -700,26 +700,28 @@ function ProviderDetailPage() {
                   />
                 </div>
 
-                <div className="flex items-start justify-between gap-3 pt-1">
-                  <div>
-                    <span className="block text-xs font-medium text-foreground">
-                      Round-robin balancing
-                    </span>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      Distributes incoming requests evenly across all active
-                      accounts.
-                    </p>
-                  </div>
+                {provider.round_robin_supported ? (
+                  <div className="flex items-start justify-between gap-3 pt-1">
+                    <div>
+                      <span className="block text-xs font-medium text-foreground">
+                        Round-robin balancing
+                      </span>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        Distributes incoming requests evenly across all active
+                        accounts.
+                      </p>
+                    </div>
 
-                  <Switch
-                    checked={provider.round_robin}
-                    onCheckedChange={(val) =>
-                      toggleRoundRobinMutation.mutate(val)
-                    }
-                    disabled={toggleRoundRobinMutation.isPending}
-                    aria-label="Toggle round-robin balancing"
-                  />
-                </div>
+                    <Switch
+                      checked={provider.round_robin}
+                      onCheckedChange={(val) =>
+                        toggleRoundRobinMutation.mutate(val)
+                      }
+                      disabled={toggleRoundRobinMutation.isPending}
+                      aria-label="Toggle round-robin balancing"
+                    />
+                  </div>
+                ) : null}
               </div>
             </div>
           </div>

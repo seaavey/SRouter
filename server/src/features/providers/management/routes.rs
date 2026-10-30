@@ -544,6 +544,7 @@ async fn detail_entry(state: &AppState, provider_id: &str) -> Result<ProviderEnt
                 connected_count,
             )
             .with_round_robin(stored_round_robin(state, metadata.id).await)
+            .with_round_robin_support(state.providers.supports_rotation(metadata.id))
             .with_details(views, models))
         }
         ProviderTarget::Custom(row) => {
@@ -553,6 +554,7 @@ async fn detail_entry(state: &AppState, provider_id: &str) -> Result<ProviderEnt
 
             Ok(ProviderEntry::from_custom(&row, connected_count)
                 .with_round_robin(stored_round_robin(state, &row.id).await)
+                .with_round_robin_support(state.providers.supports_rotation(&row.id))
                 .with_details(views, models))
         }
     }
@@ -647,7 +649,8 @@ async fn provider_entry(
         stored_enabled(state, metadata.id).await?,
         connected_count,
     )
-    .with_round_robin(stored_round_robin(state, metadata.id).await))
+    .with_round_robin(stored_round_robin(state, metadata.id).await)
+    .with_round_robin_support(state.providers.supports_rotation(metadata.id)))
 }
 
 /// Builds one catalog entry for a stored custom provider.
@@ -659,7 +662,8 @@ async fn custom_entry(
     let connected_count = connections.iter().filter(|entry| entry.enabled).count();
 
     Ok(ProviderEntry::from_custom(row, connected_count)
-        .with_round_robin(stored_round_robin(state, &row.id).await))
+        .with_round_robin(stored_round_robin(state, &row.id).await)
+        .with_round_robin_support(state.providers.supports_rotation(&row.id)))
 }
 
 /// The protocol check shared by the create and edit paths.

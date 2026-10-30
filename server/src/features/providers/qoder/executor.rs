@@ -213,6 +213,12 @@ impl ProviderExecutor for QoderExecutor {
         QoderExecutor::models(self)
     }
 
+    /// This driver picks an account per request, so the operator toggle decides
+    /// whether it rotates or pins the newest connection.
+    fn supports_rotation(&self) -> bool {
+        true
+    }
+
     fn model_id_variants(&self, model: &str) -> Vec<String> {
         QoderExecutor::model_id_variants(self, model)
     }

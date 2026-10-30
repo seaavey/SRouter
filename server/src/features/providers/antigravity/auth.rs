@@ -11,6 +11,7 @@
 //! later requests read it from the row instead of calling Google again. When
 //! the lookup fails the executor falls back to a generated id.
 
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use serde_json::Value;
@@ -20,25 +21,73 @@ use crate::clock::now_ms;
 use crate::constants;
 use crate::error::APIError;
 use crate::features::providers::antigravity::types::{
-    ANTIGRAVITY_OAUTH_CLIENT_ID, ANTIGRAVITY_OAUTH_CLIENT_SECRET,
+    ANTIGRAVITY_OAUTH_CLIENT_ID, ANTIGRAVITY_OAUTH_CLIENT_SECRET, ANTIGRAVITY_PROVIDER,
 };
 use crate::features::providers::refresh::{NoExpiry, refresh_due};
+use crate::features::providers::rotation::round_robin_enabled;
 use crate::features::providers::wire::{apply_headers, payload_reports_invalid_grant};
 use crate::infrastructure::database::providers::{
-    AntigravityCredentials, load_antigravity_credentials, update_antigravity_project_id,
+    AntigravityCredentials, load_antigravity_connections, update_antigravity_project_id,
     update_antigravity_tokens,
 };
 
 impl AntigravityExecutor {
-    /// The newest enabled Antigravity connection, or the "not connected" error.
-    pub(super) async fn credentials(&self) -> Result<AntigravityCredentials, APIError> {
+    /// Every enabled Antigravity connection, newest first. The failover loop
+    /// rotates over this list; a request that only needs one account asks for
+    /// the first pick instead.
+    pub(super) async fn candidates(&self) -> Result<Vec<AntigravityCredentials>, APIError> {
         let database = self.database.as_ref().ok_or_else(|| {
             APIError::new(500, constants::providers::antigravity::DATABASE_REQUIRED)
         })?;
 
-        load_antigravity_credentials(database)
+        let connections = load_antigravity_connections(database).await?;
+        if connections.is_empty() {
+            return Err(APIError::new(
+                401,
+                constants::providers::antigravity::NOT_CONNECTED,
+            ));
+        }
+
+        Ok(connections)
+    }
+
+    /// The connection this request starts on, rotated when the operator left
+    /// rotation on and skipping an account still in cooldown.
+    pub(super) async fn credentials(&self) -> Result<AntigravityCredentials, APIError> {
+        let candidates = self.candidates().await?;
+
+        self.pick_account(&candidates, &HashSet::new())
             .await?
             .ok_or_else(|| APIError::new(401, constants::providers::antigravity::NOT_CONNECTED))
+    }
+
+    /// Picks one of `candidates`, newest first, skipping ids this request has
+    /// already tried. `choose` hands back the newest row while every connection
+    /// is cooling, so without that record a failover loop would pay for the same
+    /// rejection again instead of reaching the rest of the accounts.
+    pub(super) async fn pick_account(
+        &self,
+        candidates: &[AntigravityCredentials],
+        attempted: &HashSet<String>,
+    ) -> Result<Option<AntigravityCredentials>, APIError> {
+        let database = self.database.as_ref().ok_or_else(|| {
+            APIError::new(500, constants::providers::antigravity::DATABASE_REQUIRED)
+        })?;
+        let enabled = round_robin_enabled(database, ANTIGRAVITY_PROVIDER.id).await;
+        let ids: Vec<String> = candidates
+            .iter()
+            .map(|credentials| credentials.id.clone())
+            .collect();
+        let chosen = &candidates[self.rotator.choose(enabled, &ids)];
+
+        if !attempted.contains(&chosen.id) {
+            return Ok(Some(chosen.clone()));
+        }
+
+        Ok(candidates
+            .iter()
+            .find(|credentials| !attempted.contains(&credentials.id))
+            .cloned())
     }
 
     /// Credentials whose access token is fresh, refreshing under a
@@ -50,12 +99,24 @@ impl AntigravityExecutor {
         force: bool,
     ) -> Result<AntigravityCredentials, APIError> {
         let credentials = self.credentials().await?;
-        if !force && !token_refresh_is_due(&credentials, now_ms()) {
-            return Ok(credentials);
+
+        self.ensure_fresh_token_for(&credentials, force).await
+    }
+
+    /// Refreshes one named connection. The failover loop holds the connection it
+    /// used, so the refresh must target that row rather than a fresh rotation
+    /// pick.
+    pub(super) async fn ensure_fresh_token_for(
+        &self,
+        credentials: &AntigravityCredentials,
+        force: bool,
+    ) -> Result<AntigravityCredentials, APIError> {
+        if !force && !token_refresh_is_due(credentials, now_ms()) {
+            return Ok(credentials.clone());
         }
 
-        let Some(refresh_token) = credentials.refresh_token.clone() else {
-            return Ok(credentials);
+        let Some(fallback_refresh) = credentials.refresh_token.clone() else {
+            return Ok(credentials.clone());
         };
 
         let refresh_lock = {
@@ -70,17 +131,35 @@ impl AntigravityExecutor {
         };
         let _guard = refresh_lock.lock().await;
 
-        let current = self.credentials().await?;
+        let current = self
+            .connection(&credentials.id)
+            .await?
+            .ok_or_else(|| APIError::new(401, constants::providers::antigravity::NOT_CONNECTED))?;
         if !force && !token_refresh_is_due(&current, now_ms()) {
             return Ok(current);
         }
-        let refresh_token = current.refresh_token.clone().unwrap_or(refresh_token);
+        let refresh_token = current.refresh_token.clone().unwrap_or(fallback_refresh);
 
         match self.refresh_token(&current, &refresh_token).await {
             Ok(refreshed) => Ok(refreshed),
             Err(error) if error.status() >= 500 && !current.is_expired(now_ms()) => Ok(current),
             Err(error) => Err(error),
         }
+    }
+
+    /// One named connection, or `None` when the row is gone or disabled.
+    async fn connection(
+        &self,
+        connection_id: &str,
+    ) -> Result<Option<AntigravityCredentials>, APIError> {
+        let database = self.database.as_ref().ok_or_else(|| {
+            APIError::new(500, constants::providers::antigravity::DATABASE_REQUIRED)
+        })?;
+
+        Ok(load_antigravity_connections(database)
+            .await?
+            .into_iter()
+            .find(|credentials| credentials.id == connection_id))
     }
 
     async fn refresh_token(

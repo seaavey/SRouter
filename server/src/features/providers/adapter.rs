@@ -71,6 +71,11 @@ impl ProviderAdapter {
         self.0.model_id_variants(model)
     }
 
+    /// Whether the driver rotates across its connections.
+    pub fn supports_rotation(&self) -> bool {
+        self.0.supports_rotation()
+    }
+
     /// Asks the driver to refresh a time-varying catalog. A driver with a fixed
     /// list does nothing.
     pub async fn maybe_refresh(&self, force: bool) {

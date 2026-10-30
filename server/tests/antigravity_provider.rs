@@ -15,11 +15,11 @@ use srouter_server::app::create_router;
 use srouter_server::features::admin_auth::hash_session_token;
 use srouter_server::features::providers::antigravity::translate::is_valid_ide_request_id;
 use srouter_server::infrastructure::database::providers::{
-    AntigravityConnectionWrite, load_antigravity_credentials, upsert_antigravity_connection,
+    AntigravityConnectionWrite, load_antigravity_connections, upsert_antigravity_connection,
 };
 use support::{
     FakeAntigravityUpstream, TestDatabase, antigravity_state, connect_antigravity,
-    with_loopback_client,
+    connect_antigravity_account, with_loopback_client,
 };
 use tower::ServiceExt;
 
@@ -231,9 +231,11 @@ async fn the_request_carries_the_envelope_headers_and_generation_config() {
         "Bearer ya29.fixture-access"
     );
     let app_database = database.connect().await.expect("temporary database");
-    let credentials = load_antigravity_credentials(&app_database)
+    let credentials = load_antigravity_connections(&app_database)
         .await
         .expect("credentials read")
+        .into_iter()
+        .next()
         .expect("a connection was stored");
     assert_eq!(
         credentials.project_id.as_deref(),
@@ -501,9 +503,11 @@ async fn expired_credentials_refresh_against_the_fake_and_persist() {
         "the request is signed with the rotated token"
     );
 
-    let credentials = load_antigravity_credentials(&app_database)
+    let credentials = load_antigravity_connections(&app_database)
         .await
         .expect("credentials read")
+        .into_iter()
+        .next()
         .expect("the connection is still stored");
     assert_eq!(credentials.access_token, "ya29.refreshed");
     assert_eq!(
@@ -543,9 +547,11 @@ async fn a_transient_project_lookup_uses_a_generated_fallback_without_persisting
     assert_eq!(parts[2].len(), 5, "{project}");
 
     let app_database = database.connect().await.expect("temporary database");
-    let credentials = load_antigravity_credentials(&app_database)
+    let credentials = load_antigravity_connections(&app_database)
         .await
         .expect("credentials read")
+        .into_iter()
+        .next()
         .expect("the connection is still stored");
     assert_eq!(
         credentials.project_id, None,
@@ -603,4 +609,218 @@ async fn the_effort_tier_id_is_priced_into_the_request_log() {
         "the top-models row of the dashboard must carry the cost: {body}"
     );
     assert!(body["est_cost"].as_f64().unwrap_or(0.0) > 0.0, "{body}");
+}
+
+/// The newest connection answers `403 Verify your account`; the older one is
+/// healthy. A request must reach the healthy account instead of failing.
+#[tokio::test]
+async fn a_forbidden_account_fails_over_to_the_next_one() {
+    let database = TestDatabase::new().expect("temporary database");
+    let fake = FakeAntigravityUpstream::start().await;
+    let app = app(&database, &fake).await;
+
+    connect_antigravity_account(&database, "antigravity_healthy", "ya29.healthy", 1, false).await;
+    connect_antigravity_account(&database, "antigravity_broken", "ya29.broken", 2, false).await;
+    fake.with(|state| state.forbidden_tokens.push("ya29.broken".to_owned()));
+
+    let response = app
+        .oneshot(post(
+            "/v1/chat/completions",
+            chat_body("antigravity/gemini-3.7-flash-high", false),
+        ))
+        .await
+        .expect("gateway response");
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = json_body(response).await;
+    assert_eq!(body["choices"][0]["message"]["content"], "Hello world");
+    assert_eq!(
+        fake.with(|state| state.chat_authorizations.clone()),
+        vec![
+            "Bearer ya29.broken".to_owned(),
+            "Bearer ya29.healthy".to_owned()
+        ]
+    );
+}
+
+/// When no account can answer, the caller sees the upstream's own rejection
+/// rather than a generic rotation failure.
+#[tokio::test]
+async fn every_account_forbidden_surfaces_the_last_error() {
+    let database = TestDatabase::new().expect("temporary database");
+    let fake = FakeAntigravityUpstream::start().await;
+    let app = app(&database, &fake).await;
+
+    connect_antigravity_account(&database, "antigravity_healthy", "ya29.healthy", 1, false).await;
+    connect_antigravity_account(&database, "antigravity_broken", "ya29.broken", 2, false).await;
+    fake.with(|state| {
+        state.forbidden_tokens.push("ya29.broken".to_owned());
+        state.forbidden_tokens.push("ya29.healthy".to_owned());
+    });
+
+    let response = app
+        .oneshot(post(
+            "/v1/chat/completions",
+            chat_body("antigravity/gemini-3.7-flash-high", false),
+        ))
+        .await
+        .expect("gateway response");
+
+    assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    let body = json_body(response).await;
+    let message = body["error"]["message"]
+        .as_str()
+        .expect("error message")
+        .to_owned();
+    // The adapter flattens the upstream status into the frozen 500 envelope and
+    // keeps `(403)` inside the message, which is what a failover loop matches on.
+    assert!(message.contains("(403)"), "{message}");
+    assert!(message.contains("Verify your account"), "{message}");
+    assert_eq!(fake.chat_requests(), 2, "every account was tried once");
+}
+
+/// A rejected account is cooled, so the next request starts on the healthy one
+/// instead of paying for the same failure again.
+#[tokio::test]
+async fn a_cooled_account_is_skipped_on_the_next_request() {
+    let database = TestDatabase::new().expect("temporary database");
+    let fake = FakeAntigravityUpstream::start().await;
+    let app = app(&database, &fake).await;
+
+    connect_antigravity_account(&database, "antigravity_healthy", "ya29.healthy", 1, false).await;
+    connect_antigravity_account(&database, "antigravity_broken", "ya29.broken", 2, false).await;
+    fake.with(|state| state.forbidden_tokens.push("ya29.broken".to_owned()));
+
+    for _ in 0..2 {
+        let response = app
+            .clone()
+            .oneshot(post(
+                "/v1/chat/completions",
+                chat_body("antigravity/gemini-3.7-flash-high", false),
+            ))
+            .await
+            .expect("gateway response");
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    let broken = fake.with(|state| {
+        state
+            .chat_authorizations
+            .iter()
+            .filter(|authorization| authorization.contains("ya29.broken"))
+            .count()
+    });
+    assert_eq!(broken, 1, "the cooled account is not tried twice");
+}
+
+/// With every account cooling, `choose` hands back the newest row, so the loop
+/// has to remember what it already tried or it pays for the same rejection N
+/// times and never reaches the rest of the accounts.
+#[tokio::test]
+async fn a_fully_cooled_provider_tries_each_account_once() {
+    let database = TestDatabase::new().expect("temporary database");
+    let fake = FakeAntigravityUpstream::start().await;
+    let app = app(&database, &fake).await;
+
+    connect_antigravity_account(&database, "antigravity_healthy", "ya29.healthy", 1, false).await;
+    connect_antigravity_account(&database, "antigravity_broken", "ya29.broken", 2, false).await;
+    fake.with(|state| {
+        state.forbidden_tokens.push("ya29.broken".to_owned());
+        state.forbidden_tokens.push("ya29.healthy".to_owned());
+    });
+
+    // The first request cools both accounts; the second one runs entirely on
+    // cooled connections, which is the storm this rotation exists to survive.
+    for _ in 0..2 {
+        let response = app
+            .clone()
+            .oneshot(post(
+                "/v1/chat/completions",
+                chat_body("antigravity/gemini-3.7-flash-high", false),
+            ))
+            .await
+            .expect("gateway response");
+        assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    }
+
+    let mut authorizations = fake.with(|state| state.chat_authorizations.clone());
+    authorizations.sort();
+    assert_eq!(
+        authorizations,
+        vec![
+            "Bearer ya29.broken".to_owned(),
+            "Bearer ya29.broken".to_owned(),
+            "Bearer ya29.healthy".to_owned(),
+            "Bearer ya29.healthy".to_owned(),
+        ],
+        "each request reaches both accounts, cooling or not"
+    );
+    assert_eq!(fake.chat_requests(), 4);
+}
+
+/// A `400` belongs to the request, so it walks the model cascade on the account
+/// that received it and never cools the account.
+#[tokio::test]
+async fn a_bad_request_does_not_cool_the_account() {
+    let database = TestDatabase::new().expect("temporary database");
+    let fake = FakeAntigravityUpstream::start().await;
+    fake.with(|state| state.chat_mode = "cascade_400".to_owned());
+    let app = app(&database, &fake).await;
+
+    connect_antigravity_account(&database, "antigravity_healthy", "ya29.healthy", 1, false).await;
+    connect_antigravity_account(&database, "antigravity_newest", "ya29.newest", 2, false).await;
+
+    let response = app
+        .oneshot(post(
+            "/v1/chat/completions",
+            chat_body("antigravity/gemini-3.1-pro-high", false),
+        ))
+        .await
+        .expect("gateway response");
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let authorizations = fake.with(|state| state.chat_authorizations.clone());
+    assert_eq!(
+        authorizations.len(),
+        3,
+        "the cascade ran once, not per account"
+    );
+    assert!(
+        authorizations
+            .iter()
+            .all(|authorization| authorization == "Bearer ya29.newest"),
+        "{authorizations:?}"
+    );
+}
+
+/// A revoked refresh token cannot be revived by retrying it, so the rotation
+/// moves to the account that still holds a valid one.
+#[tokio::test]
+async fn a_revoked_refresh_token_fails_over_to_the_next_account() {
+    let database = TestDatabase::new().expect("temporary database");
+    let fake = FakeAntigravityUpstream::start().await;
+    fake.with(|state| state.refresh_mode = "invalid_grant".to_owned());
+    let app = app(&database, &fake).await;
+
+    connect_antigravity_account(&database, "antigravity_healthy", "ya29.healthy", 1, false).await;
+    connect_antigravity_account(&database, "antigravity_revoked", "ya29.revoked", 2, true).await;
+
+    let response = app
+        .oneshot(post(
+            "/v1/chat/completions",
+            chat_body("antigravity/gemini-3.7-flash-high", false),
+        ))
+        .await
+        .expect("gateway response");
+
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        fake.token_requests(),
+        1,
+        "only the expired account refreshed"
+    );
+    assert_eq!(
+        fake.with(|state| state.chat_authorizations.clone()),
+        vec!["Bearer ya29.healthy".to_owned()]
+    );
 }

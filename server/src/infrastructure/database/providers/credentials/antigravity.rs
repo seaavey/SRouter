@@ -50,14 +50,15 @@ pub struct AntigravityConnectionWrite {
     pub project_id: Option<String>,
 }
 
-/// Loads the credentials of the newest enabled Antigravity connection. The
-/// camelCase spellings are accepted as well so a row written by the Node build
-/// still reads.
-pub async fn load_antigravity_credentials(
+/// Loads the credentials of every enabled Antigravity connection, newest first.
+/// A malformed row is skipped rather than ending the walk, so one bad import
+/// cannot hide the accounts behind it. The camelCase spellings are accepted as
+/// well so a row written by the Node build still reads.
+pub async fn load_antigravity_connections(
     database: &AppDatabase,
-) -> Result<Option<AntigravityCredentials>, APIError> {
+) -> Result<Vec<AntigravityCredentials>, APIError> {
     let Some(pool) = database.sqlite_pool() else {
-        return Ok(None);
+        return Ok(Vec::new());
     };
 
     let rows = sqlx::query(
@@ -76,16 +77,17 @@ pub async fn load_antigravity_credentials(
         )
     })?;
 
+    let mut connections = Vec::with_capacity(rows.len());
     for row in &rows {
         let raw = text(row, "credentials")?;
 
         if let Some(mut credentials) = parse_antigravity_credentials(&raw) {
             credentials.id = text(row, "id")?;
-            return Ok(Some(credentials));
+            connections.push(credentials);
         }
     }
 
-    Ok(None)
+    Ok(connections)
 }
 
 /// Parses an Antigravity credentials JSON row. Malformed JSON or a missing

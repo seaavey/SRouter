@@ -2230,9 +2230,18 @@ pub struct FakeAntigravityState {
     pub refresh_access_token: String,
     /// The refresh token a `refresh_token` grant rotates to.
     pub refresh_token: String,
+    /// `invalid_grant` makes the `refresh_token` grant answer `400`, the way
+    /// Google rejects a revoked refresh token.
+    pub refresh_mode: String,
     pub chat_requests: usize,
     pub token_requests: usize,
     pub code_assist_requests: usize,
+    /// Access tokens the chat leg answers `403` for, so a test can break one
+    /// account of a rotation.
+    pub forbidden_tokens: Vec<String>,
+    /// The `authorization` header of every chat request, in order, so a test can
+    /// see which account each attempt used.
+    pub chat_authorizations: Vec<String>,
     pub last_authorization: String,
     pub last_user_agent: String,
     pub last_goog_api_client: String,
@@ -2253,9 +2262,12 @@ impl Default for FakeAntigravityState {
             project_id: "cloudcode-project-1".to_owned(),
             refresh_access_token: "ya29.refreshed".to_owned(),
             refresh_token: "1//rotated-refresh".to_owned(),
+            refresh_mode: String::new(),
             chat_requests: 0,
             token_requests: 0,
             code_assist_requests: 0,
+            forbidden_tokens: Vec::new(),
+            chat_authorizations: Vec::new(),
             last_authorization: String::new(),
             last_user_agent: String::new(),
             last_goog_api_client: String::new(),
@@ -2352,10 +2364,12 @@ async fn antigravity_chat(
     axum::extract::RawQuery(query): axum::extract::RawQuery,
     Json(payload): Json<serde_json::Value>,
 ) -> Response {
-    let (mode, attempt) = {
+    let (mode, attempt, forbidden) = {
         let mut guard = state.lock().expect("fake Antigravity state");
+        let authorization = header_text(&headers, "authorization");
         guard.chat_requests += 1;
-        guard.last_authorization = header_text(&headers, "authorization");
+        guard.last_authorization = authorization.clone();
+        guard.chat_authorizations.push(authorization.clone());
         guard.last_user_agent = header_text(&headers, "user-agent");
         guard.last_goog_api_client = header_text(&headers, "x-goog-api-client");
         guard.last_chat_query = query.unwrap_or_default();
@@ -2372,8 +2386,28 @@ async fn antigravity_chat(
             .cloned()
             .unwrap_or(serde_json::Value::Null);
         guard.credit_types.push(credits);
-        (guard.chat_mode.clone(), guard.chat_requests)
+        let forbidden = guard
+            .forbidden_tokens
+            .iter()
+            .any(|token| authorization.contains(token));
+        (guard.chat_mode.clone(), guard.chat_requests, forbidden)
     };
+
+    // An account the fake was told to refuse answers like Google does when the
+    // Google account behind the token was never verified.
+    if forbidden {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(serde_json::json!({
+                "error": {
+                    "code": 403,
+                    "message": "Verify your account to continue.",
+                    "status": "PERMISSION_DENIED"
+                }
+            })),
+        )
+            .into_response();
+    }
 
     // Fail the first two candidates so the pro chain is walked to its third
     // attempt, proving the executor did not drop the terminal `gemini-3-pro`.
@@ -2422,13 +2456,14 @@ async fn antigravity_code_assist(
 /// The Google token leg: an `authorization_code` exchange and a `refresh_token`
 /// grant share this route, told apart by the form body.
 async fn antigravity_token(State(state): State<SharedAntigravityState>, body: String) -> Response {
-    let (access, refresh) = {
+    let (access, refresh, refresh_mode) = {
         let mut guard = state.lock().expect("fake Antigravity state");
         guard.token_requests += 1;
         guard.last_token_form = body.clone();
         (
             guard.refresh_access_token.clone(),
             guard.refresh_token.clone(),
+            guard.refresh_mode.clone(),
         )
     };
 
@@ -2441,6 +2476,17 @@ async fn antigravity_token(State(state): State<SharedAntigravityState>, body: St
             "token_type": "Bearer"
         }))
         .into_response();
+    }
+
+    if refresh_mode == "invalid_grant" {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "error": "invalid_grant",
+                "error_description": "Token has been expired or revoked."
+            })),
+        )
+            .into_response();
     }
 
     Json(serde_json::json!({
@@ -2479,6 +2525,44 @@ pub async fn connect_antigravity(database: &TestDatabase) {
     )
     .await
     .expect("Antigravity connection stored");
+}
+
+/// Stores one Antigravity connection with an explicit `created_at`, so a test can
+/// state which account the newest-first rotation order puts first. The project id
+/// is set, so the connection never spends a `loadCodeAssist` call.
+pub async fn connect_antigravity_account(
+    database: &TestDatabase,
+    id: &str,
+    access_token: &str,
+    created_at: i64,
+    expired: bool,
+) {
+    let expires_at = if expired {
+        srouter_server::clock::now_ms() - 1_000
+    } else {
+        srouter_server::clock::now_ms() + 86_400_000
+    };
+    let app_database = database.connect().await.expect("temporary database");
+    upsert_antigravity_connection(
+        &app_database,
+        &AntigravityConnectionWrite {
+            id: id.to_owned(),
+            name: id.to_owned(),
+            access_token: access_token.to_owned(),
+            refresh_token: Some(format!("1//{id}")),
+            expires_at: Some(expires_at),
+            project_id: Some("cloudcode-project-1".to_owned()),
+        },
+    )
+    .await
+    .expect("Antigravity connection stored");
+
+    sqlx::query("UPDATE providers SET created_at = ? WHERE id = ?")
+        .bind(created_at)
+        .bind(id)
+        .execute(&app_database.sqlite_pool().expect("sqlite pool"))
+        .await
+        .expect("connection creation time written");
 }
 
 /// A registry whose `antigravity` adapter points at the fake upstream and can

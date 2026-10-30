@@ -481,6 +481,11 @@ export type ProviderEntry = {
 	enabled: boolean,
 	/**  Whether requests rotate across this provider's accounts. */
 	round_robin: boolean,
+	/**
+	 *  Whether the driver can rotate at all. A provider without it renders no
+	 *  toggle, because the flag above would change nothing.
+	 */
+	round_robin_supported: boolean,
 	status: ProviderStatus,
 	/**  Detail only; the list and catalog omit it like Node does. */
 	connections?: ProviderConnectionView[] | null,

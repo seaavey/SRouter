@@ -24,6 +24,9 @@ pub struct ProviderEntry {
     pub enabled: bool,
     /// Whether requests rotate across this provider's accounts.
     pub round_robin: bool,
+    /// Whether the driver can rotate at all. A provider without it renders no
+    /// toggle, because the flag above would change nothing.
+    pub round_robin_supported: bool,
     pub status: ProviderStatus,
     /// Detail only; the list and catalog omit it like Node does.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -51,6 +54,7 @@ impl ProviderEntry {
             supports_custom_url: metadata.supports_custom_url,
             enabled,
             round_robin: true,
+            round_robin_supported: false,
             status: ProviderStatus::new(metadata.status_message, connected_count),
             connections: None,
             models: Vec::new(),
@@ -72,6 +76,8 @@ impl ProviderEntry {
             supports_custom_url: true,
             enabled: row.enabled,
             round_robin: true,
+            // A runtime driver has no rotator: one connection is all it serves.
+            round_robin_supported: false,
             status: ProviderStatus::new("Custom provider endpoint", connected_count),
             connections: None,
             models: Vec::new(),
@@ -82,6 +88,13 @@ impl ProviderEntry {
     /// on, matching the executor's own default.
     pub fn with_round_robin(mut self, enabled: bool) -> Self {
         self.round_robin = enabled;
+
+        self
+    }
+
+    /// Sets the driver's rotation capability.
+    pub fn with_round_robin_support(mut self, supported: bool) -> Self {
+        self.round_robin_supported = supported;
 
         self
     }
