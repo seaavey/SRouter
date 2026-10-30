@@ -233,7 +233,7 @@ function ProvidersListPage() {
           <span className="text-xs text-foreground tabular-nums">
             {row.connected_count}
           </span>
-          {row.round_robin && (
+          {row.round_robin && row.round_robin_supported && (
             <span className="text-xs text-muted-foreground">Rotation on</span>
           )}
         </span>
