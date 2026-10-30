@@ -101,8 +101,14 @@ export function initiateOAuthLogin(
     authPath = "/v1/auth/qoder/login?format=json"
   } else if (normalized.includes("cline")) {
     authPath = "/v1/auth/cline/device"
+  } else if (normalized.includes("opencode")) {
+    authPath = "/v1/auth/opencode/device"
+  } else if (normalized === "codebuddy-cn") {
+    // CodeBuddy has no device-code leg, and the CN deployment carries its own
+    // state/token endpoints, so CN has to be matched before the global branch.
+    authPath = "/v1/auth/codebuddy-cn/login?format=json"
   } else if (normalized.includes("codebuddy")) {
-    authPath = "/v1/auth/codebuddy/device"
+    authPath = "/v1/auth/codebuddy/login?format=json"
   } else if (normalized.includes("commandcode")) {
     // The studio refuses any callback that is not on loopback, so the caller
     // passes the relay it started on the operator's machine.
@@ -200,6 +206,8 @@ export function pollOAuthSession(providerID: string, state: string) {
     pollBase = "/v1/auth/codebuddy-cn/poll"
   } else if (normalized.includes("cline")) {
     pollBase = "/v1/auth/cline/poll"
+  } else if (normalized.includes("opencode")) {
+    pollBase = "/v1/auth/opencode/poll"
   } else if (normalized.includes("codebuddy")) {
     pollBase = "/v1/auth/codebuddy/poll"
   } else if (normalized.includes("qoder")) {
