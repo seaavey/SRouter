@@ -473,6 +473,48 @@ async fn provider_detail_accepts_a_seed_connection_id() {
 }
 
 #[tokio::test]
+async fn provider_detail_serves_codebuddy_cn_as_its_own_driver() {
+    let database = TestDatabase::new().unwrap();
+    let pool = sqlite(&database).await;
+
+    sqlx::query(
+        "INSERT INTO providers (id, provider_id, name, category, protocol, base_url, enabled, \
+         credentials, meta, created_at) \
+         VALUES ('codebuddy-cn_1793000000000', 'codebuddy-cn', 'CodeBuddy CN', 'oauth', 'openai', \
+         'https://copilot.tencent.com/v2/chat/completions', 1, '{}', '{}', 1)",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    let app = app(&database).await;
+
+    // The CN id carries the global driver's connection-id prefix, so a lookup
+    // that collapses before it matches collapses onto the wrong deployment.
+    let cn = json_body(
+        app.clone()
+            .oneshot(get_request("/v1/providers/codebuddy-cn"))
+            .await
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(cn["id"], "codebuddy-cn");
+    assert_eq!(
+        cn["default_base_url"],
+        "https://copilot.tencent.com/v2/chat/completions"
+    );
+    assert_eq!(cn["status"]["connected_count"], 1);
+
+    let connection = json_body(
+        app.oneshot(get_request("/v1/providers/codebuddy-cn_1793000000000"))
+            .await
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(connection["id"], "codebuddy-cn");
+}
+
+#[tokio::test]
 async fn provider_detail_serves_the_seed_without_a_database() {
     let state = AppState::with_security(
         support::test_config(),

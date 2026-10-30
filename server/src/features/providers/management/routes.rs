@@ -462,16 +462,23 @@ fn invalid_patch_payload() -> APIError {
 }
 
 /// Collapses a connection id onto its driver: the base id itself, or a
-/// `<base>_`/`<base>-` namespaced variant of it. A custom provider id is a UUID
-/// and passes through untouched.
+/// `<base>_`/`<base>-` namespaced variant of it. An exact id or the longest
+/// matching base wins, because `codebuddy-cn` and its `codebuddy-cn_` connection
+/// ids both carry the `codebuddy-` prefix of the global driver. A custom
+/// provider id is a UUID and passes through untouched.
 fn base_id_of(provider_id: &str) -> &str {
-    for metadata in SEED_PROVIDERS {
-        if matches_base_id(provider_id, metadata.id) {
-            return metadata.id;
-        }
+    if let Some(metadata) = SEED_PROVIDERS
+        .iter()
+        .find(|metadata| metadata.id == provider_id)
+    {
+        return metadata.id;
     }
 
-    provider_id
+    SEED_PROVIDERS
+        .iter()
+        .filter(|metadata| matches_base_id(provider_id, metadata.id))
+        .max_by_key(|metadata| metadata.id.len())
+        .map_or(provider_id, |metadata| metadata.id)
 }
 
 /// Resolves a path param against the compiled-in drivers first, then the stored
