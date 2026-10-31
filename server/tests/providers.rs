@@ -193,7 +193,7 @@ async fn providers_list_returns_the_seeded_entry() {
         "https://opencode.ai/inference/v1"
     );
     assert_eq!(entry["requires_api_key"], serde_json::json!(false));
-    assert_eq!(entry["requires_oauth"], serde_json::json!(false));
+    assert_eq!(entry["requires_oauth"], serde_json::json!(true));
     assert_eq!(entry["status"]["connected_count"], 0);
     assert_eq!(entry["status"]["state"], "no_connections");
     assert_eq!(entry["status"]["message"], "Free Tier Ready (Unlimited)");
