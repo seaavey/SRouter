@@ -21,7 +21,7 @@ fn opencode_zen_metadata_matches_the_node_api_provider() {
     assert_eq!(OPENCODE_ZEN_PROVIDER.base_url, OPENCODE_ZEN_BASE_URL);
     assert_eq!(OPENCODE_ZEN_PROVIDER.web_url, "https://opencode.ai/zen");
     const { assert!(!OPENCODE_ZEN_PROVIDER.requires_api_key) };
-    const { assert!(!OPENCODE_ZEN_PROVIDER.requires_oauth) };
+    const { assert!(OPENCODE_ZEN_PROVIDER.requires_oauth) };
     const { assert!(OPENCODE_ZEN_PROVIDER.supports_custom_url) };
     assert_eq!(
         OPENCODE_ZEN_PROVIDER.status_message,

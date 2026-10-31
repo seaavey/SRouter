@@ -89,7 +89,7 @@ pub const OPENCODE_ZEN_PROVIDER: ProviderMetadata = ProviderMetadata {
     web_url: "https://opencode.ai/zen",
     alias: "zen",
     requires_api_key: false,
-    requires_oauth: false,
+    requires_oauth: true,
     supports_custom_url: true,
     status_message: "Free Tier Ready (Unlimited)",
 };

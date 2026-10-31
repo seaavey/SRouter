@@ -43,6 +43,7 @@ export default function useOAuthFlow({
   const isDeviceFlow =
     normalized.includes("qoder") ||
     normalized.includes("cline") ||
+    normalized.includes("opencode") ||
     normalized.includes("codebuddy") ||
     normalized.includes("commandcode")
 
