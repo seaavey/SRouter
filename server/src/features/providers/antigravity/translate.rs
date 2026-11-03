@@ -182,9 +182,13 @@ pub fn build_envelope(args: EnvelopeArgs<'_>) -> Value {
 pub fn parse_model_name(raw_model: &str) -> String {
     let model = raw_model.split('/').nth(1).unwrap_or(raw_model);
     match model {
-        "gemini-3.8-flash" | "gemini-3.8-flash-high" | "gemini-3.8-flash-medium"
+        "gemini-3.8-flash"
+        | "gemini-3.8-flash-high"
+        | "gemini-3.8-flash-medium"
         | "gemini-3.8-flash-low" => "gemini-3.8-flash-tiered".to_owned(),
-        "gemini-3.7-flash" | "gemini-3.7-flash-high" | "gemini-3.7-flash-medium"
+        "gemini-3.7-flash"
+        | "gemini-3.7-flash-high"
+        | "gemini-3.7-flash-medium"
         | "gemini-3.7-flash-low" => "gemini-3.7-flash-tiered".to_owned(),
         "gemini-3.5-flash-high" => "gemini-3-flash-agent".to_owned(),
         "gemini-3.1-pro-high" => "gemini-pro-agent".to_owned(),
