@@ -1008,6 +1008,153 @@ fn stream_tool_deltas_open_and_close_the_tool_block() {
     assert!(sse3.contains("\"stop_reason\":\"tool_use\""), "{sse3}");
 }
 
+/// Walks a raw SSE body and asserts the Anthropic pairing contract: one block
+/// open at a time, every delta addressed to it, delta type matching the block.
+fn assert_block_pairing(sse: &str) {
+    let mut open: Option<(i64, String)> = None;
+    for frame in sse.split("\n\n") {
+        let Some(payload) = frame.lines().find_map(|line| line.strip_prefix("data: ")) else {
+            continue;
+        };
+        let event: Value =
+            serde_json::from_str(payload).expect("every emitted data payload must be JSON");
+        match event["type"].as_str() {
+            Some("content_block_start") => {
+                assert!(
+                    open.is_none(),
+                    "a block opened while {open:?} is open: {sse}"
+                );
+                open = Some((
+                    event["index"].as_i64().expect("index"),
+                    event["content_block"]["type"]
+                        .as_str()
+                        .expect("type")
+                        .to_owned(),
+                ));
+            }
+            Some("content_block_stop") => {
+                assert_eq!(
+                    Some(event["index"].as_i64().expect("index")),
+                    open.as_ref().map(|(index, _)| *index),
+                    "stop for a block that is not open: {sse}"
+                );
+                open = None;
+            }
+            Some("content_block_delta") => {
+                let (index, kind) = open.as_ref().expect("delta without an open block");
+                assert_eq!(
+                    event["index"].as_i64().expect("index"),
+                    *index,
+                    "delta for a block that is not open: {sse}"
+                );
+                let expected = match kind.as_str() {
+                    "thinking" => "thinking_delta",
+                    "text" => "text_delta",
+                    _ => "input_json_delta",
+                };
+                assert_eq!(
+                    event["delta"]["type"].as_str().expect("delta type"),
+                    expected,
+                    "{sse}"
+                );
+            }
+            _ => {}
+        }
+    }
+    assert!(open.is_none(), "a block was left open: {sse}");
+}
+
+#[test]
+fn a_whitespace_text_delta_never_strands_a_tool_call_argument_fragment() {
+    // #167: content between the argument fragments of an already-started call
+    // used to stop the tool block, so the next input_json_delta addressed a
+    // closed index while a text block was open.
+    let mut translator = AnthropicStreamTranslator::new("m", false);
+    let mut sse = feed(
+        &mut translator,
+        serde_json::json!({
+            "choices": [{
+                "index": 0,
+                "delta": { "tool_calls": [{ "index": 0, "id": "call_1", "function": { "name": "list", "arguments": "{\"path\": \"src\"" } }] },
+                "finish_reason": null
+            }]
+        }),
+    );
+    sse.push_str(&feed(
+        &mut translator,
+        serde_json::json!({
+            "choices": [{ "index": 0, "delta": { "content": "\n" }, "finish_reason": null }]
+        }),
+    ));
+    sse.push_str(&feed(
+        &mut translator,
+        serde_json::json!({
+            "choices": [{
+                "index": 0,
+                "delta": { "tool_calls": [{ "index": 0, "function": { "arguments": "\"}" } }] },
+                "finish_reason": "tool_calls"
+            }]
+        }),
+    ));
+    sse.push_str(&finish_sse(&mut translator));
+
+    assert_block_pairing(&sse);
+    assert_eq!(sse.matches("input_json_delta").count(), 2, "{sse}");
+    assert!(!sse.contains("\"type\":\"text\""), "{sse}");
+}
+
+#[test]
+fn a_whitespace_delta_still_opens_a_text_block_after_thinking() {
+    // The guard is scoped to an open tool_use block, so whitespace that follows
+    // a thinking block keeps the text block it used to open.
+    let mut translator = AnthropicStreamTranslator::new("m", true);
+    let mut sse = feed(
+        &mut translator,
+        serde_json::json!({
+            "choices": [{ "index": 0, "delta": { "reasoning_content": "why" }, "finish_reason": null }]
+        }),
+    );
+    sse.push_str(&feed(
+        &mut translator,
+        serde_json::json!({
+            "choices": [{ "index": 0, "delta": { "content": "\n" }, "finish_reason": "stop" }]
+        }),
+    ));
+    sse.push_str(&finish_sse(&mut translator));
+
+    assert!(sse.contains("\"type\":\"text\""), "{sse}");
+    assert_block_pairing(&sse);
+}
+
+#[test]
+fn whitespace_inside_an_open_text_block_is_kept() {
+    // The guard drops a whitespace-only delta that would open a block, never one
+    // that continues an open text block: a dropped separator merges words.
+    let mut translator = AnthropicStreamTranslator::new("m", false);
+    let mut sse = feed(
+        &mut translator,
+        serde_json::json!({
+            "choices": [{ "index": 0, "delta": { "content": "hello" }, "finish_reason": null }]
+        }),
+    );
+    sse.push_str(&feed(
+        &mut translator,
+        serde_json::json!({
+            "choices": [{ "index": 0, "delta": { "content": " " }, "finish_reason": null }]
+        }),
+    ));
+    sse.push_str(&feed(
+        &mut translator,
+        serde_json::json!({
+            "choices": [{ "index": 0, "delta": { "content": "world" }, "finish_reason": "stop" }]
+        }),
+    ));
+    sse.push_str(&finish_sse(&mut translator));
+
+    assert_eq!(sse.matches("\"type\":\"text_delta\"").count(), 3, "{sse}");
+    assert_block_pairing(&sse);
+}
+
 // -- Error envelope type mapping (contract) -------------------------------
 
 #[test]

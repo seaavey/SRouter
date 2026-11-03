@@ -157,6 +157,13 @@ impl AnthropicStreamTranslator {
         // 2. Text delta
         if let Some(content) = delta.get("content").and_then(|v| v.as_str())
             && !content.is_empty()
+            // A whitespace-only delta must not interrupt an open tool_use block:
+            // upstream emits "\n" between the argument fragments of a call
+            // (dots-studio does), and closing that block there strands the
+            // fragments that follow on a closed index. Whitespace anywhere else
+            // keeps the block it would open, separators and all.
+            && !(content.trim().is_empty()
+                && matches!(self.current_block_type, BlockType::ToolUse(_)))
         {
             if self.current_block_type != BlockType::Text {
                 if self.current_block_type != BlockType::None {
