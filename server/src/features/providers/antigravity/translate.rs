@@ -176,16 +176,16 @@ pub fn build_envelope(args: EnvelopeArgs<'_>) -> Value {
 // ─── model mapping ─────────────────────────────────────────────────────────
 
 /// Maps a public Antigravity id (optionally `provider/id`) to the CloudCode
-/// wire name. Unknown ids pass through.
+/// wire name. Unknown ids pass through. The bare tiered-family stems are
+/// mapped too: genai clients strip an unset `-high`/`-medium`/`-low` suffix
+/// before sending, and the upstream only carries the `-tiered` entity.
 pub fn parse_model_name(raw_model: &str) -> String {
     let model = raw_model.split('/').nth(1).unwrap_or(raw_model);
     match model {
-        "gemini-3.8-flash-high" | "gemini-3.8-flash-medium" | "gemini-3.8-flash-low" => {
-            "gemini-3.8-flash-tiered".to_owned()
-        }
-        "gemini-3.7-flash-high" | "gemini-3.7-flash-medium" | "gemini-3.7-flash-low" => {
-            "gemini-3.7-flash-tiered".to_owned()
-        }
+        "gemini-3.8-flash" | "gemini-3.8-flash-high" | "gemini-3.8-flash-medium"
+        | "gemini-3.8-flash-low" => "gemini-3.8-flash-tiered".to_owned(),
+        "gemini-3.7-flash" | "gemini-3.7-flash-high" | "gemini-3.7-flash-medium"
+        | "gemini-3.7-flash-low" => "gemini-3.7-flash-tiered".to_owned(),
         "gemini-3.5-flash-high" => "gemini-3-flash-agent".to_owned(),
         "gemini-3.1-pro-high" => "gemini-pro-agent".to_owned(),
         "gemini-3.5-flash-medium" => "gemini-3.5-flash-low".to_owned(),
@@ -1755,9 +1755,11 @@ mod tests {
     #[test]
     fn alias_table_maps_every_row() {
         for (raw, expected) in [
+            ("gemini-3.8-flash", "gemini-3.8-flash-tiered"),
             ("gemini-3.8-flash-high", "gemini-3.8-flash-tiered"),
             ("gemini-3.8-flash-medium", "gemini-3.8-flash-tiered"),
             ("gemini-3.8-flash-low", "gemini-3.8-flash-tiered"),
+            ("gemini-3.7-flash", "gemini-3.7-flash-tiered"),
             ("gemini-3.7-flash-high", "gemini-3.7-flash-tiered"),
             ("gemini-3.7-flash-medium", "gemini-3.7-flash-tiered"),
             ("gemini-3.7-flash-low", "gemini-3.7-flash-tiered"),
